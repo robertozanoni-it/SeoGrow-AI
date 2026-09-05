@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const connector = await readFile(
-  new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url),
+  new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url),
   "utf8",
 );
 
