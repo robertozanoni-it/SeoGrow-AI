@@ -3,6 +3,10 @@ import {
   aggregateElementorReferenceImpact,
   scanElementorExplicitReferences,
 } from "./elementorReferenceImpact.js";
+import {
+  referenceTargetIds,
+  validateElementorReferenceTargets,
+} from "./elementorReferenceTargets.js";
 import { validateAuthoritativeWordPressInventory } from "./elementorWordPressInventory.js";
 
 const ROUTE = "/api/wordpress/elementor-reference-impact";
@@ -29,6 +33,13 @@ function connectorReferenceEndpoint(base, resources) {
   const ids = resources.map((resource) => resource.id).join(",");
   const url = new URL(`${basePath(base)}/wp-json/seogrow/v1/elementor-reference-data`, base.origin);
   url.searchParams.set("ids", ids);
+  return url;
+}
+
+function connectorImpactEndpoint(base, references) {
+  const ids = referenceTargetIds(references);
+  const url = new URL(`${basePath(base)}/wp-json/seogrow/v1/elementor-impact-inspect`, base.origin);
+  url.searchParams.set("ids", ids.join(","));
   return url;
 }
 
@@ -232,6 +243,26 @@ async function readRowsViaRest(base, headers, inventory) {
   return { ok: true, rows, unsupportedPostTypes: [], status: "rest-reference-data" };
 }
 
+async function verifyReferenceTargets(base, headers, references) {
+  const ids = referenceTargetIds(references);
+  if (!ids.length) return validateElementorReferenceTargets(references, null);
+  if (ids.length > 20) return validateElementorReferenceTargets(references, null);
+  try {
+    const response = await wpFetch(connectorImpactEndpoint(base, references), { headers });
+    const payload = await readJson(response, "Elementor reference targets");
+    return validateElementorReferenceTargets(references, payload);
+  } catch (error) {
+    return {
+      verified: false,
+      status: "reference-target-read-failed",
+      requestedTargets: ids.length,
+      documents: [],
+      error: error?.message || "Validazione sorgenti Elementor referenziate non riuscita.",
+      sharedWriteAllowed: false,
+    };
+  }
+}
+
 export async function inspectElementorReferenceImpact({
   siteUrl,
   username,
@@ -305,18 +336,29 @@ export async function inspectElementorReferenceImpact({
   const impact = aggregateElementorReferenceImpact(rowsResult.rows, {
     expectedDocuments: inventory.resources.length,
   });
+  const referenceTargets = impact.complete === true
+    ? await verifyReferenceTargets(base, headers, impact.references)
+    : {
+        verified: false,
+        status: "reference-source-scan-incomplete",
+        requestedTargets: referenceTargetIds(impact.references).length,
+        documents: [],
+        sharedWriteAllowed: false,
+      };
+  const verified = impact.complete === true && referenceTargets.verified === true;
 
   return {
     ok: true,
     readOnly: true,
-    verified: impact.complete === true,
+    verified,
     inventory,
     impact,
+    referenceTargets,
     evidenceSource: rowsResult.status,
     unsupportedPostTypes: [],
-    affectedPagesEnumerated: impact.affectedPagesEnumerated === true,
+    affectedPagesEnumerated: impact.affectedPagesEnumerated === true && referenceTargets.verified === true,
     sharedWriteAllowed: false,
-    status: impact.complete ? "verified-read-only-cross-page-impact" : "incomplete-cross-page-impact",
+    status: verified ? "verified-read-only-cross-page-impact" : "incomplete-cross-page-impact",
   };
 }
 
@@ -340,6 +382,7 @@ export function registerRoutes(app) {
 
 export {
   ROUTE as ELEMENTOR_REFERENCE_IMPACT_ROUTE,
+  connectorImpactEndpoint,
   connectorInventoryEndpoint,
   connectorReferenceEndpoint,
   contentEndpoint,
