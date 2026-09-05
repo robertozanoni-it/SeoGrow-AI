@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   extractRestElementorData,
+  normalizeConnectorReferenceData,
   normalizeRestBase,
 } from "../server/elementorReferenceImpactHook.js";
 
@@ -10,6 +11,44 @@ const source = await readFile(
   new URL("../server/elementorReferenceImpactHook.js", import.meta.url),
   "utf8",
 );
+
+const inventory = {
+  resources: [
+    { id: 10, postType: "page", url: "https://example.com/a/" },
+    { id: 20, postType: "product", url: "https://example.com/b/" },
+  ],
+};
+
+const connectorPayload = {
+  source: "seogrow-connector",
+  resource: "elementor-reference-data",
+  readOnly: true,
+  sharedWriteAllowed: false,
+  complete: true,
+  requestedDocuments: 2,
+  documents: [
+    {
+      ok: true,
+      id: 10,
+      postType: "page",
+      status: "publish",
+      url: "https://example.com/a/",
+      elementorData: '[{"settings":{"template_id":42}}]',
+      readOnly: true,
+      sharedWriteAllowed: false,
+    },
+    {
+      ok: true,
+      id: 20,
+      postType: "product",
+      status: "publish",
+      url: "https://example.com/b/",
+      elementorData: "",
+      readOnly: true,
+      sharedWriteAllowed: false,
+    },
+  ],
+};
 
 test("meta Elementor REST vuoto è una scansione valida senza riferimenti", () => {
   assert.deepEqual(extractRestElementorData({ meta: { _elementor_data: "" } }), {
@@ -48,21 +87,62 @@ test("custom post type usa solo rest_base dichiarata e sicura", () => {
   assert.equal(normalizeRestBase("product", {}).ok, false);
 });
 
-test("hook usa inventario Connector autorevole e risolve i CPT via type descriptor", () => {
-  assert.match(source, /wordpress-public-inventory/);
-  assert.match(source, /validateAuthoritativeWordPressInventory/);
+test("Connector reference data valida produce righe read-only anche per CPT", () => {
+  const normalized = normalizeConnectorReferenceData(connectorPayload, inventory);
+  assert.equal(normalized.ok, true);
+  assert.equal(normalized.rows.length, 2);
+  assert.deepEqual(normalized.rows[0].scan.references, [
+    { id: 42, key: "template_id", referenceKind: "template-widget" },
+  ]);
+  assert.equal(normalized.rows[1].scan.ok, true);
+});
+
+test("Connector spoofato o non read-only viene rifiutato", () => {
+  assert.equal(normalizeConnectorReferenceData({ ...connectorPayload, source: "client" }, inventory).ok, false);
+  assert.equal(normalizeConnectorReferenceData({ ...connectorPayload, readOnly: false }, inventory).ok, false);
+  assert.equal(normalizeConnectorReferenceData({ ...connectorPayload, sharedWriteAllowed: true }, inventory).ok, false);
+});
+
+test("mismatch ID, post type o URL Connector fallisce chiuso", () => {
+  const wrongId = structuredClone(connectorPayload);
+  wrongId.documents[0].id = 999;
+  assert.equal(normalizeConnectorReferenceData(wrongId, inventory).ok, false);
+
+  const wrongType = structuredClone(connectorPayload);
+  wrongType.documents[1].postType = "post";
+  assert.equal(normalizeConnectorReferenceData(wrongType, inventory).ok, false);
+
+  const wrongUrl = structuredClone(connectorPayload);
+  wrongUrl.documents[0].url = "https://example.com/other/";
+  assert.equal(normalizeConnectorReferenceData(wrongUrl, inventory).ok, false);
+});
+
+test("duplicati o set documenti incompleto Connector vengono rifiutati", () => {
+  const duplicate = structuredClone(connectorPayload);
+  duplicate.documents[1] = { ...duplicate.documents[0] };
+  assert.equal(normalizeConnectorReferenceData(duplicate, inventory).ok, false);
+
+  const incomplete = structuredClone(connectorPayload);
+  incomplete.documents.pop();
+  incomplete.requestedDocuments = 1;
+  assert.equal(normalizeConnectorReferenceData(incomplete, inventory).ok, false);
+});
+
+test("hook preferisce Connector reference data e REST è fallback solo su 404", () => {
+  assert.match(source, /elementor-reference-data/);
+  assert.match(source, /connectorResponse\.status === 404/);
+  assert.match(source, /normalizeConnectorReferenceData/);
+  assert.match(source, /readRowsViaRest/);
+  assert.doesNotMatch(source, /connectorResponse\.status >= 400.*readRowsViaRest/s);
+});
+
+test("fallback REST continua a risolvere CPT via type descriptor sicuro", () => {
   assert.match(source, /\/wp-json\/wp\/v2\/types\//);
   assert.match(source, /rest_base/);
   assert.match(source, /unsupported-authoritative-post-types/);
 });
 
-test("CPT senza rest_base sicura resta fail-closed in attesa del Connector diretto", () => {
-  assert.match(source, /Restano fail-closed finché il Connector non fornisce _elementor_data direttamente/);
-  assert.match(source, /unsupportedPostTypes/);
-  assert.match(source, /affectedPagesEnumerated:\s*false/);
-});
-
-test("lettura documenti usa context edit e meta _elementor_data", () => {
+test("lettura documenti usa context edit e parser _elementor_data", () => {
   assert.match(source, /\?context=edit/);
   assert.match(source, /_elementor_data/);
   assert.match(source, /scanElementorExplicitReferences/);
