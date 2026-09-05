@@ -33,8 +33,23 @@ test("attestazione non disponibile ricade sul set diagnostico esistente", () => 
   assert.match(source, /manual-candidate-set/);
 });
 
-test("la provenance client non può abilitare scritture condivise", () => {
+test("template e global widget attivano la scansione cross-page nel live client", () => {
+  assert.match(source, /\/api\/wordpress\/elementor-reference-impact/);
+  assert.match(source, /documents\.some\(\(document\) => \["template", "widget"\]\.includes\(document\.type\)\)/);
+  assert.match(source, /crossPageReferenceImpact/);
+  assert.match(source, /requestElementorReferenceImpact/);
+});
+
+test("cross-page client accetta verified solo con scan completa e target referenziati verificati", () => {
+  assert.match(source, /const targetVerified = data\?\.referenceTargets\?\.verified === true/);
+  assert.match(source, /const complete = data\?\.impact\?\.complete === true/);
+  assert.match(source, /verified: data\.verified === true && complete && targetVerified/);
+  assert.match(source, /affectedPagesEnumerated: data\.affectedPagesEnumerated === true && complete && targetVerified/);
+});
+
+test("la provenance client e il cross-page impact non possono abilitare scritture condivise", () => {
   assert.match(source, /sharedWriteAllowed:\s*false/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*coverageProof/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*data/);
+  assert.doesNotMatch(source, /sharedWriteAllowed:\s*crossPage/);
 });
