@@ -9,10 +9,15 @@ import {
   validateTaxonomyChange,
 } from "../server/wordpressTaxonomyHook.js";
 
-const connector = await readFile(
+const connectorLoader = await readFile(
   new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url),
   "utf8",
 );
+const connectorCore = await readFile(
+  new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url),
+  "utf8",
+);
+const connector = `${connectorLoader}\n${connectorCore}`;
 const server = await readFile(new URL("../server/wordpressTaxonomyHook.js", import.meta.url), "utf8");
 
 const rankInspection = () => normalizeTaxonomyInspection({
@@ -40,8 +45,8 @@ const rankInspection = () => normalizeTaxonomyInspection({
 }, "https://example.com/argomenti/seo/");
 
 test("Connector 1.3 conserva ispezione esatta e aggiunge solo scrittura tassonomia single-field", () => {
-  assert.match(connector, /Version: 1\.3\.0/);
-  assert.match(connector, /SEOGROW_CONNECTOR_VERSION = '1\.3\.0'/);
+  assert.match(connectorLoader, /Version: 1\.3\.0/);
+  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.0'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
   assert.match(connector, /get_term_link\(\$term\)/);
@@ -49,6 +54,7 @@ test("Connector 1.3 conserva ispezione esatta e aggiunge solo scrittura tassonom
   assert.match(connector, /current_user_can\('edit_term', \$term->term_id\)/);
   assert.match(connector, /'singleField' => true/);
   assert.match(connector, /'staleChecked' => true/);
+  assert.match(connectorLoader, /seogrow-connector-core\.inc/);
 });
 
 test("Connector limita la remediation a category/post_tag e a quattro campi SEO espliciti", () => {
