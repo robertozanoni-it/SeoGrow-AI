@@ -1,7 +1,9 @@
 import { apiFetch } from "./api.js";
 
 const COVERAGE_ATTESTATION_TTL_MS = 5 * 60_000;
+const REFERENCE_IMPACT_TTL_MS = 5 * 60_000;
 const coverageAttestationCache = new Map();
+const referenceImpactCache = new Map();
 
 const ownershipOf = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
   ? entity._seogrowOwnership
@@ -62,6 +64,29 @@ const normalizeSuccessfulEvidence = (data) => {
     sharedWriteAllowed: false,
     displayConditionsResolved,
     affectedPagesEnumerated,
+  };
+};
+
+const normalizeReferenceImpact = (data) => {
+  if (!data || typeof data !== "object" || data.readOnly !== true || data.sharedWriteAllowed !== false) {
+    return {
+      verified: false,
+      readOnly: true,
+      sharedWriteAllowed: false,
+      affectedPagesEnumerated: false,
+      status: "reference-impact-contract-invalid",
+      impact: null,
+      referenceTargets: null,
+    };
+  }
+  const targetVerified = data?.referenceTargets?.verified === true;
+  const complete = data?.impact?.complete === true;
+  return {
+    ...data,
+    readOnly: true,
+    sharedWriteAllowed: false,
+    verified: data.verified === true && complete && targetVerified,
+    affectedPagesEnumerated: data.affectedPagesEnumerated === true && complete && targetVerified,
   };
 };
 
@@ -133,6 +158,40 @@ export async function requestElementorCoverageAttestation(credentials) {
   return promise;
 }
 
+export async function requestElementorReferenceImpact(credentials) {
+  const url = String(credentials?.url || "").trim();
+  const username = String(credentials?.username || "").trim();
+  const applicationPassword = String(credentials?.applicationPassword || "");
+  if (!url || !username || !applicationPassword) return null;
+
+  const key = coverageCredentialKey(credentials);
+  const now = Date.now();
+  const cached = referenceImpactCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.promise;
+
+  const promise = (async () => {
+    try {
+      const response = await apiFetch("/api/wordpress/elementor-reference-impact", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          siteUrl: url,
+          username,
+          applicationPassword,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) return null;
+      return normalizeReferenceImpact(data);
+    } catch {
+      return null;
+    }
+  })();
+
+  referenceImpactCache.set(key, { promise, expiresAt: now + REFERENCE_IMPACT_TTL_MS });
+  return promise;
+}
+
 export async function inspectElementorImpactEvidence(entity, credentials, candidateUrls = [], coverageProof = null) {
   const documents = elementorSourceDocuments(entity);
   if (!documents.length) return null;
@@ -147,25 +206,32 @@ export async function inspectElementorImpactEvidence(entity, credentials, candid
       }
     }
 
-    const response = await apiFetch("/api/wordpress/elementor-impact-inspect", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        siteUrl: credentials?.url || "",
-        username: credentials?.username || "",
-        applicationPassword: credentials?.applicationPassword || "",
-        targetEntity: {
-          id: Number(entity?.id),
-          type: String(entity?.type || "").trim().toLowerCase(),
-        },
-        documents,
-        candidateUrls: effectiveCandidateUrls,
-        coverageProof: normalizeCoverageProofForRequest(effectiveCoverageProof),
+    const needsReferenceImpact = documents.some((document) => ["template", "widget"].includes(document.type));
+    const [response, crossPageReferenceImpact] = await Promise.all([
+      apiFetch("/api/wordpress/elementor-impact-inspect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          siteUrl: credentials?.url || "",
+          username: credentials?.username || "",
+          applicationPassword: credentials?.applicationPassword || "",
+          targetEntity: {
+            id: Number(entity?.id),
+            type: String(entity?.type || "").trim().toLowerCase(),
+          },
+          documents,
+          candidateUrls: effectiveCandidateUrls,
+          coverageProof: normalizeCoverageProofForRequest(effectiveCoverageProof),
+        }),
       }),
-    });
+      needsReferenceImpact ? requestElementorReferenceImpact(credentials) : Promise.resolve(null),
+    ]);
     const data = await response.json();
     if (!response.ok) return failedEvidence(data?.error || "Impact analysis Elementor non disponibile.");
-    return normalizeSuccessfulEvidence(data);
+    return {
+      ...normalizeSuccessfulEvidence(data),
+      ...(crossPageReferenceImpact ? { crossPageReferenceImpact } : {}),
+    };
   } catch (error) {
     // L'impact analysis è diagnostica read-only: un timeout/rete non deve mai
     // trasformarsi in autorizzazione implicita né nascondere il blocco ownership.
@@ -190,6 +256,9 @@ export function elementorOwnershipDetail(entity) {
     : null;
   const conditionRows = Array.isArray(impactEvidence?.documents) ? impactEvidence.documents : [];
   const conditionById = new Map(conditionRows.map((row) => [Number(row?.id), row]));
+  const crossPage = impactEvidence?.crossPageReferenceImpact;
+  const referenceRows = Array.isArray(crossPage?.impact?.references) ? crossPage.impact.references : [];
+  const referenceById = new Map(referenceRows.map((row) => [Number(row?.templateId), row]));
   const resolved = Array.isArray(ownership.elementorResolvedSourceDocuments)
     ? ownership.elementorResolvedSourceDocuments.filter((item) => item?.resolved === true)
     : [];
@@ -207,6 +276,7 @@ export function elementorOwnershipDetail(entity) {
       const id = Number(item?.id);
       const title = String(item?.title || "").trim();
       const condition = Number.isSafeInteger(id) ? conditionById.get(id) : null;
+      const reference = Number.isSafeInteger(id) ? referenceById.get(id) : null;
       const observedCount = Number(condition?.observedRenderedCount || 0);
       const targetApplicability = String(condition?.conditionInterpretation?.targetApplicability || condition?.targetApplicability || "unknown");
       const conditionLabel = condition?.ok && condition?.displayConditionsResolved && targetApplicability === "applies"
@@ -225,13 +295,23 @@ export function elementorOwnershipDetail(entity) {
                     ? " · condizioni non verificabili"
                     : "";
       const observedLabel = observedCount > 0 ? ` · osservato su ${observedCount} URL del crawl disponibile` : "";
-      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}${observedLabel}`;
+      const referenceLabel = reference && crossPage?.verified === true
+        ? ` · riferimento cross-page verificato in ${Array.isArray(reference.sources) ? reference.sources.length : 0} risorse WordPress`
+        : ["template", "widget"].includes(type) && crossPage
+          ? " · impatto cross-page non completamente verificato"
+          : "";
+      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}${observedLabel}${referenceLabel}`;
     });
     const coverage = impactEvidence?.observedUrlCoverage;
     const coverageNote = coverage?.inspected > 0
       ? coverage?.completeSiteEnumeration === true && impactEvidence?.affectedPagesEnumerated === true
         ? ` Sono state controllate tutte le ${coverage.inspected} URL dichiarate come enumerazione completa del sito, senza promuovere questa evidenza a permesso di scrittura condivisa.`
         : ` Sono state controllate ${coverage.inspected} URL candidate${coverage.failed ? `; ${coverage.failed} non verificabili` : ""}. Questo non equivale a una enumerazione completa del sito.`
+      : "";
+    const referenceNote = crossPage
+      ? crossPage.verified === true
+        ? " La scansione cross-page delle risorse WordPress e dei documenti Elementor referenziati è verificata in sola lettura."
+        : ` La scansione cross-page resta incompleta (${crossPage.status || "stato non disponibile"}).`
       : "";
     const targetNote = impactEvidence?.targetApplicabilityResolved
       ? " L'applicazione alla risorsa WordPress target è stata valutata per tutte le condizioni del sottoinsieme supportato."
@@ -240,10 +320,10 @@ export function elementorOwnershipDetail(entity) {
       ? ` La lettura read-only delle condizioni non è riuscita: ${impactEvidence.error}`
       : impactEvidence?.displayConditionsResolved
         ? impactEvidence?.affectedPagesEnumerated === true
-          ? ` La semantica delle condizioni note e l'enumerazione completa dichiarata delle URL risultano risolte.${targetNote}${coverageNote}`
-          : ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${targetNote}${coverageNote}`
+          ? ` La semantica delle condizioni note e l'enumerazione completa dichiarata delle URL risultano risolte.${targetNote}${coverageNote}${referenceNote}`
+          : ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${targetNote}${coverageNote}${referenceNote}`
         : impactEvidence
-          ? ` Le condizioni disponibili sono state lette in sola lettura; le regole non riconosciute restano semanticamente non risolte.${coverageNote}`
+          ? ` Le condizioni disponibili sono state lette in sola lettura; le regole non riconosciute restano semanticamente non risolte.${coverageNote}${referenceNote}`
           : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
     return `Il frontend della URL usa anche documenti Elementor condivisi: ${labels.join(", ")}. SeoGrow ha identificato l'ownership esterna ma non modifica automaticamente un template condiviso senza analizzarne l'impatto sulle altre pagine.${evidenceNote}`;
   }
