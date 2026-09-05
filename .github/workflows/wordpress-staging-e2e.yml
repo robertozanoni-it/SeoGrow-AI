@@ -1,0 +1,156 @@
+name: WordPress Staging E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Test da eseguire"
+        required: true
+        type: choice
+        options:
+          - elementor-read-only
+          - taxonomy-rank-math
+          - taxonomy-yoast
+      site_url:
+        description: "URL HTTPS del sito WordPress di staging"
+        required: true
+        type: string
+      confirm_host:
+        description: "Hostname esatto dello staging (es. staging.example.com)"
+        required: true
+        type: string
+      category_url:
+        description: "URL categoria reale (obbligatorio solo per taxonomy)"
+        required: false
+        type: string
+      tag_url:
+        description: "URL tag reale (obbligatorio solo per taxonomy)"
+        required: false
+        type: string
+      confirm_write:
+        description: "Per taxonomy scrivere YES_I_UNDERSTAND; Elementor è sempre read-only"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SEOGROW_WP_SITE_URL: ${{ inputs.site_url }}
+  SEOGROW_WP_E2E_CONFIRM_HOST: ${{ inputs.confirm_host }}
+  SEOGROW_WP_USERNAME: ${{ secrets.SEOGROW_WP_USERNAME }}
+  SEOGROW_WP_APPLICATION_PASSWORD: ${{ secrets.SEOGROW_WP_APPLICATION_PASSWORD }}
+
+jobs:
+  staging-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: wordpress-staging
+    steps:
+      - name: Checkout main-tested code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require staging credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SEOGROW_WP_USERNAME:-}" ] || [ -z "${SEOGROW_WP_APPLICATION_PASSWORD:-}" ]; then
+            echo "Missing wordpress-staging secrets: SEOGROW_WP_USERNAME and/or SEOGROW_WP_APPLICATION_PASSWORD."
+            exit 1
+          fi
+          case "${SEOGROW_WP_SITE_URL}" in
+            https://*) ;;
+            *) echo "site_url must be HTTPS."; exit 1 ;;
+          esac
+          host="$(node -e 'console.log(new URL(process.argv[1]).hostname.toLowerCase())' "$SEOGROW_WP_SITE_URL")"
+          if [ "$host" != "${SEOGROW_WP_E2E_CONFIRM_HOST,,}" ]; then
+            echo "confirm_host does not match site_url host."
+            exit 1
+          fi
+
+      - name: Validate write-mode guard
+        if: startsWith(inputs.mode, 'taxonomy-')
+        shell: bash
+        env:
+          CONFIRM_WRITE: ${{ inputs.confirm_write }}
+          CATEGORY_URL: ${{ inputs.category_url }}
+          TAG_URL: ${{ inputs.tag_url }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM_WRITE" != "YES_I_UNDERSTAND" ]; then
+            echo "Taxonomy E2E writes and rolls back staging values. confirm_write must equal YES_I_UNDERSTAND."
+            exit 1
+          fi
+          if [ -z "$CATEGORY_URL" ] || [ -z "$TAG_URL" ]; then
+            echo "category_url and tag_url are required for taxonomy E2E."
+            exit 1
+          fi
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Start SeoGrow runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/seogrow-staging-e2e.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-staging-e2e.pid"
+          healthy=0
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              healthy=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$healthy" -ne 1 ]; then
+            cat "$RUNNER_TEMP/seogrow-staging-e2e.log"
+            exit 1
+          fi
+
+      - name: Elementor read-only E2E
+        if: inputs.mode == 'elementor-read-only'
+        run: npm run test:wordpress-elementor-e2e
+
+      - name: Taxonomy Rank Math E2E
+        if: inputs.mode == 'taxonomy-rank-math'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+          SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+          SEOGROW_WP_EXPECT_ADAPTER: rank-math
+        run: npm run test:wordpress-taxonomy-e2e
+
+      - name: Taxonomy Yoast E2E
+        if: inputs.mode == 'taxonomy-yoast'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+          SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+          SEOGROW_WP_EXPECT_ADAPTER: yoast
+        run: npm run test:wordpress-taxonomy-e2e
+
+      - name: Stop SeoGrow runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-staging-e2e.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-staging-e2e.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --port" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+      - name: Upload runtime log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordpress-staging-e2e-log
+          path: ${{ runner.temp }}/seogrow-staging-e2e.log
+          if-no-files-found: ignore
+          retention-days: 7
