@@ -149,6 +149,13 @@ test("lettura documenti usa context edit e parser _elementor_data", () => {
   assert.match(source, /aggregateElementorReferenceImpact/);
 });
 
+test("cross-page verified richiede anche la validazione dei target Elementor referenziati", () => {
+  assert.match(source, /elementor-impact-inspect/);
+  assert.match(source, /validateElementorReferenceTargets/);
+  assert.match(source, /impact\.complete === true && referenceTargets\.verified === true/);
+  assert.match(source, /affectedPagesEnumerated: impact\.affectedPagesEnumerated === true && referenceTargets\.verified === true/);
+});
+
 test("cross-page impact resta strettamente read-only", () => {
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*true/);
   assert.match(source, /sharedWriteAllowed:\s*false/);
