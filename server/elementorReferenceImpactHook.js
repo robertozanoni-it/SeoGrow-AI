@@ -25,6 +25,13 @@ function connectorInventoryEndpoint(base) {
   return new URL(`${basePath(base)}/wp-json/seogrow/v1/wordpress-public-inventory`, base.origin);
 }
 
+function connectorReferenceEndpoint(base, resources) {
+  const ids = resources.map((resource) => resource.id).join(",");
+  const url = new URL(`${basePath(base)}/wp-json/seogrow/v1/elementor-reference-data`, base.origin);
+  url.searchParams.set("ids", ids);
+  return url;
+}
+
 function typeDescriptorEndpoint(base, postType) {
   return new URL(`${basePath(base)}/wp-json/wp/v2/types/${encodeURIComponent(postType)}`, base.origin);
 }
@@ -87,6 +94,55 @@ export function extractRestElementorData(payload) {
   return { ok: true, status: "elementor-data-readable", value };
 }
 
+export function normalizeConnectorReferenceData(payload, inventory) {
+  const expected = Array.isArray(inventory?.resources) ? inventory.resources : [];
+  if (!payload || typeof payload !== "object" ||
+      payload.source !== "seogrow-connector" ||
+      payload.resource !== "elementor-reference-data" ||
+      payload.readOnly !== true ||
+      payload.sharedWriteAllowed !== false ||
+      payload.complete !== true ||
+      Number(payload.requestedDocuments) !== expected.length ||
+      !Array.isArray(payload.documents) ||
+      payload.documents.length !== expected.length) {
+    return { ok: false, status: "connector-reference-contract-invalid", rows: [] };
+  }
+
+  const expectedById = new Map(expected.map((resource) => [Number(resource.id), resource]));
+  const seen = new Set();
+  const rows = [];
+
+  for (const document of payload.documents) {
+    const id = Number(document?.id);
+    const resource = expectedById.get(id);
+    if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id) || !resource ||
+        document?.ok !== true || document?.readOnly !== true ||
+        document?.sharedWriteAllowed !== false ||
+        String(document?.postType || "") !== String(resource.postType || "") ||
+        String(document?.status || "") !== "publish" ||
+        String(document?.url || "") !== String(resource.url || "")) {
+      return { ok: false, status: "connector-reference-document-mismatch", rows: [] };
+    }
+    seen.add(id);
+    const value = document.elementorData === "" || document.elementorData === null
+      ? []
+      : document.elementorData;
+    if (typeof value !== "string" && !Array.isArray(value) && !(value && typeof value === "object")) {
+      return { ok: false, status: "connector-reference-data-invalid-type", rows: [] };
+    }
+    rows.push({
+      sourceId: id,
+      sourceUrl: resource.url,
+      scan: scanElementorExplicitReferences(value),
+    });
+  }
+
+  if (seen.size !== expected.length) {
+    return { ok: false, status: "connector-reference-document-set-incomplete", rows: [] };
+  }
+  return { ok: true, status: "connector-reference-data-verified", rows };
+}
+
 async function resolveRestBases(base, headers, resources) {
   const postTypes = [...new Set(resources.map((resource) => resource.postType))].sort();
   const restBases = new Map();
@@ -118,46 +174,14 @@ async function resolveRestBases(base, headers, resources) {
   };
 }
 
-export async function inspectElementorReferenceImpact({
-  siteUrl,
-  username,
-  applicationPassword,
-} = {}) {
-  if (!siteUrl || !username || !applicationPassword) {
-    throw new Error("URL sito, username e password applicazione WordPress sono obbligatori.");
-  }
-
-  const base = await safeBase(siteUrl);
-  const headers = authHeaders(username, applicationPassword);
-  const inventoryResponse = await wpFetch(connectorInventoryEndpoint(base), { headers });
-  const rawInventory = await readJson(inventoryResponse, "WordPress inventory");
-  const inventory = validateAuthoritativeWordPressInventory(rawInventory, { siteUrl: base.href });
-
-  if (inventory.verified !== true) {
-    return {
-      ok: true,
-      readOnly: true,
-      verified: false,
-      inventory,
-      unsupportedPostTypes: [],
-      affectedPagesEnumerated: false,
-      sharedWriteAllowed: false,
-      status: "authoritative-inventory-unavailable",
-    };
-  }
-
+async function readRowsViaRest(base, headers, inventory) {
   const resolved = await resolveRestBases(base, headers, inventory.resources);
   if (resolved.unsupportedPostTypes.length > 0) {
     return {
-      ok: true,
-      readOnly: true,
-      verified: false,
-      inventory,
+      ok: false,
+      rows: [],
       unsupportedPostTypes: resolved.unsupportedPostTypes,
-      affectedPagesEnumerated: false,
-      sharedWriteAllowed: false,
       status: "unsupported-authoritative-post-types",
-      note: "Uno o più post type autorevoli non espongono un rest_base WordPress sicuro e leggibile. Restano fail-closed finché il Connector non fornisce _elementor_data direttamente.",
     };
   }
 
@@ -205,8 +229,80 @@ export async function inspectElementorReferenceImpact({
       });
     }
   }
+  return { ok: true, rows, unsupportedPostTypes: [], status: "rest-reference-data" };
+}
 
-  const impact = aggregateElementorReferenceImpact(rows, {
+export async function inspectElementorReferenceImpact({
+  siteUrl,
+  username,
+  applicationPassword,
+} = {}) {
+  if (!siteUrl || !username || !applicationPassword) {
+    throw new Error("URL sito, username e password applicazione WordPress sono obbligatori.");
+  }
+
+  const base = await safeBase(siteUrl);
+  const headers = authHeaders(username, applicationPassword);
+  const inventoryResponse = await wpFetch(connectorInventoryEndpoint(base), { headers });
+  const rawInventory = await readJson(inventoryResponse, "WordPress inventory");
+  const inventory = validateAuthoritativeWordPressInventory(rawInventory, { siteUrl: base.href });
+
+  if (inventory.verified !== true) {
+    return {
+      ok: true,
+      readOnly: true,
+      verified: false,
+      inventory,
+      unsupportedPostTypes: [],
+      affectedPagesEnumerated: false,
+      sharedWriteAllowed: false,
+      status: "authoritative-inventory-unavailable",
+    };
+  }
+
+  let rowsResult;
+  const connectorResponse = await wpFetch(connectorReferenceEndpoint(base, inventory.resources), { headers });
+  if (connectorResponse.status === 404) {
+    await connectorResponse.body?.cancel();
+    rowsResult = await readRowsViaRest(base, headers, inventory);
+  } else {
+    const connectorPayload = await readJson(connectorResponse, "Elementor Connector reference data");
+    const normalized = normalizeConnectorReferenceData(connectorPayload, inventory);
+    if (!normalized.ok) {
+      return {
+        ok: true,
+        readOnly: true,
+        verified: false,
+        inventory,
+        unsupportedPostTypes: [],
+        affectedPagesEnumerated: false,
+        sharedWriteAllowed: false,
+        status: normalized.status,
+      };
+    }
+    rowsResult = {
+      ok: true,
+      rows: normalized.rows,
+      unsupportedPostTypes: [],
+      status: normalized.status,
+    };
+  }
+
+  if (!rowsResult.ok) {
+    return {
+      ok: true,
+      readOnly: true,
+      verified: false,
+      inventory,
+      unsupportedPostTypes: rowsResult.unsupportedPostTypes,
+      affectedPagesEnumerated: false,
+      sharedWriteAllowed: false,
+      status: rowsResult.status,
+      note: "Uno o più post type autorevoli non espongono una sorgente read-only verificabile per _elementor_data.",
+    };
+  }
+
+  const impact = aggregateElementorReferenceImpact(rowsResult.rows, {
     expectedDocuments: inventory.resources.length,
   });
 
@@ -216,6 +312,7 @@ export async function inspectElementorReferenceImpact({
     verified: impact.complete === true,
     inventory,
     impact,
+    evidenceSource: rowsResult.status,
     unsupportedPostTypes: [],
     affectedPagesEnumerated: impact.affectedPagesEnumerated === true,
     sharedWriteAllowed: false,
@@ -244,6 +341,7 @@ export function registerRoutes(app) {
 export {
   ROUTE as ELEMENTOR_REFERENCE_IMPACT_ROUTE,
   connectorInventoryEndpoint,
+  connectorReferenceEndpoint,
   contentEndpoint,
   typeDescriptorEndpoint,
 };
