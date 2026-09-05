@@ -33,7 +33,10 @@ jobs:
         run: npm test
 
       - name: Lint SeoGrow Connector PHP
-        run: php -l wordpress-plugin/seogrow-connector/seogrow-connector.php
+        run: |
+          php -l wordpress-plugin/seogrow-connector/seogrow-connector.php
+          php -l wordpress-plugin/seogrow-connector/seogrow-connector-core.inc
+          php -l wordpress-plugin/seogrow-connector/elementor-reference-read.php
 
       - name: Install zsh for macOS launcher syntax check
         run: |
