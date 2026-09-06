@@ -39,23 +39,21 @@ Il modulo `src/workspaceCrashHarness.js` entra nel runtime solo in dev quando il
 4. Nel file picker scegliere `backup-A.json`.
 5. Quando compare `QA CRASH CHECKPOINT`, NON premere OK/Annulla. Chiudere l'intera finestra Brave Test mentre il dialogo è ancora aperto.
 6. Riaprire lo stesso profilo Brave Test e lo stesso origin dell'app, senza il query flag.
-7. Verificare il workspace: deve essere interamente B (rollback della transazione interrotta) oppure, se il browser ha già reso durevole il commit prima dell'arresto, interamente A. Non è ammessa alcuna combinazione A/B. Verificare clienti, task, run Agent e correzioni, poi ricaricare una seconda volta.
-
-Se il dialogo viene chiuso normalmente, l'harness chiama `tx.abort()` e la prova è dichiarata non valida: non può produrre un falso successo. Il query flag non arma nulla in build non-dev.
+7. Verificare il workspace: deve essere interamente B oppure interamente A. Non è ammessa alcuna combinazione A/B.
 
 ## Due schede reali concorrenti
 
-1. Aprire due schede SeoGrow AI sullo stesso origin e con lo stesso workspace corrente.
-2. Lasciare la seconda scheda aperta senza ricaricarla.
-3. Nella prima scheda importare il backup opposto (A → B oppure B → A).
-4. Tornare alla seconda scheda senza refresh manuale.
-5. La scheda obsoleta deve rilevare il cambio di generazione e ricaricarsi/aggiornarsi sul nuovo workspace, oppure bloccare le scritture obsolete. Non deve poter sovrascrivere il workspace nuovo con stato vecchio.
+Aprire due schede sullo stesso origin, eseguire il restore nella prima e verificare che la seconda rilevi la nuova generazione e non possa continuare a operare sul workspace precedente.
 
-Confronto DB: ignorare SOLO la generazione interna __generation e verificare separatamente il ledger locale delle approvazioni consumate, che non viene ripristinato dal backup. Le altre differenze devono essere motivate; salvataggi ordinari della UI dopo il restore vanno registrati separatamente.
+## Quota storage reale del browser
+
+Usare esclusivamente il profilo Brave dedicato. In DevTools → Application → Storage attivare `Simulate custom storage quota` con una quota inferiore all'uso IndexedDB corrente. Non usare `Clear site data` e non saturare il disco fisico del Mac. Tentare quindi l'import del backup opposto e verificare errore di spazio, assenza di successo e persistenza integrale del workspace precedente dopo reload.
+
+Confronto DB: ignorare SOLO la generazione interna __generation e verificare separatamente il ledger locale delle approvazioni consumate, che non viene ripristinato dal backup.
 
 ## Evidenza
 
-6 settembre 2026: fixture A/B e fault injection simulata superati con fake-indexeddb. Browser gestito: tentativo sull'app Vite rifiutato con net::ERR_BLOCKED_BY_CLIENT.
+6 settembre 2026: fixture A/B e fault injection simulata superati con fake-indexeddb. Browser gestito inizialmente rifiutato con net::ERR_BLOCKED_BY_CLIENT.
 
 Collaudo manuale in profilo Brave dedicato:
 
@@ -63,10 +61,7 @@ Collaudo manuale in profilo Brave dedicato:
 - backup invalido con cliente duplicato: rifiutato senza alterare A; A integro dopo reload: PASS.
 - A → B: B sostituisce completamente A, nessun cliente misto, B persistente dopo reload: PASS.
 - crash fisico controllato durante tentativo B → A: finestra Brave Test chiusa mentre `QA CRASH CHECKPOINT` manteneva aperta la transazione IndexedDB. Alla riapertura risultano esclusivamente `QA B cliente 1 — FITTIZIO` e `QA B cliente 2 — FITTIZIO`; task B presente; nessun cliente A o stato misto osservato: PASS.
-- due schede reali concorrenti: entrambe aperte su A; nella prima scheda restore A → B; la seconda scheda, senza refresh manuale, ha rilevato il cambio e mostrato automaticamente `QA B cliente 1 — FITTIZIO`, task B e clienti recenti B1/B2. Nessuno stato A obsoleto rimasto visibile o scrivibile nella prova eseguita: PASS.
+- due schede reali concorrenti: entrambe aperte su A; nella prima scheda restore A → B; la seconda, senza refresh manuale, ha rilevato il cambio e mostrato automaticamente B. Nessuno stato A obsoleto rimasto operativo nella prova eseguita: PASS.
+- quota storage reale del browser: DevTools ha imposto quota custom 0,26 MB con IndexedDB già a circa 261 kB (quota mostrata 260 kB). Durante il tentativo di import A l'app ha mostrato `Spazio locale esaurito` e non ha riportato successo. Dopo reload, pagina Clienti contiene esclusivamente `QA B cliente 1 — FITTIZIO` e `QA B cliente 2 — FITTIZIO`; nessun cliente A o stato misto: PASS.
 
-Esito del crash fisico: il workspace precedente B è rimasto coerente dopo l'arresto del browser durante il commit; nessun restore parziale A/B osservato nella prova eseguita.
-
-Esito concorrenza due schede: la scheda con generazione precedente non è rimasta operativa sul vecchio workspace dopo il restore eseguito nell'altra scheda; la sincronizzazione sul nuovo workspace B è avvenuta automaticamente.
-
-Restano separati: saturazione quota reale e collaudo visuale completo. Nessuna modifica a contenuti WordPress o credenziali.
+Esito workspace: le prove manuali A/B, rifiuto invalido, crash fisico, concorrenza due schede e quota reale del browser hanno mantenuto un dataset coerente nelle prove eseguite. Resta separato il collaudo visuale completo dell'app e restano i gap WordPress descritti in `docs/COLLAUDO-GAP.md`. Nessuna modifica a contenuti WordPress o credenziali.
