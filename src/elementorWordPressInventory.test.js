@@ -37,7 +37,7 @@ test("claim client o sorgente diversa non diventa inventario autorevole", () => 
   assert.equal(result.status, "invalid-contract");
 });
 
-test("inventario troncato, incompleto o oltre 30 risorse resta fail-closed", () => {
+test("inventario troncato o incompleto resta fail-closed", () => {
   const truncated = validPayload();
   truncated.truncated = true;
   assert.equal(validateAuthoritativeWordPressInventory(truncated, { siteUrl }).status, "truncated");
@@ -45,7 +45,9 @@ test("inventario troncato, incompleto o oltre 30 risorse resta fail-closed", () 
   const incomplete = validPayload();
   incomplete.complete = false;
   assert.equal(validateAuthoritativeWordPressInventory(incomplete, { siteUrl }).status, "incomplete");
+});
 
+test("inventario completo oltre il vecchio limite di 30 risorse viene accettato", () => {
   const large = validPayload();
   large.totalResources = 31;
   large.resources = Array.from({ length: 31 }, (_, index) => ({
@@ -54,7 +56,26 @@ test("inventario troncato, incompleto o oltre 30 risorse resta fail-closed", () 
     status: "publish",
     url: `https://example.com/p-${index}/`,
   }));
-  assert.equal(validateAuthoritativeWordPressInventory(large, { siteUrl }).status, "truncated");
+  const result = validateAuthoritativeWordPressInventory(large, { siteUrl });
+  assert.equal(result.verified, true);
+  assert.equal(result.status, "verified-authoritative");
+  assert.equal(result.resources.length, 31);
+  assert.equal(result.maxResources, 2000);
+});
+
+test("inventario oltre il tetto fail-closed di 2000 risorse resta bloccato", () => {
+  const tooLarge = validPayload();
+  tooLarge.totalResources = 2001;
+  tooLarge.resources = Array.from({ length: 2001 }, (_, index) => ({
+    id: index + 1,
+    postType: "page",
+    status: "publish",
+    url: `https://example.com/p-${index}/`,
+  }));
+  const result = validateAuthoritativeWordPressInventory(tooLarge, { siteUrl });
+  assert.equal(result.verified, false);
+  assert.equal(result.status, "truncated");
+  assert.equal(result.truncated, true);
 });
 
 test("duplicati, URL esterne e conteggi incoerenti bloccano l'inventario", () => {
