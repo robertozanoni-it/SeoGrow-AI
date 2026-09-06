@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - elementor-read-only
+          - taxonomy-read-only-diagnostics
           - taxonomy-rank-math
           - taxonomy-yoast
       site_url:
@@ -28,7 +29,7 @@ on:
         required: false
         type: string
       confirm_write:
-        description: "Per taxonomy scrivere YES_I_UNDERSTAND; Elementor è sempre read-only"
+        description: "Solo per taxonomy-rank-math/yoast scrivere YES_I_UNDERSTAND; diagnostica ed Elementor sono read-only"
         required: false
         type: string
 
@@ -74,21 +75,28 @@ jobs:
             exit 1
           fi
 
-      - name: Validate write-mode guard
+      - name: Validate taxonomy target
         if: startsWith(inputs.mode, 'taxonomy-')
         shell: bash
         env:
-          CONFIRM_WRITE: ${{ inputs.confirm_write }}
           CATEGORY_URL: ${{ inputs.category_url }}
           TAG_URL: ${{ inputs.tag_url }}
         run: |
           set -euo pipefail
-          if [ "$CONFIRM_WRITE" != "YES_I_UNDERSTAND" ]; then
-            echo "Taxonomy E2E writes and rolls back staging values. confirm_write must equal YES_I_UNDERSTAND."
+          if [ -z "$CATEGORY_URL" ] && [ -z "$TAG_URL" ]; then
+            echo "For taxonomy modes provide at least one real target: category_url and/or tag_url."
             exit 1
           fi
-          if [ -z "$CATEGORY_URL" ] && [ -z "$TAG_URL" ]; then
-            echo "For taxonomy E2E provide at least one real target: category_url and/or tag_url."
+
+      - name: Validate write-mode guard
+        if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
+        shell: bash
+        env:
+          CONFIRM_WRITE: ${{ inputs.confirm_write }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM_WRITE" != "YES_I_UNDERSTAND" ]; then
+            echo "Taxonomy write E2E writes and rolls back values. confirm_write must equal YES_I_UNDERSTAND."
             exit 1
           fi
 
@@ -117,6 +125,13 @@ jobs:
       - name: Elementor read-only E2E
         if: inputs.mode == 'elementor-read-only'
         run: npm run test:wordpress-elementor-e2e
+
+      - name: Taxonomy read-only diagnostics
+        if: inputs.mode == 'taxonomy-read-only-diagnostics'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+        run: node scripts/wordpress-taxonomy-diagnostics.mjs
 
       - name: Taxonomy Rank Math E2E
         if: inputs.mode == 'taxonomy-rank-math'
