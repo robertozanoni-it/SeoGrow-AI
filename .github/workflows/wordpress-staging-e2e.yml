@@ -20,11 +20,11 @@ on:
         required: true
         type: string
       category_url:
-        description: "URL categoria reale (obbligatorio solo per taxonomy)"
+        description: "URL categoria reale (taxonomy: compila categoria e/o tag)"
         required: false
         type: string
       tag_url:
-        description: "URL tag reale (obbligatorio solo per taxonomy)"
+        description: "URL tag reale (taxonomy: compila tag e/o categoria)"
         required: false
         type: string
       confirm_write:
@@ -87,8 +87,8 @@ jobs:
             echo "Taxonomy E2E writes and rolls back staging values. confirm_write must equal YES_I_UNDERSTAND."
             exit 1
           fi
-          if [ -z "$CATEGORY_URL" ] || [ -z "$TAG_URL" ]; then
-            echo "category_url and tag_url are required for taxonomy E2E."
+          if [ -z "$CATEGORY_URL" ] && [ -z "$TAG_URL" ]; then
+            echo "For taxonomy E2E provide at least one real target: category_url and/or tag_url."
             exit 1
           fi
 
