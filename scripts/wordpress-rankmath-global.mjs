@@ -100,10 +100,11 @@ export async function runGlobal() {
     };
     let canRepair = false;
     await check('connector-convergence-preflight', async () => { await preflight(); canRepair=true; });
-    // Discover both term collections even when the installed Connector is outdated.
+    // Core pages may be public without publicly_queryable=true and are therefore
+    // absent from older Connector inventories. Discover them independently.
     const resources = new Map();
     let inventoryComplete = true;
-    for (const [collection, label] of [['categories','categoria'], ['tags','tag']]) {
+    for (const [collection, label] of [['categories','categoria'], ['tags','tag'], ['pages','pagina']]) {
       const inventory = await check(`inventory-${collection}`, async () => {
         const terms = [];
         let expectedTotal;
@@ -122,7 +123,7 @@ export async function runGlobal() {
           if(page>=pages) break;
         }
         if(terms.length !== expectedTotal || new Set(terms.map(t=>t.id)).size !== expectedTotal) throw new Error('INVENTORY_INCOMPLETE');
-        return terms.map(t=>({url:authorizedUrl(t.link).href,label,kind:'taxonomy',id:t.id}));
+        return terms.map(t=>({url:authorizedUrl(t.link).href,label,kind:collection==='pages'?'page':'taxonomy',id:t.id,...(collection==='pages'?{postType:'page'}:{})}));
       });
       if (!inventory) inventoryComplete=false;
       else for(const item of inventory) resources.set(item.url,item);
