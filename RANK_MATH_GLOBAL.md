@@ -70,3 +70,6 @@ Se il noindex viene ereditato dalle impostazioni di Rank Math, la correzione dev
 avvenire nelle impostazioni categorie, verificando poi anche eventuali override
 per singola categoria. L'assenza di noindex nel solo termmeta non prova che il
 frontend sia indicizzabile.
+# Copertura delle pagine WordPress
+
+Il test inventaria anche `/wp/v2/pages` in modo indipendente dal Connector, con paginazione e controllo del totale. Le pagine WordPress possono essere pubbliche pur non avendo `publicly_queryable=true`: non devono sparire dal controllo globale. Un inventario pagine non verificabile rende la scansione incompleta.

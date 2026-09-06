@@ -69,6 +69,7 @@ test('global run collects independent failures despite missing v2 route and perf
       if(path.endsWith('taxonomy-doctor-capability'))return json({});
       if(path.endsWith('/categories'))return json([{id:1,link:'https://example.test/category/one/'},{id:2,link:'https://example.test/category/two/'}],{'x-wp-total':'2','x-wp-totalpages':'1'});
       if(path.endsWith('/tags'))return json([],{'x-wp-total':'0','x-wp-totalpages':'0'});
+      if(path.endsWith('/pages'))return json([{id:10,link:'https://example.test/contact/'}],{'x-wp-total':'1','x-wp-totalpages':'1'});
       if(path.endsWith('wordpress-public-inventory'))return json({complete:true,truncated:false,totalResources:0,resources:[]});
       if(path.endsWith('taxonomy-diagnostics'))return new Response('{}',{status:403});
       return new Response('<title>Page</title>');
@@ -76,7 +77,9 @@ test('global run collects independent failures despite missing v2 route and perf
     try {
       const {runGlobal}=await import(${JSON.stringify(moduleUrl)});
       const report=await runGlobal();
-      assert.equal(report.healthy,false);assert.equal(report.complete,true);assert.equal(report.counts.checked,2);
+      assert.equal(report.healthy,false);assert.equal(report.complete,true);assert.equal(report.counts.checked,3);
+      assert.equal(report.targets.find(t=>t.url==='https://example.test/contact/').kind,'page');
+      assert.ok(report.checks.some(c=>c.name==='inventory-pages'&&c.status==='PASS'));
       assert.equal(report.checks[0].code,'CONNECTOR_UPDATE_REQUIRED');
       assert.ok(report.targets.every(t=>t.issues.length>=2));assert.equal(writes,0);
     } finally {await rm(temp,{recursive:true,force:true});}
