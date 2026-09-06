@@ -12,6 +12,7 @@ const allowWrite = String(process.env.SEOGROW_WP_E2E_ALLOW_WRITE || "");
 
 const compact = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const auth = () => `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`;
 
 export function isFrontendOnlyStaleMarkerLog(text = "") {
   const normalized = String(text);
@@ -64,6 +65,37 @@ async function inspectBackend(url) {
   return jsonResponse(response, "SeoGrow inspect-taxonomy");
 }
 
+async function purgePublicCache(url) {
+  const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-public-cache-purge", siteUrl);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      authorization: auth(),
+      accept: "application/json",
+      "content-type": "application/json",
+      "user-agent": "SeoGrowAI/1.4-rankmath-general-cache-purge",
+    },
+    body: JSON.stringify({ url }),
+    redirect: "manual",
+    signal: AbortSignal.timeout(30_000),
+  });
+  if ([301, 302, 303, 307, 308].includes(response.status)) {
+    throw new Error("taxonomy-public-cache-purge: redirect inatteso.");
+  }
+  const data = await jsonResponse(response, "taxonomy-public-cache-purge");
+  if (
+    data?.ok !== true ||
+    data?.resource !== "taxonomy-public-cache-purge" ||
+    data?.contentWritesPerformed !== 0 ||
+    data?.cacheMutationPerformed !== true ||
+    data?.purgeRequested !== true ||
+    data?.hook !== "litespeed_purge_url"
+  ) {
+    throw new Error("taxonomy-public-cache-purge: il Connector non ha attestato un purge URL cache-only valido.");
+  }
+  return data;
+}
+
 async function fetchFrontend(url, cacheBust = false) {
   const target = new URL(url);
   if (cacheBust) {
@@ -84,8 +116,9 @@ async function fetchFrontend(url, cacheBust = false) {
   return compact(metaDescriptionFromHtml(html));
 }
 
-async function probeFrontendOnlyStale() {
+async function probeFrontend() {
   const targets = [categoryUrl, tagUrl].filter(Boolean);
+  let allCanonicalMatch = true;
   let allCacheBustedMatch = true;
   for (const url of targets) {
     const inspection = await inspectBackend(url);
@@ -96,9 +129,10 @@ async function probeFrontendOnlyStale() {
     const bustedMatch = busted === expected;
     console.log(`[rank-math-general] frontend probe ${url}`);
     console.log(`[rank-math-general] canonicalMatch=${canonicalMatch} · cacheBustedMatch=${bustedMatch}`);
+    if (!canonicalMatch) allCanonicalMatch = false;
     if (!bustedMatch) allCacheBustedMatch = false;
   }
-  return allCacheBustedMatch;
+  return { allCanonicalMatch, allCacheBustedMatch };
 }
 
 function validateInputs() {
@@ -137,27 +171,33 @@ async function main() {
     }
 
     console.warn("RANK_MATH_GENERAL=FRONTEND_ONLY_STALE_MARKER");
-    console.warn("[rank-math-general] Backend, DB, object cache e SeoGrow inspection concordano; solo il frontend canonico è stale. Nessuna scrittura Rank Math viene eseguita.");
-    console.log("\n[rank-math-general] FASE 2/4 — cache-busted frontend probe read-only");
-    const cacheBustedMatch = await probeFrontendOnlyStale();
-    if (!cacheBustedMatch) {
-      console.error("RANK_MATH_GENERAL=FRONTEND_RENDER_DIVERGENCE");
-      console.error("[rank-math-general] Anche la richiesta cache-busted non riflette il backend. Arresto fail-closed; nessuna scrittura eseguita.");
+    console.warn("[rank-math-general] Backend, DB, object cache e SeoGrow inspection concordano; solo il frontend è stale.");
+    console.log("\n[rank-math-general] FASE 2/4 — purge mirato cache pubblica + verifica");
+
+    for (const url of [categoryUrl, tagUrl].filter(Boolean)) {
+      const purge = await purgePublicCache(url);
+      console.log(`[rank-math-general] cache purge richiesto via ${purge.hook} per ${purge.url}`);
+    }
+
+    await sleep(2_000);
+    const probe = await probeFrontend();
+    if (!probe.allCanonicalMatch || !probe.allCacheBustedMatch) {
+      console.error("RANK_MATH_GENERAL=PUBLIC_CACHE_PURGE_INEFFECTIVE");
+      console.error("[rank-math-general] Il purge mirato non ha riallineato canonical e richiesta cache-busted al backend. Arresto fail-closed; nessuna scrittura Rank Math eseguita.");
       process.exitCode = 1;
       return;
     }
 
-    console.warn("RANK_MATH_GENERAL=CANONICAL_PAGE_CACHE_STALE_LIKELY");
-    console.warn("[rank-math-general] La richiesta cache-busted riflette il backend: il problema è compatibile con cache della pagina canonica/CDN. Attendo e ricontrollo il canonical prima di qualunque write.");
-    await sleep(5_000);
     baseline = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs", taxonomyEnv);
     emit(baseline);
     if ((baseline.status ?? 1) !== 0) {
-      console.error("RANK_MATH_GENERAL=WAITING_FOR_FRONTEND_CACHE_INVALIDATION");
-      console.error("[rank-math-general] Il canonical è ancora stale. Test concluso senza scritture: non è sicuro avviare un nuovo ciclo E2E finché il frontend pubblico non è coerente.");
-      process.exitCode = 2;
+      console.error("RANK_MATH_GENERAL=POST_PURGE_BASELINE_INCONSISTENT");
+      console.error("[rank-math-general] Il frontend sembra aggiornato ma la prova completa post-purge non è coerente. Nessuna scrittura Rank Math eseguita.");
+      process.exitCode = 1;
       return;
     }
+
+    console.log("RANK_MATH_GENERAL=PUBLIC_CACHE_RECOVERED");
   }
 
   console.log("RANK_MATH_GENERAL=BASELINE_CLEAN");
@@ -193,7 +233,7 @@ async function main() {
   }
 
   console.log("RANK_MATH_GENERAL=SUCCESS");
-  console.log("Rank Math general E2E completato: baseline, capability, ciclo controllato e stato finale sono coerenti.");
+  console.log("Rank Math general E2E completato: baseline/cache, capability, ciclo controllato e stato finale sono coerenti.");
 }
 
 const invoked = process.argv[1] ? pathToFileURL(process.argv[1]).href === import.meta.url : false;
