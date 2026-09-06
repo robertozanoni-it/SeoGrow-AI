@@ -10,6 +10,7 @@ on:
         options:
           - elementor-read-only
           - taxonomy-read-only-diagnostics
+          - taxonomy-consistency-sampler
           - taxonomy-rank-math
           - taxonomy-yoast
       site_url:
@@ -29,7 +30,7 @@ on:
         required: false
         type: string
       confirm_write:
-        description: "Solo per taxonomy-rank-math/yoast scrivere YES_I_UNDERSTAND; diagnostica ed Elementor sono read-only"
+        description: "Solo per taxonomy-rank-math/yoast scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
         required: false
         type: string
 
@@ -132,6 +133,13 @@ jobs:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-diagnostics.mjs
+
+      - name: Taxonomy consistency sampler read-only
+        if: inputs.mode == 'taxonomy-consistency-sampler'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+        run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
 
       - name: Taxonomy baseline read-only preflight
         if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
