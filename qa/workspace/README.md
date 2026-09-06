@@ -17,23 +17,42 @@ Dalla radice del repository:
 
 ```sh
 node scripts/prepare-workspace-fixtures.mjs
-node --test src/workspaceFixtures.test.js
+node --test src/workspaceFixtures.test.js src/workspaceCrashHarness.test.js
 ```
 
 Il generatore sovrascrive soltanto le fixture di questa directory e le valida con prepareWorkspaceRestore. I test confrontano TUTTO il dataset dopo commit o abort/quota simulati e riapertura, non solo una chiave campione.
 
-## Prova manuale successiva
+## Prova manuale A/B
 
 1. Creare un profilo browser dedicato, senza sincronizzazione dei dati personali. Aprire l'app della PR sullo stesso origin per tutta la prova.
 2. Importare A dalla UI backup. Verificare i due clienti QA A e ricaricare.
 3. Importare i due file invalidi: entrambi devono essere rifiutati e A deve restare intero.
 4. Importare B, ricaricare e verificare che ID, task e correzioni di A siano stati sostituiti da B.
-5. Eseguire poi le prove con due schede e interruzioni descritte in docs/COLLAUDO-GAP.md. Il kit da solo non include un harness con checkpoint di crash fisico o saturazione reale della quota.
+
+## Crash fisico controllato — solo dev
+
+Il modulo `src/workspaceCrashHarness.js` non è importato dall'app e non entra nel flusso di produzione. È armato soltanto in dev con il query flag esplicito `?qaWorkspaceRestoreCrash=1` e richiama direttamente `prepareWorkspaceRestore` + `commitWorkspaceRestore`, cioè lo stesso commit atomico usato dal restore.
+
+1. Lasciare B come workspace corrente e aprire la dev app aggiungendo `?qaWorkspaceRestoreCrash=1` allo stesso URL/porta.
+2. Aprire DevTools → Console.
+3. Eseguire:
+
+```js
+const qa = await import('/src/workspaceCrashHarness.js');
+await qa.runWorkspacePhysicalCrashHarnessFromPicker();
+```
+
+4. Nel file picker scegliere `backup-A.json`.
+5. Quando compare `QA CRASH CHECKPOINT`, NON premere OK/Annulla. Chiudere l'intera finestra Brave Test mentre il dialogo è ancora aperto.
+6. Riaprire lo stesso profilo Brave Test e lo stesso origin dell'app, senza il query flag.
+7. Verificare il workspace: deve essere interamente B (rollback della transazione interrotta) oppure, se il browser ha già reso durevole il commit prima dell'arresto, interamente A. Non è ammessa alcuna combinazione A/B. Verificare clienti, task, run Agent e correzioni, poi ricaricare una seconda volta.
+
+Se il dialogo viene chiuso normalmente, l'harness chiama `tx.abort()` e la prova è dichiarata non valida: non può produrre un falso successo. Il query flag non arma nulla in build non-dev.
 
 Confronto DB: ignorare SOLO la generazione interna __generation e verificare separatamente il ledger locale delle approvazioni consumate, che non viene ripristinato dal backup. Le altre differenze devono essere motivate; salvataggi ordinari della UI dopo il restore vanno registrati separatamente.
 
-## Evidenza di questa preparazione
+## Evidenza
 
-6 settembre 2026: quattro test del kit superati con fake-indexeddb. Browser gestito: tentativo sull'app Vite avviata a http://127.0.0.1:5198/ rifiutato con net::ERR_BLOCKED_BY_CLIENT. Non usati percorsi alternativi per aggirare il blocco.
+6 settembre 2026: fixture A/B e fault injection simulata superati con fake-indexeddb. Browser gestito: tentativo sull'app Vite rifiutato con net::ERR_BLOCKED_BY_CLIENT. Collaudo manuale A → invalid → B eseguito in profilo Brave dedicato: A persistente, invalid non altera A, B sostituisce A senza clienti misti e persiste dopo reload.
 
-G01/G02/G03/G08 restano aperti: nessuna prova di crash fisico, quota reale, due schede reali o UI completa è certificata. Nessuna modifica a codice di produzione, contenuti WordPress o credenziali.
+Il crash fisico resta aperto finché non viene eseguita la procedura sopra. La saturazione quota reale, due schede reali e il collaudo visuale completo restano separati. Nessuna modifica a contenuti WordPress o credenziali.
