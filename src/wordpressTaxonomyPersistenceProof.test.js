@@ -25,12 +25,24 @@ test("persistence proof confronta get_term_meta e wp_termmeta reale", () => {
 test("persistence proof espone un preflight strettamente read-only", () => {
   assert.match(moduleSource, /taxonomy-persistence-capability/);
   assert.match(moduleSource, /rankMathPersistenceProof/);
+  assert.match(moduleSource, /crossRequestCacheCoherence/);
   assert.match(moduleSource, /writesPerformed' => 0/);
   assert.match(runner, /requireRankMathPersistenceCapability/);
   assert.match(runner, /wordpressReadOnly\("taxonomy-persistence-capability"\)/);
 });
 
-test("persistence proof è read-after-write: non introduce nuove scritture", () => {
+test("taxonomy-inspect riconcilia cache term_meta contro wp_termmeta senza scritture SEO", () => {
+  assert.match(moduleSource, /\/seogrow\/v1\/taxonomy-inspect/);
+  assert.match(moduleSource, /rank_math_description/);
+  assert.match(moduleSource, /wp_cache_delete\(\$term_id, 'term_meta'\)/);
+  assert.match(moduleSource, /clean_term_cache\(\$term_id, \$taxonomy\)/);
+  assert.match(moduleSource, /cacheCoherence/);
+  assert.match(moduleSource, /persistentWritesPerformed' => 0/);
+  assert.match(moduleSource, /seogrow_taxonomy_cache_divergence/);
+  assert.match(moduleSource, /seogrow_taxonomy_cache_refresh_failed/);
+});
+
+test("persistence proof e cache reconciliation non introducono scritture SEO persistenti", () => {
   assert.doesNotMatch(moduleSource, /update_term_meta\s*\(/);
   assert.doesNotMatch(moduleSource, /add_term_meta\s*\(/);
   assert.doesNotMatch(moduleSource, /delete_term_meta\s*\(/);
