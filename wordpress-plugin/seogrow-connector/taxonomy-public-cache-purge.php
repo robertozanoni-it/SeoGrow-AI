@@ -4,6 +4,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+const SEOGROW_TAXONOMY_PUBLIC_CACHE_PURGE_BUILD = 'litespeed-url-purge-20260906-v1';
+
 function seogrow_connector_taxonomy_purge_public_url($term) {
     if (!$term || is_wp_error($term)) {
         return array('requested' => false, 'url' => '');
@@ -21,6 +23,19 @@ function seogrow_connector_taxonomy_purge_public_url($term) {
         'url' => $link,
         'hook' => 'litespeed_purge_url',
     );
+}
+
+function seogrow_connector_taxonomy_public_cache_purge_capability() {
+    return rest_ensure_response(array(
+        'ok' => true,
+        'readOnly' => true,
+        'resource' => 'taxonomy-public-cache-purge-capability',
+        'publicCachePurge' => true,
+        'hook' => 'litespeed_purge_url',
+        'build' => SEOGROW_TAXONOMY_PUBLIC_CACHE_PURGE_BUILD,
+        'contentWritesPerformed' => 0,
+        'cacheMutationPerformed' => false,
+    ));
 }
 
 function seogrow_connector_taxonomy_public_cache_purge(WP_REST_Request $request) {
@@ -49,6 +64,7 @@ function seogrow_connector_taxonomy_public_cache_purge(WP_REST_Request $request)
         'cacheMutationPerformed' => true,
         'purgeRequested' => true,
         'hook' => $purge['hook'],
+        'build' => SEOGROW_TAXONOMY_PUBLIC_CACHE_PURGE_BUILD,
         'url' => $purge['url'],
         'term' => array(
             'id' => (int) $term->term_id,
@@ -76,6 +92,14 @@ add_action('updated_term_meta', 'seogrow_connector_taxonomy_rankmath_meta_cache_
 add_action('deleted_term_meta', 'seogrow_connector_taxonomy_rankmath_meta_cache_purge', 10, 3);
 
 add_action('rest_api_init', static function () {
+    register_rest_route('seogrow/v1', '/taxonomy-public-cache-purge-capability', array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'seogrow_connector_taxonomy_public_cache_purge_capability',
+        'permission_callback' => static function () {
+            return current_user_can('edit_posts') || current_user_can('edit_pages');
+        },
+    ));
+
     register_rest_route('seogrow/v1', '/taxonomy-public-cache-purge', array(
         'methods' => WP_REST_Server::CREATABLE,
         'callback' => 'seogrow_connector_taxonomy_public_cache_purge',
