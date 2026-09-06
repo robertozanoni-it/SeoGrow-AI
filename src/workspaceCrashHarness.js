@@ -50,3 +50,16 @@ export async function runWorkspacePhysicalCrashHarness(backup, options = {}) {
     db.close();
   }
 }
+
+export async function runWorkspacePhysicalCrashHarnessFromPicker(options = {}) {
+  if (typeof globalThis.showOpenFilePicker !== "function") {
+    throw new Error("File picker QA non disponibile in questo browser.");
+  }
+  const [handle] = await globalThis.showOpenFilePicker({
+    multiple: false,
+    types: [{ description: "SeoGrow backup JSON", accept: { "application/json": [".json"] } }],
+  });
+  const file = await handle.getFile();
+  const backup = JSON.parse(await file.text());
+  return runWorkspacePhysicalCrashHarness(backup, options);
+}
