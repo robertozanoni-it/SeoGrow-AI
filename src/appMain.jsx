@@ -1,6 +1,7 @@
 import './gdprSeoMigration';
 import './remediationVerificationMigration';
 import './remediationIntegrity';
+import './writeRecovery';
 import './locationEvents';
 import './seoResponseIntegrity';
 import './uiIntegrityFixes';
