@@ -388,4 +388,74 @@
   .backup-panel .secondary {
     width: 100%;
   }
+
+  /* Mobile-only residual QA fixes. */
+  .corrections-filter {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    width: 100%;
+  }
+  .corrections-filter .primary,
+  .corrections-filter .secondary {
+    width: 100% !important;
+    min-height: 48px;
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+    padding: 0 16px !important;
+  }
+
+  .opportunity-table {
+    padding: 12px !important;
+  }
+  .opportunity-table .table-scroll {
+    overflow-x: visible !important;
+  }
+  .opportunity-table table,
+  .opportunity-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .opportunity-table thead {
+    display: none;
+  }
+  .opportunity-table tr {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e3e9f1;
+    border-radius: 10px;
+    background: #fff;
+  }
+  .opportunity-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .opportunity-table td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: #718096;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .opportunity-table td:nth-child(1)::before { content: "Query"; }
+  .opportunity-table td:nth-child(2)::before { content: "Pagina"; }
+  .opportunity-table td:nth-child(3)::before { content: "Posizione"; }
+  .opportunity-table td:nth-child(4)::before { content: "Impressioni"; }
+  .opportunity-table td:nth-child(5)::before { content: "Azione"; }
+  .opportunity-table td[colspan]::before {
+    display: none;
+    content: none;
+  }
 }
