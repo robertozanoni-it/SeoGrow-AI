@@ -1,3 +1,5 @@
+import { replaceCorrections } from "./remediationStore";
+import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   Activity,
@@ -3634,7 +3636,7 @@ function SettingsPage({
         )
       )
         return;
-      onRestore(backup);
+      await onRestore(backup);
       setBackupPassword("");
       setBackupMessage(
         `Backup del ${new Date(backup.exportedAt).toLocaleString("it-IT")} ripristinato.`,
@@ -4540,6 +4542,7 @@ export default function App() {
     const remaining = clients.filter((item) => item.id !== clientId);
     const uniqueClientName =
       clients.filter((item) => item.name === client.name).length === 1;
+    setWordpressConnections(current => { const next = { ...current }; delete next[clientId]; return next; });
     setClients(remaining);
     setTasks((current) =>
       current.filter(
@@ -4638,45 +4641,11 @@ export default function App() {
       ].slice(0, 20),
     }));
     const verifiedTasks = tasksFromAnalysis(enriched, selectedClientRecord);
-    setTasks((current) => {
-      const completed = new Set(
-        current
-          .filter(
-            (task) =>
-              task.sourceClientId === selectedClient &&
-              String(task.id).startsWith("analysis-") &&
-              task.kind !== "manual" &&
-              task.status === "Completato",
-          )
-          .map((task) => `${task.kind}|${task.title}|${task.sourceUrl || task.targetUrl || ""}`),
-      );
-      return [
-        ...current.filter(
-          (task) =>
-            !(
-              task.sourceClientId === selectedClient &&
-              String(task.id).startsWith("analysis-") &&
-              task.kind !== "manual" &&
-              task.status !== "Completato"
-            ),
-        ),
-        ...verifiedTasks.map((task) => {
-          const wasCompleted = completed.has(
-            `${task.kind}|${task.title}|${task.sourceUrl || task.targetUrl || ""}`,
-          );
-          return wasCompleted
-            ? {
-                ...task,
-                title: `Problema ricomparso: ${task.title}`,
-                detail: `REGRESSIONE: il problema era stato completato ma è stato rilevato nuovamente.\n\n${task.detail || ""}`,
-                regression: true,
-              }
-            : task;
-        }),
-      ];
-    });
+    setTasks(current => reconcileAuditTasks(current, verifiedTasks, selectedClient, enriched.analyzedAt));
   };
-  const restoreBackup = (backup, { preserveSnapshots = false } = {}) => {
+  const restoreBackup = async (backup, { preserveSnapshots = false } = {}) => {
+    if (!preserveSnapshots) await replaceCorrections(backup.corrections || []);
+    setWordpressConnections({});
     setClients(backup.clients);
     setTasks(backup.tasks);
     setGscData(backup.gscData);
@@ -4713,11 +4682,12 @@ export default function App() {
         : backup.clients[0].id,
     );
   };
-  const restoreSnapshot = (snapshotId) => {
+  const restoreSnapshot = async (snapshotId) => {
     const snapshot = snapshots.find((item) => item.id === snapshotId);
     if (!snapshot || !window.confirm("Ripristinare questa copia locale?"))
       return;
-    restoreBackup(snapshot.data, { preserveSnapshots: true });
+    try { await restoreBackup(snapshot.data, { preserveSnapshots: true }); }
+    catch (error) { setToast(`Ripristino non completato: ${error.message}`); }
   };
   const createManualTask = (values) => {
     const title = String(values?.title || "").trim();

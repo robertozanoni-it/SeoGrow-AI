@@ -1,5 +1,5 @@
 import { validPendingApproval } from "./agentRuntime.js";
-import { listCorrections, replaceCorrections } from "./remediationStore.js";
+import { listCorrections } from "./remediationStore.js";
 
 const STOP_WORDS = new Set([
   "a",
@@ -367,7 +367,7 @@ export async function readWorkspaceBackup(file, passphrase = "") {
       typeof record.issueLabel === "string" &&
       Boolean(safeReportUrl(record.sourceUrl)) &&
       Array.isArray(record.fields) &&
-      record.fields.every((field) => ["title", "content", "excerpt", "slug"].includes(field)) &&
+      record.fields.every((field) => ["title", "content", "excerpt", "slug", "meta_description", "canonical", "noindex", "meta._elementor_data", "meta.rank_math_title", "meta.rank_math_description", "meta.rank_math_canonical_url", "meta.rank_math_robots", "meta._yoast_wpseo_title", "meta._yoast_wpseo_metadesc", "meta._yoast_wpseo_canonical", "meta._yoast_wpseo_meta-robots-noindex"].includes(field)) &&
       record.before && typeof record.before === "object" && !Array.isArray(record.before) &&
       record.after && typeof record.after === "object" && !Array.isArray(record.after) &&
       !("applicationPassword" in record) && !("password" in record) && !("apiKey" in record);
@@ -379,6 +379,5 @@ export async function readWorkspaceBackup(file, passphrase = "") {
   const jsonSize = JSON.stringify(data).length;
   if (jsonSize > 25 * 1024 * 1024)
     throw new Error("Il contenuto del backup supera il limite consentito.");
-  if (Array.isArray(data.corrections)) await replaceCorrections(data.corrections);
   return data;
 }

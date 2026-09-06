@@ -1,3 +1,4 @@
+import { budgetedOpenAiFetch } from "./openAiBudget.js";
 import { countVisibleWords, shortContentTarget } from "./wordpressContentTarget.js";
 import { validateSeoSuggestion } from "../src/editorialQuality.js";
 
@@ -119,7 +120,7 @@ async function aiValue(kind, issue, page) {
   const minTokens = kind === "content" ? 1600 : 512;
   const maxOutputTokens = Number.isFinite(configured) ? Math.min(6000, Math.max(minTokens, Math.trunc(configured))) : 3000;
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await budgetedOpenAiFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(75_000),
     headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" },

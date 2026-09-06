@@ -1,3 +1,4 @@
+import { budgetedOpenAiFetch } from "./openAiBudget.js";
 import {
   assertPublishableSeoSuggestion,
   validateSeoSuggestion,
@@ -83,7 +84,7 @@ export function deterministicMetaDescription(page) {
 }
 
 async function requestValue(kind, issue, context, retry, qualityFeedback = "") {
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await budgetedOpenAiFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(90_000),
     headers: {

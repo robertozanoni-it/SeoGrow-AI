@@ -46,7 +46,7 @@ async function safeBase(input) {
   const addresses = await dns.lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
-  url.pathname = "/";
+  url.pathname = `${url.pathname.replace(/\/(?:wp-admin|wp-json)(?:\/.*)?$/i, "").replace(/\/+$/, "")}/`;
   url.search = "";
   url.hash = "";
   return url;
@@ -245,6 +245,15 @@ function registerRoutes(app) {
         error.code = "STALE_ROLLBACK";
         throw error;
       }
+      const patchFields = [
+        ...Object.keys(patch).filter(key => key !== "meta"),
+        ...Object.keys(patch.meta || {}).map(key => `meta.${key}`),
+      ];
+      if (patchFields.some(field => !Object.prototype.hasOwnProperty.call(expectedCurrent, field))) {
+        const error = new Error("Rollback bloccato: snapshot mancante per uno o più campi da ripristinare.");
+        error.code = "STALE_ROLLBACK";
+        throw error;
+      }
       assertExpectedCurrent(current, expectedCurrent);
 
       const update = await wpJson(endpoint(base, resource, `/${entityId}`), {
@@ -252,6 +261,15 @@ function registerRoutes(app) {
         headers: auth,
         body: JSON.stringify(patch),
       });
+      const expectedRestored = Object.fromEntries(patchFields.map(field => [field,
+        field.startsWith("meta.") ? patch.meta[field.slice(5)] : patch[field],
+      ]));
+      try { assertExpectedCurrent(update, expectedRestored); }
+      catch {
+        const error = new Error("Rollback inviato ma non confermato da WordPress: riverifica necessaria.");
+        error.code = "ROLLBACK_UNVERIFIED";
+        throw error;
+      }
       return res.json({
         ok: true,
         resource,

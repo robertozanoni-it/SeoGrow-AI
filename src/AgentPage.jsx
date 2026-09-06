@@ -31,6 +31,9 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const [selectedRunId, setSelectedRunId] = useState("");
   const [actionError, setActionError] = useState("");
   const orchestrator = useMemo(() => new SeoAgentOrchestrator({ registry: createSeoGrowToolRegistry(), onUpdate: setCurrentRun }), []);
+  useEffect(() => () => {
+    for (const runId of orchestrator.active.keys()) orchestrator.cancel(runId);
+  }, [orchestrator]);
   const run = currentRun || savedRuns.find((item) => item?.id === selectedRunId) || savedRuns[0];
   const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode };
 

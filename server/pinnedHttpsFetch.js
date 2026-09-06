@@ -35,6 +35,8 @@ export async function pinnedHttpsFetch(input, options = {}) {
       rejectUnauthorized: true,
       timeout: Number(options.timeout || 20_000),
     }, (response) => {
+      response.on("error", reject);
+      response.on("aborted", () => reject(new Error("Risposta remota interrotta.")));
       const chunks = [];
       let size = 0;
       response.on("data", (chunk) => {
@@ -51,11 +53,14 @@ export async function pinnedHttpsFetch(input, options = {}) {
           if (Array.isArray(value)) value.forEach((item) => responseHeaders.append(name, item));
           else if (value != null) responseHeaders.set(name, String(value));
         }
-        resolve(new Response(Buffer.concat(chunks), {
+        try {
+        const withoutBody = method === "HEAD" || [204, 205, 304].includes(response.statusCode);
+        resolve(new Response(withoutBody ? null : Buffer.concat(chunks), {
           status: response.statusCode || 500,
           statusText: response.statusMessage || "",
           headers: responseHeaders,
         }));
+        } catch (error) { reject(error); }
       });
     });
 

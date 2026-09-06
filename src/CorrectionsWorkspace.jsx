@@ -59,12 +59,15 @@ export default function CorrectionsWorkspace() {
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [expanded, setExpanded] = useState(() => new Set());
-  const [password, setPassword] = useState("");
+  const [passwordEntry, setPasswordEntry] = useState(null);
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
   const [verifying, setVerifying] = useState("");
 
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
+  const password = passwordEntry?.clientId === selectedClientId ? passwordEntry.value : "";
+  const setPassword = value => setPasswordEntry({ clientId: selectedClientId, value });
+  const scopedRows = useMemo(() => rows.filter(row => selectedClientId > 0 && Number(row.clientId) === selectedClientId), [rows, selectedClientId]);
   const batchId = lastBatch();
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[selectedClientId] || null;
 
@@ -116,7 +119,7 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    listCorrections({ clientId: selectedClientId || undefined, batchId: showAll ? undefined : batchId || undefined })
+    (selectedClientId > 0 ? listCorrections({ clientId: selectedClientId, batchId: showAll ? undefined : batchId || undefined }) : Promise.resolve([]))
       .then((items) => { if (!cancelled) setRows(items); })
       .catch((error) => { if (!cancelled) setMessage(error.message); });
     return () => { cancelled = true; };
@@ -132,18 +135,18 @@ export default function CorrectionsWorkspace() {
   }, [active, mainTarget]);
 
   const stats = useMemo(() => ({
-    total: rows.length,
-    verified: rows.filter(isVerified).length,
-    pending: rows.filter(isPending).length,
-    rolledBack: rows.filter(isRolledBack).length,
-  }), [rows]);
+    total: scopedRows.length,
+    verified: scopedRows.filter(isVerified).length,
+    pending: scopedRows.filter(isPending).length,
+    rolledBack: scopedRows.filter(isRolledBack).length,
+  }), [scopedRows]);
 
-  const filteredRows = useMemo(() => rows.filter((record) => {
+  const filteredRows = useMemo(() => scopedRows.filter((record) => {
     if (statusFilter === "verified") return isVerified(record);
     if (statusFilter === "pending") return isPending(record);
     if (statusFilter === "rolled") return isRolledBack(record);
     return true;
-  }), [rows, statusFilter]);
+  }), [scopedRows, statusFilter]);
 
   const toggleExpanded = (id) => {
     setExpanded((current) => {
@@ -184,7 +187,7 @@ export default function CorrectionsWorkspace() {
       return;
     }
     const record = await readCorrection(id);
-    if (!record) {
+    if (!record || Number(record.clientId) !== selectedClientId || selectedClientId !== Number(readJson(SELECTED_CLIENT_KEY, 0))) {
       setMessage("Snapshot di rollback non disponibile.");
       return;
     }
