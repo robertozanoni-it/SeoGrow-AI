@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "test": "node --test src/*.test.js",
     "test:launcher": "zsh -n AVVIA.command",
-    "test:wordpress-taxonomy-e2e": "node scripts/wordpress-taxonomy-e2e.mjs",
+    "test:wordpress-taxonomy-e2e": "node scripts/wordpress-taxonomy-e2e-cache-aware.mjs",
     "test:wordpress-elementor-e2e": "node scripts/wordpress-elementor-e2e.mjs"
   },
   "dependencies": {
