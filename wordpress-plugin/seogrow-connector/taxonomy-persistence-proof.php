@@ -44,6 +44,7 @@ function seogrow_connector_rank_math_persistence_capability() {
         'resource' => 'taxonomy-persistence-capability',
         'rankMathPersistenceProof' => true,
         'proofSource' => 'wp_termmeta+get_term_meta',
+        'crossRequestCacheCoherence' => true,
         'writesPerformed' => 0,
     ));
 }
@@ -57,6 +58,103 @@ add_action('rest_api_init', static function () {
         },
     ));
 });
+
+function seogrow_connector_rank_math_inspection_cache_coherence($response, $server, $request) {
+    if (!($request instanceof WP_REST_Request) || $request->get_route() !== '/seogrow/v1/taxonomy-inspect') {
+        return $response;
+    }
+    if (strtoupper((string) $request->get_method()) !== 'GET') {
+        return $response;
+    }
+
+    $rest_response = rest_ensure_response($response);
+    if ($rest_response->get_status() < 200 || $rest_response->get_status() >= 300) {
+        return $response;
+    }
+    $data = $rest_response->get_data();
+    if (
+        !is_array($data) ||
+        ($data['ok'] ?? false) !== true ||
+        ($data['readOnly'] ?? false) !== true ||
+        ($data['resource'] ?? '') !== 'taxonomy' ||
+        ($data['plugins']['rankMath'] ?? false) !== true ||
+        ($data['plugins']['yoast'] ?? false) === true
+    ) {
+        return $response;
+    }
+
+    $term_id = absint($data['term']['id'] ?? 0);
+    $taxonomy = sanitize_key((string) ($data['term']['taxonomy'] ?? ''));
+    if (!$term_id || !in_array($taxonomy, array('category', 'post_tag'), true)) {
+        return $response;
+    }
+
+    $rows = seogrow_connector_rank_math_db_rows($term_id, 'rank_math_description');
+    if (count($rows) !== 1) {
+        $data['cacheCoherence'] = array(
+            'checked' => true,
+            'coherent' => false,
+            'repaired' => false,
+            'dbRowCount' => count($rows),
+            'persistentWritesPerformed' => 0,
+        );
+        $rest_response->set_data($data);
+        return $rest_response;
+    }
+
+    $db_value = seogrow_connector_rank_math_db_value('meta_description', $rows);
+    $api_value = (string) ($data['seo']['rankMath']['meta_description'] ?? '');
+    if ($db_value === $api_value) {
+        $data['cacheCoherence'] = array(
+            'checked' => true,
+            'coherent' => true,
+            'repaired' => false,
+            'dbRowCount' => 1,
+            'persistentWritesPerformed' => 0,
+        );
+        $rest_response->set_data($data);
+        return $rest_response;
+    }
+
+    wp_cache_delete($term_id, 'term_meta');
+    clean_term_cache($term_id, $taxonomy);
+    $fresh = get_term($term_id, $taxonomy);
+    if (!$fresh || is_wp_error($fresh)) {
+        return seogrow_connector_persistence_error_response(
+            'seogrow_taxonomy_cache_refresh_failed',
+            'Divergenza Rank Math rilevata tra cache/API e database, ma la rilettura dopo invalidazione cache non è riuscita.',
+            409,
+            array('persistentWritesPerformed' => 0)
+        );
+    }
+
+    $fresh_data = seogrow_connector_taxonomy_inspection_payload($fresh);
+    if (is_wp_error($fresh_data)) {
+        return $fresh_data;
+    }
+    $fresh_api_value = (string) ($fresh_data['seo']['rankMath']['meta_description'] ?? '');
+    if ($fresh_api_value !== $db_value) {
+        return seogrow_connector_persistence_error_response(
+            'seogrow_taxonomy_cache_divergence',
+            'Divergenza Rank Math persistente: get_term_meta non coincide con wp_termmeta anche dopo invalidazione della cache term_meta.',
+            409,
+            array(
+                'dbRowCount' => 1,
+                'persistentWritesPerformed' => 0,
+            )
+        );
+    }
+
+    $fresh_data['cacheCoherence'] = array(
+        'checked' => true,
+        'coherent' => true,
+        'repaired' => true,
+        'dbRowCount' => 1,
+        'persistentWritesPerformed' => 0,
+    );
+    return rest_ensure_response($fresh_data);
+}
+add_filter('rest_post_dispatch', 'seogrow_connector_rank_math_inspection_cache_coherence', 15, 3);
 
 function seogrow_connector_rank_math_persistence_proof($response, $server, $request) {
     if (!($request instanceof WP_REST_Request) || $request->get_route() !== '/seogrow/v1/taxonomy-write') {
