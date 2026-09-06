@@ -133,6 +133,13 @@ jobs:
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-diagnostics.mjs
 
+      - name: Taxonomy baseline read-only preflight
+        if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+        run: node scripts/wordpress-taxonomy-diagnostics.mjs
+
       - name: Taxonomy Rank Math E2E
         if: inputs.mode == 'taxonomy-rank-math'
         env:
