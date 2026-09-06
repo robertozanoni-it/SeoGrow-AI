@@ -1,4 +1,4 @@
-const MAX_AUTHORITATIVE_RESOURCES = 30;
+const MAX_AUTHORITATIVE_RESOURCES = 2000;
 const ALLOWED_STATUSES = new Set(["publish"]);
 
 const normalizedHost = (hostname) => String(hostname || "").toLowerCase().replace(/^www\./, "");
