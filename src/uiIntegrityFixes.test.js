@@ -18,6 +18,9 @@ test('responsive hardening copre breakpoint tablet e mobile', () => {
   assert.match(css, /\.tasks-panel tr/);
   assert.match(css, /\.content-layout/);
   assert.match(css, /\.page-title \.primary[\s\S]*font-size: 14px !important/);
+  assert.match(css, /\.corrections-filter \.primary[\s\S]*font-size: 14px !important/);
+  assert.match(css, /\.opportunity-table \.table-scroll[\s\S]*overflow-x: visible !important/);
+  assert.match(css, /\.opportunity-table thead[\s\S]*display: none/);
 });
 
 test('HistoryPage usa una chiave univoca anche con timestamp duplicati o mancanti', () => {
