@@ -45,7 +45,7 @@ const rankInspection = () => normalizeTaxonomyInspection({
 }, "https://example.com/argomenti/seo/");
 
 test("Connector 1.3 conserva ispezione esatta e aggiunge solo scrittura tassonomia single-field", () => {
-  assert.match(connectorLoader, /Version: 1\.3\.2/);
+  assert.match(connectorLoader, /Version: 1\.3\.3/);
   assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.2'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
