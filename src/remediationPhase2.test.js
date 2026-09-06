@@ -50,7 +50,7 @@ test("Rank Math e Yoast simultanei non vengono risolti per priorità arbitraria"
 });
 
 test("il live flow V2 registra la correzione senza dipendere dal vecchio correlatore fetch", () => {
-  assert.match(live, /await saveCorrection\(record\)/);
+  assert.match(live, /await applyJournaledCorrection\(pendingRecord/);
   assert.match(live, /seogrow-remediation-applied/);
   assert.doesNotMatch(location, /pendingGenerations|takePendingGeneration|\/api\/wordpress\/remediate/);
   assert.doesNotMatch(location, /window\.fetch\s*=/);

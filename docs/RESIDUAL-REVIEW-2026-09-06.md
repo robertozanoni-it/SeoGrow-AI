@@ -51,7 +51,7 @@ Gravità riferita all'impatto potenziale, non alla prova di sfruttamento su un s
 | V01 | Sicurezza/API | Possibile endpoint montato senza autenticazione | Alta | Ipotesi avversariale | Nessun fix necessario nella copertura provata | endpointAuthorization: tutte le route API non pubbliche montate restituiscono 401 | NON PROBLEMA |
 | L01 | Browser/UX | Navigazione, responsive, modali e feedback non collaudati integralmente | Alta | Browser gestito blocca URL locale | Nessun aggiramento | ERR_BLOCKED_BY_CLIENT; app avviata | BLOCCATO |
 | L02 | Persistenza | Restore workspace non atomico tra localStorage e IndexedDB | Alta | Più store e salvataggi React differiti | Ridotto il rischio di scrittura prima della conferma, ma nessuna transazione cross-store | Analisi useStoredState + restoreBackup | BLOCCATO |
-| L03 | Recovery WordPress | Crash dopo write remota e prima di saveCorrection può perdere lo snapshot locale | Alta | Journal delle pagine live non persistito prima della scrittura | Non introdotto un nuovo protocollo di recovery senza collaudo di crash/restart | live-apply + saveCorrection successivo lato UI | BLOCCATO |
+| L03 | Recovery WordPress | Snapshot salvato solo dopo la scrittura remota | Alta | Assenza journal pre-write | Journal IndexedDB prima della richiesta, per pagine e tassonomie; esito incerto conservato dopo errore | R27: storage indisponibile, risposta persa, rilettura da nuova connessione, settlement fallito | CORRETTO |
 | L04 | Concorrenza | Read-check-write REST core non è compare-and-swap atomico sul server WP | Alta | Aggiornamento esterno possibile tra GET e POST | Check stale e copertura campi rafforzati; rischio residuo da trattare con protocollo Connector | Revisione live-apply/live-rollback; test reali concorrenti assenti | DA VERIFICARE SU SITO REALE |
 | L05 | Elementor | Global widget/reusable template/CPT non dimostrati sul sito testato | Alta | Baseline senza template_id/templateID e senza fixture reali per tutte le classi | Mantenuti fail-closed e sharedWriteAllowed:false | Suite contratti/ownership, nessuna nuova prova live | DA VERIFICARE SU SITO REALE |
 | L06 | Costi | Tariffe da configurazione e usage mancante non costituiscono fatturazione completa | Media | Contatore stimato, risposte incomplete/timeout e prezzi configurati | Integrati gli endpoint mancanti; non certificata equivalenza alla fattura provider | Test usage valido; consumo reale non eseguito | BLOCCATO |
@@ -63,7 +63,7 @@ R01–R21. I test avversariali dei gruppi Agent, HTTPS, dati, API e rollback son
 
 ## Bug ancora aperti
 
-L02 e L03 sono difetti architetturali residui. L04 richiede una prova di concorrenza e un'eventuale operazione atomica lato WordPress. Il fix R17 conferma la risposta dell'update, non la durabilità cross-request né il frontend pubblico: non va interpretato come chiusura di L03/L04.
+L02 resta un difetto architetturale residuo. L03 è corretto nel proseguimento descritto sotto; la recovery resta manuale e il crash del browser/OS non è stato collaudato sul sito reale. L04 richiede una prova di concorrenza e un'eventuale operazione atomica lato WordPress. Il fix R17 conferma la risposta dell'update, non la durabilità cross-request né il frontend pubblico: non va interpretato come chiusura di L03/L04.
 
 ## Limiti reali ancora non verificabili
 
@@ -79,7 +79,7 @@ Conservazione lavoro nei task, riapertura delle ricomparse, feedback backup dopo
 
 ## Debito tecnico residuo
 
-App e server monolitici, logiche duplicate tra workspace e App, dipendenza da DOM/localStorage/eventi globali, test numerosi basati su regex del sorgente, schemi import/output non uniformi, nessun typecheck, lint `.mjs` assente. Le copie locali automatiche non comprendono un'istantanea sincronizzata di IndexedDB. Il filtro “ultimo batch” è globale e può richiedere “mostra tutto” passando a un altro cliente. Nessuna dichiarazione di revisione esaustiva di ogni combinazione UI/provider.
+App e server monolitici, logiche duplicate tra workspace e App, dipendenza da DOM/localStorage/eventi globali, test numerosi basati su regex del sorgente, schemi import/output non uniformi, nessun typecheck, lint `.mjs` assente. Le copie locali automatiche non comprendono un'istantanea sincronizzata di IndexedDB. Il filtro “ultimo batch” globale è stato corretto nel proseguimento R26. Nessuna dichiarazione di revisione esaustiva di ogni combinazione UI/provider.
 
 ## Stato Release Gate
 
@@ -92,3 +92,54 @@ Il primo push è stato rifiutato dalla revisione automatica delle autorizzazioni
 ## Stato repository
 
 Modifiche isolate nel branch di revisione, senza merge su main. Connector 1.3.1 e contenuti WordPress invariati. Pubblicazione del branch e PR in bozza autorizzate esplicitamente; nessun merge su main incluso in questa operazione. Nessuna pretesa di “tutto risolto” o di completamento dei due passaggi visuali richiesti.
+
+
+## Proseguimento autorizzato — ulteriore ciclo avversariale
+
+Base: PR #35, commit `23fe9cceabd7d7ad8ee95ece75129e351f54dca7`. Release Gate #570 superato nei tre job quality, browser-ui-smoke e macos-launcher-smoke. Nessun merge.
+
+Primo passaggio: credenziali, persistenza e recovery. Secondo passaggio: errore di clonazione nelle patch, risposta incompleta, invalidazione delle anteprime, contatori e identità connessione. Tutti i nuovi test comportamentali usano dati sintetici, senza credenziali reali né scritture WordPress. I tre test iniziali IndexedDB hanno fallito sulla logica precedente (lost update, import parziale, orfani) e sono passati dopo le correzioni.
+
+| ID | Area | Problema | Gravità | Causa | Correzione | Test / prova | Stato |
+|---|---|---|---|---|---|---|---|
+| R22 | Sicurezza multi-cliente | Riverifica automatica taxonomy può leggere password del cliente visibile per un altro sito | Alta | Fallback globale a input DOM | Credenziali solo esplicite con clientId e base HTTPS identici; rollback valida lo stesso legame e privilegia username corrente | correctionCredentials: assenza, altro cliente, altro host, sottocartella, credenziali corrette | CORRETTO |
+| R23 | Persistenza | Aggiornamenti concorrenti perdono campi dello snapshot | Alta | GET e PUT in transazioni separate | Read-modify-write in singola transazione; identità record preservata | remediationPersistence: Promise.all di due patch, entrambe conservate | CORRETTO |
+| R24 | Import | Eccezione sincrona consente commit parziale dopo clear | Alta | Reject senza abort della transazione | Abort esplicito; abort anche per patch non clonabile nel callback | remediationPersistence: archivio originale intatto dopo record non clonabile | CORRETTO |
+| R25 | Clienti | Eliminare ultimo cliente lascia snapshot orfani visibili | Alta | Lista vuota trattata come lista non disponibile | Distinte lista vuota e storage mancante | remediationPersistence: lista vuota nasconde e purge rimuove orfani | CORRETTO |
+| R26 | UX Correzioni | Ultimo batch di altro cliente nasconde cronologia selezionata | Media | Filtro batch globale | Ultimo batch derivato dai record del cliente; contatori sul batch visualizzato | Revisione flusso, suite completa, lint/build; visuale integrale non disponibile | CORRETTO |
+| R27 | Recovery WP | Risposta persa o errore storage dopo write può perdere rollback | Alta | Snapshot persistito dopo la richiesta | Journal pre-write con stesso id; zero invii se non salvabile; Esito incerto se risposta/settlement falliscono; niente riverifica SEO automatica di esito incerto | correctionJournal + remediationPersistence: ordine, errori, snapshot incompleto, nuova connessione IndexedDB | CORRETTO |
+| R28 | UX Taxonomy | Eventi storico annullano anteprima e ID da riverificare | Media | Revision generica inclusa nell'identità dell'ispezione | Identità limitata a cliente/audit/risorsa/connessione | Revisione dipendenze effect, test wiring, suite e build; visuale integrale non disponibile | CORRETTO |
+| R29 | Approvazioni | Credenziali e contesto possono cambiare dopo anteprima | Alta | Token non accompagnato da controllo client-side del sito originario | Snapshot del contesto anteprima; confronto cliente/sito immediatamente prima della richiesta | Guard correctionCredentials, controlli contesto, suite live/taxonomy | CORRETTO |
+| R30 | UX Attendibilità | Nuovo journal incerto mostrerebbe badge WordPress verde | Media | Badge precedentemente costante | Badge da controllare, stato Esito incerto tra pending, label password accessibile, azioni verifica/rollback disabilitate mentre altra azione è in corso | Revisione JSX, lint/build; visuale integrale non disponibile | CORRETTO |
+
+### Bug corretti
+
+R22–R30, oltre ai precedenti R01–R21. L03 passa a CORRETTO per la persistenza dello snapshot prima dell'invio; non certifica una transazione distribuita o il rollback atomico lato WordPress.
+
+### Bug ancora aperti
+
+L02: ripristino workspace tra localStorage e IndexedDB non atomico. L04: concorrenza REST esterna non atomica. Nessuna nuova scrittura reale per provare queste condizioni.
+
+### Limiti reali ancora non verificabili
+
+L01, L04–L07 rimangono. Il browser gestito era bloccato sull'app locale; lo smoke CI #570 non copre ogni modulo, modale e combinazione di dati. La recovery di Esito incerto richiede ispezione manuale dello stato WordPress; non viene automaticamente ritentata. Non simulato arresto fisico del browser/OS né dimostrato recovery multi-dispositivo.
+
+### Regressioni trovate e corrette
+
+La nuova modalità ultimo batch inizialmente lasciava contatori su tutto lo storico: riallineati al batch visualizzato. Nel secondo passaggio, una patch IndexedDB non clonabile richiedeva abort anche nel callback di lettura: aggiunto e testato. Tre test testuali aspettavano saveCorrection direttamente nei componenti: aggiornati al collegamento applyJournaledCorrection, affiancati da test comportamentali del journal e della persistenza.
+
+### Migliorie UX implementate
+
+Cronologia ultimo batch per cliente, contatori coerenti, password con nome accessibile, conservazione anteprima taxonomy agli aggiornamenti dello storico, feedback esplicito per esito incerto, blocco delle azioni concorrenti verifica/rollback nella schermata Correzioni.
+
+### Debito tecnico residuo
+
+Persistenza cross-store, coordinamento cross-tab delle operazioni remote, provenance completa degli import e test visuali estesi. fake-indexeddb aggiunto solo come dipendenza di sviluppo per testare transazioni reali dell'API IndexedDB in memoria; non sostituisce il collaudo browser/OS.
+
+### Stato finale Release Gate
+
+Verifiche locali del proseguimento: 496/496 test superati; lint e build superati; dependency audit 0 vulnerabilità. La CI del nuovo commit deve essere verificata separatamente: il verde #570 si riferisce alla base del proseguimento. Restano warning delle dipendenze delle Actions (punycode/url.parse), non errori del codice applicativo.
+
+### Stato finale repository
+
+Aggiornamento destinato allo stesso branch e alla stessa PR #35 in bozza, autorizzati da Roberto. Nessun merge su main, nessuna modifica al Connector o ai contenuti reali WordPress, nessuna riapertura del ciclo Rank Math.

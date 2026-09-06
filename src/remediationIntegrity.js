@@ -1,4 +1,5 @@
 import { apiFetch } from "./api";
+import { correctionCredentials } from "./correctionCredentials.js";
 import {
   listCorrections,
   readCorrection,
@@ -11,15 +12,11 @@ import "./RemediationIntegrity.css";
 const DUPLICATE_TITLE = /title duplic|titolo duplic/i;
 const SHORT_CONTENT = /contenuto breve|short content|content.*parole|parole/i;
 const H1 = /\bh1\b/i;
-const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
+
 let recheckRunning = false;
 let recheckTimer = null;
 
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
-
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
   if (after.status === "Verificato") {
@@ -37,30 +34,12 @@ async function updateAndSync(record, patch) {
   return updated;
 }
 
-function livePassword() {
-  if (typeof document === "undefined") return "";
-  return document.querySelector(".corrections-security input[type='password']")?.value ||
-    document.querySelector(".audit-unified-credentials input[type='password']")?.value || "";
-}
-
-function liveWordPressInput(autocomplete) {
-  if (typeof document === "undefined") return "";
-  return document.querySelector(`.audit-unified-credentials input[autocomplete='${autocomplete}']`)?.value?.trim() || "";
-}
-
-function taxonomyCredentials(record, provided = {}) {
-  const profile = readJson(WORDPRESS_PROFILES_KEY, {})[record.clientId] || null;
-  return {
-    siteUrl: provided.siteUrl || record.siteUrl || profile?.url || liveWordPressInput("url") || record.sourceUrl || "",
-    username: provided.username || record.username || profile?.username || liveWordPressInput("username") || "",
-    applicationPassword: provided.applicationPassword || livePassword(),
-  };
-}
-
 async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
   const field = record.taxonomyField || (Array.isArray(record.fields) ? record.fields[0] : "");
   const expected = record.after?.[field];
-  const credentials = taxonomyCredentials(record, providedCredentials);
+  let credentials;
+  try { credentials = correctionCredentials(record, providedCredentials); }
+  catch (error) { return { changed: false, record, error }; }
   if (!field || expected === undefined) {
     const error = new Error("Storico tassonomia incompleto: campo o valore atteso non disponibili.");
     return { changed: false, record, error };
@@ -120,6 +99,9 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
 
 export async function recheckCorrection(record, credentials = {}) {
   if (!record?.sourceUrl || record.status === "Ripristinato") return { changed: false, record };
+  if (record.writeConfirmed === false || record.status === "Esito incerto") {
+    return { changed: false, record, error: new Error("Esito della scrittura incerto: verifica lo stato salvato in WordPress prima della riverifica SEO o del ripristino.") };
+  }
   if (record.resource === "taxonomy") return recheckTaxonomyCorrection(record, credentials);
 
   const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });

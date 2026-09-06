@@ -15,7 +15,7 @@ test("la remediation live V2 richiede anteprima e approvazione esplicita", () =>
   assert.match(client, /Approva e applica questa modifica/);
   assert.match(client, /window\.confirm/);
   assert.match(client, /\/api\/wordpress\/live-apply/);
-  assert.match(client, /await saveCorrection\(record\)/);
+  assert.match(client, /await applyJournaledCorrection\(pendingRecord/);
 });
 
 test("l'ispezione V2 passa sempre la base WordPress separata dal permalink target", () => {

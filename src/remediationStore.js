@@ -58,7 +58,11 @@ const withStore = async (mode, action) => {
       const transaction = db.transaction(STORE_NAME, mode);
       const store = transaction.objectStore(STORE_NAME);
       let result;
-      try { result = action(store); } catch (error) { reject(error); return; }
+      try { result = action(store, transaction); } catch (error) {
+        transaction.abort();
+        reject(error);
+        return;
+      }
       transaction.oncomplete = () => resolve(result);
       transaction.onerror = () => reject(transaction.error || new Error("Errore archivio remediation."));
       transaction.onabort = () => reject(transaction.error || new Error("Operazione remediation annullata."));
@@ -156,8 +160,8 @@ const replaceIndex = (records) => {
 };
 
 const activeClientIds = () => {
-  const clients = readJson(CLIENTS_KEY, []);
-  if (!Array.isArray(clients) || !clients.length) return null;
+  const clients = readJson(CLIENTS_KEY, null);
+  if (!Array.isArray(clients)) return null;
   return new Set(clients.map((client) => Number(client?.id)).filter((id) => Number.isSafeInteger(id) && id > 0));
 };
 
@@ -191,12 +195,22 @@ export async function readCorrection(id) {
 }
 
 export async function updateCorrection(id, patch) {
-  const current = await readCorrection(id);
-  if (!current) return null;
-  const next = migrateIdentity({ ...current, ...patch, issueKey: current.issueKey });
-  await withStore("readwrite", (store) => store.put(next));
-  syncIndex(next);
-  return next;
+  const result = await withStore("readwrite", (store, transaction) => {
+    const result = { record: null };
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const current = request.result;
+      if (!current) return;
+      const next = migrateIdentity({ ...current, ...patch, id: current.id, clientId: current.clientId, issueKey: current.issueKey });
+      try {
+        store.put(next);
+        result.record = next;
+      } catch { transaction.abort(); }
+    };
+    return result;
+  });
+  if (result.record) syncIndex(result.record);
+  return result.record;
 }
 
 export async function listCorrections({ clientId, batchId, includeOrphans = false } = {}) {

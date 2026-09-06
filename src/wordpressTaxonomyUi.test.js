@@ -13,7 +13,7 @@ test("la UI tassonomie usa il contratto preview/apply e conferme esplicite", () 
   assert.match(ui, /\/api\/wordpress\/taxonomy-apply/);
   assert.match(ui, /canonicalTargetConfirmed: true/);
   assert.match(ui, /indexingIntent/);
-  assert.match(ui, /saveCorrection/);
+  assert.match(ui, /await applyJournaledCorrection\(pendingRecord/);
   assert.match(ui, /resource: "taxonomy"/);
   assert.match(ui, /taxonomyField: field/);
 });
