@@ -39,3 +39,28 @@ test('atomic flags alone cannot prove persistence of the requested entity and fi
     await assert.rejects(atomicWordPressWrite(new URL('https://example.it/'), {}, payload, async () => Response.json({ ok: true, atomicGuaranteed: true, staleChecked: true, entity })), error => error.code === 'ATOMIC_RESULT_UNVERIFIED');
   }
 });
+
+test('proven single-row CAS success is accepted for posts and pages', async () => {
+  for (const resource of ['posts', 'pages']) {
+    const payload = {
+      resource,
+      id: 12,
+      changes: { title: 'New title', content: 'New body' },
+      expectedCurrent: { title: 'Old title', content: 'Old body' },
+      operation: 'apply',
+    };
+    const result = await atomicWordPressWrite(new URL('https://example.it/'), {}, payload, async () => Response.json({
+      ok: true,
+      atomicGuaranteed: true,
+      staleChecked: true,
+      entity: {
+        id: 12,
+        title: { raw: 'New title' },
+        content: { raw: 'New body' },
+        excerpt: { raw: '' },
+      },
+    }));
+    assert.equal(result.ok, true);
+    assert.equal(result.entity.id, 12);
+  }
+});
