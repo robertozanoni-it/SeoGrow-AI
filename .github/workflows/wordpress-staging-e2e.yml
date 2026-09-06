@@ -11,6 +11,7 @@ on:
           - elementor-read-only
           - taxonomy-read-only-diagnostics
           - taxonomy-consistency-sampler
+          - taxonomy-rank-math-general
           - taxonomy-rank-math
           - taxonomy-yoast
       site_url:
@@ -30,7 +31,7 @@ on:
         required: false
         type: string
       confirm_write:
-        description: "Solo per taxonomy-rank-math/yoast scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
+        description: "Solo per i mode taxonomy-rank-math*/yoast scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
         required: false
         type: string
 
@@ -90,7 +91,7 @@ jobs:
           fi
 
       - name: Validate write-mode guard
-        if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
+        if: inputs.mode == 'taxonomy-rank-math-general' || inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
         shell: bash
         env:
           CONFIRM_WRITE: ${{ inputs.confirm_write }}
@@ -140,6 +141,14 @@ jobs:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
+
+      - name: Rank Math general E2E
+        if: inputs.mode == 'taxonomy-rank-math-general'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+          SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+        run: node scripts/wordpress-rankmath-general-e2e.mjs
 
       - name: Taxonomy baseline read-only preflight
         if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
