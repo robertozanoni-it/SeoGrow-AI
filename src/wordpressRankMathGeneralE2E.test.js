@@ -34,10 +34,10 @@ test("riconosce solo marker SeoGrow E2E con timestamp ISO", () => {
   assert.equal(isSeoGrowE2EMarker("SeoGrow E2E categoria modificato"), false);
 });
 
-test("workflow ritira il general E2E Rank Math live e lo sostituisce con Doctor", () => {
+test("workflow ritira il general E2E Rank Math live e lo sostituisce con Doctor v2", () => {
   assert.match(workflow, /taxonomy-rank-math-doctor/);
-  assert.match(workflow, /Rank Math Doctor — diagnose, remediate, verify/);
-  assert.match(workflow, /node scripts\/wordpress-rankmath-doctor\.mjs/);
+  assert.match(workflow, /Rank Math Doctor v2 — diagnose, remediate, converge, verify/);
+  assert.match(workflow, /node scripts\/wordpress-rankmath-doctor-convergence\.mjs/);
   assert.doesNotMatch(workflow, /- taxonomy-rank-math-general\n/);
   assert.doesNotMatch(workflow, /- taxonomy-rank-math\n/);
   assert.doesNotMatch(workflow, /Rank Math general E2E/);
@@ -57,6 +57,7 @@ test("Connector carica purge mirato e recovery journal persistente", () => {
   assert.match(loader, /taxonomy-public-cache-purge\.php/);
   assert.match(loader, /taxonomy-recovery-journal\.php/);
   assert.match(loader, /taxonomy-recovery-auto-journal\.php/);
+  assert.match(loader, /taxonomy-doctor-convergence\.php/);
   assert.match(purgeModule, /litespeed_purge_url/);
   assert.match(purgeModule, /taxonomy-public-cache-purge-capability/);
   assert.match(purgeModule, /litespeed-url-purge-20260906-v1/);
@@ -70,13 +71,12 @@ test("Connector carica purge mirato e recovery journal persistente", () => {
   assert.match(recoveryModule, /journalCleared'\s*=>\s*true/);
 });
 
-test("recovery journal si arma prima della write marker e si pulisce sul ritorno all'originale", () => {
+test("recovery journal legacy si arma prima della write marker e il Doctor v2 ne impedisce la cancellazione prematura", () => {
   assert.match(recoveryAuto, /add_filter\('update_term_metadata'/);
   assert.match(recoveryAuto, /seogrow_connector_taxonomy_recovery_marker_valid\(\$meta_value\)/);
   assert.match(recoveryAuto, /'original'\s*=>\s*\$original/);
   assert.match(recoveryAuto, /'marker'\s*=>\s*\$marker/);
   assert.match(recoveryAuto, /update_option\(\$key, \$journal, false\)/);
-  assert.match(recoveryAuto, /delete_option\(\$key\)/);
 });
 
 test("Rank Math general legacy conserva recovery marker per compatibilità ma non è più esposto nel workflow", () => {

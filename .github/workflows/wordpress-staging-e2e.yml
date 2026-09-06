@@ -145,14 +145,14 @@ jobs:
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
 
-      - name: Rank Math Doctor — diagnose, remediate, verify
+      - name: Rank Math Doctor v2 — diagnose, remediate, converge, verify
         if: inputs.mode == 'taxonomy-rank-math-doctor'
         env:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
           SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
           SEOGROW_WP_RECOVERY_ORIGINAL: ${{ inputs.recovery_original }}
-        run: node scripts/wordpress-rankmath-doctor.mjs
+        run: node scripts/wordpress-rankmath-doctor-convergence.mjs
 
       - name: Taxonomy baseline read-only preflight
         if: inputs.mode == 'taxonomy-yoast'

@@ -22,3 +22,4 @@ require_once __DIR__ . '/taxonomy-public-cache-purge.php';
 require_once __DIR__ . '/taxonomy-recovery-journal.php';
 require_once __DIR__ . '/taxonomy-recovery-auto-journal.php';
 require_once __DIR__ . '/taxonomy-doctor-state.php';
+require_once __DIR__ . '/taxonomy-doctor-convergence.php';
