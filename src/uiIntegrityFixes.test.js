@@ -18,3 +18,9 @@ test('responsive hardening copre breakpoint tablet e mobile', () => {
   assert.match(css, /\.tasks-panel tr/);
   assert.match(css, /\.content-layout/);
 });
+
+test('HistoryPage usa una chiave univoca anche con timestamp duplicati o mancanti', () => {
+  const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(app, /history\.map\(\(item, index\) =>/);
+  assert.match(app, /key=\{`\$\{item\.analyzedAt \|\| ["']missing["']\}-\$\{index\}`\}/);
+});
