@@ -87,13 +87,13 @@ async function main() {
   }
 
   console.error("\n[SeoGrow] E2E fallito dopo write: eseguo prima diagnostica READ-ONLY cross-request.");
-  const diagnostics = runNode("scripts/wordpress-taxonomy-diagnostics.mjs");
+  const diagnostics = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs");
   emit(diagnostics);
   const diagnosticCombined = `${diagnostics.stdout || ""}\n${diagnostics.stderr || ""}`;
 
   console.error("\n[SeoGrow] Attendo 750 ms e ripeto la diagnostica READ-ONLY in una seconda request/processo indipendente.");
   await sleep(750);
-  const diagnostics2 = runNode("scripts/wordpress-taxonomy-diagnostics.mjs");
+  const diagnostics2 = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs");
   emit(diagnostics2);
   const diagnosticCombined2 = `${diagnostics2.stdout || ""}\n${diagnostics2.stderr || ""}`;
 
