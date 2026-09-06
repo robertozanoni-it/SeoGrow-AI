@@ -54,3 +54,19 @@ Il Release Gate controlla tutti i file PHP/INC e avvia
 `php scripts/test-rankmath-journal.php`, che esegue funzioni e hook reali con stub
 WordPress (non sostituisce la prova sul sito). I test JS eseguono il flusso Doctor
 con trasporto simulato, incluse perdita ownership e risposta incerta a una scrittura.
+
+## Regola permanente categorie — 6 settembre 2026
+
+Per istruzione del proprietario, tutte le categorie devono essere indicizzabili,
+su qualsiasi sito. Il controllo globale segnala `CATEGORY_NOINDEX_POLICY_VIOLATION`
+per il noindex di una categoria. Non richiede nuovamente una decisione editoriale.
+Questa regola riguarda `category`, non tag, template Elementor o altre risorse.
+Non garantisce l'indicizzazione effettiva da parte di Google.
+
+L'assenza di noindex nell'HTML è necessaria ma non sufficiente: canonical, stato HTTP,
+robots.txt e header X-Robots-Tag vanno verificati per dichiarare indicizzabilità completa.
+Il Doctor di recovery description non cambia automaticamente le impostazioni robots.
+Se il noindex viene ereditato dalle impostazioni di Rank Math, la correzione deve
+avvenire nelle impostazioni categorie, verificando poi anche eventuali override
+per singola categoria. L'assenza di noindex nel solo termmeta non prova che il
+frontend sia indicizzabile.

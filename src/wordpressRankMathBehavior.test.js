@@ -100,3 +100,22 @@ test('public redirects are bounded, same-origin and unauthenticated',async()=>{
  assert.equal(resourceExclusion({postType:'elementor_library'}),'ELEMENTOR_TEMPLATE_NOT_SEO_PAGE');
  assert.equal(resourceExclusion({postType:'page'}),null);
 });
+
+test('every category on every domain must be indexable under the owner policy',()=>{
+ const seo=publicSeo('<title>Yoga</title><meta name="description" content="Yoga"><link rel="canonical" href="https://one.test/cat"><meta name="robots" content="noindex,follow">');
+ for(const site of ['https://one.test/cat','https://two.test/cat']) {
+  const issues=publicFindings(seo,site,{taxonomy:'category'});
+  assert.ok(issues.includes('CATEGORY_NOINDEX_POLICY_VIOLATION'));
+  assert.ok(!issues.includes('NOINDEX_REVIEW_REQUIRED'));
+ }
+ assert.ok(publicFindings(seo,'https://one.test/cat',{taxonomy:'post_tag'}).includes('NOINDEX_REVIEW_REQUIRED'));
+ const indexable={...seo,robots:['index,follow']};
+ assert.ok(!publicFindings(indexable,'https://one.test/cat',{taxonomy:'category'}).includes('CATEGORY_NOINDEX_POLICY_VIOLATION'));
+});
+
+
+test('category noindex in HTTP headers or googlebot directives is blocking',()=>{
+ const seo=publicSeo('<title>X</title><meta name="description" content="X"><link rel="canonical" href="https://example.test/"><meta name="googlebot" content="noindex">');
+ assert.ok(publicFindings(seo,'https://example.test/',{taxonomy:'category'}).includes('CATEGORY_NOINDEX_POLICY_VIOLATION'));
+ assert.ok(publicFindings({...seo,robots:[]},'https://example.test/',{taxonomy:'category',xRobotsTag:'googlebot: noindex'}).includes('CATEGORY_NOINDEX_POLICY_VIOLATION'));
+});
