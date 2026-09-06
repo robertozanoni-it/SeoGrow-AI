@@ -28,9 +28,6 @@ export function createWorkspaceRestoreCrashInterrupt(options = {}) {
   };
 }
 
-// Harness manuale, importabile solo dalla console/dev build. Usa esattamente
-// prepareWorkspaceRestore + commitWorkspaceRestore di produzione, ma non viene
-// caricato dall'app e non modifica il bundle di produzione.
 export async function runWorkspacePhysicalCrashHarness(backup, options = {}) {
   if (!shouldArmWorkspaceRestoreCrashHarness(options)) {
     throw new Error(`Harness disarmato. Apri la dev app con ?${WORKSPACE_RESTORE_CRASH_PARAM}=1.`);
@@ -51,15 +48,35 @@ export async function runWorkspacePhysicalCrashHarness(backup, options = {}) {
   }
 }
 
-export async function runWorkspacePhysicalCrashHarnessFromPicker(options = {}) {
-  if (typeof globalThis.showOpenFilePicker !== "function") {
-    throw new Error("File picker QA non disponibile in questo browser.");
-  }
-  const [handle] = await globalThis.showOpenFilePicker({
-    multiple: false,
-    types: [{ description: "SeoGrow backup JSON", accept: { "application/json": [".json"] } }],
+function pickJsonFileWithInput() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) return reject(new Error("Nessun file selezionato."));
+      resolve(file);
+    }, { once: true });
+    document.body.appendChild(input);
+    input.click();
   });
-  const file = await handle.getFile();
+}
+
+export async function runWorkspacePhysicalCrashHarnessFromPicker(options = {}) {
+  let file;
+  if (typeof globalThis.showOpenFilePicker === "function") {
+    const [handle] = await globalThis.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "SeoGrow backup JSON", accept: { "application/json": [".json"] } }],
+    });
+    file = await handle.getFile();
+  } else {
+    file = await pickJsonFileWithInput();
+  }
   const backup = JSON.parse(await file.text());
   return runWorkspacePhysicalCrashHarness(backup, options);
 }
