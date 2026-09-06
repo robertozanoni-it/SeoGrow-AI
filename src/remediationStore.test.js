@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { stableIssueKey } from "./remediationStore.js";
 
 test("stableIssueKey non cambia quando varia un conteggio dinamico sulla stessa URL", () => {
@@ -62,4 +63,10 @@ test("link rotti con destinazioni diverse rimangono distinti", () => {
     issue: { type: "broken-external-link", targetUrl: "https://b.example/manca" },
   });
   assert.notEqual(a, b);
+});
+
+test("il salvataggio della lista clienti non installa purge automatici dello storico remediation", () => {
+  const source = fs.readFileSync(new URL("./remediationStore.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /addEventListener\(["']seogrow-storage-ok["'][\s\S]*purgeOrphanCorrections/);
+  assert.match(source, /explicit-only/);
 });
