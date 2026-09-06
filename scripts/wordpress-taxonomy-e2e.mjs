@@ -14,13 +14,14 @@ const required = [
   ["SEOGROW_WP_SITE_URL", siteUrl],
   ["SEOGROW_WP_USERNAME", username],
   ["SEOGROW_WP_APPLICATION_PASSWORD", applicationPassword],
-  ["SEOGROW_WP_CATEGORY_URL", categoryUrl],
-  ["SEOGROW_WP_TAG_URL", tagUrl],
   ["SEOGROW_WP_E2E_CONFIRM_HOST", confirmHost],
 ];
 const missing = required.filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) {
   throw new Error(`E2E WordPress non avviato: variabili mancanti: ${missing.join(", ")}.`);
+}
+if (!categoryUrl && !tagUrl) {
+  throw new Error("E2E WordPress non avviato: indica almeno SEOGROW_WP_CATEGORY_URL oppure SEOGROW_WP_TAG_URL.");
 }
 if (allowWrite !== "YES_I_UNDERSTAND") {
   throw new Error("E2E WordPress non avviato: imposta SEOGROW_WP_E2E_ALLOW_WRITE=YES_I_UNDERSTAND solo su un sito di prova autorizzato.");
@@ -36,9 +37,9 @@ if (site.hostname.toLowerCase() !== confirmHost) {
 }
 
 const targets = [
-  { label: "categoria", expectedTaxonomy: "category", url: categoryUrl },
-  { label: "tag", expectedTaxonomy: "post_tag", url: tagUrl },
-];
+  categoryUrl ? { label: "categoria", expectedTaxonomy: "category", url: categoryUrl } : null,
+  tagUrl ? { label: "tag", expectedTaxonomy: "post_tag", url: tagUrl } : null,
+].filter(Boolean);
 for (const target of targets) {
   const parsed = new URL(target.url);
   if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== site.hostname.toLowerCase()) {
@@ -215,4 +216,4 @@ console.log(`SeoGrow E2E connesso a ${site.hostname} come ${connection.user?.nam
 
 for (const target of targets) await runTarget(target);
 
-console.log("\nE2E tassonomie WordPress completato: categoria + tag ripristinati ai valori iniziali.");
+console.log(`\nE2E tassonomie WordPress completato: ${targets.map((target) => target.label).join(" + ")} ripristinati ai valori iniziali.`);
