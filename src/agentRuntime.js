@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { contentPlan, opportunityGroups } from "./platform.js";
 
 export const AgentDecision = Object.freeze({ CONTINUE: "CONTINUE", REPLAN: "REPLAN", COMPLETE: "COMPLETE", BLOCKED: "BLOCKED" });
@@ -14,8 +15,8 @@ const stable = (value) => {
 };
 const approvalLedgerKey = "seogrow-agent-approval-ledger-v1";
 const memoryApprovalLedger = new Set();
-function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(globalThis.localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
-function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { globalThis.localStorage?.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
+function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
+function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { localStorage.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
 export function validPendingApproval(request, { requireFuture = false } = {}) {
   if (!request || typeof request !== "object" || Array.isArray(request)) return false;
   const requestedAt = Date.parse(request.requestedAt), expiresAt = Date.parse(request.expiresAt);

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
 const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const integrity = await readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8");

@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
 import { useEffect, useMemo, useState } from "react";

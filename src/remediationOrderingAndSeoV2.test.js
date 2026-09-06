@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const seoServer = await readFile(new URL("../server/wordpressSeoAdapterV2Hook.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./RemediationRuntime.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const bootstrap = await readFile(new URL("../server/remediationBootstrap.js", import.meta.url), "utf8");
 
 test("il live flow V2 è montato dal runtime nativo e non dipende dal riordino DOM legacy", () => {

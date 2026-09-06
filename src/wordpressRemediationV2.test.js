@@ -10,7 +10,7 @@ import {
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url), "utf8");
 
 const words = (count) => Array.from({ length: count }, (_, index) => `parola${index}`).join(" ");

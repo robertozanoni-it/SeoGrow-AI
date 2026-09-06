@@ -1,7 +1,7 @@
+import { openWorkspaceDb, guardWorkspaceTransaction } from "./workspaceDatabase.js";
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { issueIdentity } from "./reliabilityModel.js";
 
-const DB_NAME = "seogrow-remediation";
-const DB_VERSION = 1;
 const STORE_NAME = "corrections";
 const CLIENTS_KEY = "seogrow-clients";
 
@@ -32,33 +32,16 @@ const writeJsonBestEffort = (key, value, detail = {}) => {
   }
 };
 
-const openDb = () => new Promise((resolve, reject) => {
-  if (!window.indexedDB) {
-    reject(new Error("IndexedDB non disponibile: impossibile salvare snapshot di rollback."));
-    return;
-  }
-  const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-  request.onupgradeneeded = () => {
-    const db = request.result;
-    if (!db.objectStoreNames.contains(STORE_NAME)) {
-      const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      store.createIndex("clientId", "clientId", { unique: false });
-      store.createIndex("batchId", "batchId", { unique: false });
-      store.createIndex("appliedAt", "appliedAt", { unique: false });
-    }
-  };
-  request.onsuccess = () => resolve(request.result);
-  request.onerror = () => reject(request.error || new Error("Archivio remediation non disponibile."));
-});
+const openDb = openWorkspaceDb;
 
 const withStore = async (mode, action) => {
   const db = await openDb();
   try {
     return await new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, mode);
+      const transaction = db.transaction([STORE_NAME, "workspace"], mode);
       const store = transaction.objectStore(STORE_NAME);
       let result;
-      try { result = action(store, transaction); } catch (error) {
+      try { guardWorkspaceTransaction(transaction, () => { result = action(store, transaction); }); } catch (error) {
         transaction.abort();
         reject(error);
         return;
@@ -74,9 +57,12 @@ const readAllCorrections = async () => {
   const db = await openDb();
   try {
     return await new Promise((resolve, reject) => {
-      const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
-      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
-      request.onerror = () => reject(request.error || new Error("Storico correzioni non leggibile."));
+      const tx = db.transaction([STORE_NAME, "workspace"], "readonly");
+      tx.onabort = () => reject(new Error("Workspace cambiato: ricarica l'app."));
+      guardWorkspaceTransaction(tx, () => {
+        const request = tx.objectStore(STORE_NAME).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      });
     });
   } finally { db.close(); }
 };
@@ -115,7 +101,7 @@ const migrateIdentity = (record = {}) => {
   };
 };
 
-const metadataOf = (input) => {
+export const metadataOf = (input) => {
   const record = migrateIdentity(input);
   return {
     id: record.id,
@@ -187,9 +173,12 @@ export async function readCorrection(id) {
   const db = await openDb();
   try {
     return await new Promise((resolve, reject) => {
-      const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(id);
-      request.onsuccess = () => resolve(request.result ? migrateIdentity(request.result) : null);
-      request.onerror = () => reject(request.error || new Error("Correzione non leggibile."));
+      const tx = db.transaction([STORE_NAME, "workspace"], "readonly");
+      tx.onabort = () => reject(new Error("Workspace cambiato: ricarica l'app."));
+      guardWorkspaceTransaction(tx, () => {
+        const request = tx.objectStore(STORE_NAME).get(id);
+        request.onsuccess = () => resolve(request.result ? migrateIdentity(request.result) : null);
+      });
     });
   } finally { db.close(); }
 }

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const location = await readFile(new URL("./locationEvents.js", import.meta.url), "utf8");
 const rollbackServer = await readFile(new URL("../server/wordpressLiveRollbackHook.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");

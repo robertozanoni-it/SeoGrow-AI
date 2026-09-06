@@ -8,7 +8,7 @@ const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
 const rollback = await readFile(new URL("./rollbackPayload.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("la remediation live V2 richiede anteprima e approvazione esplicita", () => {
   assert.match(client, /\/api\/wordpress\/live-preview/);

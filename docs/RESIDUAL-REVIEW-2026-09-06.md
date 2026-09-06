@@ -1,5 +1,7 @@
 # SeoGrow AI — revisione residua indipendente, 6 settembre 2026
 
+Aggiornamento successivo: [Step 1 — ripristino atomico workspace](WORKSPACE-ATOMIC-RESTORE.md). L02 è stato affrontato con una transazione IndexedDB unica e test di fault injection. Le valutazioni seguenti restano evidenza storica; il collaudo fisico su browser/OS rimane da eseguire.
+
 Baseline: `4d64254b500c6cd612f7bc3771882afc7bc242dd`, `origin/main` verificato tramite GitHub. Branch di revisione: `audit/residual-review-20260906`.
 
 ## Esito e perimetro

@@ -1,4 +1,7 @@
-import { replaceCorrections } from "./remediationStore";
+import { listCorrections } from "./remediationStore.js";
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { restoreValidatedWorkspace } from "./workspaceRestore.js";
+import { flushWorkspace } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
@@ -158,9 +161,10 @@ function useStoredState(key, fallback) {
     }
   });
   useEffect(() => {
-    const save = () => {
+    const save = async () => {
       try {
         localStorage.setItem(key, JSON.stringify(value));
+        await flushWorkspace();
         window.dispatchEvent(new CustomEvent("seogrow-storage-ok", { detail: { key } }));
       } catch (error) {
         console.error(`Impossibile salvare ${key}:`, error);
@@ -4235,7 +4239,10 @@ export default function App() {
       return changed ? normalized : current;
     });
   }, [setTasks]);
-  const createSnapshot = (reason = "Copia manuale") =>
+  const createSnapshot = async (reason = "Copia manuale") => {
+    try {
+    await flushWorkspace();
+    const corrections = await listCorrections();
     setSnapshots((current) =>
       [
         {
@@ -4243,6 +4250,8 @@ export default function App() {
           createdAt: new Date().toISOString(),
           reason,
           data: {
+            corrections,
+            pageAuditHistory: JSON.parse(localStorage.getItem("seogrow-page-audit-history-v2") || "{}"),
             clients,
             tasks,
             gscData,
@@ -4261,7 +4270,10 @@ export default function App() {
         ...current,
       ].slice(0, 2),
     );
-  const handleGscImport = (data) => {
+    return true;
+    } catch (error) { setToast(`Copia locale non creata: ${error.message}`); return false; }
+  };
+  const handleGscImport = async (data) => {
     const propertyHost = data.property?.host || "";
     const currentClients = clientsRef.current;
     const exactPropertyClient = data.property?.url
@@ -4291,7 +4303,7 @@ export default function App() {
     let targetClient =
       exactPropertyClient || hostClients[0] || (!propertyHost ? selectedClientRecord : null);
     if (preferences.autoBackup)
-      createSnapshot("Prima dell’importazione Search Console");
+      if (!await createSnapshot("Prima dell’importazione Search Console")) return;
     let targetClientId = targetClient?.id;
     if (!targetClient) {
       targetClientId = Math.max(0, ...currentClients.map((client) => Number(client.id) || 0)) + 1;
@@ -4522,7 +4534,7 @@ export default function App() {
       });
     }
   };
-  const deleteClient = (clientId) => {
+  const deleteClient = async (clientId) => {
     const client = clients.find((item) => item.id === clientId);
     if (!client) return;
     if (clients.length === 1) {
@@ -4538,7 +4550,7 @@ export default function App() {
     )
       return;
     if (preferences.autoBackup)
-      createSnapshot(`Prima dell’eliminazione di ${client.name}`);
+      if (!await createSnapshot(`Prima dell’eliminazione di ${client.name}`)) return;
     const remaining = clients.filter((item) => item.id !== clientId);
     const uniqueClientName =
       clients.filter((item) => item.name === client.name).length === 1;
@@ -4623,8 +4635,8 @@ export default function App() {
       geo: geoData[clientId],
     });
   };
-  const completeSiteAnalysis = (analysis) => {
-    if (preferences.autoBackup) createSnapshot("Prima della nuova analisi");
+  const completeSiteAnalysis = async (analysis) => {
+    if (preferences.autoBackup && !await createSnapshot("Prima della nuova analisi")) return;
     const previous = selectedAnalysisHistory[0];
     const diff = analysisDiff(analysis, previous);
     const enriched = {
@@ -4643,45 +4655,7 @@ export default function App() {
     const verifiedTasks = tasksFromAnalysis(enriched, selectedClientRecord);
     setTasks(current => reconcileAuditTasks(current, verifiedTasks, selectedClient, enriched.analyzedAt));
   };
-  const restoreBackup = async (backup, { preserveSnapshots = false } = {}) => {
-    if (!preserveSnapshots) await replaceCorrections(backup.corrections || []);
-    setWordpressConnections({});
-    setClients(backup.clients);
-    setTasks(backup.tasks);
-    setGscData(backup.gscData);
-    setGscHistory(
-      backup.gscHistory ||
-        Object.fromEntries(
-          Object.entries(backup.gscData || {}).map(([id, data]) => [
-            id,
-            [data],
-          ]),
-        ),
-    );
-    setAnalyses(
-      Object.fromEntries(
-        Object.entries(backup.analyses || {}).map(([id, data]) => [
-          id,
-          normalizeAnalysisHistory(data),
-        ]),
-      ),
-    );
-    setRankings(backup.rankings || {});
-    setTopicalMaps(backup.topicalMaps || {});
-    setGeoData(backup.geoData || {});
-    setContentDrafts(backup.contentDrafts || {});
-    setWordpressProfiles(backup.wordpressProfiles || {});
-    setAuditResults(backup.auditResults || {});
-    setAgentRuns(backup.agentRuns || {});
-    if (backup.preferences) setPreferences(backup.preferences);
-    if (!preserveSnapshots) setSnapshots([]);
-    const preferredClientId = Number(backup.selectedClient ?? selectedClient);
-    setSelectedClient(
-      backup.clients.some((client) => client.id === preferredClientId)
-        ? preferredClientId
-        : backup.clients[0].id,
-    );
-  };
+  const restoreBackup = restoreValidatedWorkspace;
   const restoreSnapshot = async (snapshotId) => {
     const snapshot = snapshots.find((item) => item.id === snapshotId);
     if (!snapshot || !window.confirm("Ripristinare questa copia locale?"))

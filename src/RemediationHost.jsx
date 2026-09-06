@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";

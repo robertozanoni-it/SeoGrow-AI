@@ -1,3 +1,4 @@
+import { workspaceStorage } from "./workspaceDatabase.js";
 import { validPendingApproval } from "./agentRuntime.js";
 import { listCorrections } from "./remediationStore.js";
 
@@ -215,6 +216,7 @@ export async function exportWorkspaceBackup(data, passphrase) {
       exportedAt: new Date().toISOString(),
       ...data,
       corrections,
+      pageAuditHistory: JSON.parse(workspaceStorage.getItem("seogrow-page-audit-history-v2") || "{}"),
     }),
   );
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -337,6 +339,7 @@ export async function readWorkspaceBackup(file, passphrase = "") {
     "contentDrafts",
     "wordpressProfiles",
     "auditResults",
+    "pageAuditHistory",
     "agentRuns",
     "preferences",
   ]) {

@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const workspace = await readFile(new URL("./ProblemsWorkspace.jsx", import.meta.url), "utf8");
 const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./ProblemsWorkspace.css", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("il Centro Problemi unifica Audit Task e Correzioni senza scritture", () => {
   assert.match(workspace, /buildUnifiedProblems/);

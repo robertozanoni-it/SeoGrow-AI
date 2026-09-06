@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 
