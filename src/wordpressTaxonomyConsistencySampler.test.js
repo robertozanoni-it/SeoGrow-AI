@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifySampler } from "../scripts/wordpress-taxonomy-consistency-sampler.mjs";
+import { classifySampler, isTransientNetworkError } from "../scripts/wordpress-taxonomy-consistency-sampler.mjs";
 
 const state = (fp, marker = false) => ({ fp, len: 10, marker });
 const sample = ({ fp = "a", marker = false, frontendFp = fp, frontendMarker = marker, dbRowCount = 1 } = {}) => ({
@@ -31,4 +31,14 @@ test("classifica STABLE_DIVERGENCE quando frontend e backend divergono ma lo sta
 test("classifica CROSS_REQUEST_STATE_OSCILLATION quando cambia lo stato tra campioni", () => {
   const result = classifySampler([sample({ fp: "a" }), sample({ fp: "b", marker: true }), sample({ fp: "a" })]);
   assert.equal(result.code, "CROSS_REQUEST_STATE_OSCILLATION");
+});
+
+test("riconosce UND_ERR_CONNECT_TIMEOUT annidato come errore transitorio", () => {
+  const error = new TypeError("fetch failed", { cause: Object.assign(new Error("connect timeout"), { code: "UND_ERR_CONNECT_TIMEOUT" }) });
+  assert.equal(isTransientNetworkError(error), true);
+});
+
+test("riconosce 502/503/504 come errori transitori ma non 409", () => {
+  assert.equal(isTransientNetworkError(Object.assign(new Error("503"), { status: 503 })), true);
+  assert.equal(isTransientNetworkError(Object.assign(new Error("409"), { status: 409 })), false);
 });
