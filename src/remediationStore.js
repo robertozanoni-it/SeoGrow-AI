@@ -314,10 +314,8 @@ export function reopenTask(record) {
   }, ...tasks], { kind: "task-reopen-create" });
 }
 
-if (typeof window !== "undefined") {
-  const cleanupAfterClientSave = (event) => {
-    if (event?.detail?.key !== CLIENTS_KEY) return;
-    void purgeOrphanCorrections().catch((error) => console.warn("Pulizia storico remediation non completata:", error));
-  };
-  window.addEventListener("seogrow-storage-ok", cleanupAfterClientSave);
-}
+// IMPORTANT: do not purge correction history merely because the client list was
+// saved. During bootstrap/restore the list can temporarily contain defaults or
+// an incomplete snapshot, and treating that transient state as authoritative
+// can erase the recovery journal. Orphan deletion is therefore explicit-only
+// via purgeOrphanCorrections(), never an automatic storage-event side effect.
