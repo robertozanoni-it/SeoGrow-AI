@@ -9,16 +9,25 @@ const categoryUrl = String(process.env.SEOGROW_WP_CATEGORY_URL || "").trim();
 const tagUrl = String(process.env.SEOGROW_WP_TAG_URL || "").trim();
 const confirmHost = String(process.env.SEOGROW_WP_E2E_CONFIRM_HOST || "").trim().toLowerCase();
 const allowWrite = String(process.env.SEOGROW_WP_E2E_ALLOW_WRITE || "");
+const recoveryOriginal = String(process.env.SEOGROW_WP_RECOVERY_ORIGINAL || "").trim();
 
 const compact = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const auth = () => `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`;
+const targets = [
+  categoryUrl ? { label: "categoria", url: categoryUrl } : null,
+  tagUrl ? { label: "tag", url: tagUrl } : null,
+].filter(Boolean);
 
 export function isFrontendOnlyStaleMarkerLog(text = "") {
   const normalized = String(text);
   const marker = /Marker SeoGrow\s*·\s*\{[^\n]*"api":false[^\n]*"inspection":false[^\n]*"database":false[^\n]*"cache":false[^\n]*"frontend":true[^\n]*\}/i.test(normalized);
   const comparisons = /api=inspection:true\s*·\s*api=db:true\s*·\s*api=frontend:false\s*·\s*duplicateRows:false/i.test(normalized);
   return marker && comparisons;
+}
+
+export function isSeoGrowE2EMarker(value = "") {
+  return /^SeoGrow E2E (categoria|tag) \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(compact(value));
 }
 
 function runNode(script, env = {}) {
@@ -51,7 +60,13 @@ async function jsonResponse(response, label) {
   let data;
   try { data = text ? JSON.parse(text) : {}; }
   catch { throw new Error(`${label}: risposta non JSON (HTTP ${response.status}).`); }
-  if (!response.ok) throw new Error(`${label}: HTTP ${response.status}: ${data.error || data.message || data.code || "errore sconosciuto"}.`);
+  if (!response.ok) {
+    const error = new Error(`${label}: HTTP ${response.status}: ${data.error || data.message || data.code || "errore sconosciuto"}.`);
+    error.status = response.status;
+    error.code = String(data?.code || "");
+    error.data = data;
+    throw error;
+  }
   return data;
 }
 
@@ -65,24 +80,28 @@ async function inspectBackend(url) {
   return jsonResponse(response, "SeoGrow inspect-taxonomy");
 }
 
-async function purgePublicCache(url) {
-  const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-public-cache-purge", siteUrl);
+async function wordpressPost(path, body) {
+  const endpoint = new URL(`/wp-json/seogrow/v1/${String(path).replace(/^\/+/, "")}`, siteUrl);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       authorization: auth(),
       accept: "application/json",
       "content-type": "application/json",
-      "user-agent": "SeoGrowAI/1.4-rankmath-general-cache-purge",
+      "user-agent": "SeoGrowAI/1.4-rankmath-recovery",
     },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
     redirect: "manual",
     signal: AbortSignal.timeout(30_000),
   });
   if ([301, 302, 303, 307, 308].includes(response.status)) {
-    throw new Error("taxonomy-public-cache-purge: redirect inatteso.");
+    throw new Error(`${path}: redirect inatteso.`);
   }
-  const data = await jsonResponse(response, "taxonomy-public-cache-purge");
+  return jsonResponse(response, path);
+}
+
+async function purgePublicCache(url) {
+  const data = await wordpressPost("taxonomy-public-cache-purge", { url });
   if (
     data?.ok !== true ||
     data?.resource !== "taxonomy-public-cache-purge" ||
@@ -117,22 +136,75 @@ async function fetchFrontend(url, cacheBust = false) {
 }
 
 async function probeFrontend() {
-  const targets = [categoryUrl, tagUrl].filter(Boolean);
   let allCanonicalMatch = true;
   let allCacheBustedMatch = true;
-  for (const url of targets) {
-    const inspection = await inspectBackend(url);
+  for (const target of targets) {
+    const inspection = await inspectBackend(target.url);
     const expected = compact(inspection?.seo?.rankMath?.meta_description);
-    const canonical = await fetchFrontend(url, false);
-    const busted = await fetchFrontend(url, true);
+    const canonical = await fetchFrontend(target.url, false);
+    const busted = await fetchFrontend(target.url, true);
     const canonicalMatch = canonical === expected;
     const bustedMatch = busted === expected;
-    console.log(`[rank-math-general] frontend probe ${url}`);
+    console.log(`[rank-math-general] frontend probe ${target.url}`);
     console.log(`[rank-math-general] canonicalMatch=${canonicalMatch} · cacheBustedMatch=${bustedMatch}`);
     if (!canonicalMatch) allCanonicalMatch = false;
     if (!bustedMatch) allCacheBustedMatch = false;
   }
   return { allCanonicalMatch, allCacheBustedMatch };
+}
+
+async function recoverStableOrphanMarkers() {
+  if (!targets.length) return false;
+  if (targets.length > 1 && recoveryOriginal) {
+    throw new Error("Recovery bootstrap con valore originale esplicito consentito solo su una tassonomia alla volta.");
+  }
+
+  const candidates = [];
+  for (const target of targets) {
+    const inspection = await inspectBackend(target.url);
+    const marker = compact(inspection?.seo?.rankMath?.meta_description);
+    const frontend = await fetchFrontend(target.url, false);
+    if (
+      inspection?.ownership !== "rank-math-only" ||
+      inspection?.term?.id == null ||
+      !isSeoGrowE2EMarker(marker) ||
+      frontend !== marker
+    ) {
+      return false;
+    }
+    candidates.push({ target, inspection, marker });
+  }
+
+  console.warn("RANK_MATH_GENERAL=STABLE_ORPHAN_MARKER_DETECTED");
+  console.warn("[rank-math-general] Il marker SeoGrow è persistito e coerente tra backend e frontend: attivo recovery stale-safe, non un nuovo E2E.");
+
+  for (const { target, inspection, marker } of candidates) {
+    const result = await wordpressPost("taxonomy-recovery-execute", {
+      url: target.url,
+      termId: inspection.term.id,
+      taxonomy: inspection.term.taxonomy,
+      expectedMarker: marker,
+      confirm: "YES_I_UNDERSTAND",
+      bootstrapOriginal: targets.length === 1 ? recoveryOriginal : "",
+    });
+    if (
+      result?.ok !== true ||
+      result?.resource !== "taxonomy-recovery-journal" ||
+      result?.recovered !== true ||
+      result?.staleChecked !== true ||
+      result?.singleField !== true ||
+      result?.adapter !== "rank-math" ||
+      result?.field !== "meta_description" ||
+      result?.contentWritesPerformed !== 1 ||
+      result?.journalCleared !== true
+    ) {
+      throw new Error(`${target.label}: il Connector non ha attestato un recovery completo e stale-safe.`);
+    }
+    console.log(`[${target.label}] Marker orfano ripristinato tramite recovery journal; cache purge richiesto=${Boolean(result.cachePurgeRequested)}.`);
+  }
+
+  await sleep(2_000);
+  return true;
 }
 
 function validateInputs() {
@@ -164,40 +236,69 @@ async function main() {
 
   if ((baseline.status ?? 1) !== 0) {
     const combined = `${baseline.stdout || ""}\n${baseline.stderr || ""}`;
-    if (!isFrontendOnlyStaleMarkerLog(combined)) {
-      console.error("RANK_MATH_GENERAL=BLOCKED_BASELINE_INCONSISTENCY");
-      process.exitCode = baseline.status || 1;
+
+    if (isFrontendOnlyStaleMarkerLog(combined)) {
+      console.warn("RANK_MATH_GENERAL=FRONTEND_ONLY_STALE_MARKER");
+      console.warn("[rank-math-general] Backend, DB, object cache e SeoGrow inspection concordano; solo il frontend è stale.");
+      console.log("\n[rank-math-general] FASE 2/4 — purge mirato cache pubblica + verifica");
+
+      for (const target of targets) {
+        const purge = await purgePublicCache(target.url);
+        console.log(`[rank-math-general] cache purge richiesto via ${purge.hook} per ${purge.url}`);
+      }
+
+      await sleep(2_000);
+      const probe = await probeFrontend();
+      if (!probe.allCanonicalMatch || !probe.allCacheBustedMatch) {
+        console.error("RANK_MATH_GENERAL=PUBLIC_CACHE_PURGE_INEFFECTIVE");
+        console.error("[rank-math-general] Il purge mirato non ha riallineato canonical e richiesta cache-busted al backend. Arresto fail-closed; nessuna scrittura Rank Math eseguita.");
+        process.exitCode = 1;
+        return;
+      }
+
+      baseline = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs", taxonomyEnv);
+      emit(baseline);
+      if ((baseline.status ?? 1) !== 0) {
+        console.error("RANK_MATH_GENERAL=POST_PURGE_BASELINE_INCONSISTENT");
+        process.exitCode = 1;
+        return;
+      }
+
+      console.log("RANK_MATH_GENERAL=PUBLIC_CACHE_RECOVERED");
+      console.log("RANK_MATH_GENERAL=RECOVERY_COMPLETE");
+      console.log("Recovery cache completato e riverificato. Nessun nuovo marker E2E viene scritto in questo run.");
       return;
     }
 
-    console.warn("RANK_MATH_GENERAL=FRONTEND_ONLY_STALE_MARKER");
-    console.warn("[rank-math-general] Backend, DB, object cache e SeoGrow inspection concordano; solo il frontend è stale.");
-    console.log("\n[rank-math-general] FASE 2/4 — purge mirato cache pubblica + verifica");
-
-    for (const url of [categoryUrl, tagUrl].filter(Boolean)) {
-      const purge = await purgePublicCache(url);
-      console.log(`[rank-math-general] cache purge richiesto via ${purge.hook} per ${purge.url}`);
-    }
-
-    await sleep(2_000);
-    const probe = await probeFrontend();
-    if (!probe.allCanonicalMatch || !probe.allCacheBustedMatch) {
-      console.error("RANK_MATH_GENERAL=PUBLIC_CACHE_PURGE_INEFFECTIVE");
-      console.error("[rank-math-general] Il purge mirato non ha riallineato canonical e richiesta cache-busted al backend. Arresto fail-closed; nessuna scrittura Rank Math eseguita.");
+    try {
+      const recovered = await recoverStableOrphanMarkers();
+      if (recovered) {
+        const proof = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs", taxonomyEnv);
+        emit(proof);
+        if ((proof.status ?? 1) !== 0) {
+          console.error("RANK_MATH_GENERAL=POST_RECOVERY_STATE_INCONSISTENT");
+          process.exitCode = proof.status || 1;
+          return;
+        }
+        console.log("RANK_MATH_GENERAL=ORPHAN_MARKER_RECOVERED");
+        console.log("RANK_MATH_GENERAL=RECOVERY_COMPLETE");
+        console.log("Marker SeoGrow orfano ripristinato e stato finale verificato read-only. Nessun nuovo E2E viene eseguito in questo run.");
+        return;
+      }
+    } catch (error) {
+      if (error?.code === "seogrow_recovery_journal_missing" && !recoveryOriginal) {
+        console.error("RANK_MATH_GENERAL=RECOVERY_ORIGINAL_REQUIRED");
+        console.error("[rank-math-general] Questo marker è precedente al recovery journal. Compila una sola volta recovery_original con il valore originale noto; nessuna scrittura è stata eseguita.");
+      } else {
+        console.error(`RANK_MATH_GENERAL=RECOVERY_FAILED · ${error.message}`);
+      }
       process.exitCode = 1;
       return;
     }
 
-    baseline = runNode("scripts/wordpress-taxonomy-diagnostics-retry.mjs", taxonomyEnv);
-    emit(baseline);
-    if ((baseline.status ?? 1) !== 0) {
-      console.error("RANK_MATH_GENERAL=POST_PURGE_BASELINE_INCONSISTENT");
-      console.error("[rank-math-general] Il frontend sembra aggiornato ma la prova completa post-purge non è coerente. Nessuna scrittura Rank Math eseguita.");
-      process.exitCode = 1;
-      return;
-    }
-
-    console.log("RANK_MATH_GENERAL=PUBLIC_CACHE_RECOVERED");
+    console.error("RANK_MATH_GENERAL=BLOCKED_BASELINE_INCONSISTENCY");
+    process.exitCode = baseline.status || 1;
+    return;
   }
 
   console.log("RANK_MATH_GENERAL=BASELINE_CLEAN");
