@@ -43,6 +43,14 @@ Il modulo `src/workspaceCrashHarness.js` entra nel runtime solo in dev quando il
 
 Se il dialogo viene chiuso normalmente, l'harness chiama `tx.abort()` e la prova è dichiarata non valida: non può produrre un falso successo. Il query flag non arma nulla in build non-dev.
 
+## Due schede reali concorrenti
+
+1. Aprire due schede SeoGrow AI sullo stesso origin e con lo stesso workspace corrente.
+2. Lasciare la seconda scheda aperta senza ricaricarla.
+3. Nella prima scheda importare il backup opposto (A → B oppure B → A).
+4. Tornare alla seconda scheda senza refresh manuale.
+5. La scheda obsoleta deve rilevare il cambio di generazione e ricaricarsi/aggiornarsi sul nuovo workspace, oppure bloccare le scritture obsolete. Non deve poter sovrascrivere il workspace nuovo con stato vecchio.
+
 Confronto DB: ignorare SOLO la generazione interna __generation e verificare separatamente il ledger locale delle approvazioni consumate, che non viene ripristinato dal backup. Le altre differenze devono essere motivate; salvataggi ordinari della UI dopo il restore vanno registrati separatamente.
 
 ## Evidenza
@@ -55,7 +63,10 @@ Collaudo manuale in profilo Brave dedicato:
 - backup invalido con cliente duplicato: rifiutato senza alterare A; A integro dopo reload: PASS.
 - A → B: B sostituisce completamente A, nessun cliente misto, B persistente dopo reload: PASS.
 - crash fisico controllato durante tentativo B → A: finestra Brave Test chiusa mentre `QA CRASH CHECKPOINT` manteneva aperta la transazione IndexedDB. Alla riapertura risultano esclusivamente `QA B cliente 1 — FITTIZIO` e `QA B cliente 2 — FITTIZIO`; task B presente; nessun cliente A o stato misto osservato: PASS.
+- due schede reali concorrenti: entrambe aperte su A; nella prima scheda restore A → B; la seconda scheda, senza refresh manuale, ha rilevato il cambio e mostrato automaticamente `QA B cliente 1 — FITTIZIO`, task B e clienti recenti B1/B2. Nessuno stato A obsoleto rimasto visibile o scrivibile nella prova eseguita: PASS.
 
 Esito del crash fisico: il workspace precedente B è rimasto coerente dopo l'arresto del browser durante il commit; nessun restore parziale A/B osservato nella prova eseguita.
 
-Restano separati: saturazione quota reale, test reale con due schede concorrenti e collaudo visuale completo. Nessuna modifica a contenuti WordPress o credenziali.
+Esito concorrenza due schede: la scheda con generazione precedente non è rimasta operativa sul vecchio workspace dopo il restore eseguito nell'altra scheda; la sincronizzazione sul nuovo workspace B è avvenuta automaticamente.
+
+Restano separati: saturazione quota reale e collaudo visuale completo. Nessuna modifica a contenuti WordPress o credenziali.
