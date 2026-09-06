@@ -37,6 +37,27 @@ function seogrow_connector_persistence_error_response($code, $message, $status, 
     ), is_array($extra) ? $extra : array()), (int) $status);
 }
 
+function seogrow_connector_rank_math_persistence_capability() {
+    return rest_ensure_response(array(
+        'ok' => true,
+        'readOnly' => true,
+        'resource' => 'taxonomy-persistence-capability',
+        'rankMathPersistenceProof' => true,
+        'proofSource' => 'wp_termmeta+get_term_meta',
+        'writesPerformed' => 0,
+    ));
+}
+
+add_action('rest_api_init', static function () {
+    register_rest_route('seogrow/v1', '/taxonomy-persistence-capability', array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'seogrow_connector_rank_math_persistence_capability',
+        'permission_callback' => static function () {
+            return current_user_can('edit_posts') || current_user_can('edit_pages');
+        },
+    ));
+});
+
 function seogrow_connector_rank_math_persistence_proof($response, $server, $request) {
     if (!($request instanceof WP_REST_Request) || $request->get_route() !== '/seogrow/v1/taxonomy-write') {
         return $response;
