@@ -1,0 +1,44 @@
+name: One-off HistoryPage key fix
+
+on:
+  push:
+    branches:
+      - audit/residual-review-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  fix-history-key:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: audit/residual-review-20260906
+          fetch-depth: 0
+
+      - name: Patch HistoryPage key and remove one-off workflow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/App.jsx')
+          text = path.read_text()
+          old = '''{history.map((item) => (\n                    <tr key={item.analyzedAt}>'''
+          new = '''{history.map((item, index) => (\n                    <tr key={`${item.analyzedAt || "missing"}-${index}`}>'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one HistoryPage key pattern, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          Path('.github/workflows/fix-history-key.yml').unlink()
+          PY
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx .github/workflows/fix-history-key.yml
+          git commit -m "fix: use unique HistoryPage row keys"
+          git push origin HEAD:audit/residual-review-20260906
