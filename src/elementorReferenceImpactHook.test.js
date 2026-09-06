@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  chunkReferenceResources,
+  CONNECTOR_REFERENCE_BATCH_SIZE,
   extractRestElementorData,
   normalizeConnectorReferenceData,
   normalizeRestBase,
@@ -128,12 +130,27 @@ test("duplicati o set documenti incompleto Connector vengono rifiutati", () => {
   assert.equal(normalizeConnectorReferenceData(incomplete, inventory).ok, false);
 });
 
-test("hook preferisce Connector reference data e REST è fallback solo su 404", () => {
-  assert.match(source, /elementor-reference-data/);
-  assert.match(source, /connectorResponse\.status === 404/);
-  assert.match(source, /normalizeConnectorReferenceData/);
+test("inventari oltre 30 risorse vengono suddivisi esattamente in batch Connector", () => {
+  assert.equal(CONNECTOR_REFERENCE_BATCH_SIZE, 30);
+  const resources = Array.from({ length: 65 }, (_, index) => ({ id: index + 1 }));
+  const batches = chunkReferenceResources(resources);
+  assert.deepEqual(batches.map((batch) => batch.length), [30, 30, 5]);
+  assert.deepEqual(batches.flat().map((item) => item.id), resources.map((item) => item.id));
+});
+
+test("batch size invalida torna al limite sicuro di 30", () => {
+  const resources = Array.from({ length: 31 }, (_, index) => ({ id: index + 1 }));
+  assert.deepEqual(chunkReferenceResources(resources, 0).map((batch) => batch.length), [30, 1]);
+});
+
+test("hook preferisce Connector reference data a batch e REST è fallback solo se il primo batch restituisce 404", () => {
+  assert.match(source, /CONNECTOR_REFERENCE_BATCH_SIZE = 30/);
+  assert.match(source, /readRowsViaConnector/);
+  assert.match(source, /chunkReferenceResources/);
+  assert.match(source, /connectorUnavailable === true/);
+  assert.match(source, /if \(index === 0\)/);
   assert.match(source, /readRowsViaRest/);
-  assert.doesNotMatch(source, /connectorResponse\.status >= 400.*readRowsViaRest/s);
+  assert.doesNotMatch(source, /connectorUnavailable:\s*true[\s\S]*index\s*>\s*0/);
 });
 
 test("fallback REST continua a risolvere CPT via type descriptor sicuro", () => {
