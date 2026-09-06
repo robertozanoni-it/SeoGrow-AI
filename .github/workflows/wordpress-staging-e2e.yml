@@ -140,6 +140,10 @@ jobs:
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-diagnostics.mjs
 
+      - name: Rank Math cache-coherence capability preflight
+        if: inputs.mode == 'taxonomy-rank-math'
+        run: node scripts/wordpress-rankmath-cache-coherence-preflight.mjs
+
       - name: Taxonomy Rank Math E2E
         if: inputs.mode == 'taxonomy-rank-math'
         env:
