@@ -9,6 +9,8 @@ const tagUrl = String(process.env.SEOGROW_WP_TAG_URL || "").trim();
 const confirmHost = String(process.env.SEOGROW_WP_E2E_CONFIRM_HOST || "").trim().toLowerCase();
 
 const OFFSETS_MS = [0, 1000, 3000, 7000, 15000];
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 750;
 const compact = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 const markerPresent = (value) => /SeoGrow E2E/i.test(compact(value));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,6 +45,43 @@ export function classifySampler(samples = []) {
   return { code: "STABLE_DIVERGENCE" };
 }
 
+export function isTransientNetworkError(error) {
+  const codes = new Set([
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EAI_AGAIN",
+    "ENETUNREACH",
+    "ETIMEDOUT",
+  ]);
+  let cursor = error;
+  while (cursor) {
+    if (codes.has(cursor.code)) return true;
+    cursor = cursor.cause;
+  }
+  if ([502, 503, 504].includes(Number(error?.status))) return true;
+  return error?.name === "TimeoutError";
+}
+
+async function withTransientRetry(label, operation) {
+  let lastError;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const transient = isTransientNetworkError(error);
+      if (!transient || attempt >= RETRY_ATTEMPTS) throw error;
+      const delay = RETRY_BASE_MS * attempt;
+      console.warn(`[network] ${label}: errore transitorio al tentativo ${attempt}/${RETRY_ATTEMPTS}; retry tra ${delay} ms (${error.code || error.cause?.code || error.name || "network-error"}).`);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
 function requiredEnv() {
   const required = [
     ["SEOGROW_WP_SITE_URL", siteUrl],
@@ -64,31 +103,39 @@ async function jsonResponse(response, label) {
   let data;
   try { data = text ? JSON.parse(text) : {}; }
   catch { throw new Error(`${label}: risposta non JSON (HTTP ${response.status}).`); }
-  if (!response.ok) throw new Error(`${label}: HTTP ${response.status}: ${data.message || data.error || data.code || text.slice(0, 200)}`);
+  if (!response.ok) {
+    const error = new Error(`${label}: HTTP ${response.status}: ${data.message || data.error || data.code || text.slice(0, 200)}`);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
 async function inspectViaSeoGrow(url) {
-  const response = await fetch(`${appUrl}/api/wordpress/inspect-taxonomy`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ siteUrl, url, username, applicationPassword }),
-    signal: AbortSignal.timeout(30_000),
+  return withTransientRetry("SeoGrow inspect-taxonomy", async () => {
+    const response = await fetch(`${appUrl}/api/wordpress/inspect-taxonomy`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ siteUrl, url, username, applicationPassword }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    return jsonResponse(response, "SeoGrow inspect-taxonomy");
   });
-  return jsonResponse(response, "SeoGrow inspect-taxonomy");
 }
 
 async function connectorDiagnostics(site, url) {
   const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-diagnostics", site.origin);
   endpoint.searchParams.set("url", url);
   const auth = `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`;
-  const response = await fetch(endpoint, {
-    headers: { authorization: auth, accept: "application/json", "user-agent": "SeoGrowAI/taxonomy-consistency-sampler" },
-    redirect: "manual",
-    signal: AbortSignal.timeout(30_000),
+  return withTransientRetry("Connector taxonomy-diagnostics", async () => {
+    const response = await fetch(endpoint, {
+      headers: { authorization: auth, accept: "application/json", "user-agent": "SeoGrowAI/taxonomy-consistency-sampler" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error("Connector diagnostics: redirect inatteso.");
+    return jsonResponse(response, "Connector taxonomy-diagnostics");
   });
-  if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error("Connector diagnostics: redirect inatteso.");
-  return jsonResponse(response, "Connector taxonomy-diagnostics");
 }
 
 function metaDescriptionFromHtml(html) {
@@ -109,14 +156,20 @@ function selectedHeaders(headers) {
 }
 
 async function frontend(url) {
-  const response = await fetch(url, {
-    headers: { accept: "text/html,application/xhtml+xml", "user-agent": "SeoGrowAI/taxonomy-consistency-sampler" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(30_000),
+  return withTransientRetry(`Frontend ${url}`, async () => {
+    const response = await fetch(url, {
+      headers: { accept: "text/html,application/xhtml+xml", "user-agent": "SeoGrowAI/taxonomy-consistency-sampler" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(30_000),
+    });
+    const html = await response.text();
+    if (!response.ok) {
+      const error = new Error(`Frontend ${url}: HTTP ${response.status}.`);
+      error.status = response.status;
+      throw error;
+    }
+    return { metaDescription: metaDescriptionFromHtml(html), headers: selectedHeaders(response.headers), finalUrl: response.url };
   });
-  const html = await response.text();
-  if (!response.ok) throw new Error(`Frontend ${url}: HTTP ${response.status}.`);
-  return { metaDescription: metaDescriptionFromHtml(html), headers: selectedHeaders(response.headers), finalUrl: response.url };
 }
 
 async function sampleTarget(site, target, index, offsetMs) {
