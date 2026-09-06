@@ -150,49 +150,141 @@
   .form-row.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  /* Real guided UI selectors: prevent later guided styles from keeping desktop navigation. */
+  html body[data-seogrow-ui-mode] .sidebar {
+    width: 88px !important;
+    padding-inline: 8px !important;
+  }
+  html body[data-seogrow-ui-mode] .workspace {
+    width: calc(100% - 88px) !important;
+    margin-left: 88px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .side-head {
+    justify-content: center !important;
+    padding-inline: 4px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .logo {
+    font-size: 0 !important;
+    width: 44px !important;
+    height: 34px !important;
+    justify-content: center !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .logo::after {
+    content: "SG";
+    font: 800 18px/1 "Manrope", sans-serif;
+    color: #fff;
+  }
+  body[data-seogrow-ui-mode] .sidebar .logo svg,
+  body[data-seogrow-ui-mode] .guided-nav button > span,
+  body[data-seogrow-ui-mode] .guided-nav-label,
+  body[data-seogrow-ui-mode] .guided-mode-toggle > span,
+  body[data-seogrow-ui-mode] .sidebar .side-foot > div:last-child {
+    display: none !important;
+  }
+  body[data-seogrow-ui-mode] .guided-nav-scroll {
+    padding-right: 0;
+  }
+  body[data-seogrow-ui-mode] .guided-nav-group {
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  body[data-seogrow-ui-mode] .guided-nav button,
+  body[data-seogrow-ui-mode] .guided-mode-toggle {
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 44px;
+    padding: 9px 8px !important;
+  }
+  body[data-seogrow-ui-mode] .guided-mode-toggle {
+    margin-inline: 0 !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .side-foot {
+    justify-content: center !important;
+    padding-inline: 0 !important;
+  }
+
+  /* Settings must stack before the old 760px breakpoint; otherwise the left panel collapses. */
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .settings-layout > * {
+    min-width: 0;
+  }
+  .snapshot-panel {
+    grid-column: 1 !important;
+  }
+
+  .integration-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .integration-grid > * {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .integration-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 600px) {
   .mobile-only {
     display: grid;
   }
-  .sidebar {
-    width: min(82vw, 300px);
+  .sidebar,
+  html body[data-seogrow-ui-mode] .sidebar {
+    width: min(82vw, 300px) !important;
     transform: translateX(-105%);
     transition: transform 180ms ease;
     box-shadow: 12px 0 40px rgba(4, 27, 61, 0.22);
   }
-  .sidebar.open {
+  .sidebar.open,
+  html body[data-seogrow-ui-mode] .sidebar.open {
     transform: translateX(0);
   }
-  .sidebar .side-head {
-    justify-content: space-between;
-    padding-inline: 10px;
+  .sidebar .side-head,
+  body[data-seogrow-ui-mode] .sidebar .side-head {
+    justify-content: space-between !important;
+    padding-inline: 10px !important;
   }
-  .sidebar .logo {
-    font-size: 25px;
-    width: auto;
-    height: auto;
+  .sidebar .logo,
+  body[data-seogrow-ui-mode] .sidebar .logo {
+    font-size: 25px !important;
+    width: auto !important;
+    height: auto !important;
   }
-  .sidebar .logo::after {
+  .sidebar .logo::after,
+  body[data-seogrow-ui-mode] .sidebar .logo::after {
     content: none;
   }
   .sidebar .logo svg,
   .sidebar nav button span,
-  .sidebar .side-foot > div:last-child {
-    display: initial;
+  .sidebar .side-foot > div:last-child,
+  body[data-seogrow-ui-mode] .sidebar .logo svg,
+  body[data-seogrow-ui-mode] .guided-nav button > span,
+  body[data-seogrow-ui-mode] .guided-mode-toggle > span,
+  body[data-seogrow-ui-mode] .sidebar .side-foot > div:last-child {
+    display: initial !important;
   }
-  .sidebar nav button {
-    justify-content: flex-start;
-    padding-inline: 13px;
+  body[data-seogrow-ui-mode] .guided-nav-label {
+    display: block !important;
   }
-  .sidebar .side-foot {
-    justify-content: flex-start;
-    padding-inline: 8px;
+  .sidebar nav button,
+  body[data-seogrow-ui-mode] .guided-nav button {
+    justify-content: flex-start !important;
+    padding-inline: 13px !important;
   }
-  .workspace {
-    width: 100%;
-    margin-left: 0;
+  .sidebar .side-foot,
+  body[data-seogrow-ui-mode] .sidebar .side-foot {
+    justify-content: flex-start !important;
+    padding-inline: 8px !important;
+  }
+  .workspace,
+  html body[data-seogrow-ui-mode] .workspace {
+    width: 100% !important;
+    margin-left: 0 !important;
   }
   .nav-scrim {
     display: block;
