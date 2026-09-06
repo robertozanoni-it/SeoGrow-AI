@@ -1,3 +1,4 @@
+import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import dns from "node:dns/promises";
 import net from "node:net";
 import {
@@ -170,26 +171,10 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
     throw error;
   }
 
-  const writeResponse = await fetch(taxonomyConnectorEndpoint(base, "taxonomy-write"), {
-    method: "POST",
-    headers: auth,
-    redirect: "manual",
-    signal: AbortSignal.timeout(20_000),
-    body: JSON.stringify({
-      url: targetUrl,
-      termId: inspection.term.id,
-      taxonomy: inspection.term.taxonomy,
-      adapter: currentAdapter,
-      field,
-      expectedCurrent: expected,
-      value: previous,
-    }),
+  const result = await atomicWordPressWrite(base, auth, {
+    resource: "taxonomy", id: inspection.term.id, url: targetUrl,
+    adapter: currentAdapter, field, changes: { [field]: previous }, expectedCurrent: { [field]: expected }, operation: "rollback",
   });
-  if ([301, 302, 303, 307, 308].includes(writeResponse.status)) {
-    await writeResponse.body?.cancel();
-    throw new Error("WordPress ha restituito un redirect inatteso durante la scrittura rollback tassonomia.");
-  }
-  const result = await taxonomyJson(writeResponse);
   if (result?.ok !== true || result?.staleChecked !== true || result?.singleField !== true ||
       !sameFieldValue(field, result.before, expected) || !sameFieldValue(field, result.after, previous)) {
     throw new Error("Il Connector non ha confermato integralmente il rollback tassonomia single-field.");
@@ -256,11 +241,15 @@ function registerRoutes(app) {
       }
       assertExpectedCurrent(current, expectedCurrent);
 
-      const update = await wpJson(endpoint(base, resource, `/${entityId}`), {
-        method: "POST",
-        headers: auth,
-        body: JSON.stringify(patch),
+      const nestedExpected = {};
+      for (const [field, value] of Object.entries(expectedCurrent)) {
+        if (field.startsWith("meta.")) { nestedExpected.meta ||= {}; nestedExpected.meta[field.slice(5)] = value; }
+        else nestedExpected[field] = value;
+      }
+      const result = await atomicWordPressWrite(base, auth, {
+        resource, id: entityId, changes: patch, expectedCurrent: nestedExpected, operation: "rollback",
       });
+      const update = result.entity;
       const expectedRestored = Object.fromEntries(patchFields.map(field => [field,
         field.startsWith("meta.") ? patch.meta[field.slice(5)] : patch[field],
       ]));

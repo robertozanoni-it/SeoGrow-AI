@@ -50,3 +50,20 @@ test("snapshot incompleto blocca invio e risposta incompleta conserva il journal
   assert.equal(saved.status, "Esito incerto");
   assert.equal(saved.after.title, "after");
 });
+
+test("proven atomic-policy denial is blocked, not a successful or uncertain write", async () => {
+  let saved;
+  await assert.rejects(applyJournaledCorrection(record, async () => { throw Object.assign(new Error("Atomic guarantee unavailable"), { code: "ATOMIC_WRITE_UNAVAILABLE" }); }, async row => (saved = row)), /Atomic guarantee/);
+  assert.equal(saved.status, "Bloccato");
+  assert.equal(saved.writeConfirmed, false);
+});
+
+test('unproven atomic response remains uncertain and preserves the pre-write snapshot', async () => {
+  let saved;
+  await assert.rejects(applyJournaledCorrection(record, async () => {
+    throw Object.assign(new Error('Response does not prove persistence'), { code: 'ATOMIC_RESULT_UNVERIFIED' });
+  }, async row => (saved = row)), /Esito/);
+  assert.equal(saved.status, 'Esito incerto');
+  assert.deepEqual(saved.before, record.before);
+  assert.equal(saved.writeConfirmed, false);
+});

@@ -48,7 +48,7 @@ const preview = (value, max = 300) => {
 };
 const statusClass = (status) => String(status || "").toLowerCase().replaceAll(" ", "-");
 const isVerified = (record) => record.status === "Verificato";
-const isPending = (record) => ["Applicato", "Da verificare", "Esito incerto"].includes(record.status);
+const isPending = (record) => ["Applicato", "Da verificare", "Esito incerto", "Bloccato"].includes(record.status);
 const isRolledBack = (record) => record.status === "Ripristinato";
 
 export default function CorrectionsWorkspace() {
@@ -315,7 +315,7 @@ export default function CorrectionsWorkspace() {
 
               <div className="correction-summary-actions">
                 <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
-                <button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || record.status === "Ripristinato"} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
+                <button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
                 <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
               </div>
 
@@ -330,10 +330,10 @@ export default function CorrectionsWorkspace() {
 
                   <div className="correction-footer">
                     <div>
-                      <strong>{verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
-                      <span>{verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
+                      <strong>{record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
+                      <span>{record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
                     </div>
-                    <button type="button" className="secondary" disabled={Boolean(rollingBack || verifying) || record.status === "Ripristinato"} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
+                    <button type="button" className="secondary" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
                   </div>
                 </div>
               )}

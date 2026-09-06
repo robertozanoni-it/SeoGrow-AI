@@ -22,6 +22,10 @@ export async function applyJournaledCorrection(record, write, persist = saveCorr
     }
     return await persist({ ...record, ...patch, id: record.id, clientId: record.clientId, status: "Da verificare", writeConfirmed: true });
   } catch (cause) {
+    if (["ATOMIC_WRITE_UNAVAILABLE", "STALE_CONFLICT", "STALE_PREVIEW", "EXPECTED_CURRENT_REQUIRED"].includes(cause.code)) {
+      await persist({ ...record, status: "Bloccato", writeConfirmed: false, frontendConfirmed: false, verificationNote: cause.message });
+      throw new Error(cause.message, { cause });
+    }
     throw new Error("Esito della scrittura non confermato. Lo snapshot è conservato in Correzioni; verifica WordPress prima di riprovare.", { cause });
   }
 }

@@ -1,3 +1,4 @@
+import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
@@ -273,11 +274,11 @@ function registerRoutes(app) {
       if (snapshotHash(current, approval.changes) !== approval.snapshotHash)
         return res.status(409).json({ error: "Il campo WordPress da modificare è cambiato dopo l'anteprima. Nessuna modifica applicata: rigenera l'anteprima.", code: "STALE_PREVIEW" });
 
-      const update = await json(await wpFetch(endpoint(base, approval.resource, `/${approval.id}`), {
-        method: "POST",
-        headers,
-        body: JSON.stringify(approval.changes),
-      }));
+      const result = await atomicWordPressWrite(base, headers, {
+        resource: approval.resource, id: approval.id, changes: approval.changes,
+        expectedCurrent: approval.before, operation: "apply",
+      }, wpFetch);
+      const update = result.entity;
       const before = approval.before;
       const after = selectedState(update, approval.changes);
       return res.json({
@@ -297,7 +298,7 @@ function registerRoutes(app) {
         message: "Modifica live approvata e applicata a WordPress. Avvio della riverifica SEO necessario.",
       });
     } catch (error) {
-      return res.status(400).json({ error: error instanceof Error ? error.message : "Applicazione live non riuscita." });
+      return res.status(error.status || 400).json({ error: error instanceof Error ? error.message : "Applicazione live non riuscita.", code: error.code || "APPLY_FAILED" });
     }
   });
 }

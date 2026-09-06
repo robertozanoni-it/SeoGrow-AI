@@ -37,7 +37,7 @@ test("il server usa token monouso e rifiuta anteprime stale", () => {
 });
 
 test("la scrittura live non cambia lo status WordPress", () => {
-  assert.match(server, /body: JSON\.stringify\(approval\.changes\)/);
+  assert.match(server, /changes: approval\.changes/);
   assert.doesNotMatch(server, /status:\s*"publish"/);
 });
 

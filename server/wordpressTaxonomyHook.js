@@ -1,3 +1,4 @@
+import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import { inspect as inspectFrontend } from "./frontendVerificationHook.js";
@@ -224,26 +225,10 @@ async function inspectTaxonomyConnector({ siteUrl, targetUrl, username, applicat
 
 async function writeTaxonomyConnector({ siteUrl, targetUrl, username, applicationPassword, termId, taxonomy, adapter, field, expectedCurrent, value }) {
   const base = await safeBase(siteUrl || new URL(targetUrl).origin);
-  const response = await fetch(connectorEndpoint(base, "taxonomy-write"), {
-    method: "POST",
-    headers: authHeaders(username, applicationPassword, true),
-    redirect: "manual",
-    signal: AbortSignal.timeout(20_000),
-    body: JSON.stringify({
-      url: targetUrl,
-      termId,
-      taxonomy,
-      adapter,
-      field,
-      expectedCurrent,
-      value,
-    }),
+  return atomicWordPressWrite(base, authHeaders(username, applicationPassword, true), {
+    resource: "taxonomy", id: termId, taxonomy, url: targetUrl, adapter, field, operation: "apply",
+    expectedCurrent: { [field]: expectedCurrent }, changes: { [field]: value },
   });
-  if ([301, 302, 303, 307, 308].includes(response.status)) {
-    await response.body?.cancel();
-    throw new Error("WordPress ha restituito un redirect inatteso durante la scrittura tassonomia.");
-  }
-  return connectorJson(response);
 }
 
 export function taxonomyPublicVerification(field, expected, frontend) {

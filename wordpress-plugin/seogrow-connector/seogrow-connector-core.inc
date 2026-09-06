@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SeoGrow Connector
  * Description: Espone a SeoGrow, tramite la REST API autenticata di WordPress, solo i campi necessari per Elementor, Rank Math e Yoast.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: SeoGrow AI
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SEOGROW_CONNECTOR_VERSION = '1.3.1';
+const SEOGROW_CONNECTOR_VERSION = '1.3.2';
 
 function seogrow_connector_can_edit_meta($allowed, $meta_key, $object_id) {
     $post_id = absint($object_id);
@@ -481,41 +481,8 @@ function seogrow_connector_taxonomy_write(WP_REST_Request $request) {
     if (is_wp_error($validation)) {
         return $validation;
     }
-    $before = $validation['current'];
-    $result = $adapter === 'rank-math'
-        ? seogrow_connector_taxonomy_write_rank_math($term, $field, $validation['next'])
-        : seogrow_connector_taxonomy_write_yoast($term, $field, $validation['next']);
-    if (is_wp_error($result)) {
-        return $result;
-    }
-
-    clean_term_cache($term->term_id, $term->taxonomy);
-    $fresh = get_term($term->term_id, $term->taxonomy);
-    if (!$fresh || is_wp_error($fresh)) {
-        return new WP_Error('seogrow_taxonomy_reread_failed', 'Scrittura eseguita ma rilettura tassonomia non riuscita: verifica manuale necessaria.', array('status' => 500));
-    }
-    $after_values = seogrow_connector_taxonomy_values_for_adapter($fresh, $adapter);
-    $after = seogrow_connector_taxonomy_field_value($after_values, $field);
-    if ($after !== $validation['next']) {
-        return new WP_Error('seogrow_taxonomy_persistence_unverified', 'WordPress non ha restituito il valore richiesto dopo la scrittura. Nessun successo viene dichiarato.', array('status' => 409));
-    }
-
-    return rest_ensure_response(array(
-        'ok' => true,
-        'resource' => 'taxonomy',
-        'staleChecked' => true,
-        'singleField' => true,
-        'term' => array(
-            'id' => (int) $fresh->term_id,
-            'taxonomy' => (string) $fresh->taxonomy,
-            'slug' => (string) $fresh->slug,
-            'link' => (string) get_term_link($fresh),
-        ),
-        'adapter' => $adapter,
-        'field' => $field,
-        'before' => $before,
-        'after' => $after,
-    ));
+    // The legacy endpoint must not bypass the fail-closed concurrency policy.
+    return seogrow_connector_atomic_unavailable();
 }
 
 function seogrow_connector_public_queryable_post_types() {
@@ -619,7 +586,8 @@ function seogrow_connector_status() {
         'elementorImpactReadOnly' => true,
         'wordpressPublicInventoryReadOnly' => true,
         'taxonomyInspect' => true,
-        'taxonomyWriteSingleField' => true,
+        'taxonomyWriteSingleField' => false,
+        'atomicWriteGuaranteed' => false,
         'rankMath' => defined('RANK_MATH_VERSION') || class_exists('RankMath\\Helper'),
         'yoast' => defined('WPSEO_VERSION') || class_exists('WPSEO_Options'),
     ));
