@@ -1,0 +1,67 @@
+{
+  "workspace": {
+    "seogrow-agent-runs-v1": "{\"9101\":[{\"id\":\"run-A-9101\",\"projectId\":9101,\"goal\":\"QA A — simulazione annullata\",\"status\":\"CANCELLED\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"observations\":[],\"recommendations\":[],\"approvalHistory\":[],\"plan\":{\"steps\":[]},\"pendingApproval\":null}],\"9102\":[{\"id\":\"run-A-9102\",\"projectId\":9102,\"goal\":\"QA A — simulazione annullata\",\"status\":\"CANCELLED\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"observations\":[],\"recommendations\":[],\"approvalHistory\":[],\"plan\":{\"steps\":[]},\"pendingApproval\":null}]}",
+    "seogrow-analyses-v2": "{\"9101\":[{\"url\":\"https://qa-a-1.example/\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"timestamp\":\"2026-09-06T12:00:00.000Z\",\"source\":\"qa-fixture\",\"complete\":false,\"issues\":[],\"reviewItems\":[],\"pages\":[],\"pagesChecked\":0,\"note\":\"Dati di collaudo fittizi, nessun crawl eseguito.\"}],\"9102\":[{\"url\":\"https://qa-a-2.example/\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"timestamp\":\"2026-09-06T12:00:00.000Z\",\"source\":\"qa-fixture\",\"complete\":false,\"issues\":[],\"reviewItems\":[],\"pages\":[],\"pagesChecked\":0,\"note\":\"Dati di collaudo fittizi, nessun crawl eseguito.\"}]}",
+    "seogrow-clients": "[{\"id\":9101,\"name\":\"QA A cliente 1 — FITTIZIO\",\"url\":\"https://qa-a-1.example/\"},{\"id\":9102,\"name\":\"QA A cliente 2 — FITTIZIO\",\"url\":\"https://qa-a-2.example/\"}]",
+    "seogrow-content-drafts-v1": "{}",
+    "seogrow-geo-v1": "{}",
+    "seogrow-gsc-history-v1": "{}",
+    "seogrow-gsc-v1": "{}",
+    "seogrow-page-audit-history-v2": "{\"9101\":[{\"url\":\"https://qa-a-1.example/\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"timestamp\":\"2026-09-06T12:00:00.000Z\",\"source\":\"qa-fixture\",\"complete\":false,\"issues\":[],\"reviewItems\":[],\"pages\":[],\"pagesChecked\":0,\"note\":\"Dati di collaudo fittizi, nessun crawl eseguito.\"}],\"9102\":[{\"url\":\"https://qa-a-2.example/\",\"createdAt\":\"2026-09-06T12:00:00.000Z\",\"timestamp\":\"2026-09-06T12:00:00.000Z\",\"source\":\"qa-fixture\",\"complete\":false,\"issues\":[],\"reviewItems\":[],\"pages\":[],\"pagesChecked\":0,\"note\":\"Dati di collaudo fittizi, nessun crawl eseguito.\"}]}",
+    "seogrow-preferences-v1": "{}",
+    "seogrow-quick-audits-v1": "{}",
+    "seogrow-rankings-v1": "{}",
+    "seogrow-remediation-history-v1": "[{\"id\":\"correction-A-9101\",\"batchId\":\"batch-A\",\"clientId\":9101,\"issueLabel\":\"QA A titolo — dati simulati\",\"issueKey\":\"qa a titolo — dati simulati::url:https://qa-a-1.example/\",\"legacyIssueKey\":\"\",\"identityVersion\":2,\"sourceUrl\":\"https://qa-a-1.example/\",\"siteUrl\":\"\",\"finalUrl\":\"\",\"canonical\":\"\",\"canonicalConfirmed\":false,\"resource\":\"\",\"entityId\":null,\"adapter\":\"\",\"status\":\"Bloccato\",\"fields\":[\"title\"],\"appliedAt\":\"2026-09-06T12:00:00.000Z\",\"verifiedAt\":\"\",\"rollbackAt\":\"\",\"quality\":null},{\"id\":\"correction-A-9102\",\"batchId\":\"batch-A\",\"clientId\":9102,\"issueLabel\":\"QA A titolo — dati simulati\",\"issueKey\":\"qa a titolo — dati simulati::url:https://qa-a-2.example/\",\"legacyIssueKey\":\"\",\"identityVersion\":2,\"sourceUrl\":\"https://qa-a-2.example/\",\"siteUrl\":\"\",\"finalUrl\":\"\",\"canonical\":\"\",\"canonicalConfirmed\":false,\"resource\":\"\",\"entityId\":null,\"adapter\":\"\",\"status\":\"Bloccato\",\"fields\":[\"title\"],\"appliedAt\":\"2026-09-06T12:00:00.000Z\",\"verifiedAt\":\"\",\"rollbackAt\":\"\",\"quality\":null}]",
+    "seogrow-remediation-last-batch-v1": "\"batch-A\"",
+    "seogrow-selected-client-v1": "9101",
+    "seogrow-selected-page-v1": "\"Panoramica\"",
+    "seogrow-snapshots-v1": "[]",
+    "seogrow-tasks-v2": "[{\"id\":\"qa-A-9101\",\"title\":\"QA A: controllare titolo fittizio\",\"status\":\"Da fare\",\"priority\":\"Media\",\"sourceClientId\":9101,\"sourceUrl\":\"https://qa-a-1.example/\"},{\"id\":\"qa-A-9102\",\"title\":\"QA A: controllare titolo fittizio\",\"status\":\"Da fare\",\"priority\":\"Media\",\"sourceClientId\":9102,\"sourceUrl\":\"https://qa-a-2.example/\"}]",
+    "seogrow-topical-maps-v1": "{}",
+    "seogrow-wordpress-profiles-v1": "{}"
+  },
+  "corrections": [
+    {
+      "id": "correction-A-9101",
+      "batchId": "batch-A",
+      "clientId": 9101,
+      "issueLabel": "QA A titolo — dati simulati",
+      "sourceUrl": "https://qa-a-1.example/",
+      "fields": [
+        "title"
+      ],
+      "before": {
+        "title": "Prima A"
+      },
+      "after": {
+        "title": "Dopo A"
+      },
+      "status": "Bloccato",
+      "writeConfirmed": false,
+      "frontendConfirmed": false,
+      "appliedAt": "2026-09-06T12:00:00.000Z",
+      "verificationNote": "Fixture: nessuna scrittura WordPress eseguita."
+    },
+    {
+      "id": "correction-A-9102",
+      "batchId": "batch-A",
+      "clientId": 9102,
+      "issueLabel": "QA A titolo — dati simulati",
+      "sourceUrl": "https://qa-a-2.example/",
+      "fields": [
+        "title"
+      ],
+      "before": {
+        "title": "Prima A"
+      },
+      "after": {
+        "title": "Dopo A"
+      },
+      "status": "Bloccato",
+      "writeConfirmed": false,
+      "frontendConfirmed": false,
+      "appliedAt": "2026-09-06T12:00:00.000Z",
+      "verificationNote": "Fixture: nessuna scrittura WordPress eseguita."
+    }
+  ]
+}
