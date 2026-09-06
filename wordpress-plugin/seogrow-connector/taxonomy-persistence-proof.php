@@ -29,6 +29,14 @@ function seogrow_connector_rank_math_db_value($field, $rows) {
     return is_scalar($raw) ? (string) $raw : '';
 }
 
+function seogrow_connector_persistence_error_response($code, $message, $status, $extra = array()) {
+    return new WP_REST_Response(array_merge(array(
+        'code' => (string) $code,
+        'message' => (string) $message,
+        'data' => array('status' => (int) $status),
+    ), is_array($extra) ? $extra : array()), (int) $status);
+}
+
 function seogrow_connector_rank_math_persistence_proof($response, $server, $request) {
     if (!($request instanceof WP_REST_Request) || $request->get_route() !== '/seogrow/v1/taxonomy-write') {
         return $response;
@@ -56,19 +64,20 @@ function seogrow_connector_rank_math_persistence_proof($response, $server, $requ
         'noindex' => 'rank_math_robots',
     );
     if (!$term_id || !isset($keys[$field])) {
-        return new WP_Error(
+        return seogrow_connector_persistence_error_response(
             'seogrow_taxonomy_persistence_proof_invalid',
             'Scrittura Rank Math completata ma la prova di persistenza non dispone di identità sufficiente.',
-            array('status' => 500)
+            500
         );
     }
 
     $rows = seogrow_connector_rank_math_db_rows($term_id, $keys[$field]);
     if (count($rows) !== 1) {
-        return new WP_Error(
+        return seogrow_connector_persistence_error_response(
             'seogrow_taxonomy_db_ambiguous',
             'Scrittura Rank Math non certificata: il database non contiene esattamente una riga per il meta target.',
-            array('status' => 409, 'dbRowCount' => count($rows))
+            409,
+            array('dbRowCount' => count($rows))
         );
     }
 
@@ -79,11 +88,11 @@ function seogrow_connector_rank_math_persistence_proof($response, $server, $requ
     $expected_value = $field === 'noindex' ? (bool) $expected : (string) $expected;
 
     if ($db_value !== $expected_value || $api_value !== $expected_value) {
-        return new WP_Error(
+        return seogrow_connector_persistence_error_response(
             'seogrow_taxonomy_persistence_divergence',
             'Scrittura Rank Math non certificata: API WordPress e riga reale wp_termmeta non concordano sul valore appena scritto.',
+            409,
             array(
-                'status' => 409,
                 'dbRowCount' => count($rows),
                 'apiMatches' => $api_value === $expected_value,
                 'dbMatches' => $db_value === $expected_value,
