@@ -2,6 +2,8 @@ import { mkdir, writeFile, appendFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { preflight, doctorTarget, wpGet, decodeHtml, validateInputs } from './wordpress-rankmath-doctor-convergence.mjs';
 
+export const CATEGORY_INDEXABILITY_POLICY = Object.freeze({ taxonomy: 'category', expectedIndexable: true, scope: 'all-sites', source: 'owner-instruction-2026-09-06' });
+
 const normalize = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 export function publicSeo(html) {
   const rawHtml = String(html);
@@ -17,14 +19,14 @@ export function publicSeo(html) {
     for (const a of match[0].matchAll(/([:\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) attrs[a[1].toLowerCase()] = decodeHtml(a[2] ?? a[3] ?? a[4] ?? '');
     const name = (attrs.name || '').toLowerCase();
     if (name === 'description') result.descriptions.push(normalize(attrs.content));
-    if (name === 'robots') result.robots.push(normalize(attrs.content));
+    if (['robots','googlebot','bingbot'].includes(name)) result.robots.push(normalize(attrs.content));
     if ((attrs.rel || '').toLowerCase().split(/\s+/).includes('canonical')) result.canonicals.push(attrs.href || '');
   }
   result.schemaBlocks = (rawHtml.match(/<script\b[^>]*type=["']application\/ld\+json["']/gi) || []).length;
   result.misplacedSeoTags = (body.match(/<(?:meta\b[^>]*name=["']description["']|link\b[^>]*rel=["']canonical["'])[^>]*>/gi) || []).length;
   return result;
 }
-export function publicFindings(seo, url) {
+export function publicFindings(seo, url, {taxonomy, xRobotsTag = ""} = {}) {
   const issues = [];
   for (const key of ['titles', 'descriptions', 'canonicals']) {
     if (seo[key].length !== 1 || !seo[key][0]) issues.push(`PUBLIC_${key.toUpperCase()}_MISSING_OR_DUPLICATED`);
@@ -33,7 +35,7 @@ export function publicFindings(seo, url) {
     try { if (new URL(seo.canonicals[0], url).href !== new URL(url).href) issues.push('CANONICAL_REVIEW_REQUIRED'); }
     catch { issues.push('CANONICAL_INVALID'); }
   }
-  if (seo.robots.some(value => /\bnoindex\b/i.test(value))) issues.push('NOINDEX_REVIEW_REQUIRED');
+  if ([...seo.robots,xRobotsTag].some(value => /\bnoindex\b/i.test(value))) issues.push(taxonomy === CATEGORY_INDEXABILITY_POLICY.taxonomy ? 'CATEGORY_NOINDEX_POLICY_VIOLATION' : 'NOINDEX_REVIEW_REQUIRED');
   if ([...seo.titles, ...seo.descriptions].some(value => /^SeoGrow E2E (categoria|tag) /i.test(value))) issues.push('LEGACY_MARKER_PUBLIC');
   if (seo.misplacedSeoTags) issues.push('MISPLACED_SEO_TAGS_IN_BODY');
   return issues;
@@ -70,7 +72,7 @@ export async function fetchPublic(url, siteOrigin, transport = fetch) {
 }
 
 export async function runGlobal() {
-  const report = { schemaVersion: 2, startedAt: new Date().toISOString(), commit: process.env.GITHUB_SHA || 'local', healthy: false,
+  const report = { schemaVersion: 2, startedAt: new Date().toISOString(), commit: process.env.GITHUB_SHA || 'local', healthy: false, categoryPolicy: CATEGORY_INDEXABILITY_POLICY,
     coverage: { taxonomy: 'category/post_tag: metadata diagnostics and public HTML', pages: 'published public inventory: rendered title/description/canonical/robots; no post database proof',
       excluded: ['Elementor templates (listed separately)', 'custom taxonomies', 'draft/private content', 'schema semantic validation', 'Rank Math analytics/redirections/settings', 'editorial correctness'], repair: 'only explicitly supplied category/tag meta_description; no new markers' },
     checks: [], targets: [], excludedResources: [], counts: {discovered: 0, checked: 0}, complete: false };
@@ -166,7 +168,7 @@ export async function runGlobal() {
         const seo=publicSeo(await resolved.response.text());
         row.finalUrl=resolved.url;
         row.redirects=resolved.redirects;
-        row.issues.push(...publicFindings(seo,resolved.url));
+        row.issues.push(...publicFindings(seo,resolved.url,{taxonomy:item.label==='categoria'?'category':item.label==='tag'?'post_tag':undefined,xRobotsTag:resolved.response.headers.get('x-robots-tag') || ''}));
         if(row.backendDescription) {
           if(/%[^%]+%/.test(row.backendDescription)) row.issues.push('DYNAMIC_TEMPLATE_REVIEW_REQUIRED');
           else if(seo.descriptions.length===1 && normalize(row.backendDescription)!==seo.descriptions[0]) row.issues.push('PUBLIC_DATABASE_DESCRIPTION_DIVERGENCE');
@@ -184,7 +186,7 @@ export async function runGlobal() {
   report.finishedAt=new Date().toISOString();
   await mkdir('artifacts',{recursive:true});
   await writeFile('artifacts/rankmath-global.json',JSON.stringify(report,null,2));
-  const md=`# Rank Math global verification\n\nStatus: **${report.healthy?'PASS within declared coverage':'BLOCKED / findings require action'}**\n\nCoverage complete: ${report.complete}. Checked ${report.counts.checked}/${report.counts.discovered}. Excluded templates: ${report.excludedResources.length}.\n\nRepairs: named category/tag only. Other resources are read-only. Pages have public HTML checks only; this is not certification of every Rank Math feature.\n\n${report.checks.map(c=>`- ${c.name}: ${c.status} ${c.code||''}`).join('\n')}\n\n${report.targets.filter(t=>t.issues.length).map(t=>`- ${t.url}: ${t.issues.join('; ')}`).join('\n')}\n\nIf CONNECTOR_UPDATE_REQUIRED: install the complete seogrow-connector 1.3.1 ZIP artifact, replacing the installed plugin. A repository update does not update WordPress. Do not repeat recovery or supply an invented original value.\n`;
+  const md=`# Rank Math global verification\n\nStatus: **${report.healthy?'PASS within declared coverage':'BLOCKED / findings require action'}**\n\nCoverage complete: ${report.complete}. Checked ${report.counts.checked}/${report.counts.discovered}. Excluded templates: ${report.excludedResources.length}.\n\nCategory policy: every category must be indexable on every site; category noindex is a policy violation, not an undecided review. This run does not change indexing settings. Repairs: named category/tag description only. Other resources are read-only. Pages have public HTML checks only; this is not certification of every Rank Math feature.\n\n${report.checks.map(c=>`- ${c.name}: ${c.status} ${c.code||''}`).join('\n')}\n\n${report.targets.filter(t=>t.issues.length).map(t=>`- ${t.url}: ${t.issues.join('; ')}`).join('\n')}\n\nIf CONNECTOR_UPDATE_REQUIRED: install the complete seogrow-connector 1.3.1 ZIP artifact, replacing the installed plugin. A repository update does not update WordPress. Do not repeat recovery or supply an invented original value.\n`;
   await writeFile('artifacts/rankmath-global.md',md);
   if(process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY,md);
   console.log(`RANK_MATH_GLOBAL=${report.healthy?'PASS':'BLOCKED'}`);
