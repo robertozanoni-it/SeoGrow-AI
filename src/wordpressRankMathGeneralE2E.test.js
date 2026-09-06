@@ -34,18 +34,18 @@ test("riconosce solo marker SeoGrow E2E con timestamp ISO", () => {
   assert.equal(isSeoGrowE2EMarker("SeoGrow E2E categoria modificato"), false);
 });
 
-test("workflow espone il mode generale Rank Math protetto dalla conferma write e dal cache preflight", () => {
-  assert.match(workflow, /taxonomy-rank-math-general/);
-  assert.match(workflow, /Rank Math public-cache purge capability preflight/);
-  assert.match(workflow, /node scripts\/wordpress-rankmath-public-cache-purge-preflight\.mjs/);
-  assert.match(workflow, /Rank Math general E2E/);
-  assert.match(workflow, /node scripts\/wordpress-rankmath-general-e2e\.mjs/);
-  assert.match(workflow, /inputs\.mode == 'taxonomy-rank-math-general' \|\| inputs\.mode == 'taxonomy-rank-math'/);
+test("workflow ritira il general E2E Rank Math live e lo sostituisce con Doctor", () => {
+  assert.match(workflow, /taxonomy-rank-math-doctor/);
+  assert.match(workflow, /Rank Math Doctor — diagnose, remediate, verify/);
+  assert.match(workflow, /node scripts\/wordpress-rankmath-doctor\.mjs/);
+  assert.doesNotMatch(workflow, /- taxonomy-rank-math-general\n/);
+  assert.doesNotMatch(workflow, /- taxonomy-rank-math\n/);
+  assert.doesNotMatch(workflow, /Rank Math general E2E/);
   assert.match(workflow, /recovery_original:/);
   assert.match(workflow, /SEOGROW_WP_RECOVERY_ORIGINAL: \$\{\{ inputs\.recovery_original \}\}/);
 });
 
-test("public-cache preflight richiede la build esatta e resta strettamente read-only", () => {
+test("public-cache preflight legacy resta strettamente read-only anche se non è più esposto nel workflow", () => {
   assert.match(publicCachePreflight, /taxonomy-public-cache-purge-capability/);
   assert.match(publicCachePreflight, /litespeed-url-purge-20260906-v1/);
   assert.match(publicCachePreflight, /data\?\.readOnly !== true/);
@@ -79,22 +79,20 @@ test("recovery journal si arma prima della write marker e si pulisce sul ritorno
   assert.match(recoveryAuto, /delete_option\(\$key\)/);
 });
 
-test("Rank Math general recupera marker persistito prima di qualunque nuovo ciclo E2E", () => {
+test("Rank Math general legacy conserva recovery marker per compatibilità ma non è più esposto nel workflow", () => {
   const detect = general.indexOf("RANK_MATH_GENERAL=STABLE_ORPHAN_MARKER_DETECTED");
   const recover = general.indexOf('wordpressPost("taxonomy-recovery-execute"', detect);
   const complete = general.indexOf("RANK_MATH_GENERAL=ORPHAN_MARKER_RECOVERED", recover);
-  const writeCycle = general.indexOf("single controlled apply/verify/rollback cycle", complete);
-  assert.ok(detect >= 0 && recover > detect && complete > recover && writeCycle > complete);
+  assert.ok(detect >= 0 && recover > detect && complete > recover);
   assert.match(general, /RANK_MATH_GENERAL=RECOVERY_ORIGINAL_REQUIRED/);
-  assert.match(general, /Nessun nuovo E2E viene eseguito in questo run/);
+  assert.doesNotMatch(workflow, /node scripts\/wordpress-rankmath-general-e2e\.mjs/);
 });
 
-test("Rank Math general usa il purge mirato solo nel caso frontend-only e si ferma dopo recovery", () => {
+test("Rank Math general legacy conserva il purge mirato frontend-only", () => {
   const stale = general.indexOf("RANK_MATH_GENERAL=FRONTEND_ONLY_STALE_MARKER");
   const purge = general.indexOf("const purge = await purgePublicCache(target.url);", stale);
   const recovered = general.indexOf("RANK_MATH_GENERAL=PUBLIC_CACHE_RECOVERED", purge);
-  const complete = general.indexOf("RANK_MATH_GENERAL=RECOVERY_COMPLETE", recovered);
-  assert.ok(stale >= 0 && purge > stale && recovered > purge && complete > recovered);
+  assert.ok(stale >= 0 && purge > stale && recovered > purge);
   assert.match(general, /RANK_MATH_GENERAL=PUBLIC_CACHE_PURGE_INEFFECTIVE/);
   assert.match(general, /contentWritesPerformed !== 0/);
   assert.match(general, /purgeRequested !== true/);

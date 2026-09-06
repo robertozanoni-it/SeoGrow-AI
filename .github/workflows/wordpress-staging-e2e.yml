@@ -11,15 +11,14 @@ on:
           - elementor-read-only
           - taxonomy-read-only-diagnostics
           - taxonomy-consistency-sampler
-          - taxonomy-rank-math-general
-          - taxonomy-rank-math
+          - taxonomy-rank-math-doctor
           - taxonomy-yoast
       site_url:
-        description: "URL HTTPS del sito WordPress di staging"
+        description: "URL HTTPS del sito WordPress di staging/produzione autorizzato"
         required: true
         type: string
       confirm_host:
-        description: "Hostname esatto dello staging (es. staging.example.com)"
+        description: "Hostname esatto del sito (es. staging.example.com)"
         required: true
         type: string
       category_url:
@@ -31,11 +30,11 @@ on:
         required: false
         type: string
       recovery_original:
-        description: "Solo recovery una tantum di marker SeoGrow legacy: valore originale esatto. Lascia vuoto normalmente."
+        description: "Solo marker legacy senza journal/LKG: valore originale esatto una tantum. Lascia vuoto normalmente."
         required: false
         type: string
       confirm_write:
-        description: "Solo per i mode taxonomy-rank-math*/yoast scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
+        description: "Doctor/Yoast remediation: scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
         required: false
         type: string
 
@@ -94,15 +93,15 @@ jobs:
             exit 1
           fi
 
-      - name: Validate write-mode guard
-        if: inputs.mode == 'taxonomy-rank-math-general' || inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
+      - name: Validate remediation guard
+        if: inputs.mode == 'taxonomy-rank-math-doctor' || inputs.mode == 'taxonomy-yoast'
         shell: bash
         env:
           CONFIRM_WRITE: ${{ inputs.confirm_write }}
         run: |
           set -euo pipefail
           if [ "$CONFIRM_WRITE" != "YES_I_UNDERSTAND" ]; then
-            echo "Taxonomy write E2E writes and rolls back values. confirm_write must equal YES_I_UNDERSTAND."
+            echo "Remediation may mutate taxonomy metadata/cache. confirm_write must equal YES_I_UNDERSTAND."
             exit 1
           fi
 
@@ -146,38 +145,21 @@ jobs:
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
 
-      - name: Rank Math public-cache purge capability preflight
-        if: inputs.mode == 'taxonomy-rank-math-general'
-        run: node scripts/wordpress-rankmath-public-cache-purge-preflight.mjs
-
-      - name: Rank Math general E2E
-        if: inputs.mode == 'taxonomy-rank-math-general'
+      - name: Rank Math Doctor — diagnose, remediate, verify
+        if: inputs.mode == 'taxonomy-rank-math-doctor'
         env:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
           SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
           SEOGROW_WP_RECOVERY_ORIGINAL: ${{ inputs.recovery_original }}
-        run: node scripts/wordpress-rankmath-general-e2e.mjs
+        run: node scripts/wordpress-rankmath-doctor.mjs
 
       - name: Taxonomy baseline read-only preflight
-        if: inputs.mode == 'taxonomy-rank-math' || inputs.mode == 'taxonomy-yoast'
+        if: inputs.mode == 'taxonomy-yoast'
         env:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
-
-      - name: Rank Math cache-coherence capability preflight
-        if: inputs.mode == 'taxonomy-rank-math'
-        run: node scripts/wordpress-rankmath-cache-coherence-preflight.mjs
-
-      - name: Taxonomy Rank Math E2E
-        if: inputs.mode == 'taxonomy-rank-math'
-        env:
-          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
-          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
-          SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
-          SEOGROW_WP_EXPECT_ADAPTER: rank-math
-        run: npm run test:wordpress-taxonomy-e2e
 
       - name: Taxonomy Yoast E2E
         if: inputs.mode == 'taxonomy-yoast'
