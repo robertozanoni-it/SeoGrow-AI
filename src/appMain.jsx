@@ -3,6 +3,7 @@ import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './locationEvents';
 import './seoResponseIntegrity';
+import './uiIntegrityFixes';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -13,6 +14,7 @@ import AuditWorkspace from './AuditWorkspace';
 import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import './styles.css';
+import './responsiveIntegrity.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
