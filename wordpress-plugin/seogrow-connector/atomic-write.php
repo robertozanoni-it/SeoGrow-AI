@@ -1,15 +1,28 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-/** No generic WordPress/plugin save path currently provides a proven CAS.
- * Never turn an advisory lock or a GET/check/POST sequence into atomic=true.
- */
 function seogrow_connector_atomic_unavailable() {
     return new WP_Error('ATOMIC_WRITE_UNAVAILABLE', 'Scrittura bloccata: confronto e aggiornamento atomici non garantiti per questo storage WordPress. Nessuna modifica applicata.', array('status' => 409));
 }
 
+function seogrow_connector_atomic_exact_equal($left, $right) {
+    return is_string($left) && is_string($right) && $left === $right;
+}
+
+function seogrow_connector_atomic_entity($row, $id) {
+    return array(
+        'id' => (int) $id,
+        'status' => isset($row['post_status']) ? (string) $row['post_status'] : '',
+        'link' => function_exists('get_permalink') ? (string) get_permalink($id) : '',
+        'title' => array('raw' => isset($row['post_title']) ? (string) $row['post_title'] : ''),
+        'content' => array('raw' => isset($row['post_content']) ? (string) $row['post_content'] : ''),
+        'excerpt' => array('raw' => isset($row['post_excerpt']) ? (string) $row['post_excerpt'] : ''),
+    );
+}
+
 function seogrow_connector_atomic_write(WP_REST_Request $request) {
-    if (!in_array($request->get_param('operation'), array('apply', 'rollback'), true)) {
+    $operation = (string) $request->get_param('operation');
+    if (!in_array($operation, array('apply', 'rollback'), true)) {
         return new WP_Error('ATOMIC_OPERATION_REQUIRED', 'Operazione apply o rollback obbligatoria.', array('status' => 400));
     }
     $resource = $request->get_param('resource');
@@ -18,6 +31,9 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
     if (!is_array($expected) || !count($expected) || !is_array($changes) || !count($changes)) {
         return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot e modifiche completi obbligatori.', array('status' => 400));
     }
+
+    // Taxonomy/plugin-meta ownership does not currently expose a single-row CAS
+    // primitive that SeoGrow can prove. Keep it fail-closed.
     if ($resource === 'taxonomy') {
         $term = seogrow_connector_find_exact_taxonomy_term(esc_url_raw((string) $request->get_param('url')));
         if (is_wp_error($term)) { return $term; }
@@ -32,48 +48,99 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         if (is_wp_error($validation)) { return $validation; }
         return seogrow_connector_atomic_unavailable();
     }
+
     if (!in_array($resource, array('posts', 'pages'), true)) { return seogrow_connector_atomic_unavailable(); }
     $id = (int) $request->get_param('id');
     if ($id <= 0 || !current_user_can('edit_post', $id)) {
         return new WP_Error('ATOMIC_WRITE_FORBIDDEN', 'Permessi insufficienti.', array('status' => 403));
     }
-    // Bypass object caches for the diagnostic comparison. No write follows
-    // this read unless a future, separately verified atomic adapter exists.
-    global $wpdb;
-    $post = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id), ARRAY_A);
-    if (!$post || $post['post_type'] !== ($resource === 'posts' ? 'post' : 'page')) {
-        return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'Risorsa WordPress cambiata.', array('status' => 409));
-    }
+
+    // Core post/page fields are stored on one wp_posts row, so they can be
+    // updated with a single SQL compare-and-swap statement. Meta is a separate
+    // row set and remains blocked to avoid a partially atomic mixed write.
+    if (array_key_exists('meta', $changes)) { return seogrow_connector_atomic_unavailable(); }
     $fields = array('title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt');
     foreach ($changes as $field => $value) {
-        if ($field === 'meta') {
-            if (!is_array($value) || !isset($expected['meta']) || !is_array($expected['meta'])) {
-                return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot meta completo obbligatorio.', array('status' => 400));
-            }
-            foreach ($value as $key => $unused) {
-                if (!array_key_exists($key, $expected['meta'])) {
-                    return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot meta mancante.', array('status' => 400));
-                }
-                if (!current_user_can('edit_post_meta', $id, $key)) {
-                    return new WP_Error('ATOMIC_WRITE_FORBIDDEN', 'Permessi meta insufficienti.', array('status' => 403));
-                }
-                $rows = $wpdb->get_col($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $key));
-                // Missing or duplicate rows cannot prove a unique writable owner.
-                if (!is_array($rows) || count($rows) !== 1) { return seogrow_connector_atomic_unavailable(); }
-                if (maybe_unserialize($rows[0]) !== $expected['meta'][$key]) {
-                    return new WP_Error('STALE_CONFLICT', 'Il meta è cambiato dopo l’anteprima. Nessuna modifica applicata.', array('status' => 409));
-                }
-            }
-            continue;
-        }
-        if (!isset($fields[$field]) || !array_key_exists($field, $expected)) {
+        if (!isset($fields[$field]) || !array_key_exists($field, $expected) || !is_string($value) || !is_string($expected[$field])) {
             return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Campo non supportato o snapshot mancante.', array('status' => 400));
         }
-        if ($post[$fields[$field]] !== $expected[$field]) {
-            return new WP_Error('STALE_CONFLICT', 'Il campo è cambiato dopo l’anteprima. Nessuna modifica applicata.', array('status' => 409));
+    }
+
+    global $wpdb;
+    $post_type = $resource === 'posts' ? 'post' : 'page';
+    $before = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id), ARRAY_A);
+    if (!$before || $before['post_type'] !== $post_type) {
+        return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'Risorsa WordPress cambiata.', array('status' => 409));
+    }
+    foreach ($expected as $field => $value) {
+        if (isset($fields[$field]) && !seogrow_connector_atomic_exact_equal((string) $before[$fields[$field]], $value)) {
+            return new WP_Error('STALE_CONFLICT', 'Il contenuto è cambiato dopo l’anteprima. Nessuna modifica applicata.', array('status' => 409));
         }
     }
-    return seogrow_connector_atomic_unavailable();
+
+    $no_write_required = true;
+    foreach ($changes as $field => $value) {
+        if (!seogrow_connector_atomic_exact_equal($expected[$field], $value)) { $no_write_required = false; break; }
+    }
+
+    if (!$no_write_required) {
+        $set_parts = array();
+        $where_parts = array('ID = %d', 'post_type = %s');
+        $args = array();
+        foreach ($changes as $field => $value) {
+            $set_parts[] = $fields[$field] . ' = %s';
+            $args[] = $value;
+        }
+        $args[] = $id;
+        $args[] = $post_type;
+        // Compare every expected core field, not just the field being changed.
+        // BINARY makes the precondition byte-exact even on case-insensitive collations.
+        foreach ($expected as $field => $value) {
+            if (!isset($fields[$field]) || !is_string($value)) {
+                return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot contiene un campo non supportato.', array('status' => 400));
+            }
+            $where_parts[] = 'BINARY ' . $fields[$field] . ' = BINARY %s';
+            $args[] = $value;
+        }
+        $sql = "UPDATE {$wpdb->posts} SET " . implode(', ', $set_parts) . ' WHERE ' . implode(' AND ', $where_parts);
+        $affected = $wpdb->query($wpdb->prepare($sql, $args));
+        if ($affected === false) {
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Il database non ha confermato la scrittura atomica. Esito da verificare.', array('status' => 500));
+        }
+        if ((int) $affected !== 1) {
+            $now = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id), ARRAY_A);
+            if (!$now || $now['post_type'] !== $post_type) {
+                return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'Risorsa WordPress cambiata durante la scrittura.', array('status' => 409));
+            }
+            foreach ($expected as $field => $value) {
+                if (!seogrow_connector_atomic_exact_equal((string) $now[$fields[$field]], $value)) {
+                    return new WP_Error('STALE_CONFLICT', 'Il contenuto è cambiato durante la scrittura atomica. Nessuna sovrascrittura eseguita.', array('status' => 409));
+                }
+            }
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'La compare-and-swap non ha modificato esattamente una riga. Esito da verificare.', array('status' => 409));
+        }
+    }
+
+    if (function_exists('clean_post_cache')) { clean_post_cache($id); }
+    $after = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id), ARRAY_A);
+    if (!$after || $after['post_type'] !== $post_type) {
+        return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Scrittura eseguita ma identità finale non verificabile.', array('status' => 409));
+    }
+    foreach ($changes as $field => $value) {
+        if (!seogrow_connector_atomic_exact_equal((string) $after[$fields[$field]], $value)) {
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Scrittura eseguita ma valore finale cambiato prima della conferma.', array('status' => 409));
+        }
+    }
+
+    return array(
+        'ok' => true,
+        'atomicGuaranteed' => true,
+        'staleChecked' => true,
+        'operation' => $operation,
+        'resource' => $resource,
+        'noWriteRequired' => $no_write_required,
+        'entity' => seogrow_connector_atomic_entity($after, $id),
+    );
 }
 
 add_action('rest_api_init', static function () {
