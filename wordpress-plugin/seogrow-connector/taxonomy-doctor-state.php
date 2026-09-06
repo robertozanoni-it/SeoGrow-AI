@@ -21,6 +21,8 @@ function seogrow_connector_taxonomy_doctor_capability() {
         'supportsLastKnownGood' => true,
         'supportsRecoveryJournal' => defined('SEOGROW_TAXONOMY_RECOVERY_CAPABILITY'),
         'supportsTargetedPublicCachePurge' => defined('SEOGROW_TAXONOMY_PUBLIC_CACHE_PURGE_CAPABILITY'),
+        'supportsObjectCacheRefresh' => true,
+        'supportsIdenticalDuplicateCollapse' => true,
         'realSeoMarkerWritesAllowed' => false,
     ));
 }
@@ -136,6 +138,7 @@ function seogrow_connector_taxonomy_doctor_state(WP_REST_Request $request) {
         'current' => array(
             'api' => $current['api'],
             'db' => $current['db'],
+            'dbRows' => $current['rows'],
             'dbRowCount' => count($current['rows']),
             'singleRow' => $current['singleRow'],
             'isMarker' => seogrow_connector_taxonomy_recovery_marker_valid($current['api']),
@@ -153,6 +156,74 @@ function seogrow_connector_taxonomy_doctor_state(WP_REST_Request $request) {
             'marker' => (string) ($journal['marker'] ?? ''),
             'expiresAt' => (int) ($journal['expiresAt'] ?? 0),
         ) : array('available' => false),
+    ));
+}
+
+function seogrow_connector_taxonomy_doctor_refresh_cache(WP_REST_Request $request) {
+    $url = esc_url_raw((string) $request->get_param('url'));
+    $term_id = absint($request->get_param('termId'));
+    $taxonomy = sanitize_key((string) $request->get_param('taxonomy'));
+    $term = seogrow_connector_taxonomy_doctor_term($url, $term_id, $taxonomy);
+    if (is_wp_error($term)) return $term;
+    clean_term_cache($term->term_id, $term->taxonomy);
+    if (has_action('litespeed_purge_url')) {
+        do_action('litespeed_purge_url', $url);
+    }
+    return rest_ensure_response(array(
+        'ok' => true,
+        'resource' => 'taxonomy-doctor-cache-refresh',
+        'contentWritesPerformed' => 0,
+        'objectCacheCleared' => true,
+        'publicCachePurgeRequested' => has_action('litespeed_purge_url') ? true : false,
+    ));
+}
+
+function seogrow_connector_taxonomy_doctor_dedupe(WP_REST_Request $request) {
+    $url = esc_url_raw((string) $request->get_param('url'));
+    $term_id = absint($request->get_param('termId'));
+    $taxonomy = sanitize_key((string) $request->get_param('taxonomy'));
+    $expected = wp_check_invalid_utf8((string) $request->get_param('expectedValue'));
+    $confirm = (string) $request->get_param('confirm');
+    if ($confirm !== 'YES_I_UNDERSTAND') {
+        return new WP_Error('seogrow_doctor_confirmation_required', 'Dedupe non autorizzato senza conferma esplicita.', array('status' => 400));
+    }
+    $term = seogrow_connector_taxonomy_doctor_term($url, $term_id, $taxonomy);
+    if (is_wp_error($term)) return $term;
+    $state = seogrow_connector_taxonomy_doctor_current_rank_math_description($term);
+    if (count($state['rows']) <= 1) {
+        return new WP_Error('seogrow_doctor_dedupe_not_needed', 'Nessuna riga duplicata da correggere.', array('status' => 409));
+    }
+    foreach ($state['rows'] as $row) {
+        if ($row !== $expected) {
+            return new WP_Error('seogrow_doctor_dedupe_ambiguous', 'Dedupe bloccato: le righe duplicate non contengono tutte lo stesso valore atteso.', array('status' => 409));
+        }
+    }
+    if ($state['api'] !== $expected) {
+        return new WP_Error('seogrow_doctor_dedupe_stale', 'Dedupe bloccato: get_term_meta non coincide col valore duplicato atteso.', array('status' => 409));
+    }
+
+    delete_term_meta($term->term_id, 'rank_math_description');
+    $added = add_term_meta($term->term_id, 'rank_math_description', $expected, true);
+    if (!$added) {
+        return new WP_Error('seogrow_doctor_dedupe_write_failed', 'Impossibile ricreare una singola riga rank_math_description.', array('status' => 500));
+    }
+    clean_term_cache($term->term_id, $term->taxonomy);
+    $after = seogrow_connector_taxonomy_doctor_current_rank_math_description($term);
+    if (!$after['singleRow'] || $after['api'] !== $expected || $after['db'] !== $expected) {
+        return new WP_Error('seogrow_doctor_dedupe_unverified', 'Dedupe eseguito ma stato finale non verificato.', array('status' => 500));
+    }
+    if (has_action('litespeed_purge_url')) {
+        do_action('litespeed_purge_url', $url);
+    }
+    return rest_ensure_response(array(
+        'ok' => true,
+        'resource' => 'taxonomy-doctor-dedupe',
+        'repaired' => true,
+        'staleChecked' => true,
+        'contentWritesPerformed' => 1,
+        'beforeRowCount' => count($state['rows']),
+        'afterRowCount' => 1,
+        'valuePreserved' => true,
     ));
 }
 
@@ -179,5 +250,15 @@ add_action('rest_api_init', static function () {
             'termId' => array('required' => true, 'type' => 'integer'),
             'taxonomy' => array('required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key'),
         ),
+    ));
+    register_rest_route('seogrow/v1', '/taxonomy-doctor-refresh-cache', array(
+        'methods' => WP_REST_Server::CREATABLE,
+        'callback' => 'seogrow_connector_taxonomy_doctor_refresh_cache',
+        'permission_callback' => $permission,
+    ));
+    register_rest_route('seogrow/v1', '/taxonomy-doctor-dedupe', array(
+        'methods' => WP_REST_Server::CREATABLE,
+        'callback' => 'seogrow_connector_taxonomy_doctor_dedupe',
+        'permission_callback' => $permission,
     ));
 });
