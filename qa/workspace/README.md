@@ -31,17 +31,11 @@ Il generatore sovrascrive soltanto le fixture di questa directory e le valida co
 
 ## Crash fisico controllato — solo dev
 
-Il modulo `src/workspaceCrashHarness.js` non è importato dall'app e non entra nel flusso di produzione. È armato soltanto in dev con il query flag esplicito `?qaWorkspaceRestoreCrash=1` e richiama direttamente `prepareWorkspaceRestore` + `commitWorkspaceRestore`, cioè lo stesso commit atomico usato dal restore.
+Il modulo `src/workspaceCrashHarness.js` entra nel runtime solo in dev quando il query flag esplicito `?qaWorkspaceRestoreCrash=1` è presente. Richiama direttamente `prepareWorkspaceRestore` + `commitWorkspaceRestore`, cioè lo stesso commit atomico usato dal restore.
 
 1. Lasciare B come workspace corrente e aprire la dev app aggiungendo `?qaWorkspaceRestoreCrash=1` allo stesso URL/porta.
 2. Aprire DevTools → Console.
-3. Eseguire:
-
-```js
-const qa = await import('/src/workspaceCrashHarness.js');
-await qa.runWorkspacePhysicalCrashHarnessFromPicker();
-```
-
+3. Eseguire `seoGrowQaCrashRestore()`.
 4. Nel file picker scegliere `backup-A.json`.
 5. Quando compare `QA CRASH CHECKPOINT`, NON premere OK/Annulla. Chiudere l'intera finestra Brave Test mentre il dialogo è ancora aperto.
 6. Riaprire lo stesso profilo Brave Test e lo stesso origin dell'app, senza il query flag.
@@ -53,6 +47,15 @@ Confronto DB: ignorare SOLO la generazione interna __generation e verificare sep
 
 ## Evidenza
 
-6 settembre 2026: fixture A/B e fault injection simulata superati con fake-indexeddb. Browser gestito: tentativo sull'app Vite rifiutato con net::ERR_BLOCKED_BY_CLIENT. Collaudo manuale A → invalid → B eseguito in profilo Brave dedicato: A persistente, invalid non altera A, B sostituisce A senza clienti misti e persiste dopo reload.
+6 settembre 2026: fixture A/B e fault injection simulata superati con fake-indexeddb. Browser gestito: tentativo sull'app Vite rifiutato con net::ERR_BLOCKED_BY_CLIENT.
 
-Il crash fisico resta aperto finché non viene eseguita la procedura sopra. La saturazione quota reale, due schede reali e il collaudo visuale completo restano separati. Nessuna modifica a contenuti WordPress o credenziali.
+Collaudo manuale in profilo Brave dedicato:
+
+- A importato e persistente dopo reload: PASS.
+- backup invalido con cliente duplicato: rifiutato senza alterare A; A integro dopo reload: PASS.
+- A → B: B sostituisce completamente A, nessun cliente misto, B persistente dopo reload: PASS.
+- crash fisico controllato durante tentativo B → A: finestra Brave Test chiusa mentre `QA CRASH CHECKPOINT` manteneva aperta la transazione IndexedDB. Alla riapertura risultano esclusivamente `QA B cliente 1 — FITTIZIO` e `QA B cliente 2 — FITTIZIO`; task B presente; nessun cliente A o stato misto osservato: PASS.
+
+Esito del crash fisico: il workspace precedente B è rimasto coerente dopo l'arresto del browser durante il commit; nessun restore parziale A/B osservato nella prova eseguita.
+
+Restano separati: saturazione quota reale, test reale con due schede concorrenti e collaudo visuale completo. Nessuna modifica a contenuti WordPress o credenziali.
