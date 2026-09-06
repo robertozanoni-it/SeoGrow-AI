@@ -15,6 +15,7 @@ const CORE_REST_BASES = new Map([
   ["post", "posts"],
 ]);
 const SAFE_REST_BASE = /^[a-z0-9][a-z0-9_-]*$/i;
+const CONNECTOR_REFERENCE_BATCH_SIZE = 30;
 
 function authHeaders(username, password) {
   return {
@@ -76,6 +77,18 @@ async function readJson(response, label) {
     throw new Error(`${label}: ${data?.message || data?.code || `HTTP ${response.status}`}`);
   }
   return data;
+}
+
+export function chunkReferenceResources(resources, batchSize = CONNECTOR_REFERENCE_BATCH_SIZE) {
+  const list = Array.isArray(resources) ? resources : [];
+  const size = Number.isSafeInteger(Number(batchSize)) && Number(batchSize) > 0
+    ? Number(batchSize)
+    : CONNECTOR_REFERENCE_BATCH_SIZE;
+  const batches = [];
+  for (let index = 0; index < list.length; index += size) {
+    batches.push(list.slice(index, index + size));
+  }
+  return batches;
 }
 
 export function normalizeRestBase(postType, payload) {
@@ -152,6 +165,63 @@ export function normalizeConnectorReferenceData(payload, inventory) {
     return { ok: false, status: "connector-reference-document-set-incomplete", rows: [] };
   }
   return { ok: true, status: "connector-reference-data-verified", rows };
+}
+
+async function readRowsViaConnector(base, headers, inventory) {
+  const resources = Array.isArray(inventory?.resources) ? inventory.resources : [];
+  const batches = chunkReferenceResources(resources);
+  const rows = [];
+
+  for (let index = 0; index < batches.length; index += 1) {
+    const batch = batches[index];
+    const response = await wpFetch(connectorReferenceEndpoint(base, batch), { headers });
+    if (response.status === 404) {
+      await response.body?.cancel();
+      if (index === 0) {
+        return {
+          ok: false,
+          connectorUnavailable: true,
+          rows: [],
+          status: "connector-reference-endpoint-unavailable",
+        };
+      }
+      return {
+        ok: false,
+        connectorUnavailable: false,
+        rows: [],
+        status: "connector-reference-endpoint-became-unavailable",
+      };
+    }
+
+    const payload = await readJson(response, `Elementor Connector reference data batch ${index + 1}/${batches.length}`);
+    const normalized = normalizeConnectorReferenceData(payload, { resources: batch });
+    if (!normalized.ok) {
+      return {
+        ok: false,
+        connectorUnavailable: false,
+        rows: [],
+        status: normalized.status,
+      };
+    }
+    rows.push(...normalized.rows);
+  }
+
+  if (rows.length !== resources.length) {
+    return {
+      ok: false,
+      connectorUnavailable: false,
+      rows: [],
+      status: "connector-reference-batch-set-incomplete",
+    };
+  }
+
+  return {
+    ok: true,
+    connectorUnavailable: false,
+    rows,
+    unsupportedPostTypes: [],
+    status: "connector-reference-data-verified-batched",
+  };
 }
 
 async function resolveRestBases(base, headers, resources) {
@@ -291,32 +361,9 @@ export async function inspectElementorReferenceImpact({
     };
   }
 
-  let rowsResult;
-  const connectorResponse = await wpFetch(connectorReferenceEndpoint(base, inventory.resources), { headers });
-  if (connectorResponse.status === 404) {
-    await connectorResponse.body?.cancel();
+  let rowsResult = await readRowsViaConnector(base, headers, inventory);
+  if (rowsResult.connectorUnavailable === true) {
     rowsResult = await readRowsViaRest(base, headers, inventory);
-  } else {
-    const connectorPayload = await readJson(connectorResponse, "Elementor Connector reference data");
-    const normalized = normalizeConnectorReferenceData(connectorPayload, inventory);
-    if (!normalized.ok) {
-      return {
-        ok: true,
-        readOnly: true,
-        verified: false,
-        inventory,
-        unsupportedPostTypes: [],
-        affectedPagesEnumerated: false,
-        sharedWriteAllowed: false,
-        status: normalized.status,
-      };
-    }
-    rowsResult = {
-      ok: true,
-      rows: normalized.rows,
-      unsupportedPostTypes: [],
-      status: normalized.status,
-    };
   }
 
   if (!rowsResult.ok) {
@@ -325,11 +372,11 @@ export async function inspectElementorReferenceImpact({
       readOnly: true,
       verified: false,
       inventory,
-      unsupportedPostTypes: rowsResult.unsupportedPostTypes,
+      unsupportedPostTypes: rowsResult.unsupportedPostTypes || [],
       affectedPagesEnumerated: false,
       sharedWriteAllowed: false,
       status: rowsResult.status,
-      note: "Uno o più post type autorevoli non espongono una sorgente read-only verificabile per _elementor_data.",
+      note: "Uno o più documenti dell'inventario autorevole non espongono una sorgente read-only verificabile per _elementor_data.",
     };
   }
 
@@ -382,6 +429,7 @@ export function registerRoutes(app) {
 
 export {
   ROUTE as ELEMENTOR_REFERENCE_IMPACT_ROUTE,
+  CONNECTOR_REFERENCE_BATCH_SIZE,
   connectorImpactEndpoint,
   connectorInventoryEndpoint,
   connectorReferenceEndpoint,
