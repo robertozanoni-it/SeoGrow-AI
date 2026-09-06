@@ -15,6 +15,15 @@ const diagnosticValue = (value) => {
   const normalized = comparable(value);
   return JSON.stringify(normalized.length > 240 ? `${normalized.slice(0, 237)}...` : normalized);
 };
+const UNCERTAIN_WRITE_CODES = new Set([
+  "seogrow_taxonomy_persistence_proof_invalid",
+  "seogrow_taxonomy_db_ambiguous",
+  "seogrow_taxonomy_persistence_divergence",
+  "RANK_MATH_PERSISTENCE_PROOF_REQUIRED",
+  "TAXONOMY_WRITE_CONTRACT_INVALID",
+  "TAXONOMY_WRITE_RESPONSE_MISMATCH",
+]);
+const isUncertainWriteError = (error) => UNCERTAIN_WRITE_CODES.has(String(error?.data?.code || error?.code || ""));
 
 const required = [
   ["SEOGROW_WP_SITE_URL", siteUrl],
@@ -65,9 +74,69 @@ async function request(path, body, { expectedStatus = 200 } = {}) {
   try { data = text ? JSON.parse(text) : {}; }
   catch { throw new Error(`${path}: risposta SeoGrow non JSON (HTTP ${response.status}).`); }
   if (response.status !== expectedStatus) {
-    throw new Error(`${path}: HTTP ${response.status}, atteso ${expectedStatus}: ${data.error || data.code || text.slice(0, 300)}`);
+    const error = new Error(`${path}: HTTP ${response.status}, atteso ${expectedStatus}: ${data.error || data.code || text.slice(0, 300)}`);
+    error.status = response.status;
+    error.data = data;
+    error.code = String(data?.code || "");
+    throw error;
   }
   return data;
+}
+
+async function wordpressReadOnly(path) {
+  const endpoint = new URL(site.href);
+  endpoint.pathname = `${endpoint.pathname.replace(/\/+$/, "")}/wp-json/seogrow/v1/${String(path).replace(/^\/+/, "")}`;
+  endpoint.search = "";
+  endpoint.hash = "";
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      authorization: `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`,
+      accept: "application/json",
+      "user-agent": "SeoGrow-E2E/read-only-preflight",
+    },
+    redirect: "manual",
+    signal: AbortSignal.timeout(20_000),
+  });
+  const text = await response.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch { throw new Error(`WordPress ${path}: risposta non JSON (HTTP ${response.status}).`); }
+  if (!response.ok) {
+    throw new Error(`WordPress ${path}: HTTP ${response.status}: ${data.message || data.code || "errore sconosciuto"}.`);
+  }
+  return data;
+}
+
+async function requireRankMathPersistenceCapability() {
+  const capability = await wordpressReadOnly("taxonomy-persistence-capability");
+  if (
+    capability?.ok !== true ||
+    capability?.readOnly !== true ||
+    capability?.resource !== "taxonomy-persistence-capability" ||
+    capability?.rankMathPersistenceProof !== true ||
+    capability?.writesPerformed !== 0
+  ) {
+    throw new Error("Preflight Rank Math non valido: il Connector non dimostra la capability read-only di persistence proof. Nessuna scrittura eseguita.");
+  }
+  console.log("Preflight Rank Math persistence proof: disponibile e read-only.");
+}
+
+function assertPersistenceProof(result, adapter, label) {
+  if (adapter !== "rank-math") return;
+  const proof = result?.persistenceProof;
+  if (
+    proof?.verified !== true ||
+    proof?.dbRowCount !== 1 ||
+    proof?.apiMatches !== true ||
+    proof?.dbMatches !== true ||
+    proof?.source !== "wp_termmeta+get_term_meta"
+  ) {
+    const error = new Error(`${label}: persistence proof Rank Math assente o incompleto dopo la scrittura.`);
+    error.code = "RANK_MATH_PERSISTENCE_PROOF_REQUIRED";
+    error.data = { code: error.code };
+    throw error;
+  }
 }
 
 async function health() {
@@ -149,11 +218,25 @@ async function rollback(target, adapter, original, marker) {
     expectedCurrent: marker,
   });
   if (preview.mode !== "rollback" || !preview.approvalToken) throw new Error(`${target.label}: anteprima rollback non valida.`);
-  const applied = await request("/api/wordpress/taxonomy-apply", {
-    approvalToken: preview.approvalToken,
-    username,
-    applicationPassword,
-  });
+
+  let applied;
+  try {
+    applied = await request("/api/wordpress/taxonomy-apply", {
+      approvalToken: preview.approvalToken,
+      username,
+      applicationPassword,
+    });
+  } catch (error) {
+    if (!isUncertainWriteError(error)) throw error;
+    console.warn(`[${target.label}] Rollback con esito incerto (${error.code || error.data?.code}); riverifico prima di qualsiasi altra azione.`);
+    const state = await verifyOnce(target.url, adapter, original);
+    if (!sameValue(state.current, original)) throw error;
+    console.warn(`[${target.label}] Il rollback incerto ha comunque ripristinato il valore originale nel backend.`);
+    await verifyEventually(target.url, adapter, original);
+    return;
+  }
+
+  assertPersistenceProof(applied, adapter, `${target.label}: rollback`);
   if (applied.mode !== "rollback" || applied.staleChecked !== true || applied.singleField !== true) {
     throw new Error(`${target.label}: rollback non confermato come stale-safe single-field.`);
   }
@@ -204,6 +287,7 @@ async function runTarget(target) {
   if (expectedAdapter && adapter !== expectedAdapter) {
     throw new Error(`${target.label}: adapter ${adapter}, ma il test richiede ${expectedAdapter}.`);
   }
+  if (adapter === "rank-math") await requireRankMathPersistenceCapability();
 
   const marker = `SeoGrow E2E ${target.label} ${new Date().toISOString()}`;
   let original;
@@ -222,15 +306,26 @@ async function runTarget(target) {
     original = preview.previewBefore;
     console.log(`[${target.label}] Piano E2E · originale=${diagnosticValue(original)} · marker=${diagnosticValue(marker)}`);
 
-    const result = await request("/api/wordpress/taxonomy-apply", {
-      approvalToken: preview.approvalToken,
-      username,
-      applicationPassword,
-    });
+    let result;
+    try {
+      result = await request("/api/wordpress/taxonomy-apply", {
+        approvalToken: preview.approvalToken,
+        username,
+        applicationPassword,
+      });
+      applied = true;
+    } catch (error) {
+      if (isUncertainWriteError(error)) {
+        applied = true;
+        console.warn(`[${target.label}] Apply con esito post-write incerto (${error.code || error.data?.code}); attivo recovery fail-closed.`);
+      }
+      throw error;
+    }
+
+    assertPersistenceProof(result, adapter, `${target.label}: apply`);
     if (result.staleChecked !== true || result.singleField !== true || result.adapter !== adapter) {
       throw new Error(`${target.label}: apply non confermato come stale-safe single-field.`);
     }
-    applied = true;
     console.log(`[${target.label}] Apply confermato · before=${diagnosticValue(result.before)} · after=${diagnosticValue(result.after)}`);
 
     await assertTokenConsumed(preview.approvalToken);
