@@ -30,6 +30,10 @@ on:
         description: "URL tag reale (taxonomy: compila tag e/o categoria)"
         required: false
         type: string
+      recovery_original:
+        description: "Solo recovery una tantum di marker SeoGrow legacy: valore originale esatto. Lascia vuoto normalmente."
+        required: false
+        type: string
       confirm_write:
         description: "Solo per i mode taxonomy-rank-math*/yoast scrivere YES_I_UNDERSTAND; diagnostica, sampler ed Elementor sono read-only"
         required: false
@@ -152,6 +156,7 @@ jobs:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
           SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+          SEOGROW_WP_RECOVERY_ORIGINAL: ${{ inputs.recovery_original }}
         run: node scripts/wordpress-rankmath-general-e2e.mjs
 
       - name: Taxonomy baseline read-only preflight
