@@ -76,7 +76,7 @@ function emit(result) {
 }
 
 async function main() {
-  const e2e = runNode("scripts/wordpress-taxonomy-e2e.mjs");
+  const e2e = runNode("scripts/wordpress-taxonomy-e2e-postwrite-observer.mjs");
   emit(e2e);
   if ((e2e.status ?? 1) === 0) return;
 
