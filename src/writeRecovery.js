@@ -77,3 +77,7 @@ export async function reconcileUncertainCorrectionById(id, providedCredentials =
   if (!record) throw new Error("Correzione non trovata nello storico.");
   return reconcileUncertainCorrection(record, providedCredentials, fetchImpl);
 }
+
+if (typeof window !== "undefined") {
+  window.__seogrowReconcileUncertainWrite = reconcileUncertainCorrectionById;
+}
