@@ -84,3 +84,19 @@ test('global run collects independent failures despite missing v2 route and perf
   const r=spawnSync(process.execPath,['--input-type=module','-e',program],{env:{...process.env,SEOGROW_WP_SITE_URL:'https://example.test',SEOGROW_WP_E2E_CONFIRM_HOST:'example.test',SEOGROW_WP_USERNAME:'test',SEOGROW_WP_APPLICATION_PASSWORD:'test',SEOGROW_WP_CATEGORY_URL:'https://example.test/category/one/'},encoding:'utf8',timeout:15000});
   assert.equal(r.status,0,r.stderr+r.stdout);
 });
+
+test('public scanner distinguishes head metadata from embedded HTML SEO tags',()=>{
+ const seo=publicSeo('<head><title>X</title><meta name="description" content="Head"><link rel="canonical" href="https://example.test/"></head><body><meta name="description" content="Body"><link rel="canonical" href="https://example.test/"></body>');
+ assert.deepEqual(seo.descriptions,['Head']);assert.equal(seo.canonicals.length,1);
+ assert.deepEqual(publicFindings(seo,'https://example.test/'),['MISPLACED_SEO_TAGS_IN_BODY']);
+});
+test('public redirects are bounded, same-origin and unauthenticated',async()=>{
+ const {fetchPublic,resourceExclusion}=await import('../scripts/wordpress-rankmath-global.mjs');
+ let calls=0;
+ const r=await fetchPublic('https://example.test/old','https://example.test',async(url,opts)=>{calls++;assert.equal(opts.headers.authorization,undefined);return calls===1?new Response('',{status:301,headers:{location:'/new'}}):new Response('ok');});
+ assert.equal(r.url,'https://example.test/new');assert.equal(r.redirects.length,1);
+ await assert.rejects(fetchPublic('https://example.test/','https://example.test',async()=>new Response('',{status:301,headers:{location:'https://elsewhere.test/'}})),/OUTSIDE/);
+ await assert.rejects(fetchPublic('https://example.test/','https://example.test',async()=>new Response('',{status:301,headers:{location:'/'}})),/LOOP/);
+ assert.equal(resourceExclusion({postType:'elementor_library'}),'ELEMENTOR_TEMPLATE_NOT_SEO_PAGE');
+ assert.equal(resourceExclusion({postType:'page'}),null);
+});
