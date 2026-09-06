@@ -289,8 +289,8 @@ function HistoryPage({ history, client, onAnalyze }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => (
-                    <tr key={item.analyzedAt}>
+                  {history.map((item, index) => (
+                    <tr key={`${item.analyzedAt || "missing"}-${index}`}>
                       <td>
                         {new Date(item.analyzedAt).toLocaleString("it-IT")}
                       </td>
