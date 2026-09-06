@@ -26,6 +26,11 @@ add_filter('update_term_metadata', static function ($check, $object_id, $meta_ke
     }
 
     $key = seogrow_connector_taxonomy_recovery_key($term->term_id, $term->taxonomy, 'meta_description');
+    $pending = get_option($key, null);
+    if (is_array($pending) && !empty($pending['convergencePending'])) {
+        // Preserve the original and attempt budget until explicit finalization.
+        return $check;
+    }
     $journal = array(
         'capability' => SEOGROW_TAXONOMY_RECOVERY_CAPABILITY,
         'url' => esc_url_raw($url),
@@ -53,7 +58,7 @@ add_action('updated_term_meta', static function ($meta_id, $object_id, $meta_key
     }
     $key = seogrow_connector_taxonomy_recovery_key($term->term_id, $term->taxonomy, 'meta_description');
     $journal = get_option($key, null);
-    if (!is_array($journal)) {
+    if (!is_array($journal) || !empty($journal['convergencePending'])) {
         return;
     }
     $current = (string) get_term_meta((int) $object_id, 'rank_math_description', true);

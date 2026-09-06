@@ -15,6 +15,8 @@ function seogrow_connector_taxonomy_doctor_convergence_capability() {
         'contentWritesPerformed' => 0,
         'journalRetainedUntilCrossRequestProof' => true,
         'supportsTwoPhaseRecovery' => true,
+        'safetyRevision' => 'journal-hooks-20260906-v3',
+        'connectorVersion' => SEOGROW_CONNECTOR_VERSION,
         'realSeoMarkerWritesAllowed' => false,
     ));
 }
@@ -22,10 +24,14 @@ function seogrow_connector_taxonomy_doctor_convergence_capability() {
 function seogrow_connector_taxonomy_doctor_recovery_source($term, $expected_marker, $bootstrap_original) {
     $journal_key = seogrow_connector_taxonomy_recovery_key($term->term_id, $term->taxonomy, 'meta_description');
     $journal = get_option($journal_key, null);
-    if (is_array($journal) && !empty($journal['expiresAt']) && (int) $journal['expiresAt'] >= time()) {
+    if (is_array($journal) && (!empty($journal['convergencePending']) || (!empty($journal['expiresAt']) && (int) $journal['expiresAt'] >= time()))) {
         if ((string) ($journal['marker'] ?? '') === (string) $expected_marker && trim((string) ($journal['original'] ?? '')) !== '') {
             return array('source' => 'RECOVERY_JOURNAL', 'original' => (string) $journal['original'], 'key' => $journal_key, 'journal' => $journal);
         }
+    }
+
+    if (is_array($journal) && !empty($journal['convergencePending'])) {
+        return new WP_Error('RECOVERY_OWNERSHIP_LOST', 'Journal pendente non coincide col marker: nessun fallback o reset dei tentativi.', array('status' => 409));
     }
 
     $lkg_key = seogrow_connector_taxonomy_doctor_lkg_key($term->term_id, $term->taxonomy, 'meta_description');
@@ -45,6 +51,20 @@ function seogrow_connector_taxonomy_doctor_recovery_source($term, $expected_mark
 }
 
 function seogrow_connector_taxonomy_doctor_recover_v2(WP_REST_Request $request) {
+    $key = seogrow_connector_taxonomy_recovery_key(absint($request->get_param('termId')), sanitize_key((string) $request->get_param('taxonomy')), 'meta_description') . '_lock';
+    // add_option is an atomic reservation through the unique option_name index.
+    // A crashed request leaves a visible fail-closed lock; never steal it on timeout.
+    if (!add_option($key, time(), '', false)) {
+        return new WP_Error('RECOVERY_BUSY_OR_INTERRUPTED', 'Recovery già attivo o interrotto: verificare il journal prima di rimuovere il lock.', array('status' => 409));
+    }
+    try {
+        return seogrow_connector_taxonomy_doctor_recover_v2_locked($request);
+    } finally {
+        delete_option($key);
+    }
+}
+
+function seogrow_connector_taxonomy_doctor_recover_v2_locked(WP_REST_Request $request) {
     $url = esc_url_raw((string) $request->get_param('url'));
     $term_id = absint($request->get_param('termId'));
     $taxonomy = sanitize_key((string) $request->get_param('taxonomy'));
@@ -71,6 +91,10 @@ function seogrow_connector_taxonomy_doctor_recover_v2(WP_REST_Request $request) 
     $original = (string) $resolved['original'];
     $journal_key = (string) $resolved['key'];
 
+    $attempts = is_array($resolved['journal']) ? (int) ($resolved['journal']['recoveryAttempts'] ?? 0) : 0;
+    if ($attempts >= 2) {
+        return new WP_Error('RECOVERY_REVERT_LOOP_DETECTED', 'Due recovery già tentati: journal conservato, richiesta analisi della causa.', array('status' => 409));
+    }
     $journal = array(
         'capability' => SEOGROW_TAXONOMY_RECOVERY_CAPABILITY,
         'url' => $url,
@@ -83,11 +107,15 @@ function seogrow_connector_taxonomy_doctor_recover_v2(WP_REST_Request $request) 
         'createdAt' => is_array($resolved['journal']) ? (int) ($resolved['journal']['createdAt'] ?? time()) : time(),
         'expiresAt' => time() + SEOGROW_TAXONOMY_RECOVERY_TTL,
         'convergencePending' => true,
+        'recoveryAttempts' => $attempts + 1,
         'recoverySource' => (string) $resolved['source'],
     );
     update_option($journal_key, $journal, false);
+    if (get_option($journal_key, null) !== $journal) {
+        return new WP_Error('seogrow_doctor_journal_not_persisted', 'Recovery bloccato: journal non persistito.', array('status' => 500));
+    }
 
-    $written = update_term_meta($term->term_id, 'rank_math_description', $original);
+    $written = update_term_meta($term->term_id, 'rank_math_description', $original, $expected_marker);
     if ($written === false) {
         return new WP_Error('seogrow_doctor_recovery_write_failed', 'Recovery Rank Math non riuscito.', array('status' => 500));
     }
@@ -114,6 +142,20 @@ function seogrow_connector_taxonomy_doctor_recover_v2(WP_REST_Request $request) 
 }
 
 function seogrow_connector_taxonomy_doctor_finalize_recovery(WP_REST_Request $request) {
+    $key = seogrow_connector_taxonomy_recovery_key(absint($request->get_param('termId')), sanitize_key((string) $request->get_param('taxonomy')), 'meta_description') . '_lock';
+    // add_option is an atomic reservation through the unique option_name index.
+    // A crashed request leaves a visible fail-closed lock; never steal it on timeout.
+    if (!add_option($key, time(), '', false)) {
+        return new WP_Error('RECOVERY_BUSY_OR_INTERRUPTED', 'Recovery già attivo o interrotto: verificare il journal prima di rimuovere il lock.', array('status' => 409));
+    }
+    try {
+        return seogrow_connector_taxonomy_doctor_finalize_recovery_locked($request);
+    } finally {
+        delete_option($key);
+    }
+}
+
+function seogrow_connector_taxonomy_doctor_finalize_recovery_locked(WP_REST_Request $request) {
     $url = esc_url_raw((string) $request->get_param('url'));
     $term_id = absint($request->get_param('termId'));
     $taxonomy = sanitize_key((string) $request->get_param('taxonomy'));
@@ -134,6 +176,9 @@ function seogrow_connector_taxonomy_doctor_finalize_recovery(WP_REST_Request $re
         return new WP_Error('seogrow_doctor_finalize_journal_missing', 'Journal recovery assente o non coerente con il valore atteso.', array('status' => 409));
     }
     delete_option($key);
+    if (get_option($key, null) !== null) {
+        return new WP_Error('seogrow_doctor_finalize_not_cleared', 'Journal non eliminato: finalizzazione non attestata.', array('status' => 500));
+    }
     return rest_ensure_response(array(
         'ok' => true,
         'resource' => 'taxonomy-doctor-finalize-recovery',

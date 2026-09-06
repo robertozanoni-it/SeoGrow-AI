@@ -31,6 +31,10 @@ function seogrow_connector_taxonomy_doctor_term($url, $term_id, $taxonomy) {
     if (!$url || !$term_id || !in_array($taxonomy, array('category', 'post_tag'), true)) {
         return new WP_Error('seogrow_doctor_identity_required', 'Identità tassonomia Doctor incompleta.', array('status' => 400));
     }
+    $plugins = seogrow_connector_taxonomy_plugins();
+    if (!$plugins['rankMath'] || $plugins['yoast']) {
+        return new WP_Error('seogrow_doctor_ownership_lost', 'Doctor bloccato: Rank Math non è il solo proprietario SEO.', array('status' => 409));
+    }
     $term = seogrow_connector_find_exact_taxonomy_term($url);
     if (is_wp_error($term)) return $term;
     if ((int) $term->term_id !== (int) $term_id || (string) $term->taxonomy !== (string) $taxonomy) {
@@ -121,7 +125,7 @@ function seogrow_connector_taxonomy_doctor_state(WP_REST_Request $request) {
 
     $journal_key = seogrow_connector_taxonomy_recovery_key($term->term_id, $term->taxonomy, 'meta_description');
     $journal = get_option($journal_key, null);
-    if (!is_array($journal) || empty($journal['expiresAt']) || (int) $journal['expiresAt'] < time()) {
+    if (!is_array($journal) || (empty($journal['convergencePending']) && (empty($journal['expiresAt']) || (int) $journal['expiresAt'] < time()))) {
         $journal = null;
     }
 

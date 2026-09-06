@@ -6,3 +6,5 @@ dist
 .seogrow-port
 .DS_Store
 npm-debug.log*
+
+artifacts/
