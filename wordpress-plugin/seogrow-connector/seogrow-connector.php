@@ -16,3 +16,4 @@ require_once __DIR__ . '/seogrow-connector-core.inc';
 require_once __DIR__ . '/elementor-reference-read.php';
 require_once __DIR__ . '/wordpress-public-inventory-paged.php';
 require_once __DIR__ . '/taxonomy-diagnostics-read.php';
+require_once __DIR__ . '/taxonomy-persistence-proof.php';
