@@ -35,6 +35,7 @@ const remediationModules = await Promise.all([
   import("./elementorPublicCoverageHook.js"),
   import("./elementorCoverageAttestationHook.js"),
   import("./elementorReferenceImpactHook.js"),
+  import("./wordpressWriteReconciliationHook.js"),
 ]);
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
@@ -70,6 +71,7 @@ export function registerRemediationRoutes(app) {
         "live-preview",
         "live-apply",
         "live-rollback",
+        "write-reconciliation-read-only",
       ],
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
@@ -77,6 +79,7 @@ export function registerRemediationRoutes(app) {
       elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
       elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
       elementorReferenceImpactMode: "connector-inventory-plus-rest-meta-read-only-page-post-fail-closed-custom-types",
+      writeReconciliationMode: "read-only-exact-before-after-classification-core-fields",
       taxonomyConnectorMinimum: "1.3.0",
       elementorInventoryConnectorMinimum: "1.3.0",
       elementorReferenceImpactConnectorMinimum: "1.3.0",
