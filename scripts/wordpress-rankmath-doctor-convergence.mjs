@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import crypto from "node:crypto";
 
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
@@ -7,7 +8,7 @@ const categoryUrl = String(process.env.SEOGROW_WP_CATEGORY_URL || "").trim();
 const tagUrl = String(process.env.SEOGROW_WP_TAG_URL || "").trim();
 const confirmHost = String(process.env.SEOGROW_WP_E2E_CONFIRM_HOST || "").trim().toLowerCase();
 const confirmWrite = String(process.env.SEOGROW_WP_E2E_ALLOW_WRITE || "");
-const recoveryOriginal = String(process.env.SEOGROW_WP_RECOVERY_ORIGINAL || "").trim();
+const recoveryOriginal = String(process.env.SEOGROW_WP_RECOVERY_ORIGINAL || "");
 const appUrl = String(process.env.SEOGROW_E2E_APP_URL || "http://127.0.0.1:5176").replace(/\/+$/, "");
 const targets = [categoryUrl ? { label: "categoria", url: categoryUrl } : null, tagUrl ? { label: "tag", url: tagUrl } : null].filter(Boolean);
 
@@ -76,11 +77,13 @@ async function wpGet(path, params = {}) {
 }
 
 async function wpPost(path, body) {
-  return retry(`POST ${path}`, async () => {
+  if (confirmWrite !== "YES_I_UNDERSTAND") throw new Error("WRITE_NOT_AUTHORIZED");
+  // Never retry a mutation after an ambiguous transport failure.
+  return (async () => {
     const endpoint = new URL(`/wp-json/seogrow/v1/${path}`, siteUrl);
     const response = await fetch(endpoint, { method: "POST", headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(30_000) });
     return jsonResponse(response, path);
-  });
+  })();
 }
 
 async function inspectSeoGrow(url) {
@@ -90,20 +93,31 @@ async function inspectSeoGrow(url) {
   });
 }
 
-function metaDescriptionFromHtml(html) {
+export function decodeHtml(value) {
+  const named = {amp:"&", quot:'"', apos:"'", lt:"<", gt:">", nbsp:"\u00a0"};
+  return String(value).replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt|nbsp);/gi, (entity, key) => {
+    if (key[0] !== "#") return named[key.toLowerCase()];
+    const cp = key[1].toLowerCase() === "x" ? parseInt(key.slice(2), 16) : Number(key.slice(1));
+    return cp > 0 && cp <= 0x10ffff && !(cp >= 0xd800 && cp <= 0xdfff) ? String.fromCodePoint(cp) : entity;
+  });
+}
+
+export function metaDescriptionFromHtml(html) {
+  const descriptions = [];
   for (const tag of String(html || "").match(/<meta\b[^>]*>/gi) || []) {
     const attrs = {};
     for (const match of tag.matchAll(/([:\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) attrs[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4] ?? "";
-    if (String(attrs.name || "").toLowerCase() === "description") return compact(attrs.content || "");
+    if (String(attrs.name || "").toLowerCase() === "description") descriptions.push(compact(decodeHtml(attrs.content || "")));
   }
-  return "";
+  if (descriptions.length !== 1) throw new Error("PUBLIC_DESCRIPTION_MISSING_OR_DUPLICATED");
+  return descriptions[0];
 }
 
 async function frontend(url, bust = false) {
   return retry(`frontend-${bust ? "busted" : "canonical"}`, async () => {
     const target = new URL(url);
     if (bust) target.searchParams.set("seogrow_doctor_probe", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
-    const response = await fetch(target, { headers: { accept: "text/html", "cache-control": "no-cache, no-store, max-age=0", pragma: "no-cache", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, signal: AbortSignal.timeout(30_000) });
+    const response = await fetch(target, { redirect: "manual", headers: { accept: "text/html", "cache-control": "no-cache, no-store, max-age=0", pragma: "no-cache", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error(`Frontend HTTP ${response.status}.`);
     return { value: metaDescriptionFromHtml(await response.text()), cache: response.headers.get("x-litespeed-cache") || response.headers.get("cf-cache-status") || response.headers.get("x-cache") };
   });
@@ -121,21 +135,22 @@ async function collect(target) {
     frontend(target.url, false),
     frontend(target.url, true),
   ]);
-  const rank = diagnostics?.meta?.rank_math_description || {};
+  if (diagnostics?.term?.id !== termId || diagnostics?.term?.taxonomy !== taxonomy || doctor?.term?.id !== termId || doctor?.term?.taxonomy !== taxonomy || diagnostics?.plugins?.rankMath !== true || diagnostics?.plugins?.yoast !== false) return {target, classification:"RECOVERY_OWNERSHIP_LOST"};
+  const rank = diagnostics?.meta?.rank_math_description;
+  if (!rank || typeof rank.apiValue !== "string" || !Array.isArray(rank.dbRows) || !Array.isArray(rank.cache?.values)) return {target, classification:"DIAGNOSTICS_INCOMPLETE"};
   return {
     target, inspection, diagnostics, doctor, termId, taxonomy,
-    api: compact(rank.apiValue), inspectionValue: compact(inspection?.seo?.rankMath?.meta_description),
-    rows: Array.isArray(rank.dbRows) ? rank.dbRows.map((row) => compact(row.value)) : [],
-    cache: Array.isArray(rank.cache?.values) ? rank.cache.values.map(compact) : [],
+    api: String(rank.apiValue ?? ""), inspectionValue: String(inspection?.seo?.rankMath?.meta_description ?? ""),
+    rows: Array.isArray(rank.dbRows) ? rank.dbRows.map((row) => String(row.value)) : [],
+    cache: Array.isArray(rank.cache?.values) ? rank.cache.values.map(String) : [],
     publicCanonical: compact(canonical.value), publicBusted: compact(busted.value), cacheHeader: canonical.cache || "n/a",
   };
 }
 
-function backendConsistent(s) { return s.rows.length === 1 && s.api === s.inspectionValue && s.api === s.rows[0]; }
-function fullyConsistent(s) { return backendConsistent(s) && s.publicCanonical === s.api && s.publicBusted === s.api && s.cache.every((value) => value === s.api); }
-function exactOriginal(s, original) { return fullyConsistent(s) && s.api === original && !isMarker(s.api); }
+export function backendConsistent(s) { return !s?.classification && Array.isArray(s?.rows) && s.rows.length === 1 && s.api === s.inspectionValue && s.api === s.rows[0]; }
+export function fullyConsistent(s) { return backendConsistent(s) && s.publicCanonical === compact(s.api) && s.publicBusted === compact(s.api) && s.cache.every((value) => value === s.api); }
+export function exactOriginal(s, original) { return fullyConsistent(s) && s.api === original && !isMarker(s.api); }
 function exactMarkerBackend(s, marker) { return backendConsistent(s) && s.api === marker && s.rows[0] === marker && isMarker(marker); }
-function allSame(values) { return values.length > 0 && values.every((value) => value === values[0]); }
 
 function summarize(s, phase = "state") {
   if (s.classification) return console.log(`[${s.target.label}] ${phase}=${s.classification}`);
@@ -174,20 +189,20 @@ async function finalizeRecovery(s, original) {
 async function recoverWithConvergence(s) {
   const marker = s.api;
   let original = "";
-  if (s.doctor?.recoveryJournal?.available === true && compact(s.doctor.recoveryJournal.marker) === marker) original = compact(s.doctor.recoveryJournal.original);
-  else if (s.doctor?.lastKnownGood?.available === true && !isMarker(s.doctor.lastKnownGood.value)) original = compact(s.doctor.lastKnownGood.value);
-  else if (recoveryOriginal && targets.length === 1 && !isMarker(recoveryOriginal)) original = compact(recoveryOriginal);
+  if (s.doctor?.recoveryJournal?.available === true && s.doctor.recoveryJournal.marker === marker) original = s.doctor.recoveryJournal.original;
+  else if (s.doctor?.lastKnownGood?.available === true && !isMarker(s.doctor.lastKnownGood.value)) original = s.doctor.lastKnownGood.value;
+  else if (recoveryOriginal && targets.length === 1 && !isMarker(recoveryOriginal)) original = recoveryOriginal;
   if (!original) throw new Error("RECOVERY_SOURCE_REQUIRED: nessun journal/LKG/bootstrap affidabile.");
 
   for (let pass = 1; pass <= 2; pass += 1) {
     const current = pass === 1 ? s : await collect(s.target);
     summarize(current, `recovery-pass-${pass}-pre`);
     if (!exactMarkerBackend(current, marker)) {
-      if (exactOriginal(current, original)) return current;
+      if (exactOriginal(current, original)) return await resumeJournal(current);
       throw new Error("RECOVERY_OWNERSHIP_LOST: il backend non coincide più né col marker posseduto né con l'originale atteso.");
     }
     const result = await wpPost("taxonomy-doctor-recover-v2", { url: current.target.url, termId: current.termId, taxonomy: current.taxonomy, expectedMarker: marker, bootstrapOriginal: original, confirm: "YES_I_UNDERSTAND" });
-    if (result?.recovered !== true || result?.journalRetained !== true || compact(result.expectedOriginal) !== original) throw new Error("RECOVERY_APPLY_NOT_ATTESTED.");
+    if (result?.recovered !== true || result?.journalRetained !== true || result.expectedOriginal !== original) throw new Error("RECOVERY_APPLY_NOT_ATTESTED.");
     const proof = await convergenceSamples(current.target, original, `recovery-pass-${pass}`);
     if (proof.ok) {
       await finalizeRecovery(proof.state, original);
@@ -207,16 +222,27 @@ async function recoverWithConvergence(s) {
   throw new Error("RECOVERY_UNREACHABLE");
 }
 
-async function doctorTarget(target) {
+export async function resumeJournal(s) {
+  if (s.doctor?.recoveryJournal?.available !== true) return s;
+  const original = s.doctor.recoveryJournal.original;
+  if (typeof original !== "string" || !original || isMarker(original) || s.api !== original) throw new Error("RECOVERY_OWNERSHIP_LOST: pending journal disagrees with current value.");
+  const proof = await convergenceSamples(s.target, original, "resume-journal");
+  if (!proof.ok) throw new Error("RECOVERY_DIVERGENCE_PERSISTS: journal conservato.");
+  await finalizeRecovery(proof.state, original);
+  const final = await collect(s.target);
+  if (!exactOriginal(final, original) || final.doctor?.recoveryJournal?.available !== false) throw new Error("RECOVERY_FINALIZATION_RACE");
+  return final;
+}
+
+export async function doctorTarget(target) {
   let s = await collect(target);
   summarize(s, "initial");
   if (s.classification) throw new Error(`${target.label}: ${s.classification}.`);
 
   if (s.rows.length > 1) {
-    if (!allSame(s.rows) || s.api !== s.rows[0]) throw new Error(`${target.label}: DUPLICATE_ROWS_AMBIGUOUS.`);
-    await wpPost("taxonomy-doctor-dedupe", { url: target.url, termId: s.termId, taxonomy: s.taxonomy, expectedValue: s.api, confirm: "YES_I_UNDERSTAND" });
-    s = await collect(target);
-    summarize(s, "after-dedupe");
+    // The legacy taxonomy-doctor-dedupe deletes all rows before recreating one.
+    // Do not risk losing the live value if that second operation fails.
+    throw new Error(`${target.label}: DUPLICATE_ROWS_REVIEW_REQUIRED.`);
   }
 
   if (!backendConsistent(s) && !isMarker(s.api)) {
@@ -235,16 +261,31 @@ async function doctorTarget(target) {
     if (!proof.ok) throw new Error(`${target.label}: FRONTEND_OR_CACHE_DIVERGENCE_PERSISTS.`);
   }
 
-  if (!fullyConsistent(s) || isMarker(s.api) || !s.api) throw new Error(`${target.label}: FINAL_PROOF_FAILED.`);
+  s = await resumeJournal(s);
+  const stable = await convergenceSamples(target, s.api, "final-proof");
+  if (!stable.ok) throw new Error("FINAL_CONVERGENCE_FAILED");
+  s = stable.state;
+  if (!fullyConsistent(s) || s.doctor?.recoveryJournal?.available !== false || isMarker(s.api) || !s.api) throw new Error(`${target.label}: FINAL_PROOF_FAILED.`);
   await recordLkg(s);
   console.log(`RANK_MATH_DOCTOR=${target.label}:HEALTHY`);
 }
 
+export async function preflight() {
 validateInputs();
 const [baseCap, convergenceCap] = await Promise.all([wpGet("taxonomy-doctor-capability"), wpGet("taxonomy-doctor-convergence-capability")]);
 if (baseCap?.capability !== "rankmath-doctor-20260906-v1" || baseCap?.realSeoMarkerWritesAllowed !== false) throw new Error("Rank Math Doctor base capability non valida.");
-if (convergenceCap?.capability !== "rankmath-doctor-convergence-20260906-v2" || convergenceCap?.journalRetainedUntilCrossRequestProof !== true || convergenceCap?.supportsTwoPhaseRecovery !== true) throw new Error("Rank Math Doctor convergence capability non valida: aggiorna il Connector.");
+if (convergenceCap?.capability !== "rankmath-doctor-convergence-20260906-v2" || convergenceCap?.journalRetainedUntilCrossRequestProof !== true || convergenceCap?.supportsTwoPhaseRecovery !== true || convergenceCap?.safetyRevision !== "journal-hooks-20260906-v3") throw new Error("Rank Math Doctor convergence capability non valida: aggiorna il Connector.");
 console.log("RANK_MATH_DOCTOR=CONVERGENCE_V2_CAPABILITY_OK");
 console.log("Rank Math Doctor v2: diagnose -> remediate -> converge -> verify. Nessun marker E2E nuovo viene scritto.");
-for (const target of targets) await doctorTarget(target);
-console.log("RANK_MATH_DOCTOR=SUCCESS");
+}
+
+export { collect, wpGet, frontend, validateInputs };
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await preflight();
+  const errors = [];
+  for (const target of targets) {
+    try { await doctorTarget(target); } catch (error) { errors.push(error); console.error(`${target.label}: ${error.message}`); }
+  }
+  if (errors.length) process.exitCode = 1;
+  else console.log("RANK_MATH_DOCTOR=SUCCESS");
+}

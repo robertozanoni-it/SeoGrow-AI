@@ -12,6 +12,7 @@ on:
           - taxonomy-read-only-diagnostics
           - taxonomy-consistency-sampler
           - taxonomy-rank-math-doctor
+          - rank-math-global
           - taxonomy-yoast
       site_url:
         description: "URL HTTPS del sito WordPress di staging/produzione autorizzato"
@@ -81,7 +82,7 @@ jobs:
           fi
 
       - name: Validate taxonomy target
-        if: startsWith(inputs.mode, 'taxonomy-')
+        if: startsWith(inputs.mode, 'taxonomy-') || inputs.mode == 'rank-math-global'
         shell: bash
         env:
           CATEGORY_URL: ${{ inputs.category_url }}
@@ -94,7 +95,7 @@ jobs:
           fi
 
       - name: Validate remediation guard
-        if: inputs.mode == 'taxonomy-rank-math-doctor' || inputs.mode == 'taxonomy-yoast'
+        if: inputs.mode == 'rank-math-global' || inputs.mode == 'taxonomy-rank-math-doctor' || inputs.mode == 'taxonomy-yoast'
         shell: bash
         env:
           CONFIRM_WRITE: ${{ inputs.confirm_write }}
@@ -153,6 +154,28 @@ jobs:
           SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
           SEOGROW_WP_RECOVERY_ORIGINAL: ${{ inputs.recovery_original }}
         run: node scripts/wordpress-rankmath-doctor-convergence.mjs
+
+      - name: Rank Math global inventory, diagnosis and verified remediation
+        if: inputs.mode == 'rank-math-global'
+        env:
+          SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
+          SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
+          SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+          SEOGROW_WP_RECOVERY_ORIGINAL: ${{ inputs.recovery_original }}
+        run: node scripts/wordpress-rankmath-global.mjs
+
+      - name: Build complete Connector package
+        if: always()
+        run: node scripts/package-connector.mjs
+
+      - name: Upload Rank Math report and complete Connector
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: rankmath-report-and-connector
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Taxonomy baseline read-only preflight
         if: inputs.mode == 'taxonomy-yoast'

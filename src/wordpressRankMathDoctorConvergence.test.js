@@ -12,7 +12,7 @@ test("Connector carica il convergence engine v2 e non cancella il journal durant
   assert.match(modulePhp, /rankmath-doctor-convergence-20260906-v2/);
   assert.match(modulePhp, /journalRetainedUntilCrossRequestProof'\s*=>\s*true/);
   assert.match(modulePhp, /requiresCrossRequestFinalization'\s*=>\s*true/);
-  const recoverStart = modulePhp.indexOf("function seogrow_connector_taxonomy_doctor_recover_v2");
+  const recoverStart = modulePhp.indexOf("function seogrow_connector_taxonomy_doctor_recover_v2_locked");
   const finalizeStart = modulePhp.indexOf("function seogrow_connector_taxonomy_doctor_finalize_recovery");
   const recoverBody = modulePhp.slice(recoverStart, finalizeStart);
   assert.doesNotMatch(recoverBody, /delete_option\s*\(/);
