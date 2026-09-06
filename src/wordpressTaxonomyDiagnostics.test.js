@@ -59,7 +59,7 @@ test("workflow separa diagnostica e sampler read-only dalla guardia di scrittura
   assert.match(workflow, /taxonomy-consistency-sampler/);
   assert.match(workflow, /Taxonomy consistency sampler read-only/);
   assert.match(workflow, /inputs\.mode == 'taxonomy-rank-math' \|\| inputs\.mode == 'taxonomy-yoast'/);
-  assert.match(workflow, /node scripts\/wordpress-taxonomy-diagnostics\.mjs/);
+  assert.match(workflow, /node scripts\/wordpress-taxonomy-diagnostics-retry\.mjs/);
   assert.match(workflow, /node scripts\/wordpress-taxonomy-consistency-sampler\.mjs/);
   assert.match(workflow, /diagnostica, sampler ed Elementor sono read-only/);
 });

@@ -132,7 +132,7 @@ jobs:
         env:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
-        run: node scripts/wordpress-taxonomy-diagnostics.mjs
+        run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
 
       - name: Taxonomy consistency sampler read-only
         if: inputs.mode == 'taxonomy-consistency-sampler'
@@ -146,7 +146,7 @@ jobs:
         env:
           SEOGROW_WP_CATEGORY_URL: ${{ inputs.category_url }}
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
-        run: node scripts/wordpress-taxonomy-diagnostics.mjs
+        run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
 
       - name: Rank Math cache-coherence capability preflight
         if: inputs.mode == 'taxonomy-rank-math'
