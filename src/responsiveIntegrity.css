@@ -338,6 +338,16 @@
   }
   .page-title .primary {
     width: 100%;
+    min-height: 48px;
+    padding: 0 16px !important;
+    gap: 8px;
+    font-size: 14px !important;
+    line-height: 1.2;
+  }
+  .page-title .primary svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
   }
   .stats,
   .split-panels,
