@@ -142,6 +142,10 @@ jobs:
           SEOGROW_WP_TAG_URL: ${{ inputs.tag_url }}
         run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
 
+      - name: Rank Math public-cache purge capability preflight
+        if: inputs.mode == 'taxonomy-rank-math-general'
+        run: node scripts/wordpress-rankmath-public-cache-purge-preflight.mjs
+
       - name: Rank Math general E2E
         if: inputs.mode == 'taxonomy-rank-math-general'
         env:
