@@ -26,6 +26,8 @@ for(const scenario of ['healthy','pending','ownership-loss','ambiguous-write']) 
   const moduleUrl=new URL('../scripts/wordpress-rankmath-doctor-convergence.mjs',import.meta.url).href;
   const program=`
     import assert from 'node:assert/strict';
+    import { mock } from 'node:test';
+    mock.module(${JSON.stringify(new URL('../server/pinnedHttpsFetch.js', import.meta.url).href)}, { namedExports: { pinnedHttpsFetch: (...args) => globalThis.fetch(...args) } });
     const scenario=${JSON.stringify(scenario)};
     let journal=scenario==='pending', stateCalls=0, mutations=[], current='Yoga & salute';
     globalThis.setTimeout=(fn)=>{queueMicrotask(fn);return 0;};
@@ -47,7 +49,7 @@ for(const scenario of ['healthy','pending','ownership-loss','ambiguous-write']) 
     else if(scenario==='ambiguous-write'){assert.ok(error);assert.equal(mutations.filter(p=>p.endsWith('observe')).length,1);}
     else {assert.equal(error,undefined);assert.ok(stateCalls>=3);if(scenario==='pending')assert.equal(journal,false);}
   `;
-  const r=spawnSync(process.execPath,['--input-type=module','-e',program],{env:{...process.env,SEOGROW_WP_SITE_URL:'https://example.test',SEOGROW_WP_E2E_ALLOW_WRITE:'YES_I_UNDERSTAND'},encoding:'utf8',timeout:15000});
+  const r=spawnSync(process.execPath,['--experimental-test-module-mocks','--input-type=module','-e',program],{env:{...process.env,SEOGROW_WP_SITE_URL:'https://example.test',SEOGROW_WP_E2E_ALLOW_WRITE:'YES_I_UNDERSTAND'},encoding:'utf8',timeout:15000});
   assert.equal(r.status,0,r.stderr+r.stdout);
  });
 }
@@ -56,6 +58,8 @@ test('global run collects independent failures despite missing v2 route and perf
   const moduleUrl=new URL('../scripts/wordpress-rankmath-global.mjs',import.meta.url).href;
   const program=`
     import assert from 'node:assert/strict';
+    import { mock } from 'node:test';
+    mock.module(${JSON.stringify(new URL('../server/pinnedHttpsFetch.js', import.meta.url).href)}, { namedExports: { pinnedHttpsFetch: (...args) => globalThis.fetch(...args) } });
     import {mkdtemp,rm} from 'node:fs/promises';
     import {tmpdir} from 'node:os';
     import {join} from 'node:path';
@@ -84,7 +88,7 @@ test('global run collects independent failures despite missing v2 route and perf
       assert.ok(report.targets.every(t=>t.issues.length>=2));assert.equal(writes,0);
     } finally {await rm(temp,{recursive:true,force:true});}
   `;
-  const r=spawnSync(process.execPath,['--input-type=module','-e',program],{env:{...process.env,SEOGROW_WP_SITE_URL:'https://example.test',SEOGROW_WP_E2E_CONFIRM_HOST:'example.test',SEOGROW_WP_USERNAME:'test',SEOGROW_WP_APPLICATION_PASSWORD:'test',SEOGROW_WP_CATEGORY_URL:'https://example.test/category/one/'},encoding:'utf8',timeout:15000});
+  const r=spawnSync(process.execPath,['--experimental-test-module-mocks','--input-type=module','-e',program],{env:{...process.env,SEOGROW_WP_SITE_URL:'https://example.test',SEOGROW_WP_E2E_CONFIRM_HOST:'example.test',SEOGROW_WP_USERNAME:'test',SEOGROW_WP_APPLICATION_PASSWORD:'test',SEOGROW_WP_CATEGORY_URL:'https://example.test/category/one/'},encoding:'utf8',timeout:15000});
   assert.equal(r.status,0,r.stderr+r.stdout);
 });
 

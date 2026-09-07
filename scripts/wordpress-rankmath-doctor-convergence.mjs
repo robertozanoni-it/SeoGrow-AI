@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 import { pathToFileURL } from "node:url";
 import crypto from "node:crypto";
 
@@ -71,7 +72,7 @@ async function wpGet(path, params = {}) {
   return retry(`GET ${path}`, async () => {
     const endpoint = new URL(`/wp-json/seogrow/v1/${path}`, siteUrl);
     for (const [key, value] of Object.entries(params)) endpoint.searchParams.set(key, String(value));
-    const response = await fetch(endpoint, { headers: { authorization: auth(), accept: "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, redirect: "manual", signal: AbortSignal.timeout(20_000) });
+    const response = await pinnedHttpsFetch(endpoint, { headers: { authorization: auth(), accept: "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, redirect: "manual", signal: AbortSignal.timeout(20_000) });
     return jsonResponse(response, path);
   });
 }
@@ -81,7 +82,7 @@ async function wpPost(path, body) {
   // Never retry a mutation after an ambiguous transport failure.
   return (async () => {
     const endpoint = new URL(`/wp-json/seogrow/v1/${path}`, siteUrl);
-    const response = await fetch(endpoint, { method: "POST", headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    const response = await pinnedHttpsFetch(endpoint, { method: "POST", headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(30_000) });
     return jsonResponse(response, path);
   })();
 }
