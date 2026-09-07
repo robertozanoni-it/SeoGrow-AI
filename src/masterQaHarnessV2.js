@@ -1,10 +1,15 @@
 import { MANUAL_MASTER_QA_CHECKS, runMasterQa, summarizeMasterQa } from "./masterQaHarness.js";
 import { runMasterQaV2AsyncChecks, runMasterQaV2Checks } from "./masterQaV2Checks.js";
+import { checkAgentAdversarialRuntime } from "./agentAdversarialQa.js";
 
 export async function runMasterQaV2() {
   const base = await runMasterQa();
   const automaticBase = base.results.filter((item) => item.status !== "MANUAL");
-  const extra = [...runMasterQaV2Checks(), ...(await runMasterQaV2AsyncChecks())];
+  const extra = [
+    ...runMasterQaV2Checks(),
+    ...(await runMasterQaV2AsyncChecks()),
+    await checkAgentAdversarialRuntime(),
+  ];
   const manual = MANUAL_MASTER_QA_CHECKS.map((area) => ({
     status: "MANUAL",
     area,
@@ -13,7 +18,7 @@ export async function runMasterQaV2() {
   const results = [...automaticBase, ...extra, ...manual];
   const report = {
     ...base,
-    version: 2,
+    version: 3,
     results,
     summary: summarizeMasterQa(results),
   };
@@ -39,7 +44,7 @@ export function installMasterQaV2Panel() {
   root.id = "seogrow-master-qa-v2";
   const launcher = document.createElement("button");
   launcher.className = "launcher";
-  launcher.textContent = "Esegui collaudo generale v2";
+  launcher.textContent = "Esegui collaudo generale v3";
   root.append(launcher);
   document.body.append(root);
   const css = document.createElement("style");
@@ -48,13 +53,13 @@ export function installMasterQaV2Panel() {
 
   launcher.addEventListener("click", async () => {
     launcher.disabled = true;
-    launcher.textContent = "Collaudo v2 in corso…";
+    launcher.textContent = "Collaudo v3 in corso…";
     root.querySelector(".panel")?.remove();
     try {
       const report = await runMasterQaV2();
       const panel = document.createElement("section");
       panel.className = "panel";
-      panel.innerHTML = `<strong>Master QA v2: ${report.summary.overall}</strong><div>PASS ${report.summary.counts.PASS} · FAIL ${report.summary.counts.FAIL} · INFO ${report.summary.counts.INFO} · MANUAL ${report.summary.counts.MANUAL}</div>`;
+      panel.innerHTML = `<strong>Master QA v3: ${report.summary.overall}</strong><div>PASS ${report.summary.counts.PASS} · FAIL ${report.summary.counts.FAIL} · INFO ${report.summary.counts.INFO} · MANUAL ${report.summary.counts.MANUAL}</div>`;
       for (const item of report.results) {
         const row = document.createElement("div");
         row.className = "row";
@@ -77,7 +82,7 @@ export function installMasterQaV2Panel() {
       root.append(panel);
     } finally {
       launcher.disabled = false;
-      launcher.textContent = "Esegui collaudo generale v2";
+      launcher.textContent = "Esegui collaudo generale v3";
     }
   });
 }
