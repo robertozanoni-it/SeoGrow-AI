@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const layer = await readFile(new URL("./GuidedUxLayer.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./GuidedUxLayer.css", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
   assert.match(layer, /Cosa fare adesso/);

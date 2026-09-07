@@ -1,3 +1,6 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { correctionCredentials } from "./correctionCredentials.js";
+import { applyJournaledCorrection } from "./correctionJournal.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
@@ -9,7 +12,7 @@ import {
 } from "./elementorImpactClient";
 import { buildElementorImpactCandidateUrls } from "./elementorImpactCandidates";
 import { normalizeAnalysisHistory } from "./platform";
-import { listCorrections, saveCorrection, setLastBatch, stableIssueKey } from "./remediationStore";
+import { listCorrections, setLastBatch, stableIssueKey } from "./remediationStore";
 import {
   assertNoPreviewConflicts,
   detectPreviewConflicts,
@@ -375,8 +378,8 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
 const flattenState = (state, fields) => {
   const flat = {};
   for (const field of fields || []) {
-    if (field.startsWith("meta.")) flat[field] = state?.meta?.[field.slice(5)] ?? "";
-    else flat[field] = state?.[field] ?? "";
+    if (field.startsWith("meta.")) flat[field] = state?.meta?.[field.slice(5)];
+    else flat[field] = state?.[field];
   }
   return flat;
 };
@@ -486,6 +489,7 @@ export default function WordPressLiveRemediationControlV2() {
         const contextSnapshot = {
           clientId: context.clientId,
           clientName: context.client?.name || "",
+          siteUrl: credentials.url,
           auditType: context.audit.type,
           analyzedAt: auditTimestamp(context.audit),
         };
@@ -562,20 +566,17 @@ export default function WordPressLiveRemediationControlV2() {
     setApplyingId(item.data.approvalToken);
     setMessage(`Applicazione live: ${item.issue?.label || "problema SEO"}…`);
     try {
-      const response = await apiFetch("/api/wordpress/live-apply", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ approvalToken: item.data.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        const error = new Error(data.error || "Applicazione live non riuscita.");
-        error.code = data.code || "APPLY_FAILED";
-        throw error;
-      }
+      const data = {
+        changed: item.data.changed,
+        before: item.data.previewBefore,
+        after: item.data.previewAfter,
+        resource: item.data.resource,
+        id: item.data.id,
+        adapter: item.data.adapter,
+      };
       const fields = data.changed || [];
       const snapshot = item.contextSnapshot || {};
-      const record = {
+      const pendingRecord = {
         id: `correction-${crypto.randomUUID()}`,
         batchId,
         clientId: snapshot.clientId,
@@ -611,9 +612,31 @@ export default function WordPressLiveRemediationControlV2() {
         auditAnalyzedAt: snapshot.analyzedAt,
         verificationNote: `Modifica live approvata e applicata tramite ${data.adapter || item.plan.adapter}. Scrittura e risoluzione SEO restano stati distinti.`,
       };
-      await saveCorrection(record);
+      const record = await applyJournaledCorrection(pendingRecord, async () => {
+        correctionCredentials({ clientId: snapshot.clientId, siteUrl: snapshot.siteUrl }, {
+          clientId: Number(readJson(SELECTED_CLIENT_KEY, 0)), siteUrl: credentials.url,
+          username: credentials.username, applicationPassword: credentials.applicationPassword,
+        });
+        const response = await apiFetch("/api/wordpress/live-apply", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ approvalToken: item.data.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
+        });
+        const applied = await response.json();
+        if (!response.ok) {
+          const error = new Error(applied.error || "Applicazione live non riuscita.");
+          error.code = applied.code || "APPLY_FAILED";
+          throw error;
+        }
+        return {
+          adapter: applied.adapter || pendingRecord.adapter,
+          before: flattenState(applied.before, applied.changed || fields),
+          after: flattenState(applied.after, applied.changed || fields),
+          rollbackChanges: applied.before,
+        };
+      });
       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
-      setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "applied", data: { ...entry.data, apply: data } } : entry));
+      setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "applied", data: { ...entry.data, apply: record } } : entry));
       setMessage("Modifica applicata e registrata. Stato: Da verificare. Usa la riverifica specifica e, quando richiesto, un nuovo audit prima di considerare il problema risolto.");
     } catch (error) {
       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "error", reason: error.message } : entry));

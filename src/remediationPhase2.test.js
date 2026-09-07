@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const location = await readFile(new URL("./locationEvents.js", import.meta.url), "utf8");
 const rollbackServer = await readFile(new URL("../server/wordpressLiveRollbackHook.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
@@ -50,7 +50,7 @@ test("Rank Math e Yoast simultanei non vengono risolti per priorità arbitraria"
 });
 
 test("il live flow V2 registra la correzione senza dipendere dal vecchio correlatore fetch", () => {
-  assert.match(live, /await saveCorrection\(record\)/);
+  assert.match(live, /await applyJournaledCorrection\(pendingRecord/);
   assert.match(live, /seogrow-remediation-applied/);
   assert.doesNotMatch(location, /pendingGenerations|takePendingGeneration|\/api\/wordpress\/remediate/);
   assert.doesNotMatch(location, /window\.fetch\s*=/);

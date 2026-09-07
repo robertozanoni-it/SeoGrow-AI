@@ -15,10 +15,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -36,15 +36,16 @@ jobs:
         run: |
           find wordpress-plugin/seogrow-connector -type f \( -name '*.php' -o -name '*.inc' \) -print0 | xargs -0 -n1 php -l
           php scripts/test-rankmath-journal.php
+          php scripts/test-atomic-write.php
 
       - name: Build and verify complete Connector package
         run: node scripts/package-connector.mjs
 
       - name: Upload complete Connector
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
-          name: seogrow-connector-1.3.1
-          path: artifacts/seogrow-connector-1.3.1.zip
+          name: seogrow-connector-1.3.3
+          path: artifacts/seogrow-connector-1.3.3.zip
 
       - name: Install zsh for macOS launcher syntax check
         run: |
@@ -87,10 +88,10 @@ jobs:
     timeout-minutes: 12
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -133,10 +134,10 @@ jobs:
     timeout-minutes: 12
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

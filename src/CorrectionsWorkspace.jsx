@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -14,7 +15,6 @@ import {
 import { apiFetch } from "./api";
 import { recheckCorrectionById } from "./remediationIntegrity";
 import {
-  lastBatch,
   listCorrections,
   readCorrection,
   reopenTask,
@@ -22,6 +22,7 @@ import {
   REMEDIATION_LAST_BATCH_KEY,
   updateCorrection,
 } from "./remediationStore";
+import { correctionCredentials } from "./correctionCredentials.js";
 import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
 
@@ -47,7 +48,7 @@ const preview = (value, max = 300) => {
 };
 const statusClass = (status) => String(status || "").toLowerCase().replaceAll(" ", "-");
 const isVerified = (record) => record.status === "Verificato";
-const isPending = (record) => record.status === "Applicato" || record.status === "Da verificare";
+const isPending = (record) => ["Applicato", "Da verificare", "Esito incerto", "Bloccato"].includes(record.status);
 const isRolledBack = (record) => record.status === "Ripristinato";
 
 export default function CorrectionsWorkspace() {
@@ -59,13 +60,17 @@ export default function CorrectionsWorkspace() {
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [expanded, setExpanded] = useState(() => new Set());
-  const [password, setPassword] = useState("");
+  const [passwordEntry, setPasswordEntry] = useState(null);
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
   const [verifying, setVerifying] = useState("");
 
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
-  const batchId = lastBatch();
+  const password = passwordEntry?.clientId === selectedClientId ? passwordEntry.value : "";
+  const setPassword = value => setPasswordEntry({ clientId: selectedClientId, value });
+  const scopedRows = useMemo(() => rows.filter(row => selectedClientId > 0 && Number(row.clientId) === selectedClientId), [rows, selectedClientId]);
+  const batchId = scopedRows[0]?.batchId || "";
+  const batchRows = useMemo(() => showAll || !batchId ? scopedRows : scopedRows.filter(row => row.batchId === batchId), [scopedRows, showAll, batchId]);
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[selectedClientId] || null;
 
   useEffect(() => {
@@ -116,11 +121,11 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    listCorrections({ clientId: selectedClientId || undefined, batchId: showAll ? undefined : batchId || undefined })
+    (selectedClientId > 0 ? listCorrections({ clientId: selectedClientId }) : Promise.resolve([]))
       .then((items) => { if (!cancelled) setRows(items); })
       .catch((error) => { if (!cancelled) setMessage(error.message); });
     return () => { cancelled = true; };
-  }, [selectedClientId, batchId, showAll, version]);
+  }, [selectedClientId, version]);
 
   useEffect(() => {
     if (!mainTarget) return undefined;
@@ -132,18 +137,18 @@ export default function CorrectionsWorkspace() {
   }, [active, mainTarget]);
 
   const stats = useMemo(() => ({
-    total: rows.length,
-    verified: rows.filter(isVerified).length,
-    pending: rows.filter(isPending).length,
-    rolledBack: rows.filter(isRolledBack).length,
-  }), [rows]);
+    total: batchRows.length,
+    verified: batchRows.filter(isVerified).length,
+    pending: batchRows.filter(isPending).length,
+    rolledBack: batchRows.filter(isRolledBack).length,
+  }), [batchRows]);
 
-  const filteredRows = useMemo(() => rows.filter((record) => {
+  const filteredRows = useMemo(() => batchRows.filter((record) => {
     if (statusFilter === "verified") return isVerified(record);
     if (statusFilter === "pending") return isPending(record);
     if (statusFilter === "rolled") return isRolledBack(record);
     return true;
-  }), [rows, statusFilter]);
+  }), [batchRows, statusFilter]);
 
   const toggleExpanded = (id) => {
     setExpanded((current) => {
@@ -155,11 +160,16 @@ export default function CorrectionsWorkspace() {
   };
 
   const reverify = async (id) => {
-    if (!id || verifying) return;
+    if (!id || verifying || rollingBack) return;
     setVerifying(id);
     setMessage("Riverifica della correzione in corso…");
     try {
-      const result = await recheckCorrectionById(id);
+      const result = await recheckCorrectionById(id, {
+        clientId: Number(readJson(SELECTED_CLIENT_KEY, 0)),
+        siteUrl: profile?.url || "",
+        username: profile?.username || "",
+        applicationPassword: password,
+      });
       const updated = result?.record;
       if (result?.error) {
         setMessage(`Riverifica non conclusa: ${result.error.message}. Lo stato precedente è stato mantenuto.`);
@@ -179,12 +189,13 @@ export default function CorrectionsWorkspace() {
   };
 
   const rollback = async (id) => {
+    if (rollingBack || verifying) return;
     if (!password) {
       setMessage("Inserisci la password applicativa WordPress per eseguire il rollback.");
       return;
     }
     const record = await readCorrection(id);
-    if (!record) {
+    if (!record || Number(record.clientId) !== selectedClientId || selectedClientId !== Number(readJson(SELECTED_CLIENT_KEY, 0))) {
       setMessage("Snapshot di rollback non disponibile.");
       return;
     }
@@ -205,10 +216,12 @@ export default function CorrectionsWorkspace() {
       const response = await fetch("/api/wordpress/live-rollback", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(rollbackRequest(record, {
+        body: JSON.stringify(rollbackRequest(record, correctionCredentials(record, {
+          clientId: selectedClientId,
+          siteUrl: profile?.url || "",
           username: profile?.username || "",
           applicationPassword: password,
-        })),
+        }))),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Rollback WordPress non riuscito");
@@ -273,7 +286,7 @@ export default function CorrectionsWorkspace() {
 
       <section className="panel corrections-security">
         <div><ShieldCheck /><span><strong>Rollback WordPress stale-safe</strong><small>Prima di ripristinare, SeoGrow verifica che i campi live siano ancora uguali allo snapshot applicato. Modifiche successive bloccano il rollback.</small></span></div>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" />
+        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" aria-label="Password applicativa WordPress del cliente selezionato" />
       </section>
 
       {message && <p className="integration-result corrections-message">{message}</p>}
@@ -292,7 +305,7 @@ export default function CorrectionsWorkspace() {
                   <small>{record.fields?.join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small>
                 </span>
                 <span className="correction-quick-state">
-                  <span className="ok">1 WordPress</span>
+                  <span className={record.writeConfirmed === false ? "wait" : "ok"}>1 WordPress{record.writeConfirmed === false ? " da controllare" : ""}</span>
                   <span className={record.frontendConfirmed ? "ok" : "wait"}>2 Frontend</span>
                   <span className={verified ? "ok" : "wait"}>3 SEO</span>
                   <span className={verified ? "ok" : "wait"}>4 Task</span>
@@ -302,7 +315,7 @@ export default function CorrectionsWorkspace() {
 
               <div className="correction-summary-actions">
                 <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
-                <button type="button" className="secondary mini" disabled={verifying === record.id || record.status === "Ripristinato"} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
+                <button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
                 <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
               </div>
 
@@ -317,10 +330,10 @@ export default function CorrectionsWorkspace() {
 
                   <div className="correction-footer">
                     <div>
-                      <strong>{verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
-                      <span>{verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
+                      <strong>{record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
+                      <span>{record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
                     </div>
-                    <button type="button" className="secondary" disabled={rollingBack === record.id || record.status === "Ripristinato"} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
+                    <button type="button" className="secondary" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
                   </div>
                 </div>
               )}

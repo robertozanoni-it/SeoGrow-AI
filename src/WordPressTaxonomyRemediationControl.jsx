@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { correctionCredentials } from "./correctionCredentials.js";
+import { applyJournaledCorrection } from "./correctionJournal.js";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck, Tags } from "lucide-react";
 import { apiFetch } from "./api";
 import { normalizeAnalysisHistory } from "./platform";
 import { recheckCorrectionById } from "./remediationIntegrity";
-import { saveCorrection, setLastBatch } from "./remediationStore";
+import { setLastBatch } from "./remediationStore";
 import { normalizeClientId } from "./reliabilityModel";
 import "./WordPressTaxonomyRemediationControl.css";
 
@@ -112,7 +115,7 @@ async function generatedSeoValue(field, issue, inspection) {
 
 export default function WordPressTaxonomyRemediationControl() {
   const [target, setTarget] = useState(null);
-  const [revision, setRevision] = useState(0);
+  const [, setRevision] = useState(0);
   const [requestedAudit, setRequestedAudit] = useState(null);
   const [inspection, setInspection] = useState(null);
   const [detecting, setDetecting] = useState(false);
@@ -186,7 +189,8 @@ export default function WordPressTaxonomyRemediationControl() {
   const field = classifyIssue(issue);
   const suspected = suspectedTaxonomyUrl(sourceUrl);
 
-  const signature = useMemo(() => `${clientId}|${auditTimestamp(audit)}|${selectedIndex}|${sourceUrl}|${revision}`, [clientId, audit, selectedIndex, sourceUrl, revision]);
+  const connection = readCredentials();
+  const signature = `${clientId}|${auditTimestamp(audit)}|${selectedIndex}|${sourceUrl}|${connection.siteUrl}|${connection.username}|${Boolean(connection.applicationPassword)}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -290,7 +294,7 @@ export default function WordPressTaxonomyRemediationControl() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Anteprima tassonomia non riuscita.");
-      setPreview(data);
+      setPreview({ ...data, context: { clientId, siteUrl: credentials.siteUrl, sourceUrl, field, analyzedAt: auditTimestamp(audit) } });
       setQuality(generatedQuality);
       setMessage("Anteprima pronta. Nessuna modifica è stata ancora applicata a WordPress.");
     } catch (error) {
@@ -308,42 +312,37 @@ export default function WordPressTaxonomyRemediationControl() {
       setMessage("Reinserisci la password applicativa WordPress prima dell'approvazione.");
       return;
     }
+    if (preview.context?.clientId !== clientId || Number(readJson(SELECTED_CLIENT_KEY, 0)) !== Number(clientId) ||
+      preview.context?.sourceUrl !== sourceUrl || preview.context?.field !== field || preview.context?.analyzedAt !== auditTimestamp(audit)) {
+      setPreview(null);
+      setMessage("Cliente o audit cambiati: prepara una nuova anteprima.");
+      return;
+    }
     const termLabel = `${inspection.term?.taxonomy === "category" ? "Categoria" : "Tag"} “${inspection.term?.name || ""}”`;
     if (!window.confirm(`Applicare ORA questa singola modifica alla tassonomia WordPress live?\n\n${termLabel}\nCampo: ${field}\nPrima: ${previewValue(preview.previewBefore)}\nDopo: ${previewValue(preview.previewAfter)}\n\nLa modifica sarà registrata come Da verificare.`)) return;
 
     setApplying(true);
     setMessage("Applicazione tassonomia live…");
     try {
-      const response = await apiFetch("/api/wordpress/taxonomy-apply", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          approvalToken: preview.approvalToken,
-          username: credentials.username,
-          applicationPassword: credentials.applicationPassword,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Applicazione tassonomia non riuscita.");
       const batchId = `taxonomy-remediation-${Date.now()}`;
       setLastBatch(batchId);
-      const record = {
+      const pendingRecord = {
         id: `correction-${crypto.randomUUID()}`,
         batchId,
         clientId,
         clientName: client?.name || "",
         platform: "wordpress",
         liveApproval: true,
-        adapter: data.adapter || preview.adapter,
+        adapter: preview.adapter,
         issue,
         issueLabel: issue?.label || "Problema SEO tassonomia",
         issueType: issue?.type || "taxonomy",
         severity: issue?.severity || "media",
-        sourceUrl: data.sourceUrl || sourceUrl,
+        sourceUrl: sourceUrl,
         siteUrl: credentials.siteUrl,
         resource: "taxonomy",
-        entityId: Number(data.termId || inspection.term?.id),
-        taxonomy: data.taxonomy || inspection.term?.taxonomy || "",
+        entityId: Number(inspection.term?.id),
+        taxonomy: inspection.term?.taxonomy || "",
         taxonomyField: field,
         username: credentials.username,
         fields: [field],
@@ -355,9 +354,26 @@ export default function WordPressTaxonomyRemediationControl() {
         frontendConfirmed: false,
         auditType: audit?.type || "page",
         auditAnalyzedAt: auditTimestamp(audit),
-        verificationNote: `Modifica tassonomia applicata tramite ${data.adapter || preview.adapter}. Valore salvato e risultato pubblico restano da riverificare.`,
+        verificationNote: `Modifica tassonomia applicata tramite ${preview.adapter}. Valore salvato e risultato pubblico restano da riverificare.`,
       };
-      await saveCorrection(record);
+      const record = await applyJournaledCorrection(pendingRecord, async () => {
+        correctionCredentials(preview.context, {
+          clientId: Number(readJson(SELECTED_CLIENT_KEY, 0)), siteUrl: credentials.siteUrl,
+          username: credentials.username, applicationPassword: credentials.applicationPassword,
+        });
+        const response = await apiFetch("/api/wordpress/taxonomy-apply", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            approvalToken: preview.approvalToken,
+            username: credentials.username,
+            applicationPassword: credentials.applicationPassword,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw Object.assign(new Error(data.error || "Applicazione tassonomia non riuscita."), { code: data.code });
+        return {};
+      });
       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
       setAppliedRecordId(record.id);
       setPreview(null);
@@ -376,6 +392,7 @@ export default function WordPressTaxonomyRemediationControl() {
     setMessage("Riverifica tassonomia in corso…");
     try {
       const result = await recheckCorrectionById(appliedRecordId, {
+        clientId,
         siteUrl: credentials.siteUrl,
         username: credentials.username,
         applicationPassword: credentials.applicationPassword,

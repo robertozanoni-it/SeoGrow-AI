@@ -1,0 +1,20 @@
+{
+  "A": {
+    "sha256": "0a64c847d012d6cac10edb3a2e69b2eb6912f819bb9d9942a79d9ce2ed668c41",
+    "clients": [
+      9101,
+      9102
+    ],
+    "corrections": 2,
+    "workspaceKeys": 19
+  },
+  "B": {
+    "sha256": "389216efd5f6aa117e7f10f5524ed7dfb284754a9346aa9e8376c1b38e3f391a",
+    "clients": [
+      9201,
+      9202
+    ],
+    "corrections": 2,
+    "workspaceKeys": 19
+  }
+}

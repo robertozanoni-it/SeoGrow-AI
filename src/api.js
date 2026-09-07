@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 
@@ -22,14 +23,25 @@ const requestPath = (input) => {
   }
 };
 
-const isPaidOrLongRunningRequest = (input) => {
+export const isProjectScopedRequest = (input) => {
   const value = String(input || "");
   return [
     "/api/dataforseo/",
     "/api/geo/simulate",
     "/api/generate",
-    "/api/wordpress/generate-patch",
+    "/api/site-analysis",
+    "/api/frontend/inspect",
+    "/api/wordpress/",
   ].some((path) => value.includes(path));
+};
+
+const assertProjectStillSelected = (entry) => {
+  if (!entry || entry.clientId == null) return;
+  const current = selectedClientId();
+  if (current === entry.clientId) return;
+  const reason = new DOMException("Progetto cambiato", "AbortError");
+  if (!entry.controller.signal.aborted) entry.controller.abort(reason);
+  throw reason;
 };
 
 if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
@@ -38,7 +50,7 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
     if (event?.detail?.key !== SELECTED_CLIENT_KEY) return;
     const current = selectedClientId();
     for (const entry of [...scopedRequests]) {
-      if (entry.clientId != null && current != null && entry.clientId !== current) {
+      if (entry.clientId != null && entry.clientId !== current) {
         entry.controller.abort(new DOMException("Progetto cambiato", "AbortError"));
       }
     }
@@ -96,32 +108,6 @@ export const trimGenerateContext = (body) => {
   }
 };
 
-const wordpressPaginationSkip = (input, init) => {
-  const inputText = String(input || "");
-  if (!inputText.includes("/api/wordpress/inspect") || String(init?.method || "GET").toUpperCase() !== "POST") return null;
-  if (typeof init?.body !== "string") return null;
-  try {
-    const payload = JSON.parse(init.body);
-    const target = new URL(String(payload?.url || ""));
-    const path = target.pathname.replace(/\/+$/, "");
-    const segments = path.split("/").filter(Boolean);
-    const last = segments.at(-1) || "";
-    const previous = segments.at(-2) || "";
-    const isPagination = /^\d+$/.test(last) && segments.length >= 2;
-    const isPagePagination = previous.toLowerCase() === "page" && /^\d+$/.test(last);
-    if (!isPagination && !isPagePagination) return null;
-    return new Response(
-      JSON.stringify({
-        error: "Archivio/paginazione WordPress rilevata: SeoGrow salta automaticamente questa URL perché non è una pagina o un articolo modificabile tramite REST.",
-        skipped: true,
-      }),
-      { status: 422, headers: { "content-type": "application/json" } },
-    );
-  } catch {
-    return null;
-  }
-};
-
 const wordpressSiteUrlFromUi = () => {
   if (typeof document === "undefined") return "";
   return document.querySelector(".audit-unified-credentials input[autocomplete='url']")?.value?.trim() || "";
@@ -146,13 +132,11 @@ export async function apiFetch(input, init = {}) {
   let lastError;
   const inputText = String(input || "");
   const path = requestPath(input);
-  const skipped = wordpressPaginationSkip(input, init);
-  if (skipped) return skipped;
   const generatedInit = inputText.includes("/api/generate")
     ? { ...init, body: trimGenerateContext(init.body) }
     : init;
   const preparedInit = withExplicitWordPressSiteUrl(path, generatedInit);
-  const projectScoped = isPaidOrLongRunningRequest(inputText);
+  const projectScoped = isProjectScopedRequest(inputText);
   const projectController = projectScoped ? new AbortController() : null;
   const scopeEntry = projectController
     ? { controller: projectController, clientId: selectedClientId() }
@@ -171,15 +155,22 @@ export async function apiFetch(input, init = {}) {
       const signals = [controller.signal];
       if (preparedInit.signal) signals.push(preparedInit.signal);
       if (projectController) signals.push(projectController.signal);
+      const removeListeners = [];
       const signal = (() => {
         if (signals.length === 1) return signals[0];
         if (typeof AbortSignal.any === "function") return AbortSignal.any(signals);
         const combined = new AbortController();
         const abort = (event) => combined.abort(event?.target?.reason);
-        for (const item of signals) item.addEventListener("abort", abort, { once: true });
+        for (const item of signals) {
+          if (item.aborted) { combined.abort(item.reason); break; }
+          item.addEventListener("abort", abort, { once: true });
+          removeListeners.push(() => item.removeEventListener("abort", abort));
+        }
         return combined.signal;
       })();
       try {
+        assertProjectStillSelected(scopeEntry);
+        if (signal.aborted) throw signal.reason || new DOMException("Richiesta annullata", "AbortError");
         const response = await window.fetch(input, { ...preparedInit, signal });
         if (attempt + 1 < attempts && [502, 503, 504].includes(response.status)) {
           await response.body?.cancel();
@@ -189,10 +180,12 @@ export async function apiFetch(input, init = {}) {
         const integrityResponse = path === "/api/site-analysis"
           ? await normalizeSiteAnalysisResponse(response)
           : response;
-        return await normalizeGdprResponse(integrityResponse, path, preparedInit);
+        const normalized = await normalizeGdprResponse(integrityResponse, path, preparedInit);
+        assertProjectStillSelected(scopeEntry);
+        return normalized;
       } catch (error) {
         lastError = error;
-        if (attempt + 1 >= attempts)
+        if (attempt + 1 >= attempts || preparedInit.signal?.aborted || projectController?.signal.aborted)
           throw new Error(
             error.name === "AbortError"
               ? projectController?.signal.aborted
@@ -205,6 +198,7 @@ export async function apiFetch(input, init = {}) {
           );
       } finally {
         window.clearTimeout(timeout);
+        for (const remove of removeListeners) remove();
       }
     }
     throw lastError;

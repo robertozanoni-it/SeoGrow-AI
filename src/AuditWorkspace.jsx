@@ -1,3 +1,5 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -125,14 +127,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
 
     const generated = tasksFromAnalysis(enriched, client);
     const tasks = readJson(TASKS_KEY, []);
-    const generatedKeys = new Set(generated.map(taskIssueKey));
-    const retained = tasks.filter((task) => {
-      if (normalizeClientId(task.sourceClientId) !== normalizeClientId(clientId)) return true;
-      if (!String(task.id || "").startsWith("analysis-") || task.kind === "manual" || task.status === "Completato") return true;
-      return !generatedKeys.has(taskIssueKey(task));
-    });
-    const existingKeys = new Set(retained.map(taskIssueKey));
-    writeJson(TASKS_KEY, [...retained, ...generated.filter((task) => !existingKeys.has(taskIssueKey(task)))]);
+    writeJson(TASKS_KEY, reconcileAuditTasks(tasks, generated, clientId, enriched.analyzedAt));
     refresh();
     return enriched;
   };

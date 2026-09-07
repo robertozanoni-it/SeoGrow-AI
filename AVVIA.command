@@ -8,17 +8,17 @@ echo
 opener_pid=""
 launcher_finished=0
 pause_before_close() {
-  status=$?
+  exit_status=$?
   if [ -n "$opener_pid" ]; then kill "$opener_pid" 2>/dev/null || true; fi
   if [ "$launcher_finished" -eq 1 ]; then return; fi
   launcher_finished=1
   echo
-  if [ "$status" -eq 0 ]; then
+  if [ "$exit_status" -eq 0 ]; then
     echo "seoGrow AI è stato arrestato oppure era già aperto."
-  elif [ "$status" -eq 130 ]; then
+  elif [ "$exit_status" -eq 130 ]; then
     echo "seoGrow AI è stato interrotto con Ctrl+C."
   else
-    echo "seoGrow AI si è chiuso inaspettatamente (codice $status)."
+    echo "seoGrow AI si è chiuso inaspettatamente (codice $exit_status)."
     echo "Copia le ultime righe visibili di questa finestra e inviale per la diagnosi."
   fi
   echo

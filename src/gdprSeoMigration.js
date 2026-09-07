@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const TASKS_KEY = "seogrow-tasks-v2";

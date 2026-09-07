@@ -1,0 +1,82 @@
+/* WCAG/reflow navigation guard: keep the off-canvas menu reachable in the 601–760px range, including browser zoom reflow. */
+@media (max-width: 760px) {
+  .mobile-only {
+    display: grid !important;
+  }
+
+  .sidebar,
+  html body[data-seogrow-ui-mode] .sidebar {
+    width: min(82vw, 300px) !important;
+    padding-inline: 12px !important;
+    transform: translateX(-105%) !important;
+    transition: transform 180ms ease;
+    box-shadow: 12px 0 40px rgba(4, 27, 61, 0.22);
+  }
+
+  .sidebar.open,
+  html body[data-seogrow-ui-mode] .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  .workspace,
+  html body[data-seogrow-ui-mode] .workspace {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .sidebar .side-head,
+  body[data-seogrow-ui-mode] .sidebar .side-head {
+    justify-content: space-between !important;
+    padding-inline: 10px !important;
+  }
+
+  .sidebar .logo,
+  body[data-seogrow-ui-mode] .sidebar .logo {
+    font-size: 25px !important;
+    width: auto !important;
+    height: auto !important;
+    justify-content: flex-start !important;
+  }
+
+  .sidebar .logo::after,
+  body[data-seogrow-ui-mode] .sidebar .logo::after {
+    content: none !important;
+  }
+
+  .sidebar .logo svg,
+  .sidebar nav button span,
+  .sidebar .side-foot > div:last-child,
+  body[data-seogrow-ui-mode] .sidebar .logo svg,
+  body[data-seogrow-ui-mode] .guided-nav button > span,
+  body[data-seogrow-ui-mode] .guided-mode-toggle > span,
+  body[data-seogrow-ui-mode] .sidebar .side-foot > div:last-child {
+    display: initial !important;
+  }
+
+  body[data-seogrow-ui-mode] .guided-nav-label {
+    display: block !important;
+  }
+
+  .sidebar nav button,
+  body[data-seogrow-ui-mode] .guided-nav button,
+  body[data-seogrow-ui-mode] .guided-mode-toggle {
+    justify-content: flex-start !important;
+    align-items: center !important;
+    padding-inline: 13px !important;
+  }
+
+  .sidebar .side-foot,
+  body[data-seogrow-ui-mode] .sidebar .side-foot {
+    justify-content: flex-start !important;
+    padding-inline: 8px !important;
+  }
+
+  .nav-scrim {
+    display: block;
+  }
+
+  .topbar > .mobile-only {
+    order: 0;
+    flex: 0 0 40px;
+  }
+}

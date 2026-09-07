@@ -1,3 +1,4 @@
+import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import dns from "node:dns/promises";
 import net from "node:net";
 import {
@@ -38,6 +39,25 @@ function privateAddress(address) {
     /^fe[89ab]/.test(value) || /^fe[c-f]/.test(value) || value.startsWith("ff") || value.startsWith("2001:db8:");
 }
 
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
+function stripWordPressSystemPath(pathname) {
+  const original = String(pathname || "");
+  const lower = original.toLowerCase();
+  let cut = original.length;
+  for (const marker of ["/wp-admin", "/wp-json"]) {
+    const index = lower.indexOf(marker);
+    if (index < 0) continue;
+    const end = index + marker.length;
+    if (end === original.length || original[end] === "/") cut = Math.min(cut, index);
+  }
+  return trimTrailingSlashes(original.slice(0, cut));
+}
+
 async function safeBase(input) {
   const url = new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("WordPress deve usare HTTPS.");
@@ -46,7 +66,7 @@ async function safeBase(input) {
   const addresses = await dns.lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
-  url.pathname = "/";
+  url.pathname = `${stripWordPressSystemPath(url.pathname)}/`;
   url.search = "";
   url.hash = "";
   return url;
@@ -170,26 +190,10 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
     throw error;
   }
 
-  const writeResponse = await fetch(taxonomyConnectorEndpoint(base, "taxonomy-write"), {
-    method: "POST",
-    headers: auth,
-    redirect: "manual",
-    signal: AbortSignal.timeout(20_000),
-    body: JSON.stringify({
-      url: targetUrl,
-      termId: inspection.term.id,
-      taxonomy: inspection.term.taxonomy,
-      adapter: currentAdapter,
-      field,
-      expectedCurrent: expected,
-      value: previous,
-    }),
+  const result = await atomicWordPressWrite(base, auth, {
+    resource: "taxonomy", id: inspection.term.id, url: targetUrl,
+    adapter: currentAdapter, field, changes: { [field]: previous }, expectedCurrent: { [field]: expected }, operation: "rollback",
   });
-  if ([301, 302, 303, 307, 308].includes(writeResponse.status)) {
-    await writeResponse.body?.cancel();
-    throw new Error("WordPress ha restituito un redirect inatteso durante la scrittura rollback tassonomia.");
-  }
-  const result = await taxonomyJson(writeResponse);
   if (result?.ok !== true || result?.staleChecked !== true || result?.singleField !== true ||
       !sameFieldValue(field, result.before, expected) || !sameFieldValue(field, result.after, previous)) {
     throw new Error("Il Connector non ha confermato integralmente il rollback tassonomia single-field.");
@@ -245,13 +249,35 @@ function registerRoutes(app) {
         error.code = "STALE_ROLLBACK";
         throw error;
       }
+      const patchFields = [
+        ...Object.keys(patch).filter(key => key !== "meta"),
+        ...Object.keys(patch.meta || {}).map(key => `meta.${key}`),
+      ];
+      if (patchFields.some(field => !Object.prototype.hasOwnProperty.call(expectedCurrent, field))) {
+        const error = new Error("Rollback bloccato: snapshot mancante per uno o più campi da ripristinare.");
+        error.code = "STALE_ROLLBACK";
+        throw error;
+      }
       assertExpectedCurrent(current, expectedCurrent);
 
-      const update = await wpJson(endpoint(base, resource, `/${entityId}`), {
-        method: "POST",
-        headers: auth,
-        body: JSON.stringify(patch),
+      const nestedExpected = {};
+      for (const [field, value] of Object.entries(expectedCurrent)) {
+        if (field.startsWith("meta.")) { nestedExpected.meta ||= {}; nestedExpected.meta[field.slice(5)] = value; }
+        else nestedExpected[field] = value;
+      }
+      const result = await atomicWordPressWrite(base, auth, {
+        resource, id: entityId, changes: patch, expectedCurrent: nestedExpected, operation: "rollback",
       });
+      const update = result.entity;
+      const expectedRestored = Object.fromEntries(patchFields.map(field => [field,
+        field.startsWith("meta.") ? patch.meta[field.slice(5)] : patch[field],
+      ]));
+      try { assertExpectedCurrent(update, expectedRestored); }
+      catch {
+        const error = new Error("Rollback inviato ma non confermato da WordPress: riverifica necessaria.");
+        error.code = "ROLLBACK_UNVERIFIED";
+        throw error;
+      }
       return res.json({
         ok: true,
         resource,

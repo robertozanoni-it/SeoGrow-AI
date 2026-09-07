@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { listCorrections, updateCorrection } from "./remediationStore";
 
 const MIGRATION_KEY = "seogrow-remediation-frontend-verification-v2";

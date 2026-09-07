@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 4,
+  "exportedAt": "2026-09-06T12:00:00.000Z",
+  "selectedClient": 9201,
+  "clients": [
+    {
+      "id": 9201,
+      "name": "QA B cliente 1 — FITTIZIO",
+      "url": "https://qa-b-1.example/"
+    },
+    {
+      "id": 9202,
+      "name": "QA B cliente 2 — FITTIZIO",
+      "url": "https://qa-b-2.example/"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "qa-B-9201",
+      "title": "QA B: controllare titolo fittizio",
+      "status": "Da fare",
+      "priority": "Media",
+      "sourceClientId": 9201,
+      "sourceUrl": "https://qa-b-1.example/"
+    },
+    {
+      "id": "qa-B-9202",
+      "title": "QA B: controllare titolo fittizio",
+      "status": "Da fare",
+      "priority": "Media",
+      "sourceClientId": 9202,
+      "sourceUrl": "https://qa-b-2.example/"
+    }
+  ],
+  "gscData": {},
+  "gscHistory": {},
+  "rankings": {},
+  "topicalMaps": {},
+  "geoData": {},
+  "contentDrafts": {},
+  "wordpressProfiles": {},
+  "auditResults": {},
+  "preferences": {},
+  "analyses": {
+    "9201": [
+      {
+        "url": "https://qa-b-1.example/",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "timestamp": "2026-09-06T12:00:00.000Z",
+        "source": "qa-fixture",
+        "complete": false,
+        "issues": [],
+        "reviewItems": [],
+        "pages": [],
+        "pagesChecked": 0,
+        "note": "Dati di collaudo fittizi, nessun crawl eseguito."
+      }
+    ],
+    "9202": [
+      {
+        "url": "https://qa-b-2.example/",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "timestamp": "2026-09-06T12:00:00.000Z",
+        "source": "qa-fixture",
+        "complete": false,
+        "issues": [],
+        "reviewItems": [],
+        "pages": [],
+        "pagesChecked": 0,
+        "note": "Dati di collaudo fittizi, nessun crawl eseguito."
+      }
+    ]
+  },
+  "pageAuditHistory": {
+    "9201": [
+      {
+        "url": "https://qa-b-1.example/",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "timestamp": "2026-09-06T12:00:00.000Z",
+        "source": "qa-fixture",
+        "complete": false,
+        "issues": [],
+        "reviewItems": [],
+        "pages": [],
+        "pagesChecked": 0,
+        "note": "Dati di collaudo fittizi, nessun crawl eseguito."
+      }
+    ],
+    "9202": [
+      {
+        "url": "https://qa-b-2.example/",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "timestamp": "2026-09-06T12:00:00.000Z",
+        "source": "qa-fixture",
+        "complete": false,
+        "issues": [],
+        "reviewItems": [],
+        "pages": [],
+        "pagesChecked": 0,
+        "note": "Dati di collaudo fittizi, nessun crawl eseguito."
+      }
+    ]
+  },
+  "agentRuns": {
+    "9201": [
+      {
+        "id": "run-B-9201",
+        "projectId": 9201,
+        "goal": "QA B — simulazione annullata",
+        "status": "CANCELLED",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "observations": [],
+        "recommendations": [],
+        "approvalHistory": [],
+        "plan": {
+          "steps": []
+        },
+        "pendingApproval": null
+      }
+    ],
+    "9202": [
+      {
+        "id": "run-B-9202",
+        "projectId": 9202,
+        "goal": "QA B — simulazione annullata",
+        "status": "CANCELLED",
+        "createdAt": "2026-09-06T12:00:00.000Z",
+        "observations": [],
+        "recommendations": [],
+        "approvalHistory": [],
+        "plan": {
+          "steps": []
+        },
+        "pendingApproval": null
+      }
+    ]
+  },
+  "corrections": [
+    {
+      "id": "correction-B-9201",
+      "batchId": "batch-B",
+      "clientId": 9201,
+      "issueLabel": "QA B titolo — dati simulati",
+      "sourceUrl": "https://qa-b-1.example/",
+      "fields": [
+        "title"
+      ],
+      "before": {
+        "title": "Prima B"
+      },
+      "after": {
+        "title": "Dopo B"
+      },
+      "status": "Bloccato",
+      "writeConfirmed": false,
+      "frontendConfirmed": false,
+      "appliedAt": "2026-09-06T12:00:00.000Z",
+      "verificationNote": "Fixture: nessuna scrittura WordPress eseguita."
+    },
+    {
+      "id": "correction-B-9202",
+      "batchId": "batch-B",
+      "clientId": 9202,
+      "issueLabel": "QA B titolo — dati simulati",
+      "sourceUrl": "https://qa-b-2.example/",
+      "fields": [
+        "title"
+      ],
+      "before": {
+        "title": "Prima B"
+      },
+      "after": {
+        "title": "Dopo B"
+      },
+      "status": "Bloccato",
+      "writeConfirmed": false,
+      "frontendConfirmed": false,
+      "appliedAt": "2026-09-06T12:00:00.000Z",
+      "verificationNote": "Fixture: nessuna scrittura WordPress eseguita."
+    }
+  ]
+}

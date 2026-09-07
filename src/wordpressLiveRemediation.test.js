@@ -8,14 +8,14 @@ const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
 const rollback = await readFile(new URL("./rollbackPayload.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
-const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("la remediation live V2 richiede anteprima e approvazione esplicita", () => {
   assert.match(client, /\/api\/wordpress\/live-preview/);
   assert.match(client, /Approva e applica questa modifica/);
   assert.match(client, /window\.confirm/);
   assert.match(client, /\/api\/wordpress\/live-apply/);
-  assert.match(client, /await saveCorrection\(record\)/);
+  assert.match(client, /await applyJournaledCorrection\(pendingRecord/);
 });
 
 test("l'ispezione V2 passa sempre la base WordPress separata dal permalink target", () => {
@@ -37,7 +37,7 @@ test("il server usa token monouso e rifiuta anteprime stale", () => {
 });
 
 test("la scrittura live non cambia lo status WordPress", () => {
-  assert.match(server, /body: JSON\.stringify\(approval\.changes\)/);
+  assert.match(server, /changes: approval\.changes/);
   assert.doesNotMatch(server, /status:\s*"publish"/);
 });
 

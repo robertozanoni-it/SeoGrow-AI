@@ -1,3 +1,4 @@
+import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { contentPlan, opportunityGroups } from "./platform.js";
 
 export const AgentDecision = Object.freeze({ CONTINUE: "CONTINUE", REPLAN: "REPLAN", COMPLETE: "COMPLETE", BLOCKED: "BLOCKED" });
@@ -6,7 +7,8 @@ export const AgentMode = Object.freeze({ READ_ONLY: "READ_ONLY", ASSISTED: "ASSI
 
 const highRiskCategories = new Set(["url", "slug", "canonical", "redirect", "robots", "noindex", "sitemap", "permalink", "critical-schema", "wordpress-global", "page-delete"]);
 const clone = (value) => structuredClone(value);
-const identifier = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+let fallbackIdentifierCounter = 0;
+const identifier = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${++fallbackIdentifierCounter}`}`;
 const stable = (value) => {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
@@ -14,8 +16,8 @@ const stable = (value) => {
 };
 const approvalLedgerKey = "seogrow-agent-approval-ledger-v1";
 const memoryApprovalLedger = new Set();
-function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(globalThis.localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
-function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { globalThis.localStorage?.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
+function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
+function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { localStorage.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
 export function validPendingApproval(request, { requireFuture = false } = {}) {
   if (!request || typeof request !== "object" || Array.isArray(request)) return false;
   const requestedAt = Date.parse(request.requestedAt), expiresAt = Date.parse(request.expiresAt);
@@ -28,7 +30,7 @@ export function validPendingApproval(request, { requireFuture = false } = {}) {
     && expiresAt > requestedAt
     && (!requireFuture || expiresAt > Date.now());
 }
-export const toolFingerprint = (tool, input, projectId, dataVersion = "") => `${tool}|${projectId || ""}|${dataVersion}|${stable(input || {})}`.toLowerCase();
+export const toolFingerprint = (tool, input, projectId, dataVersion = "") => stable([tool, projectId ?? null, dataVersion, input || {}]);
 export class AgentError extends Error { constructor(code, message, details) { super(message); this.code = code; this.details = details; } }
 export function validateSchema(schema, value, path = "value") {
   if (!schema || Object.keys(schema).length === 0) return true;
@@ -83,6 +85,7 @@ export class AgentBudget {
 export class AgentPolicy {
   constructor(mode = AgentMode.ASSISTED) { this.mode = mode; }
   check(tool) {
+    if (!Object.values(AgentMode).includes(this.mode)) return { allowed: false, approvalRequired: false, reason: "Modalità agentica non valida." };
     if (!tool.mutatesData) return { allowed: true, approvalRequired: false };
     const highRisk = tool.risk === "HIGH" || highRiskCategories.has(tool.category);
     if (this.mode === AgentMode.READ_ONLY) return { allowed: false, approvalRequired: false, reason: "La modalità sola lettura vieta modifiche." };
@@ -102,21 +105,22 @@ export class ToolRegistry {
   cleanupRun(runId) { this.runCalls.delete(runId); for (const key of this.inFlight.keys()) if (key.startsWith(`${runId}:`)) this.inFlight.delete(key); }
   async execute(name, input = {}, context) {
     const tool = this.tools.get(name); if (!tool) throw new AgentError("TOOL_UNKNOWN", `Tool sconosciuto: ${name}`);
+    if (context.signal?.aborted) throw context.signal.reason || new AgentError("CANCELLED", "Run interrotto.");
     validateSchema(tool.inputSchema, input, "input");
     const permission = context.policy.check(tool);
-    if (!permission.allowed && !context.approvalGranted) throw new AgentError(permission.approvalRequired ? "APPROVAL_REQUIRED" : "PERMISSION_DENIED", permission.reason, { tool: name });
+    if (!permission.allowed && !(permission.approvalRequired && context.approvalGranted)) throw new AgentError(permission.approvalRequired ? "APPROVAL_REQUIRED" : "PERMISSION_DENIED", permission.reason, { tool: name });
     const fingerprint = toolFingerprint(name, input, context.projectId, context.dataVersion);
     const calls = this.runCalls.get(context.runId) || new Map(); this.runCalls.set(context.runId, calls);
     if (calls.has(fingerprint)) return { ...clone(calls.get(fingerprint)), reused: true };
     const cached = this.cache.get(fingerprint);
-    if (cached && tool.freshnessMs > 0 && this.clock() - cached.at <= tool.freshnessMs) { calls.set(fingerprint, cached.result); return { ...clone(cached.result), reused: true, cached: true }; }
+    if (!tool.mutatesData && cached && tool.freshnessMs > 0 && this.clock() - cached.at <= tool.freshnessMs) { calls.set(fingerprint, cached.result); return { ...clone(cached.result), reused: true, cached: true, freshness: "cached" }; }
     const flightKey = `${context.runId}:${fingerprint}`; if (this.inFlight.has(flightKey)) return this.inFlight.get(flightKey);
     const reservedCost = context.budget.reserveCost(Number(tool.estimatedCost || 0));
     try { if (tool.source === "DATAFORSEO") context.budget.consume("dataforseo"); if (tool.source === "OPENAI") context.budget.consume("openai"); } catch (error) { context.budget.releaseCost(reservedCost); throw error; }
     const execution = (async () => {
       const controller = new AbortController(); const abort = () => controller.abort(context.signal?.reason || new AgentError("CANCELLED", "Run interrotto.")); context.signal?.addEventListener("abort", abort, { once: true });
-      const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout: ${name}`)), tool.timeoutMs); const started = this.clock();
-      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const providerCostLimit = Math.max(0, context.budget.limits.maxCost - context.budget.used.cost - context.budget.used.reservedCost + reservedCost); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal, providerCostLimit })), aborted]); validateSchema(tool.outputSchema, data, "output"); const actualCost = context.budget.settleCost(reservedCost, Number(data?.cost ?? tool.estimatedCost ?? 0)); const result = { data, source: tool.source, freshness: "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, actualCost, fingerprint }; calls.set(fingerprint, result); this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
+      const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout: ${name}`)), Math.max(1, Math.min(tool.timeoutMs, context.remainingMs ?? tool.timeoutMs))); const started = this.clock();
+      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const providerCostLimit = Math.max(0, context.budget.limits.maxCost - context.budget.used.cost - context.budget.used.reservedCost + reservedCost); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal, providerCostLimit })), aborted]); validateSchema(tool.outputSchema, data, "output"); const actualCost = context.budget.settleCost(reservedCost, Number(data?.cost ?? tool.estimatedCost ?? 0)); const result = { data, source: tool.source, freshness: tool.source === "LOCAL_DATA" ? "saved-data" : "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, actualCost, fingerprint }; calls.set(fingerprint, result); if (!tool.mutatesData) this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
       catch (error) { context.budget.releaseCost(reservedCost); if (controller.signal.aborted) throw controller.signal.reason instanceof Error ? controller.signal.reason : new AgentError("CANCELLED", "Run interrotto."); throw error; }
       finally { clearTimeout(timer); context.signal?.removeEventListener("abort", abort); }
     })().finally(() => this.inFlight.delete(flightKey)); this.inFlight.set(flightKey, execution); return execution;
@@ -161,8 +165,9 @@ const evidenceRecommendation = (item) => {
 function recommendationsFor(workflow, observations, maxResults = 10) {
   const usableStates = new Set(["COMPLETED", "CACHED"]);
   const output = Object.fromEntries(observations.filter((item) => usableStates.has(item.status) && item.usable).map((item) => [item.tool, item.result.data]));
-  const rankingRows = (output["data.rankings"] || []).flatMap((entry) => entry?.rankings || entry?.rows || entry?.results || (entry?.keyword ? [entry] : []));
-  const rankingByKeyword = new Map(rankingRows.map((row) => [String(row.keyword || row.query || "").toLocaleLowerCase("it"), row]));
+  const rankingRows = [...(output["data.rankings"] || [])].sort((a, b) => (Date.parse(b?.checkedAt) || 0) - (Date.parse(a?.checkedAt) || 0)).flatMap((entry) => entry?.rankings || entry?.rows || entry?.results || (entry?.keyword ? [entry] : []));
+  const rankingByKeyword = new Map();
+  for (const row of rankingRows) { const key = String(row.keyword || row.query || "").toLocaleLowerCase("it"); if (!rankingByKeyword.has(key)) rankingByKeyword.set(key, row); }
   const opportunities = (output["seo.opportunities"] || []).map((row) => { const ranking = rankingByKeyword.get(String(row.dimension || row.query || "").toLocaleLowerCase("it")); return ranking ? { ...row, position: ranking.position ?? row.position, rankingSource: "DataForSEO" } : row; });
   let candidates = [];
   if (["TOP_OPPORTUNITIES", "TOP_10_PUSH"].includes(workflow)) candidates = opportunities.filter((row) => workflow !== "TOP_10_PUSH" || (row.position > 10 && row.position <= 20)).map((row) => ({ page: row.page || "", query: row.dimension || row.query || "", evidence: [{ metric: "impressions", value: row.impressions }, { metric: "clicks", value: row.clicks }, { metric: "position", value: row.position }, { metric: "ctr", value: row.ctr }], interpretation: "Query con visibilità reale e margine di miglioramento.", recommendation: row.position > 10 ? "Rafforza pertinenza, contenuto e linking interno verso la pagina." : "Migliora snippet e copertura dell’intento mantenendo la pertinenza attuale.", sources: ["Google Search Console", ...(row.rankingSource ? [row.rankingSource] : [])], confidence: row.rankingSource ? 90 : 86, scoring: { impact: Math.min(100, 45 + Math.log10((row.impressions || 0) + 1) * 14), effort: 40, confidence: row.rankingSource ? 90 : 86, commercialValue: 55, risk: 12 } }));
@@ -186,8 +191,8 @@ export class SeoAgentOrchestrator {
       const step = run.plan.steps[cursor], tool = this.registry.tools.get(step.tool); let attempts = 0; step.status = "RUNNING";
       while (true) {
         try {
-          const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, approvalGranted: cursor === approvedStepIndex });
-          const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); step.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, usable, result }); run.cursor = cursor + 1; approvedStepIndex = null; break;
+          const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, remainingMs: budget.limits.maxDurationMs - (Date.now() - started), approvalGranted: cursor === approvedStepIndex });
+          const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); step.status = !usable ? "EMPTY" : result.cached ? "CACHED" : "COMPLETED"; if (step.required && !usable) { run.requiredFailure = true; run.errors.push(`Evidenza obbligatoria mancante: ${step.tool}.`); } run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, usable, result }); run.cursor = cursor + 1; approvedStepIndex = null; break;
         } catch (error) {
           if (error.code === "APPROVAL_REQUIRED") {
             const preview = await this.preview(tool, step, input, controller, budget.limits.maxDurationMs - (Date.now() - started));
@@ -197,7 +202,7 @@ export class SeoAgentOrchestrator {
             run.pendingApproval = { id: identifier("approval"), token: identifier("token"), nonce: identifier("nonce"), projectId: run.projectId, tool: step.tool, stepIndex: cursor, inputFingerprint, previewHash: stable(preview), risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview, requestedAt: requestedAt.toISOString(), expiresAt: new Date(requestedAt.getTime() + 15 * 60_000).toISOString() };
             break;
           }
-          if (tool?.idempotent && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + Math.floor(Math.random() * 50)), controller.signal); continue; }
+          if (tool?.idempotent && Date.now() - started < budget.limits.maxDurationMs && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); const retryJitter = (attempts * 17) % 50; await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + retryJitter), controller.signal); continue; }
           step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (step.required && error.code !== "CANCELLED") run.requiredFailure = true; if (["BUDGET_EXCEEDED", "BUDGET_OVERRUN"].includes(error.code)) run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
         }
       }
