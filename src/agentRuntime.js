@@ -7,7 +7,8 @@ export const AgentMode = Object.freeze({ READ_ONLY: "READ_ONLY", ASSISTED: "ASSI
 
 const highRiskCategories = new Set(["url", "slug", "canonical", "redirect", "robots", "noindex", "sitemap", "permalink", "critical-schema", "wordpress-global", "page-delete"]);
 const clone = (value) => structuredClone(value);
-const identifier = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+let fallbackIdentifierCounter = 0;
+const identifier = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${++fallbackIdentifierCounter}`}`;
 const stable = (value) => {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
@@ -201,7 +202,7 @@ export class SeoAgentOrchestrator {
             run.pendingApproval = { id: identifier("approval"), token: identifier("token"), nonce: identifier("nonce"), projectId: run.projectId, tool: step.tool, stepIndex: cursor, inputFingerprint, previewHash: stable(preview), risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview, requestedAt: requestedAt.toISOString(), expiresAt: new Date(requestedAt.getTime() + 15 * 60_000).toISOString() };
             break;
           }
-          if (tool?.idempotent && Date.now() - started < budget.limits.maxDurationMs && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + Math.floor(Math.random() * 50)), controller.signal); continue; }
+          if (tool?.idempotent && Date.now() - started < budget.limits.maxDurationMs && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); const retryJitter = (attempts * 17) % 50; await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + retryJitter), controller.signal); continue; }
           step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (step.required && error.code !== "CANCELLED") run.requiredFailure = true; if (["BUDGET_EXCEEDED", "BUDGET_OVERRUN"].includes(error.code)) run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
         }
       }
