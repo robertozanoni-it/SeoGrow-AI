@@ -1,5 +1,6 @@
 import { apiFetch } from "./api.js";
 import { correctionCredentials } from "./correctionCredentials.js";
+import { installQaPanel } from "./masterQaPanel.js";
 import { flushWorkspace, openWorkspaceDb, readWorkspace, workspaceStorage } from "./workspaceDatabase.js";
 
 const CLIENTS_KEY = "seogrow-clients";
@@ -202,62 +203,13 @@ export async function runMasterQa() {
   return report;
 }
 
-const style = `
-#seogrow-master-qa { position:fixed; right:18px; bottom:18px; z-index:2147483000; width:min(520px,calc(100vw - 36px)); font:14px/1.35 system-ui,sans-serif; }
-#seogrow-master-qa button { cursor:pointer; border:0; border-radius:10px; padding:10px 14px; font-weight:700; }
-#seogrow-master-qa .launcher { float:right; background:#111827; color:white; box-shadow:0 8px 30px rgba(0,0,0,.22); }
-#seogrow-master-qa .panel { clear:both; margin-top:10px; background:white; color:#111827; border:1px solid #d1d5db; border-radius:14px; box-shadow:0 14px 40px rgba(0,0,0,.22); max-height:72vh; overflow:auto; padding:14px; }
-#seogrow-master-qa .row { padding:9px 0; border-bottom:1px solid #e5e7eb; }
-#seogrow-master-qa .row:last-child { border-bottom:0; }
-#seogrow-master-qa .PASS { color:#166534; } #seogrow-master-qa .FAIL { color:#b91c1c; } #seogrow-master-qa .MANUAL { color:#92400e; }
-#seogrow-master-qa .actions { display:flex; gap:8px; margin-top:12px; } #seogrow-master-qa .secondary { background:#e5e7eb; color:#111827; }
-`;
-
 export function installMasterQaPanel() {
-  if (document.getElementById("seogrow-master-qa")) return;
-  const root = document.createElement("div");
-  root.id = "seogrow-master-qa";
-  const launcher = document.createElement("button");
-  launcher.className = "launcher";
-  launcher.textContent = "Esegui collaudo generale";
-  root.append(launcher);
-  document.body.append(root);
-  const css = document.createElement("style");
-  css.textContent = style;
-  document.head.append(css);
-
-  launcher.addEventListener("click", async () => {
-    launcher.disabled = true;
-    launcher.textContent = "Collaudo in corso…";
-    root.querySelector(".panel")?.remove();
-    try {
-      const report = await runMasterQa();
-      const panel = document.createElement("section");
-      panel.className = "panel";
-      panel.innerHTML = `<strong>Master QA: ${report.summary.overall}</strong><div>PASS ${report.summary.counts.PASS} · FAIL ${report.summary.counts.FAIL} · MANUAL ${report.summary.counts.MANUAL}</div>`;
-      for (const item of report.results) {
-        const row = document.createElement("div");
-        row.className = "row";
-        row.innerHTML = `<strong class="${item.status}">${item.status}</strong> — ${item.area}<br><small></small>`;
-        row.querySelector("small").textContent = item.detail;
-        panel.append(row);
-      }
-      const actions = document.createElement("div");
-      actions.className = "actions";
-      const copy = document.createElement("button");
-      copy.className = "secondary";
-      copy.textContent = "Copia report JSON";
-      copy.addEventListener("click", () => navigator.clipboard.writeText(JSON.stringify(report, null, 2)));
-      const close = document.createElement("button");
-      close.className = "secondary";
-      close.textContent = "Chiudi";
-      close.addEventListener("click", () => panel.remove());
-      actions.append(copy, close);
-      panel.append(actions);
-      root.append(panel);
-    } finally {
-      launcher.disabled = false;
-      launcher.textContent = "Esegui collaudo generale";
-    }
+  installQaPanel({
+    rootId: "seogrow-master-qa",
+    launcherLabel: "Esegui collaudo generale",
+    runningLabel: "Collaudo in corso…",
+    title: "Master QA",
+    countKeys: ["PASS", "FAIL", "MANUAL"],
+    run: runMasterQa,
   });
 }
