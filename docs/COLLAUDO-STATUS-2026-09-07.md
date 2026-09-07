@@ -154,3 +154,11 @@ Autorizzazione specifica acquisita per modifiche temporanee ai template shared s
 PR #52 merged; [Release Gate #699 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150502471), [main #700 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150617648), commit `927d2329d2f897237401cd48c5d57f8b1fcffde9`.
 
 Dopo «Autorizzo Go7»: custom CSS dell’header verificato nell’editor e nel frontend autenticato, con rollback esatto. Single salvato ma non applicato al post campione, poi ripristinato. Cache anonima ancora non certificata: letture dell’asset aggregato incoerenti anche dopo purge confermato. Anteprime tablet/mobile dell’editor accessibili, solo osservazioni post-rollback eseguite. G07 resta PARTIAL; dettaglio aggiornato nel report G07.
+
+### G07 — Single/CSS verificati; inventario pagine corretto nel repository
+
+PR #53 merged, [Release Gate #701 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34164631093), [main #702 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34164725967), commit `1060a6a1c0be53657b3cc6510aeba8d648b300af`.
+
+Single 598 verificato con override temporaneo `elementor_theme` sul post 7197: il kit Full Width spiegava la mancata applicazione. Template e layout articolo ripristinati esattamente. CSS aggregato anonimo verificato con due letture complete identiche prima e dopo rollback, marker presente/assente come atteso, usando purge esplicito sullo staging.
+
+Emerso bug interno: l’inventario installato di 40 risorse omette le 16 pagine WordPress, quindi la precedente dichiarazione di completezza non certificava tutti i riferimenti shared. Connector 1.3.4 corregge la scoperta tramite `is_post_type_viewable`, con regressioni PHP/architetturali e versione runtime coerente. Pacchetto da installare e verificare sullo staging dopo gate verde; live invariato. G07 resta PARTIAL per copertura completa e visual QA residua. Verifica locale: lint, 575 test, build e launcher PASS; PHP demandato al Release Gate perché non installato localmente.

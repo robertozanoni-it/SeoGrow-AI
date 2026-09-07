@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SeoGrow Connector
  * Description: Espone a SeoGrow, tramite la REST API autenticata di WordPress, solo i campi necessari per Elementor, Rank Math e Yoast.
- * Version: 1.3.2
+ * Version: 1.3.4
  * Author: SeoGrow AI
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SEOGROW_CONNECTOR_VERSION = '1.3.2';
+const SEOGROW_CONNECTOR_VERSION = '1.3.4';
 
 function seogrow_connector_can_edit_meta($allowed, $meta_key, $object_id) {
     $post_id = absint($object_id);
@@ -488,7 +488,6 @@ function seogrow_connector_taxonomy_write(WP_REST_Request $request) {
 function seogrow_connector_public_queryable_post_types() {
     $objects = get_post_types(array(
         'public' => true,
-        'publicly_queryable' => true,
     ), 'objects');
     if (!is_array($objects)) {
         return array();
@@ -496,6 +495,11 @@ function seogrow_connector_public_queryable_post_types() {
 
     $post_types = array();
     foreach ($objects as $object) {
+        // Native pages are public but publicly_queryable=false. Use WordPress's
+        // visibility predicate so they cannot silently disappear from a complete inventory.
+        if (!is_object($object) || !is_post_type_viewable($object)) {
+            continue;
+        }
         $name = isset($object->name) ? sanitize_key((string) $object->name) : '';
         if ($name !== '') {
             $post_types[$name] = $name;
