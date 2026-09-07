@@ -1,3 +1,5 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
+
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
 const username = String(process.env.SEOGROW_WP_USERNAME || "").trim();
 const applicationPassword = String(process.env.SEOGROW_WP_APPLICATION_PASSWORD || "");
@@ -8,7 +10,7 @@ if (!siteUrl || !username || !applicationPassword) {
 }
 
 const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-public-cache-purge-capability", siteUrl);
-const response = await fetch(endpoint, {
+const response = await pinnedHttpsFetch(endpoint, {
   method: "GET",
   headers: {
     authorization: `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`,
