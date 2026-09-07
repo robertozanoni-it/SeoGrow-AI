@@ -17,3 +17,10 @@ test("connection-check conserva la sottocartella WordPress", () => {
   assert.equal(endpoint.href, "https://example.it/wordpress/wp-json/wp/v2/users/me?context=edit");
   assert.match(connectionServer, /connectorStatus\(base, headers\)/);
 });
+
+test("connection-check usa direttamente il trasporto HTTPS pinned per la lettura autenticata", () => {
+  assert.match(connectionServer, /import \{ pinnedHttpsFetch \} from "\.\/pinnedHttpsFetch\.js"/);
+  assert.match(connectionServer, /readTransport = pinnedHttpsFetch/);
+  assert.match(connectionServer, /readTransport\(userEndpoint\(base\)/);
+  assert.doesNotMatch(connectionServer, /fetch\(userEndpoint\(base\)/);
+});
