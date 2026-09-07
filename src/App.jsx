@@ -1,3 +1,5 @@
+import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
+import { taskChange, undoTaskChange } from "./productivity.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -886,6 +888,8 @@ function TaskTable({
   client,
   clients = [],
   openTaskId,
+  views,
+  onSaveViews,
   onTaskOpened,
 }) {
   const [editing, setEditing] = useState(
@@ -976,6 +980,7 @@ function TaskTable({
           </div>
         )}
       </div>
+      {!compact && onSaveViews && <SavedViews label="task" views={views} filters={{ query: taskQuery, status: statusFilter }} onSave={onSaveViews} onApply={filters => { setTaskQuery(typeof filters.query === "string" ? filters.query : ""); setStatusFilter(["Tutti", "Archiviate", ...statuses].includes(filters.status) ? filters.status : "Tutti"); }} />}
       {!compact && (
         <div className="task-filters">
           <label>
@@ -1783,6 +1788,8 @@ function AuditPage({
   setAuditResult,
   autoOpen = false,
   onCloseAuto,
+  views,
+  onSaveViews,
   initialUrl = "https://studiodentisticozirafa.com/",
 }) {
   const [url, setUrl] = useState(initialUrl);
@@ -1841,12 +1848,15 @@ function AuditPage({
         text="Controlla in tempo reale gli elementi essenziali di una pagina."
       />
       {form}
-      {auditResult && <AuditResults data={auditResult} />}
+      {auditResult && <AuditResults data={auditResult} views={views} onSaveViews={onSaveViews} />}
     </>
   );
 }
 
-function AuditResults({ data }) {
+function AuditResults({ data, views, onSaveViews }) {
+  const [query, setQuery] = useState("");
+  const [severity, setSeverity] = useState("");
+  const issues = data.issues.filter(issue => (!severity || issue.severity === severity) && `${issue.label} ${issue.detail || ""} ${issue.url || ""}`.toLocaleLowerCase("it").includes(query.toLocaleLowerCase("it")));
   return (
     <div className="audit-results">
       <section className="score-panel">
@@ -1906,15 +1916,17 @@ function AuditResults({ data }) {
       </section>
       <section className="panel issues">
         <h2>Problemi rilevati</h2>
+        <div className="feature-toolbar"><label>Cerca problemi<input value={query} onChange={event => setQuery(event.target.value)} /></label><label>Gravità<select value={severity} onChange={event => setSeverity(event.target.value)}><option value="">Tutte</option>{[...new Set(data.issues.map(issue => issue.severity))].map(value => <option key={value}>{value}</option>)}</select></label></div>
+        {onSaveViews && <SavedViews label="audit" views={views} filters={{ query, severity }} onSave={onSaveViews} onApply={filters => { setQuery(typeof filters.query === "string" ? filters.query : ""); setSeverity(typeof filters.severity === "string" ? filters.severity : ""); }} />}
         {data.issues.length ? (
-          data.issues.map((issue, i) => (
+          issues.length ? issues.map((issue, i) => (
             <div key={i}>
               <span className={`priority ${issue.severity}`}>
                 {issue.severity}
               </span>
               <strong>{issue.label}</strong>
             </div>
-          ))
+          )) : <p>Nessun problema corrisponde ai filtri selezionati.</p>
         ) : (
           <div className="success">
             <Check />
@@ -3992,6 +4004,17 @@ export default function App() {
       return [];
     }
   });
+  const [taskUndo, setTaskUndo] = useState(null);
+  const [undoError, setUndoError] = useState("");
+  const changeTasks = update => {
+    const next = typeof update === "function" ? update(tasks) : update;
+    const changes = taskChange(tasks, next);
+    if (changes.length) { setTaskUndo(changes); setUndoError(""); setTasks(next); }
+  };
+  const undoTasks = () => {
+    try { setTasks(undoTaskChange(tasks, taskUndo)); setTaskUndo(null); setUndoError(""); }
+    catch (error) { setUndoError(error.message); }
+  };
   const [gscData, setGscData] = useStoredState("seogrow-gsc-v1", {});
   const [gscHistory, setGscHistory] = useStoredState(
     "seogrow-gsc-history-v1",
@@ -4625,6 +4648,7 @@ export default function App() {
     });
     if (selectedClient === clientId) setSelectedClient(remaining[0].id);
   };
+  const saveViews = (scope, views) => setPreferences(current => ({ ...current, savedViews: { ...current.savedViews, [selectedClient]: { ...current.savedViews?.[selectedClient], [scope]: views } } }));
   const downloadReport = (clientId) => {
     const client = clients.find((item) => item.id === clientId);
     if (!client) return;
@@ -4730,7 +4754,7 @@ export default function App() {
         <Dashboard
           clients={clients}
           tasks={tasks}
-          setTasks={setTasks}
+          setTasks={changeTasks}
           setPage={setPage}
           openAudit={() => setQuickAudit(true)}
           dataset={selectedDataset}
@@ -4756,6 +4780,8 @@ export default function App() {
     if (page === "Audit SEO")
       return (
         <AuditPage
+          views={preferences.savedViews?.[selectedClient]?.audit}
+          onSaveViews={views => saveViews("audit", views)}
           key={selectedClient}
           auditResult={auditResults[selectedClient] || null}
           setAuditResult={(result) =>
@@ -4888,9 +4914,11 @@ export default function App() {
           <TaskTable
             key={selectedClient}
             tasks={selectedTasks}
-            setTasks={setTasks}
+            setTasks={changeTasks}
             client={selectedClientRecord}
             clients={clients}
+            views={preferences.savedViews?.[selectedClient]?.tasks}
+            onSaveViews={views => saveViews("tasks", views)}
             openTaskId={requestedTask?.id}
             onTaskOpened={() => setRequestedTask(null)}
           />
@@ -5004,6 +5032,10 @@ export default function App() {
             </button>
           </div>
         )}
+        <div className="feature-toolbar workspace-tools"><CommandPalette pages={[...nav.map(([label]) => label), "Correzioni"]} onNavigate={navigatePage} onNewAudit={() => setQuickAudit(true)} />
+          {taskUndo && <><button className="secondary" onClick={undoTasks}>Annulla ultima modifica task</button><button className="secondary" onClick={() => { setTaskUndo(null); setUndoError(""); }}>Ignora annullamento</button></>}
+          {undoError && <p role="alert">{undoError}</p>}
+        </div>
         <main>{content}</main>
       </div>
       {quickAudit && (
