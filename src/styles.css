@@ -1821,6 +1821,9 @@ td:first-child {
   padding: 7px;
   box-shadow: 0 18px 45px rgba(3, 28, 61, 0.16);
   z-index: 45;
+  max-height: min(440px, calc(100dvh - 140px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .search-results button {
   display: block;
@@ -1830,6 +1833,8 @@ td:first-child {
   text-align: left;
   border-radius: 6px;
   padding: 9px 10px;
+  min-height: 44px;
+  overflow-wrap: anywhere;
 }
 .search-results button:hover {
   background: var(--surface);
@@ -1840,7 +1845,7 @@ td:first-child {
 }
 .search-results small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 3px;
 }
 .search-results p {
@@ -2010,7 +2015,15 @@ td:first-child {
 }
 .toast span {
   font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
+.toast-error { background: #702b24; }
+.toast-error > svg { color: #ffcfb5; }
+.toast-info { background: #173d62; }
+.toast-info > svg { color: #b8ddff; }
+.toast > svg { flex-shrink: 0; }
+.toast button { flex-shrink: 0; }
 .toast > button:not(.icon-btn) {
   border: 0;
   background: #fff;

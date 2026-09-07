@@ -1,3 +1,4 @@
+import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -97,20 +98,6 @@ const readPage = () => {
   }
 };
 
-const navigate = (page) => {
-  const next = `#${encodeURIComponent(page)}`;
-  if (page === "Correzioni") {
-    // Il core App non possiede questa pagina: il workspace Correzioni è un overlay.
-    // Entriamo nella modalità overlay prima di notificare la navigazione, evitando
-    // che il fallback core a Panoramica vinca la stessa transizione.
-    window.__seogrowCorrectionsMode = true;
-    if (window.location.hash !== next) window.history.pushState(null, "", next);
-    window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
-    return;
-  }
-  if (window.location.hash !== next) window.location.hash = next;
-  else window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
-};
 
 const cleanSite = (value) =>
   String(value || "")
@@ -222,8 +209,8 @@ function GuidedNav({ page, mode, setMode }) {
     <nav className="guided-nav" aria-label="Navigazione guidata SeoGrow">
       <div className="guided-nav-scroll">
         {groups.map((group) => {
-          const visibleItems = group.items.filter(([, , advancedOnly]) =>
-            mode === "advanced" ? true : !advancedOnly,
+          const visibleItems = group.items.filter(([label, , advancedOnly]) =>
+            isNavigationItemVisible(label, advancedOnly, mode, page),
           );
           if (!visibleItems.length) return null;
           return (
