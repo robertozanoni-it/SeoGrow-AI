@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import dns from "node:dns/promises";
 import { atomicWordPressWrite } from "../server/wordpressAtomicWrite.js";
 
 for (const operation of ["apply", "rollback"]) {
@@ -63,4 +64,13 @@ test('proven single-row CAS success is accepted for posts and pages', async () =
     assert.equal(result.ok, true);
     assert.equal(result.entity.id, 12);
   }
+});
+
+test('default atomic transport fails closed when DNS resolves to a private address', async t => {
+  t.mock.method(dns, 'lookup', async () => [{ address: '127.0.0.1', family: 4 }]);
+  const payload = { resource: 'pages', id: 12, changes: { title: 'New' }, expectedCurrent: { title: 'Old' }, operation: 'apply' };
+  await assert.rejects(
+    atomicWordPressWrite(new URL('https://example.it/'), {}, payload),
+    /Indirizzo remoto non pubblico/,
+  );
 });

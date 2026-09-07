@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
-export async function atomicWordPressWrite(base, headers, payload, transport = fetch) {
+export async function atomicWordPressWrite(base, headers, payload, transport = pinnedHttpsFetch) {
   const response = await transport(new URL("wp-json/seogrow/v1/atomic-write", base), {
     method: "POST", headers, redirect: "manual", signal: AbortSignal.timeout(20_000), body: JSON.stringify(payload),
   });

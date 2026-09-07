@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import dns from 'node:dns/promises';
 import { registerRoutes } from '../server/wordpressLiveRollbackHook.js';
-const routes = new Map(); registerRoutes({ post: (path, handler) => routes.set(path, handler) });
+const routes = new Map();
+registerRoutes({ post: (path, handler) => routes.set(path, handler) }, {
+ atomicTransport: (...args) => globalThis.fetch(...args),
+});
 const rollback = routes.get('/api/wordpress/live-rollback');
 const body = { siteUrl: 'https://example.com/blog/', targetUrl: 'https://example.com/blog/page/', username: 'fixture', applicationPassword: 'fixture', resource: 'pages', id: 42, changes: { title: 'before' }, expectedCurrent: { title: 'after' } };
 async function invoke(input) { let status = 200, data; const res = { status(value) { status = value; return this; }, json(value) { data = value; return this; } }; await rollback({ body: input }, res); return { status, data }; }
