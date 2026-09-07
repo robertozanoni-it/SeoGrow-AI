@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 import { createHash } from "node:crypto";
 import { isTransientNetworkError } from "./wordpress-taxonomy-consistency-sampler.mjs";
 
@@ -99,7 +100,7 @@ export async function runPostWriteSampler({ nativeFetch, appUrl, siteUrl, userna
       withRetry(`${label} Connector diagnostics`, async () => {
         const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-diagnostics", site.origin);
         endpoint.searchParams.set("url", targetUrl);
-        const response = await nativeFetch(endpoint, {
+        const response = await pinnedHttpsFetch(endpoint, {
           headers: { authorization: auth, accept: "application/json", "user-agent": "SeoGrowAI/postwrite-sampler" },
           redirect: "manual",
           signal: AbortSignal.timeout(20_000),
