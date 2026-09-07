@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import dns from "node:dns/promises";
+import https from "node:https";
+import { EventEmitter } from "node:events";
 
 process.env.APP_API_TOKEN = "a".repeat(64);
 process.env.CREDENTIAL_ENCRYPTION_KEY = "b".repeat(64);
@@ -19,6 +22,55 @@ test("la pulizia WordPress rimuove tag e protocolli pericolosi", () => {
   );
   assert.doesNotMatch(clean, /script|javascript:/i);
   assert.match(clean, /<p>Test<\/p>/);
+});
+
+test("legacy WordPress routes pin requests and reject redirects without forwarding credentials", async (t) => {
+  t.mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  let status = 200;
+  const calls = [];
+  t.mock.method(https, "request", (options, callback) => {
+    calls.push(options);
+    assert.equal(options.hostname, "8.8.8.8");
+    assert.equal(options.servername, "example.test");
+    assert.equal(options.rejectUnauthorized, true);
+    assert.match(options.headers.authorization, /^Basic /);
+    const request = new EventEmitter();
+    request.write = () => {};
+    request.destroy = error => { request.emit("error", error); request.emit("close"); };
+    request.end = () => queueMicrotask(() => {
+      const incoming = new EventEmitter();
+      incoming.statusCode = status;
+      incoming.headers = { "content-type": "application/json", location: "https://other.test/steal" };
+      callback(incoming);
+      incoming.emit("data", Buffer.from(JSON.stringify({ id: 1, name: "Fixture", capabilities: { edit_posts: true } })));
+      incoming.emit("end");
+      request.emit("close");
+    });
+    return request;
+  });
+  const server = await new Promise(resolve => {
+    const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+  });
+  try {
+    for (const remoteStatus of [200, 301, 302, 303, 307, 308]) {
+      status = remoteStatus;
+      for (const route of ["test", "draft"]) {
+        const before = calls.length;
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/wordpress/${route}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-seogrow-token": "a".repeat(64) },
+          body: JSON.stringify({ url: "https://example.test/blog/", username: "fixture", applicationPassword: "fixture", confirmed: true, title: "Fixture", content: "Fixture" }),
+        });
+        assert.equal(response.status, remoteStatus === 200 ? 200 : 400, `${route}: ${remoteStatus}`);
+        await response.json();
+        assert.equal(calls.length, before + 1, "redirect must never issue another authenticated request");
+        assert.ok(calls.at(-1).path.startsWith("/blog/wp-json/wp/v2/"));
+        assert.equal(calls.at(-1).timeout, route === "test" ? 12000 : 15000);
+      }
+    }
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 
 test("l’endpoint WordPress normalizza wp-admin e le sottocartelle", () => {

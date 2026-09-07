@@ -82,7 +82,7 @@ async function wpPost(path, body) {
   // Never retry a mutation after an ambiguous transport failure.
   return (async () => {
     const endpoint = new URL(`/wp-json/seogrow/v1/${path}`, siteUrl);
-    const response = await pinnedHttpsFetch(endpoint, { method: "POST", headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    const response = await pinnedHttpsFetch(endpoint, { method: "POST", headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor-v2" }, body: JSON.stringify(body), redirect: "manual", timeout: 30_000, signal: AbortSignal.timeout(30_000) });
     return jsonResponse(response, path);
   })();
 }

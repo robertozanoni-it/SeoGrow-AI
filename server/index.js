@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
 import express from "express";
 import "dotenv/config";
@@ -1967,9 +1968,11 @@ app.post("/api/wordpress/test", integrationLimit, async (req, res) => {
     const auth = Buffer.from(
       `${req.body.username}:${req.body.applicationPassword}`,
     ).toString("base64");
-    const response = await fetchPublic(endpoint, {
+    const response = await pinnedHttpsFetch(endpoint, {
       headers: { authorization: `Basic ${auth}` },
       timeout: 12000,
+      signal: AbortSignal.timeout(12000),
+      redirect: "manual",
     });
     const data = await jsonResponse(response);
     if (!response.ok)
@@ -2022,7 +2025,7 @@ app.post("/api/wordpress/draft", integrationLimit, async (req, res) => {
     const auth = Buffer.from(
       `${req.body.username}:${req.body.applicationPassword}`,
     ).toString("base64");
-    const response = await fetchPublic(endpoint, {
+    const response = await pinnedHttpsFetch(endpoint, {
       method: "POST",
       headers: {
         authorization: `Basic ${auth}`,
@@ -2034,6 +2037,8 @@ app.post("/api/wordpress/draft", integrationLimit, async (req, res) => {
         status: "draft",
       }),
       timeout: 15000,
+      signal: AbortSignal.timeout(15000),
+      redirect: "manual",
     });
     const data = await jsonResponse(response);
     if (!response.ok)

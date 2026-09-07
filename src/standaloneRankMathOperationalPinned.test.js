@@ -10,6 +10,10 @@ for (const [name, count] of [["doctor", 2], ["doctor-convergence", 2], ["general
     assert.doesNotMatch(source, /\bfetch\(endpoint,/);
     assert.match(source, /fetch\(`\$\{appUrl\}\/api\/wordpress\/inspect-taxonomy/);
     assert.match(source, /fetch\(target,/);
+    if (name !== "general-e2e") {
+      const post = source.slice(source.indexOf("async function wpPost("), source.indexOf("async function inspectSeoGrow("));
+      assert.match(post, /timeout: 30_000, signal: AbortSignal.timeout\(30_000\)/);
+    }
   });
 }
 
