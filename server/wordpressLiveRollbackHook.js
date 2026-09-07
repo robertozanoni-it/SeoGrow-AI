@@ -211,7 +211,8 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
   };
 }
 
-function registerRoutes(app, { atomicTransport } = {}) {
+function registerRoutes(app) {
+  const { atomicTransport } = arguments[1] || {};
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/live-rollback", async (req, res) => {
