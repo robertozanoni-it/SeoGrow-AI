@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import dns from 'node:dns/promises';
 import { registerRoutes } from '../server/wordpressLiveApprovalHook.js';
 const routes = new Map();
-registerRoutes({ post: (path, handler) => routes.set(path, handler) });
+const testTransport = (...args) => globalThis.fetch(...args);
+registerRoutes({ post: (path, handler) => routes.set(path, handler) }, {
+  readTransport: testTransport,
+  atomicTransport: testTransport,
+});
 async function invoke(path, body) {
   let status = 200, data;
   const res = { status(value) { status = value; return this; }, json(value) { data = value; return this; } };
