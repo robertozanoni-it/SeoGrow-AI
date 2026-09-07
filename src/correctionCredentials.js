@@ -1,5 +1,11 @@
 // Credentials must come from an explicit client-scoped action, never from a
 // password input belonging to an unrelated foreground project.
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
 export function correctionCredentials(record, provided = {}) {
   const clientId = Number(provided.clientId);
   if (!Number.isSafeInteger(clientId) || clientId <= 0 || clientId !== Number(record?.clientId)) {
@@ -8,7 +14,7 @@ export function correctionCredentials(record, provided = {}) {
   const siteKey = (value) => {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw new Error("URL WordPress non valido.");
-    return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+    return `${url.origin}${trimTrailingSlashes(url.pathname)}`;
   };
   if (!provided.siteUrl || !record.siteUrl || siteKey(provided.siteUrl) !== siteKey(record.siteUrl)) {
     throw new Error("Il sito della connessione non coincide con quello della correzione. Riconnetti il sito corretto.");
