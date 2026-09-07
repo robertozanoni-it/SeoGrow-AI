@@ -112,7 +112,7 @@ async function checkProjectSwitchAbort() {
   const originalSelected = workspaceStorage.getItem(SELECTED_CLIENT_KEY);
   const current = Number(readJson(SELECTED_CLIENT_KEY, 0)) || 1;
   const alternate = current === 999999 ? 999998 : 999999;
-  let result = "";
+  let result;
 
   window.fetch = (url, options = {}) => {
     if (!String(url).includes("/api/wordpress/qa-master-delay")) return originalFetch(url, options);
