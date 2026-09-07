@@ -60,3 +60,17 @@ G13 può essere marcato `PASS` soltanto se:
 5. il log JSON del test viene allegato alla documentazione di collaudo.
 
 Fino a quel momento G13 resta `sostanzialmente chiuso / non esaustivo`.
+
+## Batch assistito autorizzato per Yoga Buena Onda staging
+
+`scripts/wordpress-role-staging-batch.mjs` è un wrapper specifico per `https://staging.yogabuenaonda.it`, con conferma obbligatoria `SEOGROW_ROLE_BATCH_CONFIRM_HOST=staging.yogabuenaonda.it`. Usarlo solo dopo consenso alla creazione ed eliminazione di `seogrow-qa-editor` e `seogrow-qa-subscriber`. Il consenso è stato acquisito nella sessione del 2026-09-07; non implica consenso su altri siti.
+
+Richiede il runtime locale su 8787 e `SEOGROW_WP_ADMIN_USERNAME` / `SEOGROW_WP_ADMIN_APPLICATION_PASSWORD` già caricati nella stessa shell. Legge il token persistente usato da AVVIA.command. Non registra credenziali nei report.
+
+```bash
+SEOGROW_ROLE_BATCH_CONFIRM_HOST=staging.yogabuenaonda.it node scripts/wordpress-role-staging-batch.mjs
+```
+
+Il wrapper sceglie un post pubblicato esistente dello staging, crea soltanto i due account di prova con password casuali e relative password applicative, esegue l'harness G13 sui tre ruoli con write forzatamente disabilitate, quindi elimina gli account creati (e le loro credenziali). Le chiamate WordPress REST sono pinned; nessun POST di contenuti/template. In caso di identità cambiata non elimina l'account e segnala pulizia pendente. Non aggiorna né riutilizza utenti omonimi preesistenti.
+
+Un report locale in `.qa-runtime/role-staging-<uuid>.json` registra anche le intenzioni prima della creazione. In caso di crash o risposta di creazione persa, verificare `pendingAccounts` sullo staging prima di un nuovo tentativo; nessun retry automatico della creazione. La pulizia è tentata anche dopo un fallimento dell'harness, ma un errore di rete o un arresto forzato può richiedere intervento manuale. La password applicativa dell'amministratore resta valida e deve essere revocata dal profilo staging al termine del collaudo.
