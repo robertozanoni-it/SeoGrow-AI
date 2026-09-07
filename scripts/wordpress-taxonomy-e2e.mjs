@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 const appUrl = String(process.env.SEOGROW_E2E_APP_URL || "http://127.0.0.1:5176").replace(/\/+$/, "");
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
 const username = String(process.env.SEOGROW_WP_USERNAME || "").trim();
@@ -88,7 +89,7 @@ async function wordpressReadOnly(path) {
   endpoint.pathname = `${endpoint.pathname.replace(/\/+$/, "")}/wp-json/seogrow/v1/${String(path).replace(/^\/+/, "")}`;
   endpoint.search = "";
   endpoint.hash = "";
-  const response = await fetch(endpoint, {
+  const response = await pinnedHttpsFetch(endpoint, {
     method: "GET",
     headers: {
       authorization: `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`,
