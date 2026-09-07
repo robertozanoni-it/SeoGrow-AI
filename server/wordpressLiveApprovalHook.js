@@ -2,6 +2,7 @@ import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressLiveApprovalHook");
 const APPROVALS = new Map();
@@ -62,8 +63,8 @@ function authHeaders(username, password) {
   };
 }
 
-async function wpFetch(url, options = {}) {
-  const response = await fetch(url, {
+async function wpFetch(url, options = {}, transport = pinnedHttpsFetch) {
+  const response = await transport(url, {
     redirect: "manual",
     ...options,
     signal: AbortSignal.timeout(20_000),
@@ -189,14 +190,15 @@ function invalidateOverlappingApprovals({ siteUrl, resource, id, changes }) {
   return invalidated;
 }
 
-async function loadEntity(base, headers, resource, id) {
+async function loadEntity(base, headers, resource, id, transport) {
   if (resource !== "pages" && resource !== "posts") throw new Error("Tipo di contenuto WordPress non supportato.");
   const entityId = Number(id);
   if (!Number.isSafeInteger(entityId) || entityId <= 0) throw new Error("ID contenuto WordPress non valido.");
-  return json(await wpFetch(endpoint(base, resource, `/${entityId}?context=edit`), { headers }));
+  return json(await wpFetch(endpoint(base, resource, `/${entityId}?context=edit`), { headers }, transport));
 }
 
 function registerRoutes(app) {
+  const { readTransport, atomicTransport } = arguments[1] || {};
   if (app[HOOKED]) return;
   app[HOOKED] = true;
 
@@ -208,7 +210,7 @@ function registerRoutes(app) {
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
       const base = await safeSiteBase(siteUrl || targetUrl);
       const headers = authHeaders(username, applicationPassword);
-      const current = await loadEntity(base, headers, resource, id);
+      const current = await loadEntity(base, headers, resource, id, readTransport);
       const status = String(current?.status || "").toLowerCase();
       if (["trash", "auto-draft", "inherit"].includes(status)) throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
       const patch = allowedChanges(changes);
@@ -270,14 +272,14 @@ function registerRoutes(app) {
 
       const base = await safeSiteBase(approval.siteUrl || approval.targetUrl);
       const headers = authHeaders(username, applicationPassword);
-      const current = await loadEntity(base, headers, approval.resource, approval.id);
+      const current = await loadEntity(base, headers, approval.resource, approval.id, readTransport);
       if (snapshotHash(current, approval.changes) !== approval.snapshotHash)
         return res.status(409).json({ error: "Il campo WordPress da modificare è cambiato dopo l'anteprima. Nessuna modifica applicata: rigenera l'anteprima.", code: "STALE_PREVIEW" });
 
       const result = await atomicWordPressWrite(base, headers, {
         resource: approval.resource, id: approval.id, changes: approval.changes,
         expectedCurrent: approval.before, operation: "apply",
-      }, wpFetch);
+      }, atomicTransport);
       const update = result.entity;
       const before = approval.before;
       const after = selectedState(update, approval.changes);
