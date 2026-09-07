@@ -4,7 +4,7 @@
 
 Chiusura del filone trasporto autenticato WordPress: runtime e script QA standalone.
 Baseline del batch trasporto: `main` al merge commit `3d187b16b0d183941cdf2da2d90d3b7eb88c1f7b`.
-Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48 e #49 sono **merged**, verificato tramite GitHub.
+Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49 e #50 sono **merged**, verificato tramite GitHub.
 
 La scansione di `server/` e `scripts/` non rileva richieste WordPress REST autenticate instradate al fetch nativo: gli script usano direttamente `pinnedHttpsFetch`; nel runtime restano anche call site `fetch(...)` intercettati dal boundary centrale di `remediationBootstrap.js`. Non equivale a zero occorrenze testuali di `fetch`.
 
@@ -111,21 +111,23 @@ Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di revie
 
 ### G13 — matrice ruoli WordPress
 
-**Harness pronto; esecuzione live ruolo-per-ruolo non eseguita**. Harness e runbook sono già su main dalla PR #42. Per PASS servono Administrator, Editor e Subscriber reali su staging/clone o fixture controllata e il relativo log JSON. Nella successiva preparazione staging sono stati creati, con consenso, due utenti temporanei Editor/Subscriber, poi eliminati dopo la revoca delle rispettive password applicative. Nessuna matrice runtime reale eseguita. Vedi `docs/G13-WORDPRESS-ROLE-E2E-RUNBOOK.md`.
+**PASS sullo staging — matrice read-only eseguita dal Mac dell'utente il 2026-09-07**. Administrator ed Editor: connection-check, inspect-fast e live-preview HTTP 200. Subscriber: connection-check HTTP 200, inspect-fast e live-preview HTTP 400 come richiesto dall'harness. Tre ruoli eseguiti, zero skipped, nessuna write tentata. Il report completo è stato fornito dall'utente in chat ed è trascritto in `docs/qa/G13-STAGING-2026-09-07.json`; non è una nuova esecuzione dell'assistente.
+
+Target: post 7197 sullo staging. Account temporanei Editor 13 e Subscriber 14 eliminati secondo il report; assenza confermata indipendentemente via REST autenticata (`include=13,14`, risposta `[]`). Revocate via WPVibe la password applicativa amministrativa `SeoGrow QA staging` usata nel batch e la precedente `eoGrow QA staging`, entrambe create durante questa sessione: risposta `deleted=true` per ciascuna. Le altre credenziali preesistenti non sono state modificate. Nessun test eseguito su produzione e nessuna prova `live-apply`: PASS limitato alla matrice minima read-only del runbook.
 
 ## Limiti della chiusura
 
-Il perimetro interno di hardening/QA richiesto è chiuso con i gate tecnici riportati PASS. Non è una certificazione di assenza assoluta di bug né una nuova prova dei casi live storici. Il backlog Sonar di qualità/manutenibilità già documentato non è stato dichiarato risolto da questi batch. Nel perimetro di collaudo residuo concordato restano G07 e G13-live, esclusi esplicitamente.
+Il perimetro interno di hardening/QA richiesto è chiuso con i gate tecnici riportati PASS. Non è una certificazione di assenza assoluta di bug né una nuova prova dei casi live storici. Il backlog Sonar di qualità/manutenibilità già documentato non è stato dichiarato risolto da questi batch. Nel perimetro della matrice minima concordata G13 è PASS sullo staging; resta G07 Elementor shared PARTIAL. Il risultato G13 non certifica write per ruolo o comportamento su altri siti.
 
 ## Estensione staging autorizzata — 2026-09-07
 
 - Ambiente: `https://staging.yogabuenaonda.it`, Hostinger; backup ripristinabile confermato dall’utente. Permalink e redirect canonico corretti dall’utente; homepage e REST index rispondono HTTP 200. Connector raggiungibile: 401 senza autenticazione, status autenticato disponibile tramite WPVibe.
 - Letture autenticate tramite WPVibe: Elementor/Pro e Rank Math presenti; inventario pubblico Connector completo (`total=40`, `truncated=false`); impact inspect read-only dei template header 185, footer 327, archive 584, single-post 598 e section 2789. `sharedWriteAllowed=false`. Queste letture non certificano save/render/rollback né la matrice runtime SeoGrow.
 - G13: utenti `seogrow-qa-editor` (ID 11) e `seogrow-qa-subscriber` (ID 12) creati con autorizzazione esplicita, senza invio email. Password applicative di prova revocate; eliminazione di entrambi approvata dall’utente tramite WPVibe e verificata con elenco utenti. Restano i soli due amministratori preesistenti.
-- Blocco credenziale: auto-review ha rifiutato la creazione di una password applicativa per l’amministratore esistente perché fuori dal consenso specifico ai due utenti temporanei. Nessuna credenziale amministrativa creata e nessun aggiramento.
+- Blocco credenziale iniziale, successivamente risolto con autorizzazione esplicita: auto-review ha rifiutato la creazione di una password applicativa per l’amministratore esistente perché fuori dal consenso specifico ai due utenti temporanei. Nessuna credenziale amministrativa creata e nessun aggiramento.
 - Blocco esecuzione: una GET non autenticata con il vero `pinnedHttpsFetch` dal runtime Node della sessione fallisce con `getaddrinfo EAI_AGAIN staging.yogabuenaonda.it`. L’accesso del connettore WPVibe non equivale a connettività DNS/HTTPS del processo SeoGrow. Nessuna modifica a DNS, pinning o controlli di rete per aggirare il blocco.
 - Correzione interna del launcher G13: `APP_API_TOKEN` obbligatorio, header `x-seogrow-token` su tutte le API locali, redirect manuali. Test comportamentali simulati verificano nove richieste autenticate sui tre ruoli, assenza di write, stop senza token e rifiuto redirect. Non sono prove dei ruoli WordPress reali.
-- Per riprendere serve un ambiente di esecuzione SeoGrow con accesso DNS/HTTPS allo staging e credenziali temporanee autorizzate per i tre ruoli. G07 resta PARTIAL; G13 resta harness pronto, esecuzione reale ruolo-per-ruolo non eseguita.
+- Alla fine del preflight iniziale servivano runtime raggiungibile e credenziali autorizzate. La successiva esecuzione dal Mac descritta sotto ha completato G13. G07 resta PARTIAL.
 
 Verifica locale della correzione launcher #49: lint PASS, **569/569 test PASS**, build PASS, launcher syntax PASS. [Release Gate #693 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141729327); [post-merge main #694 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141875475), commit `551eb27ad397d99e32c514cdb90624eda7d24fd5`.
 
@@ -133,4 +135,10 @@ Verifica locale della correzione launcher #49: lint PASS, **569/569 test PASS**,
 
 Il Mac è stato aggiornato a main e il runtime riavviato. L'utente ha riportato: GET staging via `pinnedHttpsFetch` HTTP 200; `/wp/v2/users/me?context=edit` HTTP 200 con ruolo `administrator`; `/api/wordpress/connection-check` locale HTTP 200 e `ok=true`. Sono prove di connettività/autenticazione amministrativa, non della matrice completa G13. Il precedente blocco DNS persiste nell'ambiente dell'assistente; il percorso dal Mac è invece disponibile. L'autorizzazione specifica alla password applicativa amministrativa temporanea è stata acquisita e l'utente l'ha creata sullo staging senza comunicarla in chat.
 
-Preparato wrapper `wordpress-role-staging-batch.mjs`: creazione/pulizia dei due account autorizzati, harness esistente sui tre ruoli, nessuna write sui contenuti, report locale senza credenziali. Test simulati coprono successo, fallimento password, collisione utente, identità cambiata, conferma host e guasto del checkpoint durante la pulizia. Il batch reale resta da eseguire dal Mac; G13 non è ancora PASS. G07 resta PARTIAL.
+Preparato wrapper `wordpress-role-staging-batch.mjs`: creazione/pulizia dei due account autorizzati, harness esistente sui tre ruoli, nessuna write sui contenuti, report locale senza credenziali. Test simulati coprono successo, fallimento password, collisione utente, identità cambiata, conferma host e guasto del checkpoint durante la pulizia. Il batch reale è stato poi eseguito dal Mac: `ok=true`, tre ruoli conformi e `pendingAccounts=[]`. G13 è PASS nel perimetro read-only; G07 resta PARTIAL.
+
+### Evidenza e gate del batch #50
+
+PR #50 merged; [Release Gate #695 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34146966742), [post-merge main #696 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34147086055), commit `4c16ea8dc6b53b90deb784e07145afeb2d1e8e79`. Verifica locale del batch: lint, **575/575 test**, build e launcher syntax PASS.
+
+Report originale sul Mac: `.qa-runtime/role-staging-c5cd6e97-17c0-48ba-b9f1-372813e226d8.json`. La copia versionata è una trascrizione del JSON completo fornito dall'utente, con gli URL ripristinati a stringhe semplici dalla formattazione Markdown della chat. Non contiene password, token, email o IP. Le verifiche indipendenti dell'assistente riguardano la pulizia degli account e la revoca delle password temporanee; gli esiti della matrice provengono dall'esecuzione utente sul runtime locale.

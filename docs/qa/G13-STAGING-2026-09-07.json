@@ -1,0 +1,46 @@
+{
+  "siteUrl": "https://staging.yogabuenaonda.it",
+  "ok": true,
+  "contentWrites": false,
+  "results": [
+    {
+      "role": "administrator",
+      "skipped": false,
+      "connection": 200,
+      "inspect": 200,
+      "preview": 200,
+      "writeAttempted": false
+    },
+    {
+      "role": "editor",
+      "skipped": false,
+      "connection": 200,
+      "inspect": 200,
+      "preview": 200,
+      "writeAttempted": false
+    },
+    {
+      "role": "subscriber",
+      "skipped": false,
+      "connection": 200,
+      "inspect": 400,
+      "preview": 400,
+      "writeAttempted": false
+    }
+  ],
+  "cleanup": [
+    {
+      "id": 14,
+      "role": "subscriber",
+      "deleted": true
+    },
+    {
+      "id": 13,
+      "role": "editor",
+      "deleted": true
+    }
+  ],
+  "pendingAccounts": [],
+  "targetId": 7197,
+  "targetUrl": "https://staging.yogabuenaonda.it/yoga-online-o-presenza-cinisello-balsamo/"
+}
