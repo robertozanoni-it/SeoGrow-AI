@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { registerRoutes as seoRoutes } from '../server/wordpressSeoAdapterV2Hook.js';
 import { registerRoutes as patchRoutes } from '../server/wordpressPatchV2Hook.js';
-import { budgetedOpenAiFetch, readOpenAiUsage, reserveOpenAiBudget, settleOpenAiBudget, openAiReserved } from '../server/openAiBudget.js';
+import { budgetedOpenAiFetch, readOpenAiUsage, reserveOpenAiBudget, settleOpenAiBudget, getOpenAiReserved } from '../server/openAiBudget.js';
 const routes = new Map();
 seoRoutes({ post: (path, handler) => routes.set(path, handler) });
 patchRoutes({ post: (path, handler) => routes.set(path, handler) });
@@ -42,6 +42,6 @@ test('ledger write failure does not release another in-flight reservation', asyn
  const failure = t.mock.method(fs, 'writeFile', async () => { throw new Error('disk full'); });
  try {
   await assert.rejects(budgetedOpenAiFetch('https://api.openai.com/v1/responses', { body: JSON.stringify({ max_output_tokens: 100 }) }), /disk full/);
-  assert.equal(openAiReserved, otherReservation);
+  assert.equal(getOpenAiReserved(), otherReservation);
  } finally { failure.mock.restore(); await settleOpenAiBudget(otherReservation, {}); }
 });
