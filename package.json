@@ -15,7 +15,8 @@
     "test": "node --test src/*.test.js",
     "test:launcher": "zsh -n AVVIA.command",
     "test:wordpress-taxonomy-e2e": "node scripts/wordpress-taxonomy-e2e-cache-aware.mjs",
-    "test:wordpress-elementor-e2e": "node scripts/wordpress-elementor-e2e.mjs"
+    "test:wordpress-elementor-e2e": "node scripts/wordpress-elementor-e2e.mjs",
+    "test:wordpress-role-e2e": "node scripts/wordpress-role-e2e.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.1.1",

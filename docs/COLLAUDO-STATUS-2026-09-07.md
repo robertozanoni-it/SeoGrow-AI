@@ -1,7 +1,7 @@
 # Stato collaudo residuo — 2026-09-07
 
-Branch: `audit/residual-review-20260906`  
-PR: #35 (draft, non mergiata)
+Baseline corrente: `main` dopo merge PR #41.  
+Ultimo hardening runtime completato: pinning HTTPS fail-closed per write, approval/preflight, rollback, connection-check e read autenticati WordPress REST coperti centralmente.
 
 ## Chiusure verificate
 
@@ -12,10 +12,10 @@ PR: #35 (draft, non mergiata)
 - UI responsive/accessibilità, per il perimetro browser desktop testato: zoom 200% PASS, focus visibile PASS, navigazione tastiera della pagina e della sidebar PASS.
 - Agent runtime adversarial: cancel reale, cleanup, approval stale/cross-project bloccata, reject senza write; master QA v3 PASS.
 - Security locale: token/chiavi persistenti, permessi filesystem, API auth, SSRF/private IP, HTTPS pinning e redirect controllati coperti da test automatici.
-- Security WordPress: capability object-level presenti nel writer (`edit_post`/`edit_term`), test con utenti QA temporanei completato e cleanup verificato. Password applicativa QA revocata; utenti temporanei rimossi.
+- Security WordPress runtime: write atomici, read autenticati, approval/preflight, rollback e connection-check usano transport pinned o boundary centrale fail-closed.
 - Elementor pagina draft isolata: save pipeline, persistenza `_elementor_data`, rendering server, rigenerazione metadata CSS e rollback verificati; fixture temporanea spostata nel Cestino.
-- Release Gate #657: PASS completo (`quality`, `browser-ui-smoke`, `macos-launcher-smoke`).
-- SonarQube Cloud sul commit `cbf56d7f9f80a62750f058c636e8d0ed72ed5f64`: **Quality Gate PASS**; 0 Security Hotspots; duplicazione new code 1,3%.
+- Release Gate #671: PASS completo sul batch authenticated-read transport.
+- SonarQube Cloud: Quality Gate PASS sul precedente gate certificato; 0 Security Hotspots nel report di riferimento.
 
 ## Gap ancora non chiuso
 
@@ -48,21 +48,20 @@ Queste prove non devono essere eseguite sul sito cliente live.
 
 Stato: **sostanzialmente chiuso nel perimetro testato, non esaustivo**.
 
-Restano fuori dal perimetro certificato un E2E autenticato completo, endpoint-per-endpoint, con tutti i ruoli WordPress rappresentativi. Le prove eseguite confermano capability object-level, fail-closed e cleanup degli utenti QA temporanei, ma non costituiscono una certificazione completa per ogni combinazione ruolo/endpoint.
+Il branch `qa/wordpress-role-e2e-batch` aggiunge un harness ripetibile per Administrator, Editor e Subscriber attraverso il runtime SeoGrow. Il test è read-only per default; `live-apply` richiede `SEOGROW_ROLE_E2E_ALLOW_WRITES=YES_I_UNDERSTAND`.
+
+Per marcare G13 `PASS` resta necessario eseguire la matrice completa con tre account reali su staging/clone o fixture controllata e conservare il log JSON. Vedi `docs/G13-WORDPRESS-ROLE-E2E-RUNBOOK.md`.
 
 ## CI / qualità
 
-- Release Gate #657: PASS completo.
-- SonarQube Cloud: **Quality Gate PASS** sul commit corrente.
-- Sonar segnala ancora 65 new issues non bloccanti per il Quality Gate corrente. Vanno trattati come backlog di qualità/manutenibilità e revisionati per pertinenza; non equivalgono a 65 bug funzionali o di sicurezza.
-- Coverage on new code è riportata 0,0%/non configurata nel report Sonar corrente, ma non è condizione bloccante del Quality Gate attuale. La suite automatica del Release Gate resta la fonte operativa di regressione per il branch corrente.
+- Release Gate #671: PASS completo sul runtime hardening appena mergiato.
+- Sonar segnala ancora backlog non bloccante di qualità/manutenibilità dal report di riferimento; non equivale automaticamente a bug funzionali o di sicurezza.
+- La suite automatica del Release Gate resta la fonte operativa primaria di regressione.
 
-## Reviewer esterni
+## Stato operativo
 
-- CodeRabbit: review completa non eseguita perché 111 file selezionati superano il limite di 100; il servizio ha inoltre segnalato capacità/crediti insufficienti.
-- Sourcery: nuova review completa non eseguita perché il diff supera il limite di 150.000 caratteri.
-- Nessun thread inline di review aperto risulta al controllo corrente.
+I residui che richiedono ambiente esterno sono ora concentrati in due blocchi:
+1. G07 shared Elementor su staging/clone.
+2. G13 matrice ruoli WordPress reale.
 
-## Regola di rilascio
-
-La PR #35 resta in bozza e **non va mergiata automaticamente**. Prima del merge va presa una decisione esplicita sui gap residui documentati, in particolare G07 shared Elementor e l'eventuale estensione G13 ruolo-per-ruolo.
+Tutto il resto del filone runtime WordPress DNS-rebinding/TOCTOU è chiuso nel perimetro attuale.
