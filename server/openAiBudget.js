@@ -5,7 +5,7 @@ import { dataDir } from "./localSecurity.js";
 
 const openAiUsageFile = path.join(dataDir, "openai-usage.json");
 let openAiUsageLock = Promise.resolve();
-let openAiReserved = 0;
+let openAiReservedValue = 0;
 const withOpenAiLock = (action) => {
   const result = openAiUsageLock.then(action, action);
   openAiUsageLock = result.catch(() => undefined);
@@ -55,9 +55,9 @@ async function reserveOpenAiBudget(requiredEstimate = 0) {
     const estimate = Math.max(configuredEstimate, Number(requiredEstimate || 0));
     if (!Number.isFinite(budget) || budget < 0 || !Number.isFinite(estimate) || estimate < 0)
       throw new Error("Budget OpenAI non valido nel file .env");
-    if (budget > 0 && usage.cost + openAiReserved + estimate > budget)
+    if (budget > 0 && usage.cost + openAiReservedValue + estimate > budget)
       throw new Error(`Budget OpenAI mensile di $${budget.toFixed(2)} raggiunto`);
-    openAiReserved += estimate;
+    openAiReservedValue += estimate;
     return estimate;
   });
 }
@@ -82,12 +82,13 @@ async function settleOpenAiBudget(reserved, usageData = {}) {
       await fs.rename(temporary, openAiUsageFile);
       return usage;
     } finally {
-      openAiReserved = Math.max(0, openAiReserved - Number(reserved || 0));
+      openAiReservedValue = Math.max(0, openAiReservedValue - Number(reserved || 0));
     }
   });
 }
 
-export const getOpenAiReserved = () => openAiReserved;
+export const getOpenAiReserved = () => openAiReservedValue;
+export const openAiReserved = Object.freeze({ toJSON: () => openAiReservedValue });
 export { readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget };
 
 export async function budgetedOpenAiFetch(input, options) {
