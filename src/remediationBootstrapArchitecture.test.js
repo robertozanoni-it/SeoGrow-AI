@@ -52,6 +52,15 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /draftCopyCompatibility: false/);
 });
 
+test("il guard globale pinna ogni richiesta WordPress REST autenticata Basic anche senza user-agent SeoGrow", () => {
+  assert.match(bootstrap, /headers\.get\("authorization"\)/);
+  assert.match(bootstrap, /\^Basic\\s\+/i);
+  assert.match(bootstrap, /\\\/wp-json\\\//i);
+  assert.match(bootstrap, /isAuthenticatedWordPressRest/);
+  assert.match(bootstrap, /isHttps && \(isSeoGrowRemediation \|\| isAuthenticatedWordPressRest\)/);
+  assert.match(bootstrap, /if \(needsPinning\) return pinnedHttpsFetch\(url, options\)/);
+});
+
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {
   assert.equal(migratedHooks.length, 11);
   for (const source of migratedHooks) {
