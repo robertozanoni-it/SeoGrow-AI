@@ -4,12 +4,12 @@ define('ABSPATH', __DIR__);
 define('ARRAY_A', 'ARRAY_A');
 class WP_Error {
     public $code; public $message; public $data;
-    function __construct($code, $message, $data) { $this->code=$code; $this->message=$message; $this->data=$data; }
+    public function __construct($code, $message, $data) { $this->code=$code; $this->message=$message; $this->data=$data; }
 }
 class WP_REST_Request {
     private $data;
-    function __construct($data) { $this->data=$data; }
-    function get_param($key) { return isset($this->data[$key]) ? $this->data[$key] : null; }
+    public function __construct($data) { $this->data=$data; }
+    public function get_param($key) { return isset($this->data[$key]) ? $this->data[$key] : null; }
 }
 function add_action($name, $callback) {}
 function current_user_can($cap, $id = null) { return $GLOBALS['allowed']; }
@@ -28,12 +28,12 @@ class TestDb {
     );
     public $fail_next = false;
 
-    function prepare($sql, ...$args) {
+    public function prepare($sql, ...$args) {
         if (count($args) === 1 && is_array($args[0])) $args = $args[0];
         return array('sql'=>$sql, 'args'=>$args);
     }
-    function get_row($prepared, $format) { return $this->row; }
-    function query($prepared) {
+    public function get_row($prepared, $format) { return $this->row; }
+    public function query($prepared) {
         $this->writes++;
         if ($this->fail_next) { $this->fail_next = false; return false; }
         $sql = $prepared['sql'];
@@ -56,7 +56,7 @@ class TestDb {
 }
 
 $wpdb = new TestDb();
-require __DIR__ . '/../wordpress-plugin/seogrow-connector/atomic-write.php';
+require_once __DIR__ . '/../wordpress-plugin/seogrow-connector/atomic-write.php';
 function check($condition, $message = 'Atomic write contract failed') { if (!$condition) { throw new Exception($message); } }
 
 foreach (array('apply', 'rollback') as $operation) {
