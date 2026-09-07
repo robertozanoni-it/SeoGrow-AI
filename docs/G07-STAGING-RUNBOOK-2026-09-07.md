@@ -11,7 +11,7 @@ Chiudere il gap G07 solo su staging/clone controllato, senza modificare template
 - Rollback pagina draft: PASS.
 - Cleanup fixture: PASS.
 
-## Prerequisito bloccante
+## Prerequisito iniziale — staging ora disponibile
 Serve una copia staging/clone separata di `https://yogabuenaonda.it/` con URL distinto e non indicizzabile. Il tool WordPress disponibile in questa sessione non espone un'operazione host-level di clonazione/staging e il WP-CLI emulato non supporta export/import database o filesystem completo. Non installare plugin di staging sul live solo per aggirare questo limite senza un percorso di clonazione verificabile.
 
 ## Checklist staging obbligatoria
@@ -79,3 +79,7 @@ Stessa sequenza del test Header.
 
 ## Criterio di chiusura
 G07 = PASS solo se tutti i casi A–J rilevanti per il sito sono verificati sul clone con prova before/after/rollback e nessun effetto sul live.
+
+## Esecuzione 2026-09-07
+
+Staging Hostinger collegato, backup confermato dall’utente e noindex applicato. Esiti reali e limiti: [report G07](qa/G07-STAGING-2026-09-07.md). Header/footer/archive e marker HTML verificati con rollback; G07 resta PARTIAL per i casi residui e per il CSS non applicato.

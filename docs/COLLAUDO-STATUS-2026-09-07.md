@@ -107,7 +107,7 @@ Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di revie
 
 ### G07 — Elementor shared
 
-**PARTIAL / NON CHIUSO**. Restano non eseguite le prove su staging/clone per Theme Builder header/footer/single/archive, template riutilizzati e global widget, custom CSS/HTML/script, CPT rappresentativo, rigenerazione asset/cache cross-page, verifica visuale multi-pagina e rollback shared-template. Le prove pregresse sulla pagina draft isolata non sostituiscono questi casi. Non eseguire sul sito cliente live.
+**PARTIAL / NON CHIUSO**. Sullo staging autorizzato sono stati eseguiti save/render/rollback esatto di header 185, footer 327 e archive 584, oltre a un marker HTML non eseguibile nel footer. Restano Single realmente applicato, copertura completa delle referenze/global widget, CPT rappresentativo, CSS/cache e visual QA tablet/mobile. Il marcatore custom CSS è persistito ma non è risultato applicato nel browser; non dichiarare PASS. Dettagli in `docs/qa/G07-STAGING-2026-09-07.md`. Nessuna modifica sul live.
 
 ### G13 — matrice ruoli WordPress
 
@@ -142,3 +142,9 @@ Preparato wrapper `wordpress-role-staging-batch.mjs`: creazione/pulizia dei due 
 PR #50 merged; [Release Gate #695 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34146966742), [post-merge main #696 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34147086055), commit `4c16ea8dc6b53b90deb784e07145afeb2d1e8e79`. Verifica locale del batch: lint, **575/575 test**, build e launcher syntax PASS.
 
 Report originale sul Mac: `.qa-runtime/role-staging-c5cd6e97-17c0-48ba-b9f1-372813e226d8.json`. La copia versionata è una trascrizione del JSON completo fornito dall'utente, con gli URL ripristinati a stringhe semplici dalla formattazione Markdown della chat. Non contiene password, token, email o IP. Le verifiche indipendenti dell'assistente riguardano la pulizia degli account e la revoca delle password temporanee; gli esiti della matrice provengono dall'esecuzione utente sul runtime locale.
+
+### G07 — esecuzione staging parziale e rollback verificato
+
+PR #51 merged; [Release Gate #697 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148733033), [main #698 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148823626), commit `6762d7e9d1c4a1be8bce059b696a89b24758c054`.
+
+Autorizzazione specifica acquisita per modifiche temporanee ai template shared sul solo staging e ripristino. Header/footer verificati su homepage e post 7197; Archive sulla categoria 38 con controllo negativo sulla homepage. Dati Elementor ripristinati esattamente e condizioni conservate. Staging inizialmente indicizzabile: `blog_public` impostato a `0`, robots `nofollow, noindex` verificato e mantenuto. Le prove utilizzano la pipeline ufficiale WPVibe/Elementor, non certificano una write shared attraverso SeoGrow: `sharedWriteAllowed=false` resta invariato.
