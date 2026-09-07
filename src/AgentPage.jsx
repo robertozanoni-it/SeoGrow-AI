@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Circle, LoaderCircle, Play, ShieldCheck } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 
@@ -27,6 +27,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const [goal, setGoal] = useState("");
   const [currentRun, setCurrentRun] = useState(null);
   const [running, setRunning] = useState(false);
+  const operationLock = useRef(false);
   const [mode, setMode] = useState(AgentMode.ASSISTED);
   const [selectedRunId, setSelectedRunId] = useState("");
   const [actionError, setActionError] = useState("");
@@ -58,18 +59,20 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   }, [client.id]);
 
   const start = async () => {
-    if (!goal.trim() || running) return;
+    if (!goal.trim() || operationLock.current) return;
+    operationLock.current = true;
     setRunning(true); setActionError("");
     try { const result = await orchestrator.run(goal, input); onSaveRun(result); }
     catch (error) { setActionError(error?.message || "Non è stato possibile avviare l’analisi."); }
-    finally { setRunning(false); }
+    finally { operationLock.current = false; setRunning(false); }
   };
   const decide = async (approved) => {
-    if (!run?.pendingApproval || running) return;
+    if (!run?.pendingApproval || operationLock.current) return;
+    operationLock.current = true;
     setRunning(true); setActionError("");
     try { const result = await orchestrator.resolveApproval(run, input, { approved, token: run.pendingApproval.token }); onSaveRun(result); setCurrentRun(result); }
     catch (error) { setActionError(error?.message || "Non è stato possibile registrare la decisione."); }
-    finally { setRunning(false); }
+    finally { operationLock.current = false; setRunning(false); }
   };
   return <>
     <div className="page-title"><div><h1>SEO Agent — {client.name}</h1><p>Definisci un obiettivo: l’agente pianifica e usa soltanto i dati necessari.</p></div><span className="status-badge"><ShieldCheck aria-hidden="true" /> {mode.replace("_", " ")}</span></div>
