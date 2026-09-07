@@ -175,4 +175,4 @@ PR #55 merged; Release Gate #706 e main #707 PASS (link nel report G07). Nuova p
 
 ## Estensione UI/UX successiva
 
-PR #57 merged con Release Gate #710 PASS. Revisione di ricerca, navigazione, feedback e console Agent descritta in [UX-REVIEW-2026-09-07.md](UX-REVIEW-2026-09-07.md), incluse le proposte future e il limite della verifica visuale manuale. G07 resta PARTIAL e rinviato su richiesta dell'utente; questa estensione non modifica lo stato dei collaudi WordPress.
+PR #57 e #58 **merged**, rispettivamente con Release Gate #710 e #712 PASS sui commit delle PR. Anche il gate #711 su main dopo #57 è PASS. Revisione di ricerca, navigazione, feedback e console Agent descritta in [UX-REVIEW-2026-09-07.md](UX-REVIEW-2026-09-07.md), incluse le proposte future e il limite della verifica visuale manuale. G07 resta PARTIAL e rinviato su richiesta dell'utente; questa estensione non modifica lo stato dei collaudi WordPress.
