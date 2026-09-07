@@ -82,4 +82,4 @@ G07 = PASS solo se tutti i casi A–J rilevanti per il sito sono verificati sul 
 
 ## Esecuzione 2026-09-07
 
-Staging Hostinger collegato, backup confermato dall’utente e noindex applicato. Esiti reali e limiti: [report G07](qa/G07-STAGING-2026-09-07.md). Header/footer/archive e marker HTML verificati con rollback; G07 resta PARTIAL per i casi residui e per il CSS non applicato.
+Staging Hostinger collegato, backup confermato dall’utente e noindex applicato. Esiti reali e limiti: [report G07](qa/G07-STAGING-2026-09-07.md). Header/footer/archive, Single isolato e marker HTML verificati con rollback. CSS verificato anche anonimamente nel ciclo con purge esplicito. Connector 1.3.4 installato sullo staging: inventario completo di 56 risorse, comprese le 16 pagine native, e reference pagina/articolo verificati. G07 resta PARTIAL per copertura shared/CPT pertinente e matrice visuale completa; consultare le sezioni finali del report per lo stato più recente.
