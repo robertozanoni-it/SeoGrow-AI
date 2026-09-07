@@ -3,10 +3,29 @@ import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressWriteReconciliationHook");
 
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
+function stripWordPressSystemPath(pathname) {
+  const original = String(pathname || "");
+  const lower = original.toLowerCase();
+  let cut = original.length;
+  for (const marker of ["/wp-admin", "/wp-json"]) {
+    const index = lower.indexOf(marker);
+    if (index < 0) continue;
+    const end = index + marker.length;
+    if (end === original.length || original[end] === "/") cut = Math.min(cut, index);
+  }
+  return trimTrailingSlashes(original.slice(0, cut));
+}
+
 function wordpressBase(input) {
   const url = new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("WordPress deve usare HTTPS.");
-  url.pathname = `${url.pathname.replace(/\/(?:wp-admin|wp-json)(?:\/.*)?$/i, "").replace(/\/+$/, "")}/`;
+  url.pathname = `${stripWordPressSystemPath(url.pathname)}/`;
   url.search = "";
   url.hash = "";
   return url;
