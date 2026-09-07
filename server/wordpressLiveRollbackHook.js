@@ -1,4 +1,5 @@
 import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import dns from "node:dns/promises";
 import net from "node:net";
 import {
@@ -85,8 +86,8 @@ function headers(username, password) {
   };
 }
 
-async function wpJson(url, options) {
-  const response = await fetch(url, { redirect: "manual", ...options, signal: AbortSignal.timeout(20_000) });
+async function wpJson(url, options, transport = pinnedHttpsFetch) {
+  const response = await transport(url, { redirect: "manual", ...options, signal: AbortSignal.timeout(20_000) });
   if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error("WordPress ha restituito un redirect inatteso.");
   const text = await response.text();
   let data;
@@ -155,7 +156,7 @@ function assertExpectedCurrent(entity, expectedCurrent) {
   }
 }
 
-async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassword, adapter, taxonomyField, changes, expectedCurrent }, atomicTransport) {
+async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassword, adapter, taxonomyField, changes, expectedCurrent }, atomicTransport, readTransport = pinnedHttpsFetch) {
   const field = String(taxonomyField || "");
   if (!field || !Object.prototype.hasOwnProperty.call(changes || {}, field) || !Object.prototype.hasOwnProperty.call(expectedCurrent || {}, field)) {
     const error = new Error("Rollback tassonomia bloccato: snapshot single-field incompleto.");
@@ -164,7 +165,7 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
   }
   const base = await safeTaxonomyBase(siteUrl || targetUrl);
   const auth = headers(username, applicationPassword);
-  const inspectResponse = await fetch(taxonomyConnectorEndpoint(base, "taxonomy-inspect", targetUrl), {
+  const inspectResponse = await readTransport(taxonomyConnectorEndpoint(base, "taxonomy-inspect", targetUrl), {
     method: "GET",
     headers: auth,
     redirect: "manual",
@@ -212,7 +213,7 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
 }
 
 function registerRoutes(app) {
-  const { atomicTransport } = arguments[1] || {};
+  const { atomicTransport, readTransport = pinnedHttpsFetch } = arguments[1] || {};
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/live-rollback", async (req, res) => {
@@ -230,7 +231,7 @@ function registerRoutes(app) {
           taxonomyField,
           changes,
           expectedCurrent,
-        }, atomicTransport);
+        }, atomicTransport, readTransport);
         return res.json(result);
       }
 
@@ -244,7 +245,7 @@ function registerRoutes(app) {
       const current = await wpJson(endpoint(base, resource, `/${entityId}?context=edit`), {
         method: "GET",
         headers: auth,
-      });
+      }, readTransport);
       if (!expectedCurrent || typeof expectedCurrent !== "object" || !Object.keys(expectedCurrent).length) {
         const error = new Error("Rollback bloccato: manca lo snapshot dello stato applicato necessario per il controllo stale-state.");
         error.code = "STALE_ROLLBACK";
