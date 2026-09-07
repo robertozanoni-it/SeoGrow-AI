@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { basePath, connectorStatus, safeBase } from "./wordpressInspectFastHook.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressConnectionHook");
@@ -39,6 +40,7 @@ async function responseJson(response) {
 }
 
 function registerRoutes(app) {
+  const { readTransport = pinnedHttpsFetch } = arguments[1] || {};
   if (app[HOOKED]) return;
   app[HOOKED] = true;
 
@@ -50,7 +52,7 @@ function registerRoutes(app) {
       const base = await safeBase(siteUrl || url);
       const headers = authHeaders(username, applicationPassword);
       const [user, connector] = await Promise.all([
-        fetch(userEndpoint(base), {
+        readTransport(userEndpoint(base), {
           method: "GET",
           headers,
           redirect: "manual",
