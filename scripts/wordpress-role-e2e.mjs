@@ -1,12 +1,14 @@
 import process from "node:process";
 
 const appUrl = String(process.env.SEOGROW_APP_URL || "http://127.0.0.1:8787").replace(/\/+$/, "");
+const apiToken = String(process.env.APP_API_TOKEN || "").trim();
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
 const targetUrl = String(process.env.SEOGROW_WP_ROLE_E2E_TARGET_URL || "").trim();
 const targetId = Number(process.env.SEOGROW_WP_ROLE_E2E_TARGET_ID || 0);
 const resource = String(process.env.SEOGROW_WP_ROLE_E2E_RESOURCE || "pages").trim();
 const allowWrites = process.env.SEOGROW_ROLE_E2E_ALLOW_WRITES === "YES_I_UNDERSTAND";
 
+if (!apiToken) throw new Error("Imposta APP_API_TOKEN con il token dell'istanza SeoGrow prima del test ruolo-per-ruolo.");
 if (!siteUrl || !targetUrl || !Number.isSafeInteger(targetId) || targetId <= 0) {
   throw new Error("Imposta SEOGROW_WP_SITE_URL, SEOGROW_WP_ROLE_E2E_TARGET_URL e SEOGROW_WP_ROLE_E2E_TARGET_ID prima del test ruolo-per-ruolo.");
 }
@@ -26,7 +28,8 @@ const credentialsFor = (role) => ({
 async function post(path, body) {
   const response = await fetch(`${appUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-seogrow-token": apiToken },
+    redirect: "manual",
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
   });

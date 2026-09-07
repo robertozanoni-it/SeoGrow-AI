@@ -3,12 +3,12 @@
 ## Perimetro e risultato
 
 Chiusura del filone trasporto autenticato WordPress: runtime e script QA standalone.
-Baseline tecnica finale: `main` al merge commit `3d187b16b0d183941cdf2da2d90d3b7eb88c1f7b`.
-Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46 e #47 sono **merged**, verificato tramite GitHub.
+Baseline del batch trasporto: `main` al merge commit `3d187b16b0d183941cdf2da2d90d3b7eb88c1f7b`.
+Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47 e #48 sono **merged**, verificato tramite GitHub.
 
 La scansione di `server/` e `scripts/` non rileva richieste WordPress REST autenticate instradate al fetch nativo: gli script usano direttamente `pinnedHttpsFetch`; nel runtime restano anche call site `fetch(...)` intercettati dal boundary centrale di `remediationBootstrap.js`. Non equivale a zero occorrenze testuali di `fetch`.
 
-Non sono stati eseguiti accessi, scritture o test E2E su WordPress live/staging in questa sessione. I test delle route usano DNS e HTTPS simulati e un server SeoGrow locale. Nessun utente WordPress creato; nessuna modifica Elementor shared. Provider AI invariati: OpenAI e DataForSEO.
+Il batch interno iniziale non ha eseguito accessi WordPress live/staging. Successivamente, su richiesta esplicita, è stato collegato lo staging Hostinger: le letture e il ciclo di creazione/pulizia degli utenti temporanei sono documentati sotto. Nessuna scrittura di contenuti o modifica Elementor shared in questa estensione. I test automatici delle route usano DNS/HTTPS simulati e un server SeoGrow locale. Provider AI invariati: OpenAI e DataForSEO.
 
 ## Batch completati e controlli
 
@@ -82,13 +82,14 @@ Gli altri moduli sono helper di dati, identità, sicurezza, registrazione o rico
 | #44 | merged | [#682 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34134866523) | [#683 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34135330235) |
 | #45 | merged | [#684 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34135646282) | [#685 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34135808759) |
 | #46 | merged | [#686 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34135924954) | [#687 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34136108966) |
+| #48 | merged | [#691 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34136922727) | [#692 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34137058177) |
 | #47 | merged | [#689 PASS, ultima revisione](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34136442872) | [#690 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34136694541) |
 
 Il gate #688 sulla prima revisione di #47 era già PASS; #689 certifica anche il successivo adeguamento dei timeout Doctor. Nessun merge è stato effettuato su gate fallito o su una revisione diversa da quella verificata.
 
 Verifica locale ripetuta sulla baseline tecnica finale: `npm run lint` PASS; `npm test` **567/567 PASS, 0 failure, 0 skipped**; `npm run build` PASS; `npm run test:launcher` PASS. Il Release Gate completo certifica inoltre PHP lint/test, packaging Connector, dependency audit, browser UI smoke e avvio reale del launcher su macOS; il solo test locale del launcher è un controllo sintattico zsh.
 
-Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di review aperto nelle PR #35, #37–#47; nessun failure nei gate dei batch. La PR documentale che introduce questo aggiornamento è separata dalle modifiche tecniche e deve superare anch'essa il Release Gate prima del merge. I suoi check sono associati al commit del documento; la tabella identifica le ultime prove del codice, senza anticipare risultati futuri.
+Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di review aperto nelle PR #35, #37–#47; nessun failure nei gate dei batch. La PR documentale #48 è merged con gate #691 e post-merge #692 PASS, commit main `04a33e2f9af3155b892002d26c32dfd10a5f2a18`. La successiva correzione del launcher G13 richiede a sua volta un gate completo prima del merge.
 
 ## Prove pregresse conservate, non rieseguite in questo batch
 
@@ -110,8 +111,20 @@ Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di revie
 
 ### G13 — matrice ruoli WordPress
 
-**Harness pronto; esecuzione live ruolo-per-ruolo non eseguita**. Harness e runbook sono già su main dalla PR #42. Per PASS servono Administrator, Editor e Subscriber reali su staging/clone o fixture controllata e il relativo log JSON. Nessun account creato in questa sessione. Vedi `docs/G13-WORDPRESS-ROLE-E2E-RUNBOOK.md`.
+**Harness pronto; esecuzione live ruolo-per-ruolo non eseguita**. Harness e runbook sono già su main dalla PR #42. Per PASS servono Administrator, Editor e Subscriber reali su staging/clone o fixture controllata e il relativo log JSON. Nella successiva preparazione staging sono stati creati, con consenso, due utenti temporanei Editor/Subscriber, poi eliminati dopo la revoca delle rispettive password applicative. Nessuna matrice runtime reale eseguita. Vedi `docs/G13-WORDPRESS-ROLE-E2E-RUNBOOK.md`.
 
 ## Limiti della chiusura
 
 Il perimetro interno di hardening/QA richiesto è chiuso con i gate tecnici riportati PASS. Non è una certificazione di assenza assoluta di bug né una nuova prova dei casi live storici. Il backlog Sonar di qualità/manutenibilità già documentato non è stato dichiarato risolto da questi batch. Nel perimetro di collaudo residuo concordato restano G07 e G13-live, esclusi esplicitamente.
+
+## Estensione staging autorizzata — 2026-09-07
+
+- Ambiente: `https://staging.yogabuenaonda.it`, Hostinger; backup ripristinabile confermato dall’utente. Permalink e redirect canonico corretti dall’utente; homepage e REST index rispondono HTTP 200. Connector raggiungibile: 401 senza autenticazione, status autenticato disponibile tramite WPVibe.
+- Letture autenticate tramite WPVibe: Elementor/Pro e Rank Math presenti; inventario pubblico Connector completo (`total=40`, `truncated=false`); impact inspect read-only dei template header 185, footer 327, archive 584, single-post 598 e section 2789. `sharedWriteAllowed=false`. Queste letture non certificano save/render/rollback né la matrice runtime SeoGrow.
+- G13: utenti `seogrow-qa-editor` (ID 11) e `seogrow-qa-subscriber` (ID 12) creati con autorizzazione esplicita, senza invio email. Password applicative di prova revocate; eliminazione di entrambi approvata dall’utente tramite WPVibe e verificata con elenco utenti. Restano i soli due amministratori preesistenti.
+- Blocco credenziale: auto-review ha rifiutato la creazione di una password applicativa per l’amministratore esistente perché fuori dal consenso specifico ai due utenti temporanei. Nessuna credenziale amministrativa creata e nessun aggiramento.
+- Blocco esecuzione: una GET non autenticata con il vero `pinnedHttpsFetch` dal runtime Node della sessione fallisce con `getaddrinfo EAI_AGAIN staging.yogabuenaonda.it`. L’accesso del connettore WPVibe non equivale a connettività DNS/HTTPS del processo SeoGrow. Nessuna modifica a DNS, pinning o controlli di rete per aggirare il blocco.
+- Correzione interna del launcher G13: `APP_API_TOKEN` obbligatorio, header `x-seogrow-token` su tutte le API locali, redirect manuali. Test comportamentali simulati verificano nove richieste autenticate sui tre ruoli, assenza di write, stop senza token e rifiuto redirect. Non sono prove dei ruoli WordPress reali.
+- Per riprendere serve un ambiente di esecuzione SeoGrow con accesso DNS/HTTPS allo staging e credenziali temporanee autorizzate per i tre ruoli. G07 resta PARTIAL; G13 resta harness pronto, esecuzione reale ruolo-per-ruolo non eseguita.
+
+Verifica locale della correzione launcher: lint PASS, **569/569 test PASS**, build PASS, launcher syntax PASS. Il gate GitHub della relativa PR resta da verificare sul commit pubblicato; non si anticipa qui il suo esito.
