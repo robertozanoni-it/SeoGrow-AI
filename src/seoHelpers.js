@@ -1,3 +1,4 @@
+import { reportTemplate } from "./projectPlanning.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { validPendingApproval } from "./agentRuntime.js";
 import { listCorrections } from "./remediationStore.js";
@@ -103,13 +104,15 @@ const reportLink = (value, label = "Apri") => {
     : "—";
 };
 
-export function downloadClientReport({
+export function buildClientReport({
   client,
   dataset,
   tasks,
   analysis,
   geo,
+  template: inputTemplate,
 }) {
+  const template = reportTemplate(inputTemplate);
   const generatedAt = new Date().toLocaleString("it-IT");
   const metricRows = dataset
     ? [
@@ -166,7 +169,21 @@ export function downloadClientReport({
     (analysis?.issues || []).length > 1000
       ? `<p class="meta">Mostrati 1.000 problemi su ${(analysis?.issues || []).length}.</p>`
       : "";
-  const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; navigate-to https: http:"><title>Report SEO — ${escapeHtml(client.name)}</title><style>body{font:15px/1.55 Arial,sans-serif;color:#10213d;max-width:1100px;margin:40px auto;padding:0 24px}h1{margin-bottom:4px}h2{margin-top:34px;border-bottom:2px solid #16a05d;padding-bottom:8px}.meta{color:#6b7890}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{border:1px solid #dbe3ed;border-radius:8px;padding:14px}.metric strong{display:block;font-size:24px;color:#167a4b}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #dbe3ed;padding:9px;vertical-align:top}a{color:#1767d5}@media print{body{margin:0}.no-print{display:none}}</style></head><body><button class="no-print" onclick="window.print()">Stampa / Salva PDF</button><h1>Report SEO — ${escapeHtml(client.name)}</h1><p class="meta">${escapeHtml(client.url)} · Generato ${generatedAt}</p><div class="metrics">${analysis ? `<div class="metric">Punteggio tecnico<strong>${escapeHtml(analysis.score ?? "—")}/100</strong></div>` : ""}${geo?.audit ? `<div class="metric">Preparazione GEO<strong>${escapeHtml(geo.audit.score ?? "—")}/100</strong></div>` : ""}${metricRows.map(([label, value]) => `<div class="metric">${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></div>`).join("")}</div><h2>Task del progetto</h2><table><thead><tr><th>Task</th><th>Priorità</th><th>Stato</th><th>Link</th></tr></thead><tbody>${taskRows || '<tr><td colspan="4">Nessun task disponibile</td></tr>'}</tbody></table><h2>Problemi tecnici verificati</h2>${issueNotice}<table><thead><tr><th>Problema</th><th>Priorità</th><th>Pagina</th><th>Dettaglio</th></tr></thead><tbody>${issueRows || '<tr><td colspan="4">Analisi non ancora eseguita.</td></tr>'}</tbody></table><h2>Preparazione GEO</h2><p class="meta">L’indice GEO valuta preparazione tecnica e informativa; non garantisce citazioni nei motori AI.</p><table><thead><tr><th>Controllo</th><th>Priorità</th><th>Prova</th><th>Intervento</th></tr></thead><tbody>${geoRows || '<tr><td colspan="4">Audit GEO non ancora eseguito.</td></tr>'}</tbody></table><h2>Top query Search Console</h2>${queryNotice}<table><thead><tr><th>Query</th><th>Clic</th><th>Impressioni</th><th>Posizione</th></tr></thead><tbody>${queryRows || '<tr><td colspan="4">Dati non disponibili</td></tr>'}</tbody></table><h2>Link interni ed esterni non raggiungibili</h2><table><thead><tr><th>Destinazione</th><th>Risposta</th><th>Pagina sorgente</th></tr></thead><tbody>${brokenRows || '<tr><td colspan="3">Nessun link interrotto rilevato o analisi non ancora eseguita.</td></tr>'}</tbody></table></body></html>`;
+  let html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; navigate-to https: http:"><title>Report SEO — ${escapeHtml(client.name)}</title><style>body{font:15px/1.55 Arial,sans-serif;color:#10213d;max-width:1100px;margin:40px auto;padding:0 24px}h1{margin-bottom:4px}h2{margin-top:34px;border-bottom:2px solid #16a05d;padding-bottom:8px}.meta{color:#6b7890}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{border:1px solid #dbe3ed;border-radius:8px;padding:14px}.metric strong{display:block;font-size:24px;color:#167a4b}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #dbe3ed;padding:9px;vertical-align:top}a{color:#1767d5}@media print{body{margin:0}.no-print{display:none}}</style></head><body><button class="no-print" onclick="window.print()">Stampa / Salva PDF</button><h1>Report SEO — ${escapeHtml(client.name)}</h1><p class="meta">${escapeHtml(client.url)} · Generato ${generatedAt}</p><div class="metrics">${analysis ? `<div class="metric">Punteggio tecnico<strong>${escapeHtml(analysis.score ?? "—")}/100</strong></div>` : ""}${geo?.audit ? `<div class="metric">Preparazione GEO<strong>${escapeHtml(geo.audit.score ?? "—")}/100</strong></div>` : ""}${metricRows.map(([label, value]) => `<div class="metric">${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></div>`).join("")}</div><h2>Task del progetto</h2><table><thead><tr><th>Task</th><th>Priorità</th><th>Stato</th><th>Link</th></tr></thead><tbody>${taskRows || '<tr><td colspan="4">Nessun task disponibile</td></tr>'}</tbody></table><h2>Problemi tecnici verificati</h2>${issueNotice}<table><thead><tr><th>Problema</th><th>Priorità</th><th>Pagina</th><th>Dettaglio</th></tr></thead><tbody>${issueRows || '<tr><td colspan="4">Analisi non ancora eseguita.</td></tr>'}</tbody></table><h2>Preparazione GEO</h2><p class="meta">L’indice GEO valuta preparazione tecnica e informativa; non garantisce citazioni nei motori AI.</p><table><thead><tr><th>Controllo</th><th>Priorità</th><th>Prova</th><th>Intervento</th></tr></thead><tbody>${geoRows || '<tr><td colspan="4">Audit GEO non ancora eseguito.</td></tr>'}</tbody></table><h2>Top query Search Console</h2>${queryNotice}<table><thead><tr><th>Query</th><th>Clic</th><th>Impressioni</th><th>Posizione</th></tr></thead><tbody>${queryRows || '<tr><td colspan="4">Dati non disponibili</td></tr>'}</tbody></table><h2>Link interni ed esterni non raggiungibili</h2><table><thead><tr><th>Destinazione</th><th>Risposta</th><th>Pagina sorgente</th></tr></thead><tbody>${brokenRows || '<tr><td colspan="3">Nessun link interrotto rilevato o analisi non ancora eseguita.</td></tr>'}</tbody></table></body></html>`;
+  html = html.replaceAll("#16a05d", template.color)
+    .replaceAll("Report SEO —", () => `${escapeHtml(template.title)} —`)
+    .replace("<h1>", () => `<p class="meta">${escapeHtml(template.brand)}</p><h1>`)
+    .replace("</h1>", () => `</h1><p>${escapeHtml(template.intro)}</p>`);
+  const headings = { tasks: "Task del progetto", issues: "Problemi tecnici verificati", geo: "Preparazione GEO", queries: "Top query Search Console", links: "Link interni ed esterni non raggiungibili" };
+  for (const [key, heading] of Object.entries(headings)) {
+    if (!template.sections[key]) html = html.replace(new RegExp(`<h2>${heading}</h2>[\\s\\S]*?(?=<h2>|</body>)`), "");
+  }
+  return html;
+}
+
+export function downloadClientReport(input) {
+  const html = buildClientReport(input);
+  const { client } = input;
   const slug = client.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

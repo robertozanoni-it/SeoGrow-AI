@@ -2699,3 +2699,19 @@ td:first-child {
 .command-results { display: grid; gap: 8px; margin: 12px 0; }
 .command-results button { text-align: left; justify-content: start; min-height: 44px; }
 @media (max-width: 600px) { .feature-toolbar > label { width: 100%; } .workspace-tools { padding: 0 16px; } }
+
+.planning-panel { padding: 24px; margin-bottom: 24px; }
+.planning-panel > label { display: grid; gap: 8px; margin: 12px 0; }
+.planning-panel textarea { width: 100%; min-height: 100px; }
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.wizard-steps [aria-current="step"] { outline: 2px solid #1767d5; outline-offset: 2px; }
+.report-option { display: inline-flex; align-items: center; gap: 8px; padding: 10px; }
+.report-option input { width: 22px; height: 22px; }
+.calendar-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; padding: 14px 0; }
+.calendar-items article { border: 1px solid #dbe3ed; padding: 12px; border-radius: 8px; overflow-wrap: anywhere; }
+.calendar-items label { display: grid; gap: 6px; margin-top: 10px; }
+.editorial-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 20px; }
+.calendar-day { min-height: 95px; border: 1px solid #dbe3ed; border-radius: 8px; padding: 8px; overflow-wrap: anywhere; }
+.calendar-day p { padding: 6px; background: #edf6ff; font-size: 12px; }
+@media (max-width: 800px) { .editorial-calendar { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .editorial-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planning-panel { padding: 16px; } }
