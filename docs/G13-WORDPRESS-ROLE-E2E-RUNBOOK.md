@@ -15,6 +15,7 @@ La modalità predefinita non esegue `live-apply`. La scrittura viene abilitata s
 
 ```bash
 export SEOGROW_APP_URL="http://127.0.0.1:8787"
+export APP_API_TOKEN="..."
 export SEOGROW_WP_SITE_URL="https://staging.example.com/"
 export SEOGROW_WP_ROLE_E2E_TARGET_URL="https://staging.example.com/seogrow-role-e2e/"
 export SEOGROW_WP_ROLE_E2E_TARGET_ID="123"
@@ -30,7 +31,7 @@ export SEOGROW_WP_SUBSCRIBER_APPLICATION_PASSWORD="..."
 
 ## Esecuzione read-only
 
-Avvia SeoGrow, poi:
+Avvia SeoGrow e usa il suo stesso `APP_API_TOKEN` (se non impostato all'avvio, il token persistente locale è in `.seogrow-data/app-token`). Non pubblicare il token o le password nei log. Il launcher richiede il token prima di inviare richieste e non segue redirect delle API locali. Poi:
 
 ```bash
 npm run test:wordpress-role-e2e
