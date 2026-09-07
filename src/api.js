@@ -23,15 +23,25 @@ const requestPath = (input) => {
   }
 };
 
-const isPaidOrLongRunningRequest = (input) => {
+export const isProjectScopedRequest = (input) => {
   const value = String(input || "");
   return [
     "/api/dataforseo/",
     "/api/geo/simulate",
     "/api/generate",
-    "/api/wordpress/generate-patch",
-    "/api/wordpress/generate-seo-value",
+    "/api/site-analysis",
+    "/api/frontend/inspect",
+    "/api/wordpress/",
   ].some((path) => value.includes(path));
+};
+
+const assertProjectStillSelected = (entry) => {
+  if (!entry || entry.clientId == null) return;
+  const current = selectedClientId();
+  if (current === entry.clientId) return;
+  const reason = new DOMException("Progetto cambiato", "AbortError");
+  if (!entry.controller.signal.aborted) entry.controller.abort(reason);
+  throw reason;
 };
 
 if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
@@ -40,7 +50,7 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
     if (event?.detail?.key !== SELECTED_CLIENT_KEY) return;
     const current = selectedClientId();
     for (const entry of [...scopedRequests]) {
-      if (entry.clientId != null && current != null && entry.clientId !== current) {
+      if (entry.clientId != null && entry.clientId !== current) {
         entry.controller.abort(new DOMException("Progetto cambiato", "AbortError"));
       }
     }
@@ -126,7 +136,7 @@ export async function apiFetch(input, init = {}) {
     ? { ...init, body: trimGenerateContext(init.body) }
     : init;
   const preparedInit = withExplicitWordPressSiteUrl(path, generatedInit);
-  const projectScoped = isPaidOrLongRunningRequest(inputText);
+  const projectScoped = isProjectScopedRequest(inputText);
   const projectController = projectScoped ? new AbortController() : null;
   const scopeEntry = projectController
     ? { controller: projectController, clientId: selectedClientId() }
@@ -159,6 +169,7 @@ export async function apiFetch(input, init = {}) {
         return combined.signal;
       })();
       try {
+        assertProjectStillSelected(scopeEntry);
         if (signal.aborted) throw signal.reason || new DOMException("Richiesta annullata", "AbortError");
         const response = await window.fetch(input, { ...preparedInit, signal });
         if (attempt + 1 < attempts && [502, 503, 504].includes(response.status)) {
@@ -169,7 +180,9 @@ export async function apiFetch(input, init = {}) {
         const integrityResponse = path === "/api/site-analysis"
           ? await normalizeSiteAnalysisResponse(response)
           : response;
-        return await normalizeGdprResponse(integrityResponse, path, preparedInit);
+        const normalized = await normalizeGdprResponse(integrityResponse, path, preparedInit);
+        assertProjectStillSelected(scopeEntry);
+        return normalized;
       } catch (error) {
         lastError = error;
         if (attempt + 1 >= attempts || preparedInit.signal?.aborted || projectController?.signal.aborted)
