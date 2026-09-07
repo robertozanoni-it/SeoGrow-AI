@@ -2,19 +2,24 @@ import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
-const requestUserAgent = (input, options) => {
+const requestHeaders = (input, options) => {
   try {
-    return new Headers(options.headers || input?.headers || {}).get("user-agent") || "";
+    return new Headers(options.headers || input?.headers || {});
   } catch {
-    return "";
+    return new Headers();
   }
 };
 
 if (!globalThis.fetch.__seogrowPinnedRemediation) {
   const guardedFetch = async (input, options = {}) => {
     const url = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
-    const userAgent = requestUserAgent(input, options);
-    const needsPinning = /^https:\/\//i.test(String(url || "")) && /seoGrowAI\/1\.4-(?:wordpress-remediation|frontend-verification)/i.test(userAgent);
+    const headers = requestHeaders(input, options);
+    const userAgent = headers.get("user-agent") || "";
+    const authorization = headers.get("authorization") || "";
+    const isHttps = /^https:\/\//i.test(String(url || ""));
+    const isSeoGrowRemediation = /seoGrowAI\/1\.4-(?:wordpress-remediation|frontend-verification)/i.test(userAgent);
+    const isAuthenticatedWordPressRest = /^Basic\s+/i.test(authorization) && /\/wp-json\//i.test(String(url || ""));
+    const needsPinning = isHttps && (isSeoGrowRemediation || isAuthenticatedWordPressRest);
     if (needsPinning) return pinnedHttpsFetch(url, options);
     return nativeFetch(input, options);
   };
