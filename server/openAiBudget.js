@@ -87,8 +87,8 @@ async function settleOpenAiBudget(reserved, usageData = {}) {
   });
 }
 
-
-export { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget };
+export const getOpenAiReserved = () => openAiReserved;
+export { readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget };
 
 export async function budgetedOpenAiFetch(input, options) {
   const payload = JSON.parse(options.body);
