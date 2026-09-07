@@ -4,7 +4,7 @@
 
 Chiusura del filone trasporto autenticato WordPress: runtime e script QA standalone.
 Baseline del batch trasporto: `main` al merge commit `3d187b16b0d183941cdf2da2d90d3b7eb88c1f7b`.
-Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47 e #48 sono **merged**, verificato tramite GitHub.
+Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48 e #49 sono **merged**, verificato tramite GitHub.
 
 La scansione di `server/` e `scripts/` non rileva richieste WordPress REST autenticate instradate al fetch nativo: gli script usano direttamente `pinnedHttpsFetch`; nel runtime restano anche call site `fetch(...)` intercettati dal boundary centrale di `remediationBootstrap.js`. Non equivale a zero occorrenze testuali di `fetch`.
 
@@ -127,4 +127,10 @@ Il perimetro interno di hardening/QA richiesto è chiuso con i gate tecnici ripo
 - Correzione interna del launcher G13: `APP_API_TOKEN` obbligatorio, header `x-seogrow-token` su tutte le API locali, redirect manuali. Test comportamentali simulati verificano nove richieste autenticate sui tre ruoli, assenza di write, stop senza token e rifiuto redirect. Non sono prove dei ruoli WordPress reali.
 - Per riprendere serve un ambiente di esecuzione SeoGrow con accesso DNS/HTTPS allo staging e credenziali temporanee autorizzate per i tre ruoli. G07 resta PARTIAL; G13 resta harness pronto, esecuzione reale ruolo-per-ruolo non eseguita.
 
-Verifica locale della correzione launcher: lint PASS, **569/569 test PASS**, build PASS, launcher syntax PASS. Il gate GitHub della relativa PR resta da verificare sul commit pubblicato; non si anticipa qui il suo esito.
+Verifica locale della correzione launcher #49: lint PASS, **569/569 test PASS**, build PASS, launcher syntax PASS. [Release Gate #693 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141729327); [post-merge main #694 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141875475), commit `551eb27ad397d99e32c514cdb90624eda7d24fd5`.
+
+### Ripresa dal Mac dell'utente
+
+Il Mac è stato aggiornato a main e il runtime riavviato. L'utente ha riportato: GET staging via `pinnedHttpsFetch` HTTP 200; `/wp/v2/users/me?context=edit` HTTP 200 con ruolo `administrator`; `/api/wordpress/connection-check` locale HTTP 200 e `ok=true`. Sono prove di connettività/autenticazione amministrativa, non della matrice completa G13. Il precedente blocco DNS persiste nell'ambiente dell'assistente; il percorso dal Mac è invece disponibile. L'autorizzazione specifica alla password applicativa amministrativa temporanea è stata acquisita e l'utente l'ha creata sullo staging senza comunicarla in chat.
+
+Preparato wrapper `wordpress-role-staging-batch.mjs`: creazione/pulizia dei due account autorizzati, harness esistente sui tre ruoli, nessuna write sui contenuti, report locale senza credenziali. Test simulati coprono successo, fallimento password, collisione utente, identità cambiata, conferma host e guasto del checkpoint durante la pulizia. Il batch reale resta da eseguire dal Mac; G13 non è ancora PASS. G07 resta PARTIAL.
