@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
@@ -82,7 +83,7 @@ async function inspectBackend(url) {
 
 async function wordpressPost(path, body) {
   const endpoint = new URL(`/wp-json/seogrow/v1/${String(path).replace(/^\/+/, "")}`, siteUrl);
-  const response = await fetch(endpoint, {
+  const response = await pinnedHttpsFetch(endpoint, {
     method: "POST",
     headers: {
       authorization: auth(),

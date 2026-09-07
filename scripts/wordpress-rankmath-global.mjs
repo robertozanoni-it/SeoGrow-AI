@@ -1,3 +1,4 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 import { mkdir, writeFile, appendFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { preflight, doctorTarget, wpGet, decodeHtml, validateInputs } from './wordpress-rankmath-doctor-convergence.mjs';
@@ -94,7 +95,7 @@ export async function runGlobal() {
     const request = async (url, authenticated = false) => {
       if (Date.now() > deadline) throw new Error('GLOBAL_TIME_BUDGET_EXCEEDED');
       authorizedUrl(url);
-      const response = await fetch(url, { redirect:'manual', signal:AbortSignal.timeout(15000), headers: { accept: authenticated ? 'application/json' : 'text/html', ...(authenticated ? {authorization:auth} : {}), 'cache-control':'no-cache' } });
+      const response = await (authenticated ? pinnedHttpsFetch : fetch)(url, { redirect:'manual', signal:AbortSignal.timeout(15000), headers: { accept: authenticated ? 'application/json' : 'text/html', ...(authenticated ? {authorization:auth} : {}), 'cache-control':'no-cache' } });
       if (!response.ok) { const error = new Error(`HTTP_${response.status}`); error.status=response.status; throw error; }
       return response;
     };
