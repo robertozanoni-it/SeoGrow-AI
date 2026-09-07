@@ -155,7 +155,7 @@ function assertExpectedCurrent(entity, expectedCurrent) {
   }
 }
 
-async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassword, adapter, taxonomyField, changes, expectedCurrent }) {
+async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassword, adapter, taxonomyField, changes, expectedCurrent }, atomicTransport) {
   const field = String(taxonomyField || "");
   if (!field || !Object.prototype.hasOwnProperty.call(changes || {}, field) || !Object.prototype.hasOwnProperty.call(expectedCurrent || {}, field)) {
     const error = new Error("Rollback tassonomia bloccato: snapshot single-field incompleto.");
@@ -193,7 +193,7 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
   const result = await atomicWordPressWrite(base, auth, {
     resource: "taxonomy", id: inspection.term.id, url: targetUrl,
     adapter: currentAdapter, field, changes: { [field]: previous }, expectedCurrent: { [field]: expected }, operation: "rollback",
-  });
+  }, atomicTransport);
   if (result?.ok !== true || result?.staleChecked !== true || result?.singleField !== true ||
       !sameFieldValue(field, result.before, expected) || !sameFieldValue(field, result.after, previous)) {
     throw new Error("Il Connector non ha confermato integralmente il rollback tassonomia single-field.");
@@ -211,7 +211,7 @@ async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassw
   };
 }
 
-function registerRoutes(app) {
+function registerRoutes(app, { atomicTransport } = {}) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/live-rollback", async (req, res) => {
@@ -229,7 +229,7 @@ function registerRoutes(app) {
           taxonomyField,
           changes,
           expectedCurrent,
-        });
+        }, atomicTransport);
         return res.json(result);
       }
 
@@ -267,7 +267,7 @@ function registerRoutes(app) {
       }
       const result = await atomicWordPressWrite(base, auth, {
         resource, id: entityId, changes: patch, expectedCurrent: nestedExpected, operation: "rollback",
-      });
+      }, atomicTransport);
       const update = result.entity;
       const expectedRestored = Object.fromEntries(patchFields.map(field => [field,
         field.startsWith("meta.") ? patch.meta[field.slice(5)] : patch[field],
