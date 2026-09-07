@@ -1,31 +1,11 @@
-import dns from "node:dns/promises";
-import net from "node:net";
 import { isDeepStrictEqual } from "node:util";
+import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressWriteReconciliationHook");
 
-function privateAddress(address) {
-  if (net.isIPv4(address)) {
-    const [a, b, c] = address.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || a >= 224 ||
-      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-      (a === 192 && b === 0 && [0, 2].includes(c)) ||
-      (a === 198 && [18, 19].includes(b)) ||
-      (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
-  }
-  const value = String(address).toLowerCase();
-  return value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") ||
-    /^fe[89ab]/.test(value) || /^fe[c-f]/.test(value) || value.startsWith("ff") || value.startsWith("2001:db8:");
-}
-
-async function safeBase(input) {
+function wordpressBase(input) {
   const url = new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("WordPress deve usare HTTPS.");
-  if (["localhost", "127.0.0.1", "::1"].includes(url.hostname.toLowerCase()) || url.hostname.endsWith(".local"))
-    throw new Error("Indirizzo WordPress locale non consentito.");
-  const addresses = await dns.lookup(url.hostname, { all: true });
-  if (!addresses.length || addresses.some((item) => privateAddress(item.address))) throw new Error("Indirizzo WordPress non pubblico.");
   url.pathname = `${url.pathname.replace(/\/(?:wp-admin|wp-json)(?:\/.*)?$/i, "").replace(/\/+$/, "")}/`;
   url.search = "";
   url.hash = "";
@@ -81,12 +61,16 @@ function registerRoutes(app) {
           exactFields.some((field) => before[field] === undefined || after[field] === undefined)) {
         throw new Error("Snapshot prima/dopo incompleto.");
       }
-      const base = await safeBase(siteUrl || targetUrl);
-      const response = await fetch(new URL(`wp-json/wp/v2/${resource}/${entityId}?context=edit`, base), {
-        headers: headers(username, applicationPassword),
-        redirect: "manual",
-        signal: AbortSignal.timeout(20_000),
-      });
+
+      const base = wordpressBase(siteUrl || targetUrl);
+      const response = await pinnedHttpsFetch(
+        new URL(`wp-json/wp/v2/${resource}/${entityId}?context=edit`, base),
+        {
+          headers: headers(username, applicationPassword),
+          timeout: 20_000,
+          maxBytes: 2 * 1024 * 1024,
+        },
+      );
       if (response.status >= 300 && response.status < 400) throw new Error("Redirect WordPress inatteso durante la riconciliazione.");
       const text = await response.text();
       let entity;
