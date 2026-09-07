@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { MANUAL_MASTER_QA_CHECKS, summarizeMasterQa } from "./masterQaHarness.js";
 
 const source = await readFile(new URL("./masterQaHarness.js", import.meta.url), "utf8");
+const v2 = await readFile(new URL("./masterQaHarnessV2.js", import.meta.url), "utf8");
+const checksV2 = await readFile(new URL("./masterQaV2Checks.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 
 test("master QA summary never hides failures and preserves manual gaps", () => {
@@ -13,17 +15,29 @@ test("master QA summary never hides failures and preserves manual gaps", () => {
   assert.ok(MANUAL_MASTER_QA_CHECKS.some((item) => /zoom 200%/.test(item)));
 });
 
-test("master QA is dev-only, opt-in and does not perform live WordPress writes", () => {
+test("master QA v2 is dev-only, opt-in and does not perform live WordPress writes", () => {
   assert.match(main, /params\.get\("qaMaster"\) !== "1"/);
-  assert.match(main, /installMasterQaPanel/);
-  assert.match(source, /\/api\/wordpress\/qa-master-delay/);
-  assert.doesNotMatch(source, /\/api\/wordpress\/live-apply/);
-  assert.doesNotMatch(source, /\/api\/wordpress\/live-rollback/);
-  assert.doesNotMatch(source, /\/seogrow\/v1\/atomic-write/);
+  assert.match(main, /installMasterQaV2Panel/);
+  assert.match(v2, /runMasterQaV2Checks/);
+  assert.match(checksV2, /Audit → Task/);
+  assert.match(checksV2, /Storico Agent/);
+  assert.match(checksV2, /Search Console \/ provenance/);
+  assert.match(checksV2, /Stati correzioni/);
+  const allQaSource = `${source}\n${v2}\n${checksV2}`;
+  assert.match(allQaSource, /\/api\/wordpress\/qa-master-delay/);
+  assert.doesNotMatch(allQaSource, /\/api\/wordpress\/live-apply/);
+  assert.doesNotMatch(allQaSource, /\/api\/wordpress\/live-rollback/);
+  assert.doesNotMatch(allQaSource, /\/seogrow\/v1\/atomic-write/);
 });
 
 test("master QA restores selected client after cancellation probe", () => {
   assert.match(source, /const originalSelected = workspaceStorage\.getItem\(SELECTED_CLIENT_KEY\)/);
   assert.match(source, /workspaceStorage\.setItem\(SELECTED_CLIENT_KEY, originalSelected\)/);
   assert.match(source, /await flushWorkspace\(\)/);
+});
+
+test("master QA v2 preserves manual-only environmental gaps", () => {
+  assert.match(v2, /status: "MANUAL"/);
+  assert.match(v2, /MANUAL_MASTER_QA_CHECKS/);
+  assert.doesNotMatch(checksV2, /fetch\(/);
 });
