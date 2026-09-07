@@ -5,6 +5,7 @@ import { registerRoutes } from '../server/wordpressLiveRollbackHook.js';
 const routes = new Map();
 registerRoutes({ post: (path, handler) => routes.set(path, handler) }, {
  atomicTransport: (...args) => globalThis.fetch(...args),
+ readTransport: (...args) => globalThis.fetch(...args),
 });
 const rollback = routes.get('/api/wordpress/live-rollback');
 const body = { siteUrl: 'https://example.com/blog/', targetUrl: 'https://example.com/blog/page/', username: 'fixture', applicationPassword: 'fixture', resource: 'pages', id: 42, changes: { title: 'before' }, expectedCurrent: { title: 'after' } };
