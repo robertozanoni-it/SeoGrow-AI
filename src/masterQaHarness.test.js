@@ -42,8 +42,11 @@ test("master QA restores selected client after cancellation probe", () => {
   assert.match(source, /await flushWorkspace\(\)/);
 });
 
-test("Agent UI keeps double-start guard while runtime adversarial checks cover cancel and stale approval", () => {
-  assert.match(agentPage, /if \(!goal\.trim\(\) \|\| running\) return/);
+test("Agent UI keeps race-safe double-start guard while runtime adversarial checks cover cancel and stale approval", () => {
+  assert.match(agentPage, /const operationLock = useRef\(false\)/);
+  assert.match(agentPage, /if \(!goal\.trim\(\) \|\| operationLock\.current\) return/);
+  assert.match(agentPage, /operationLock\.current = true/);
+  assert.match(agentPage, /finally \{ operationLock\.current = false; setRunning\(false\); \}/);
   assert.match(agentPage, /disabled=\{running \|\| !goal\.trim\(\)\}/);
   assert.ok(MANUAL_MASTER_QA_CHECKS.some((item) => /Agent doppio avvio UI\/disabled-state/.test(item)));
 });
