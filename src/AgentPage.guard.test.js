@@ -18,3 +18,12 @@ test("Agent primary actions remain disabled while the visible running state is a
   assert.match(source, /disabled=\{running\} onClick=\{\(\) => decide\(true\)\}/);
   assert.match(source, /disabled=\{running\} onClick=\{\(\) => decide\(false\)\}/);
 });
+
+
+test("editing context and history cannot switch away from an active execution", () => {
+  assert.match(source, /id="seo-agent-mode"[^>]*disabled=\{running\}/);
+  assert.match(source, /id="seo-agent-goal"[^>]*disabled=\{running\}/);
+  assert.match(source, /id="agent-history"[^>]*disabled=\{running\}/);
+  assert.match(source, /disabled=\{running\} onClick=\{\(\) => \{ if \(window.confirm/);
+  assert.match(source, /<button className="secondary" onClick=\{\(\) => orchestrator.cancel\(run.id\)\}>Interrompi<\/button>/);
+});

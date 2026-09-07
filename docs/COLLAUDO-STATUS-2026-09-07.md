@@ -172,3 +172,7 @@ Dopo autorizzazione esplicita, Connector 1.3.4 installato e attivo sul solo stag
 ### G07 — propagazione su 38 record e rollback conclusi
 
 PR #55 merged; Release Gate #706 e main #707 PASS (link nel report G07). Nuova prova header/footer: marker presenti dopo save su 38/38 record e assenti dopo rollback su 38/38, dati originali e condizioni verificati. Evidenza in `docs/qa/G07-SHARED-SCOPE-2026-09-07.json`. Confronto responsive parziale eseguito; nessuna certificazione visuale completa per le differenze tipografiche osservate. Blocco reale WPVibe: limite giornaliero, raggiunto dopo il ripristino verificato. Per proseguire le letture staging serve quota disponibile; non occorrono nuove credenziali né interventi sul live.
+
+## Estensione UI/UX successiva
+
+PR #57 merged con Release Gate #710 PASS. Revisione di ricerca, navigazione, feedback e console Agent descritta in [UX-REVIEW-2026-09-07.md](UX-REVIEW-2026-09-07.md), incluse le proposte future e il limite della verifica visuale manuale. G07 resta PARTIAL e rinviato su richiesta dell'utente; questa estensione non modifica lo stato dei collaudi WordPress.

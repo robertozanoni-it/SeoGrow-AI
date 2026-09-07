@@ -2685,3 +2685,6 @@ td:first-child {
   contain-intrinsic-size: 64px;
 }
 .chart-loading { min-height: 240px; display: grid; place-items: center; color: #71809a; }
+
+.agent-help { margin: 0 0 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.agent-form-field .agent-help { margin-bottom: 0; }
