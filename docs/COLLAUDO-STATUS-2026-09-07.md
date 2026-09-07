@@ -162,3 +162,9 @@ PR #53 merged, [Release Gate #701 PASS](https://github.com/robertozanoni-it/SeoG
 Single 598 verificato con override temporaneo `elementor_theme` sul post 7197: il kit Full Width spiegava la mancata applicazione. Template e layout articolo ripristinati esattamente. CSS aggregato anonimo verificato con due letture complete identiche prima e dopo rollback, marker presente/assente come atteso, usando purge esplicito sullo staging.
 
 Emerso bug interno: l’inventario installato di 40 risorse omette le 16 pagine WordPress, quindi la precedente dichiarazione di completezza non certificava tutti i riferimenti shared. Connector 1.3.4 corregge la scoperta tramite `is_post_type_viewable`, con regressioni PHP/architetturali e versione runtime coerente. Pacchetto da installare e verificare sullo staging dopo gate verde; live invariato. G07 resta PARTIAL per copertura completa e visual QA residua. Verifica locale: lint, 575 test, build e launcher PASS; PHP demandato al Release Gate perché non installato localmente.
+
+### Connector 1.3.4 — merge e verifica installazione staging
+
+PR #54 merged, [Release Gate #704 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166449464), [main #705 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166528528), commit `e326afd90545554e38dea33244ac5b3452355f66`. Il primo gate #703 era fallito per un’asserzione di versione obsoleta; corretta prima del gate verde e del merge.
+
+Dopo autorizzazione esplicita, Connector 1.3.4 installato e attivo sul solo staging. Inventario completo reale di 56 risorse (16 pagine, 22 articoli, 18 documenti Elementor), senza troncamento. Lettura reference di homepage 5303 e articolo 7197 riuscita. `readOnly=true` e `sharedWriteAllowed=false` confermati. Difetto delle pagine omesse risolto anche nell’ambiente installato. G07 resta PARTIAL per copertura shared/CPT e visual QA residua; G13 mantiene il PASS della matrice read-only staging già documentata.
