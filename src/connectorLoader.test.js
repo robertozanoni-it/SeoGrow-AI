@@ -21,15 +21,15 @@ const pagedInventory = await readFile(
 
 test("loader conserva un solo header plugin e carica i moduli Connector", () => {
   assert.match(loader, /Plugin Name: SeoGrow Connector/);
-  assert.match(loader, /Version: 1\.3\.3/);
+  assert.match(loader, /Version: 1\.3\.4/);
   assert.match(loader, /require_once __DIR__ \. '\/seogrow-connector-core\.inc'/);
   assert.match(loader, /require_once __DIR__ \. '\/elementor-reference-read\.php'/);
   assert.match(loader, /require_once __DIR__ \. '\/wordpress-public-inventory-paged\.php'/);
   assert.equal((loader.match(/Plugin Name:/g) || []).length, 1);
 });
 
-test("core conserva versione e contratti storici dopo lo split", () => {
-  assert.match(core, /SEOGROW_CONNECTOR_VERSION = '1\.3\.2'/);
+test("core espone la versione del pacchetto e conserva i contratti storici", () => {
+  assert.equal(core.match(/SEOGROW_CONNECTOR_VERSION = '([^']+)'/)[1], loader.match(/Version:\s*([\d.]+)/)[1]);
   assert.match(core, /\/elementor-impact-inspect/);
   assert.match(core, /\/wordpress-public-inventory/);
   assert.match(core, /\/taxonomy-inspect/);

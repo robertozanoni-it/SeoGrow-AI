@@ -16,7 +16,7 @@ test("Connector espone inventario WordPress autorevole strettamente read-only", 
   assert.match(connector, /'wordpressPublicInventoryReadOnly' => true/);
 });
 
-test("inventario usa post type pubblici e publicly_queryable e solo risorse publish", () => {
+test("inventario usa la visibilità WordPress anche per le pagine native e solo risorse publish", () => {
   const discoveryStart = connector.indexOf("function seogrow_connector_public_queryable_post_types");
   const inventoryStart = connector.indexOf("function seogrow_connector_wordpress_public_inventory", discoveryStart);
   const inventoryEnd = connector.indexOf("function seogrow_connector_status", inventoryStart);
@@ -26,7 +26,8 @@ test("inventario usa post type pubblici e publicly_queryable e solo risorse publ
   const inventory = connector.slice(inventoryStart, inventoryEnd);
   assert.match(typeDiscovery, /get_post_types/);
   assert.match(typeDiscovery, /'public' => true/);
-  assert.match(typeDiscovery, /'publicly_queryable' => true/);
+  assert.match(typeDiscovery, /is_post_type_viewable\(\$object\)/);
+  assert.doesNotMatch(typeDiscovery, /'publicly_queryable' => true/);
   assert.match(inventory, /'post_status' => 'publish'/);
   assert.match(inventory, /'posts_per_page' => 31/);
   assert.match(inventory, /'no_found_rows' => false/);
