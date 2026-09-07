@@ -107,7 +107,7 @@ Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di revie
 
 ### G07 — Elementor shared
 
-**PARTIAL / NON CHIUSO**. Sullo staging autorizzato sono stati eseguiti save/render/rollback esatto di header 185, footer 327 e archive 584, oltre a un marker HTML non eseguibile nel footer. Restano Single realmente applicato, copertura completa delle referenze/global widget, CPT rappresentativo, CSS/cache e visual QA tablet/mobile. Il marcatore custom CSS è persistito ma non è risultato applicato nel browser; non dichiarare PASS. Dettagli in `docs/qa/G07-STAGING-2026-09-07.md`. Nessuna modifica sul live.
+**PARTIAL / NON CHIUSO**. Sullo staging: header/footer propagati e ripristinati su 38 record pagina/articolo (37 URL richiesti distinti, redirect preesistenti); dati identici ai backup e nessun marker residuo. Archive, Single isolato, HTML non eseguibile e CSS con purge hanno le prove descritte nel report. Connector 1.3.4 installato e inventario pagine corretto. Confronto responsive before/after/rollback dell’header sul post 7197 eseguito, ma variazioni tipografiche da diagnosticare e matrice visuale degli altri scope incompleta. CPT finale non certificato: quota giornaliera WPVibe esaurita durante l’ultima lettura. Dettagli in `docs/qa/G07-STAGING-2026-09-07.md`; nessuna modifica al live.
 
 ### G13 — matrice ruoli WordPress
 
@@ -168,3 +168,7 @@ Emerso bug interno: l’inventario installato di 40 risorse omette le 16 pagine 
 PR #54 merged, [Release Gate #704 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166449464), [main #705 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166528528), commit `e326afd90545554e38dea33244ac5b3452355f66`. Il primo gate #703 era fallito per un’asserzione di versione obsoleta; corretta prima del gate verde e del merge.
 
 Dopo autorizzazione esplicita, Connector 1.3.4 installato e attivo sul solo staging. Inventario completo reale di 56 risorse (16 pagine, 22 articoli, 18 documenti Elementor), senza troncamento. Lettura reference di homepage 5303 e articolo 7197 riuscita. `readOnly=true` e `sharedWriteAllowed=false` confermati. Difetto delle pagine omesse risolto anche nell’ambiente installato. G07 resta PARTIAL per copertura shared/CPT e visual QA residua; G13 mantiene il PASS della matrice read-only staging già documentata.
+
+### G07 — propagazione su 38 record e rollback conclusi
+
+PR #55 merged; Release Gate #706 e main #707 PASS (link nel report G07). Nuova prova header/footer: marker presenti dopo save su 38/38 record e assenti dopo rollback su 38/38, dati originali e condizioni verificati. Evidenza in `docs/qa/G07-SHARED-SCOPE-2026-09-07.json`. Confronto responsive parziale eseguito; nessuna certificazione visuale completa per le differenze tipografiche osservate. Blocco reale WPVibe: limite giornaliero, raggiunto dopo il ripristino verificato. Per proseguire le letture staging serve quota disponibile; non occorrono nuove credenziali né interventi sul live.

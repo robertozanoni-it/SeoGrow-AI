@@ -1,0 +1,992 @@
+{
+  "siteUrl": "https://staging.yogabuenaonda.it",
+  "repositoryBaseline": "277c686893fd711bdc15127df56f37146f5043ca",
+  "connectorVersion": "1.3.4",
+  "scope": "Published page/post inventory records; rendered destinations can include existing redirects; not all 56 inventory resources or all archives",
+  "records": 38,
+  "distinctRequestedUrls": 37,
+  "templates": [
+    185,
+    327
+  ],
+  "conditions": [
+    "include/general"
+  ],
+  "markerOnly": true,
+  "exactDataRollback": true,
+  "sharedWriteAllowed": false,
+  "baseline": [
+    {
+      "id": 587,
+      "url": "https://staging.yogabuenaonda.it/yoga-blog/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 389,
+      "url": "https://staging.yogabuenaonda.it/contatti/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5303,
+      "url": "https://staging.yogabuenaonda.it/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 363,
+      "url": "https://staging.yogabuenaonda.it/insegnante-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 4962,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5530,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5842,
+      "url": "https://staging.yogabuenaonda.it/yoga-alimentazione-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5746,
+      "url": "https://staging.yogabuenaonda.it/yoga-principianti-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5910,
+      "url": "https://staging.yogabuenaonda.it/yoga-benefici/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5886,
+      "url": "https://staging.yogabuenaonda.it/yoga-terapia-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 5966,
+      "url": "https://staging.yogabuenaonda.it/esercizi-yoga-per-ansia/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6030,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-postura/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6108,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-bambini/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6079,
+      "url": "https://staging.yogabuenaonda.it/yoga-e-sistema-immunitario/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6012,
+      "url": "https://staging.yogabuenaonda.it/benefici-psicologici-yoga/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6173,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6158,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-dimagrire/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6231,
+      "url": "https://staging.yogabuenaonda.it/yoga-schiena-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6191,
+      "url": "https://staging.yogabuenaonda.it/come-scegliere-corso-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6260,
+      "url": "https://staging.yogabuenaonda.it/yoga-avanzati-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6316,
+      "url": "https://staging.yogabuenaonda.it/hatha-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6482,
+      "url": "https://staging.yogabuenaonda.it/corso-power-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6424,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6512,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6336,
+      "url": "https://staging.yogabuenaonda.it/gravidanza-yoga-guida-benessere-mamma-bambino/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6528,
+      "url": "https://staging.yogabuenaonda.it/corso-di-hatha-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6714,
+      "url": "https://staging.yogabuenaonda.it/profilo-yoga-ideale/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6980,
+      "url": "https://staging.yogabuenaonda.it/aerial-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 6947,
+      "url": "https://staging.yogabuenaonda.it/guide-pratiche-yoga/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7121,
+      "url": "https://staging.yogabuenaonda.it/termini-di-uso/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7060,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo-prezzi/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7108,
+      "url": "https://staging.yogabuenaonda.it/cookie-policy/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7127,
+      "url": "https://staging.yogabuenaonda.it/privacy-policy/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7115,
+      "url": "https://staging.yogabuenaonda.it/politica-di-utilizzo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7170,
+      "url": "https://staging.yogabuenaonda.it/yoga-ufficio-smart-working-esercizi-schiena-stress/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7138,
+      "url": "https://staging.yogabuenaonda.it/yoga-vicino-sesto-san-giovanni/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7197,
+      "url": "https://staging.yogabuenaonda.it/yoga-online-o-presenza-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    },
+    {
+      "id": 7466,
+      "url": "https://staging.yogabuenaonda.it/gallery-yoga-buena-onda/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "error": false
+    }
+  ],
+  "after": [
+    {
+      "id": 389,
+      "url": "https://staging.yogabuenaonda.it/contatti/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 587,
+      "url": "https://staging.yogabuenaonda.it/yoga-blog/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5303,
+      "url": "https://staging.yogabuenaonda.it/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 4962,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5530,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5746,
+      "url": "https://staging.yogabuenaonda.it/yoga-principianti-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 363,
+      "url": "https://staging.yogabuenaonda.it/insegnante-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5886,
+      "url": "https://staging.yogabuenaonda.it/yoga-terapia-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5842,
+      "url": "https://staging.yogabuenaonda.it/yoga-alimentazione-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5910,
+      "url": "https://staging.yogabuenaonda.it/yoga-benefici/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5966,
+      "url": "https://staging.yogabuenaonda.it/esercizi-yoga-per-ansia/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6012,
+      "url": "https://staging.yogabuenaonda.it/benefici-psicologici-yoga/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6030,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-postura/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6108,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-bambini/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6158,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-dimagrire/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6079,
+      "url": "https://staging.yogabuenaonda.it/yoga-e-sistema-immunitario/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6173,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6231,
+      "url": "https://staging.yogabuenaonda.it/yoga-schiena-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6191,
+      "url": "https://staging.yogabuenaonda.it/come-scegliere-corso-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6316,
+      "url": "https://staging.yogabuenaonda.it/hatha-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6260,
+      "url": "https://staging.yogabuenaonda.it/yoga-avanzati-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6336,
+      "url": "https://staging.yogabuenaonda.it/gravidanza-yoga-guida-benessere-mamma-bambino/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6482,
+      "url": "https://staging.yogabuenaonda.it/corso-power-yoga-a-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6424,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-a-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6512,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6528,
+      "url": "https://staging.yogabuenaonda.it/corso-di-hatha-yoga-a-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6714,
+      "url": "https://staging.yogabuenaonda.it/profilo-yoga-ideale/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6947,
+      "url": "https://staging.yogabuenaonda.it/guide-pratiche-yoga/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6980,
+      "url": "https://staging.yogabuenaonda.it/aerial-yoga-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7060,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo-prezzi/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7108,
+      "url": "https://staging.yogabuenaonda.it/cookie-policy/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7115,
+      "url": "https://staging.yogabuenaonda.it/politica-di-utilizzo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7127,
+      "url": "https://staging.yogabuenaonda.it/privacy-policy/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7121,
+      "url": "https://staging.yogabuenaonda.it/termini-di-uso/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7138,
+      "url": "https://staging.yogabuenaonda.it/yoga-vicino-sesto-san-giovanni/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7170,
+      "url": "https://staging.yogabuenaonda.it/yoga-ufficio-smart-working-esercizi-schiena-stress/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7197,
+      "url": "https://staging.yogabuenaonda.it/yoga-online-o-presenza-cinisello-balsamo/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7466,
+      "url": "https://staging.yogabuenaonda.it/gallery-yoga-buena-onda/",
+      "headerMarker": true,
+      "footerMarker": true,
+      "completeHtml": true,
+      "error": false
+    }
+  ],
+  "rollback": [
+    {
+      "id": 363,
+      "url": "https://staging.yogabuenaonda.it/insegnante-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 587,
+      "url": "https://staging.yogabuenaonda.it/yoga-blog/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 4962,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5530,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5746,
+      "url": "https://staging.yogabuenaonda.it/yoga-principianti-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5303,
+      "url": "https://staging.yogabuenaonda.it/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5842,
+      "url": "https://staging.yogabuenaonda.it/yoga-alimentazione-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5886,
+      "url": "https://staging.yogabuenaonda.it/yoga-terapia-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5910,
+      "url": "https://staging.yogabuenaonda.it/yoga-benefici/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 5966,
+      "url": "https://staging.yogabuenaonda.it/esercizi-yoga-per-ansia/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6012,
+      "url": "https://staging.yogabuenaonda.it/benefici-psicologici-yoga/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6030,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-postura/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6079,
+      "url": "https://staging.yogabuenaonda.it/yoga-e-sistema-immunitario/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6158,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-dimagrire/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6108,
+      "url": "https://staging.yogabuenaonda.it/yoga-per-bambini/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 389,
+      "url": "https://staging.yogabuenaonda.it/contatti/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6173,
+      "url": "https://staging.yogabuenaonda.it/yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6191,
+      "url": "https://staging.yogabuenaonda.it/come-scegliere-corso-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6231,
+      "url": "https://staging.yogabuenaonda.it/yoga-schiena-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6260,
+      "url": "https://staging.yogabuenaonda.it/yoga-avanzati-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6316,
+      "url": "https://staging.yogabuenaonda.it/hatha-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6336,
+      "url": "https://staging.yogabuenaonda.it/gravidanza-yoga-guida-benessere-mamma-bambino/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6424,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6482,
+      "url": "https://staging.yogabuenaonda.it/corso-power-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6512,
+      "url": "https://staging.yogabuenaonda.it/vinyasa-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6528,
+      "url": "https://staging.yogabuenaonda.it/corso-di-hatha-yoga-a-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6714,
+      "url": "https://staging.yogabuenaonda.it/profilo-yoga-ideale/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6947,
+      "url": "https://staging.yogabuenaonda.it/guide-pratiche-yoga/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 6980,
+      "url": "https://staging.yogabuenaonda.it/aerial-yoga-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7108,
+      "url": "https://staging.yogabuenaonda.it/cookie-policy/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7060,
+      "url": "https://staging.yogabuenaonda.it/corso-yoga-cinisello-balsamo-prezzi/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7115,
+      "url": "https://staging.yogabuenaonda.it/politica-di-utilizzo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7121,
+      "url": "https://staging.yogabuenaonda.it/termini-di-uso/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7127,
+      "url": "https://staging.yogabuenaonda.it/privacy-policy/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7138,
+      "url": "https://staging.yogabuenaonda.it/yoga-vicino-sesto-san-giovanni/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7170,
+      "url": "https://staging.yogabuenaonda.it/yoga-ufficio-smart-working-esercizi-schiena-stress/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7197,
+      "url": "https://staging.yogabuenaonda.it/yoga-online-o-presenza-cinisello-balsamo/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    },
+    {
+      "id": 7466,
+      "url": "https://staging.yogabuenaonda.it/gallery-yoga-buena-onda/",
+      "header": true,
+      "footer": true,
+      "marker": false,
+      "completeHtml": true,
+      "error": false
+    }
+  ],
+  "visual": {
+    "targetId": 7197,
+    "environment": "Elementor editor responsive preview",
+    "iframeWidths": {
+      "desktop": 1083,
+      "tablet": 768,
+      "mobile": 360
+    },
+    "stages": [
+      "before",
+      "after-both",
+      "rollback"
+    ],
+    "result": "PARTIAL",
+    "limitation": "Header/top viewport screenshots compared. Minor text metrics differ between initial and regenerated renders and remain after exact data rollback. No complete footer/archive/single visual matrix; frame DOM measurements intermittently timed out."
+  },
+  "blockedBy": "WPVibe daily fair-use limit during final post-type verification; no pending marker writes",
+  "testPreparationIssue": "Initial footer settings were [] and a named class property was lost in JSON serialization. Corrected payload uses an object; repeated full after scan passed 38/38."
+}
