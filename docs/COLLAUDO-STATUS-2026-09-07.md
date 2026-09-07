@@ -148,3 +148,9 @@ Report originale sul Mac: `.qa-runtime/role-staging-c5cd6e97-17c0-48ba-b9f1-3728
 PR #51 merged; [Release Gate #697 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148733033), [main #698 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148823626), commit `6762d7e9d1c4a1be8bce059b696a89b24758c054`.
 
 Autorizzazione specifica acquisita per modifiche temporanee ai template shared sul solo staging e ripristino. Header/footer verificati su homepage e post 7197; Archive sulla categoria 38 con controllo negativo sulla homepage. Dati Elementor ripristinati esattamente e condizioni conservate. Staging inizialmente indicizzabile: `blog_public` impostato a `0`, robots `nofollow, noindex` verificato e mantenuto. Le prove utilizzano la pipeline ufficiale WPVibe/Elementor, non certificano una write shared attraverso SeoGrow: `sharedWriteAllowed=false` resta invariato.
+
+### Ripresa G07 con autorizzazione esplicita
+
+PR #52 merged; [Release Gate #699 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150502471), [main #700 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150617648), commit `927d2329d2f897237401cd48c5d57f8b1fcffde9`.
+
+Dopo «Autorizzo Go7»: custom CSS dell’header verificato nell’editor e nel frontend autenticato, con rollback esatto. Single salvato ma non applicato al post campione, poi ripristinato. Cache anonima ancora non certificata: letture dell’asset aggregato incoerenti anche dopo purge confermato. Anteprime tablet/mobile dell’editor accessibili, solo osservazioni post-rollback eseguite. G07 resta PARTIAL; dettaglio aggiornato nel report G07.
