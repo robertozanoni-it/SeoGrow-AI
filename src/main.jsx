@@ -13,10 +13,10 @@ async function exposeMasterQaInDev() {
   if (!import.meta.env.DEV) return;
   const params = new URLSearchParams(globalThis.location?.search || "");
   if (params.get("qaMaster") !== "1") return;
-  const { installMasterQaPanel, runMasterQa } = await import("./masterQaHarness.js");
-  globalThis.seoGrowMasterQa = runMasterQa;
-  installMasterQaPanel();
-  console.warn("SeoGrow Master QA attivo. Usa il pulsante 'Esegui collaudo generale' oppure seoGrowMasterQa() dalla Console.");
+  const { installMasterQaV2Panel, runMasterQaV2 } = await import("./masterQaHarnessV2.js");
+  globalThis.seoGrowMasterQa = runMasterQaV2;
+  installMasterQaV2Panel();
+  console.warn("SeoGrow Master QA v2 attivo. Usa il pulsante 'Esegui collaudo generale v2' oppure seoGrowMasterQa() dalla Console.");
 }
 
 initializeWorkspace().then(async () => {
