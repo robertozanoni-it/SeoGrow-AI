@@ -6,7 +6,7 @@ const script = await readFile(new URL("../scripts/wordpress-role-e2e.mjs", impor
 const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("il batch ruolo-per-ruolo copre admin editor e subscriber", () => {
-  for (const role of ["administrator", "editor", "subscriber"]) assert.match(script, new RegExp(`name: \\\"${role}\\\"`));
+  for (const role of ["administrator", "editor", "subscriber"]) assert.match(script, new RegExp(`name: "${role}"`));
 });
 
 test("il batch resta read-only di default e richiede conferma esplicita per write", () => {
