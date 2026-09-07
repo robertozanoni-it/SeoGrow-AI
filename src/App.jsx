@@ -1,3 +1,4 @@
+import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { restoreValidatedWorkspace } from "./workspaceRestore.js";
@@ -563,6 +564,7 @@ function Header({
   query,
   setQuery,
   searchResults,
+  searchTotal,
   onSearchResult,
   notifications,
   onNotifications,
@@ -658,6 +660,7 @@ function Header({
           <input
             aria-label="Cerca nell’app"
             type="search"
+            aria-controls={query.trim() ? "global-search-results" : undefined}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(event) => {
@@ -670,11 +673,12 @@ function Header({
                   ?.focus();
               }
             }}
-            placeholder="Cerca clienti, task e sezioni…"
+            placeholder="Cerca clienti, task, URL e sezioni…"
           />
         </label>
         {query.trim() && (
           <div id="global-search-results" className="search-results" role="region" aria-label="Risultati della ricerca">
+            <p role="status">{searchTotal > searchResults.length ? `Primi ${searchResults.length} di ${searchTotal} risultati · affina la ricerca` : `${searchTotal} risultati`} · Tutti i progetti</p>
             {searchResults.length ? (
               searchResults.map((item, index) => (
                 <button
@@ -683,11 +687,13 @@ function Header({
                   onKeyDown={(event) => {
                     if (event.key === "ArrowDown") {
                       event.preventDefault();
-                      (event.currentTarget.nextElementSibling || event.currentTarget.parentElement.firstElementChild)?.focus();
+                      const buttons = [...event.currentTarget.parentElement.querySelectorAll("button")];
+                      buttons[(buttons.indexOf(event.currentTarget) + 1) % buttons.length]?.focus();
                     }
                     if (event.key === "ArrowUp") {
                       event.preventDefault();
-                      (event.currentTarget.previousElementSibling || event.currentTarget.parentElement.lastElementChild)?.focus();
+                      const buttons = [...event.currentTarget.parentElement.querySelectorAll("button")];
+                      buttons[(buttons.indexOf(event.currentTarget) + buttons.length - 1) % buttons.length]?.focus();
                     }
                     if (event.key === "Escape") {
                       setQuery("");
@@ -700,7 +706,7 @@ function Header({
                 </button>
               ))
             ) : (
-              <p>Nessun risultato.</p>
+              <p>Nessuna corrispondenza. Prova il nome del progetto, una parola della task o un URL.</p>
             )}
           </div>
         )}
@@ -3936,16 +3942,16 @@ function Modal({ title, close, children }) {
   );
 }
 
-function Toast({ message, onOpen, onClose }) {
+function Toast({ message, kind = "info", onOpen, onClose }) {
   useEffect(() => {
-    if (onOpen) return undefined;
-    const timer = window.setTimeout(onClose, 4200);
+    if (onOpen || kind !== "success") return undefined;
+    const timer = window.setTimeout(onClose, 6000);
     return () => window.clearTimeout(timer);
-  }, [onClose, onOpen]);
+  }, [onClose, onOpen, kind]);
   return (
-    <div className="toast">
-      <Check aria-hidden="true" />
-      <span role="status">{message}</span>
+    <div className={`toast toast-${kind}`}>
+      {kind === "error" ? <AlertTriangle aria-hidden="true" /> : kind === "success" ? <Check aria-hidden="true" /> : <HelpCircle aria-hidden="true" />}
+      <span role={kind === "error" ? "alert" : "status"}>{message}</span>
       {onOpen && <button onClick={onOpen}>Apri task</button>}
       <button className="icon-btn" aria-label="Chiudi" onClick={onClose}>
         <X />
@@ -4271,7 +4277,7 @@ export default function App() {
       ].slice(0, 2),
     );
     return true;
-    } catch (error) { setToast(`Copia locale non creata: ${error.message}`); return false; }
+    } catch (error) { setToast({ kind: "error", message: `Copia locale non creata: ${error.message}` }); return false; }
   };
   const handleGscImport = async (data) => {
     const propertyHost = data.property?.host || "";
@@ -4661,12 +4667,12 @@ export default function App() {
     if (!snapshot || !window.confirm("Ripristinare questa copia locale?"))
       return;
     try { await restoreBackup(snapshot.data, { preserveSnapshots: true }); }
-    catch (error) { setToast(`Ripristino non completato: ${error.message}`); }
+    catch (error) { setToast({ kind: "error", message: `Ripristino non completato: ${error.message}` }); }
   };
   const createManualTask = (values) => {
     const title = String(values?.title || "").trim();
     if (!title) {
-      setToast("Task non creata: inserisci un titolo.");
+      setToast({ kind: "error", message: "Task non creata: inserisci un titolo." });
       return null;
     }
     const duplicate = tasks.find(
@@ -4678,7 +4684,7 @@ export default function App() {
         (item.targetUrl || "") === (values.targetUrl || ""),
     );
     if (duplicate) {
-      setToast(`Task già presente: ${duplicate.title}`);
+      setToast({ kind: "info", message: `Task già presente: ${duplicate.title}`, taskId: duplicate.id, clientId: selectedClient });
       return duplicate;
     }
     const task = {
@@ -4700,7 +4706,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setTasks((current) => [task, ...current]);
-    setToast(`Task creata: ${task.title}`);
+    setToast({ kind: "success", message: `Task creata: ${task.title}`, taskId: task.id, clientId: selectedClient });
     return task;
   };
   const selectedTasks = tasks.filter(
@@ -4716,38 +4722,8 @@ export default function App() {
         analysis: selectedAnalysis,
       })
     : [];
-  const normalizedSearch = query.trim().toLowerCase();
-  const searchResults = normalizedSearch
-    ? [
-        ...nav
-          .filter(([label]) => label.toLowerCase().includes(normalizedSearch))
-          .slice(0, 3)
-          .map(([label]) => ({ label, meta: "Sezione", page: label })),
-        ...clients
-          .filter((client) =>
-            `${client.name} ${client.url}`
-              .toLowerCase()
-              .includes(normalizedSearch),
-          )
-          .slice(0, 3)
-          .map((client) => ({
-            label: client.name,
-            meta: client.url,
-            page: "Panoramica",
-            clientId: client.id,
-          })),
-        ...tasks
-          .filter((task) => String(task.title || "").toLowerCase().includes(normalizedSearch))
-          .slice(0, 8)
-          .map((task) => ({
-            label: task.title,
-            meta: task.client,
-            page: "Task",
-            clientId: task.sourceClientId,
-            taskId: task.id,
-          })),
-      ].slice(0, 10)
-    : [];
+  const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
+  const searchResults = allSearchResults.slice(0, 10);
   const content = (() => {
     if (page === "Panoramica")
       return (
@@ -5000,11 +4976,13 @@ export default function App() {
           query={query}
           setQuery={setQuery}
           searchResults={searchResults}
+          searchTotal={allSearchResults.length}
           onSearchResult={(item) => {
             if (item.clientId) setSelectedClient(item.clientId);
             if (item.taskId)
               setRequestedTask({ id: item.taskId, nonce: Date.now() });
-            setPage(item.page);
+            if (item.page === "Correzioni") navigatePage(item.page);
+            else setPage(item.page);
             setQuery("");
           }}
           notifications={notifications}
@@ -5043,11 +5021,14 @@ export default function App() {
       )}
       {toast && (
         <Toast
-          message={toast}
-          onOpen={() => {
+          message={toast.message}
+          kind={toast.kind}
+          onOpen={toast.taskId ? () => {
+            setSelectedClient(toast.clientId);
+            setRequestedTask({ id: toast.taskId, nonce: Date.now() });
             setPage("Task");
             setToast("");
-          }}
+          } : undefined}
           onClose={() => setToast("")}
         />
       )}

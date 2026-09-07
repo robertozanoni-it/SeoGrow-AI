@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const layer = await readFile(new URL("./GuidedUxLayer.jsx", import.meta.url), "utf8");
+const navigation = await readFile(new URL("./navigationUx.js", import.meta.url), "utf8");
 const css = await readFile(new URL("./GuidedUxLayer.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
@@ -15,10 +16,10 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
 });
 
 test("la navigazione Correzioni entra nell'overlay prima del fallback dell'App core", () => {
-  assert.match(layer, /if \(page === "Correzioni"\)/);
-  assert.match(layer, /window\.__seogrowCorrectionsMode = true/);
-  assert.match(layer, /window\.history\.pushState\(null, "", next\)/);
-  assert.match(layer, /seogrow-locationchange/);
+  assert.match(navigation, /if \(page === "Correzioni"\)/);
+  assert.match(navigation, /window\.__seogrowCorrectionsMode = true/);
+  assert.match(navigation, /window\.history\.pushState\(null, "", next\)/);
+  assert.match(navigation, /seogrow-locationchange/);
 });
 
 test("la nuova UX non introduce altri MutationObserver o monkey patch fetch", () => {
