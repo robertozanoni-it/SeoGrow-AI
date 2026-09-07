@@ -1,3 +1,5 @@
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
+
 const appUrl = String(process.env.SEOGROW_E2E_APP_URL || "http://127.0.0.1:5176").replace(/\/+$/, "");
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
 const username = String(process.env.SEOGROW_WP_USERNAME || "").trim();
@@ -52,7 +54,7 @@ async function inspectViaSeoGrow(url) {
 async function connectorDiagnostics(url) {
   const endpoint = new URL("/wp-json/seogrow/v1/taxonomy-diagnostics", site.origin);
   endpoint.searchParams.set("url", url);
-  const response = await fetch(endpoint, {
+  const response = await pinnedHttpsFetch(endpoint, {
     headers: { authorization: auth, accept: "application/json", "user-agent": "SeoGrowAI/1.4-taxonomy-diagnostics" },
     redirect: "manual",
     signal: AbortSignal.timeout(30_000),
