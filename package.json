@@ -15,7 +15,8 @@
     "test": "node --test src/*.test.js",
     "test:launcher": "zsh -n AVVIA.command",
     "test:wordpress-taxonomy-e2e": "node scripts/wordpress-taxonomy-e2e-cache-aware.mjs",
-    "test:wordpress-elementor-e2e": "node scripts/wordpress-elementor-e2e.mjs"
+    "test:wordpress-elementor-e2e": "node scripts/wordpress-elementor-e2e.mjs",
+    "test:wordpress-role-e2e": "node scripts/wordpress-role-e2e.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.1.1",
@@ -34,7 +35,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint": "10.9.1",
-    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-hooks": "6.1.1",
     "eslint-plugin-react-refresh": "0.5.6",
     "fake-indexeddb": "^6.2.5",
     "globals": "17.12.0",
