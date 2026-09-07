@@ -39,6 +39,25 @@ function privateAddress(address) {
     /^fe[89ab]/.test(value) || /^fe[c-f]/.test(value) || value.startsWith("ff") || value.startsWith("2001:db8:");
 }
 
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
+function stripWordPressSystemPath(pathname) {
+  const original = String(pathname || "");
+  const lower = original.toLowerCase();
+  let cut = original.length;
+  for (const marker of ["/wp-admin", "/wp-json"]) {
+    const index = lower.indexOf(marker);
+    if (index < 0) continue;
+    const end = index + marker.length;
+    if (end === original.length || original[end] === "/") cut = Math.min(cut, index);
+  }
+  return trimTrailingSlashes(original.slice(0, cut));
+}
+
 async function safeBase(input) {
   const url = new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("WordPress deve usare HTTPS.");
@@ -47,7 +66,7 @@ async function safeBase(input) {
   const addresses = await dns.lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
-  url.pathname = `${url.pathname.replace(/\/(?:wp-admin|wp-json)(?:\/.*)?$/i, "").replace(/\/+$/, "")}/`;
+  url.pathname = `${stripWordPressSystemPath(url.pathname)}/`;
   url.search = "";
   url.hash = "";
   return url;
