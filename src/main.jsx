@@ -9,8 +9,19 @@ async function exposeWorkspaceCrashHarnessInDev() {
   console.warn("SeoGrow QA crash harness armato. Esegui seoGrowQaCrashRestore() dalla console DevTools; non usare Importa backup per questa prova.");
 }
 
+async function exposeMasterQaInDev() {
+  if (!import.meta.env.DEV) return;
+  const params = new URLSearchParams(globalThis.location?.search || "");
+  if (params.get("qaMaster") !== "1") return;
+  const { installMasterQaPanel, runMasterQa } = await import("./masterQaHarness.js");
+  globalThis.seoGrowMasterQa = runMasterQa;
+  installMasterQaPanel();
+  console.warn("SeoGrow Master QA attivo. Usa il pulsante 'Esegui collaudo generale' oppure seoGrowMasterQa() dalla Console.");
+}
+
 initializeWorkspace().then(async () => {
   await exposeWorkspaceCrashHarnessInDev();
+  await exposeMasterQaInDev();
   return import("./appMain.jsx");
 }).catch(error => {
   const root = document.getElementById("root");
