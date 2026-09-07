@@ -103,7 +103,7 @@ async function wpPost(path, body) {
       headers: { authorization: auth(), accept: "application/json", "content-type": "application/json", "user-agent": "SeoGrowAI/1.4-rankmath-doctor" },
       body: JSON.stringify(body),
       redirect: "manual",
-      signal: AbortSignal.timeout(30_000),
+      timeout: 30_000, signal: AbortSignal.timeout(30_000),
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error(`${path}: redirect inatteso.`);
     return jsonResponse(response, path);
