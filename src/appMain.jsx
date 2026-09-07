@@ -16,6 +16,7 @@ import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import './styles.css';
 import './responsiveIntegrity.css';
+import './reflowNavigationFix.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
