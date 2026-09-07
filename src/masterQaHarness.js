@@ -14,7 +14,7 @@ export const MANUAL_MASTER_QA_CHECKS = [
   "WordPress CAS/stale/rollback su sito reale",
   "Lost-response recovery su nuova sessione",
   "Elementor save/render/cache/rollback su staging",
-  "Agent doppio avvio/cancel/approvazione stale da UI",
+  "Agent doppio avvio UI/disabled-state da browser reale",
   "Responsive desktop/tablet/mobile, zoom 200% e tastiera",
   "Security environment con ruoli WordPress e redirect controllati",
 ];
