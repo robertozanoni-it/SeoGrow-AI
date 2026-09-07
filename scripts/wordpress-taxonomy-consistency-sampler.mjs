@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { pinnedHttpsFetch } from "../server/pinnedHttpsFetch.js";
 
 const appUrl = String(process.env.SEOGROW_E2E_APP_URL || "http://127.0.0.1:5176").replace(/\/+$/, "");
 const siteUrl = String(process.env.SEOGROW_WP_SITE_URL || "").trim();
@@ -128,7 +129,7 @@ async function connectorDiagnostics(site, url) {
   endpoint.searchParams.set("url", url);
   const auth = `Basic ${Buffer.from(`${username}:${applicationPassword}`, "utf8").toString("base64")}`;
   return withTransientRetry("Connector taxonomy-diagnostics", async () => {
-    const response = await fetch(endpoint, {
+    const response = await pinnedHttpsFetch(endpoint, {
       headers: { authorization: auth, accept: "application/json", "user-agent": "SeoGrowAI/taxonomy-consistency-sampler" },
       redirect: "manual",
       signal: AbortSignal.timeout(30_000),
