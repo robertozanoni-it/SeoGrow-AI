@@ -2688,3 +2688,14 @@ td:first-child {
 
 .agent-help { margin: 0 0 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .agent-form-field .agent-help { margin-bottom: 0; }
+
+.feature-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 14px 0; }
+.feature-toolbar label, .command-dialog label { display: grid; gap: 6px; min-width: 0; }
+.feature-toolbar input, .feature-toolbar select { max-width: 100%; min-height: 44px; }
+.workspace-tools { padding: 0 24px; }
+.command-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #dbe3ed; border-radius: 16px; padding: 24px; color: #10213d; }
+.command-dialog::backdrop { background: #10213d99; }
+.command-dialog input { width: 100%; }
+.command-results { display: grid; gap: 8px; margin: 12px 0; }
+.command-results button { text-align: left; justify-content: start; min-height: 44px; }
+@media (max-width: 600px) { .feature-toolbar > label { width: 100%; } .workspace-tools { padding: 0 16px; } }
