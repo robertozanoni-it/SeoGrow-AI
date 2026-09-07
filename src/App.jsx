@@ -1,3 +1,5 @@
+import EditorialCalendar from "./EditorialCalendar.jsx";
+import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
@@ -75,6 +77,7 @@ import {
 
 const nav = [
   ["Panoramica", Home],
+  ["Centro progetto", ClipboardCheck],
   ["Clienti", Users],
   ["Audit SEO", CircleGauge],
   ["Storico", CalendarDays],
@@ -2539,6 +2542,8 @@ function ContentPage({
   onSaveTopicalMap,
   draft,
   onSaveDraft,
+  editorialSchedule,
+  onSaveSchedule,
   onDataForSeoUsage,
 }) {
   const editorRef = useRef(null);
@@ -2715,6 +2720,7 @@ function ContentPage({
         title={`Piano editoriale — ${client.name}`}
         text="Priorità mensili, brief e bozze basati sui dati del progetto."
       />
+      <EditorialCalendar plan={plan} saved={editorialSchedule} onSave={onSaveSchedule} clientId={client.id} />
       <TopicalMapPanel
         dataset={dataset}
         existingContent={(analysis?.pages || []).flatMap((page) => [
@@ -4663,6 +4669,7 @@ export default function App() {
       tasks: clientTasks,
       analysis: latestOf(normalizeAnalysisHistory(analyses[clientId])),
       geo: geoData[clientId],
+      template: preferences.projectSettings?.[clientId]?.report,
     });
   };
   const completeSiteAnalysis = async (analysis) => {
@@ -4748,7 +4755,10 @@ export default function App() {
     : [];
   const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
   const searchResults = allSearchResults.slice(0, 10);
+  const projectSettings = preferences.projectSettings?.[selectedClient] || {};
+  const saveProjectSettings = settings => setPreferences(current => ({ ...current, projectSettings: { ...current.projectSettings, [selectedClient]: settings } }));
   const content = (() => {
+    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)} />;
     if (page === "Panoramica")
       return (
         <Dashboard
@@ -4895,6 +4905,8 @@ export default function App() {
               [selectedClient]: result,
             }))
           }
+          editorialSchedule={projectSettings.editorialSchedule}
+          onSaveSchedule={editorialSchedule => saveProjectSettings({ ...projectSettings, editorialSchedule })}
           draft={contentDrafts[selectedClient]}
           onSaveDraft={saveContentDraft}
           onDataForSeoUsage={(monthlyCost) =>

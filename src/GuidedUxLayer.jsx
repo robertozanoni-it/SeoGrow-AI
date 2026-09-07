@@ -36,6 +36,7 @@ const groups = [
     label: "Progetto",
     items: [
       ["Panoramica", CircleGauge],
+      ["Centro progetto", ClipboardCheck],
       ["Clienti", Users],
       ["Storico", History, true],
     ],

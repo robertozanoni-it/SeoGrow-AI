@@ -1,0 +1,12 @@
+import { useState } from "react";
+import { calendarDays, planItems, scheduleItem } from "./projectPlanning.js";
+export default function EditorialCalendar({ plan, saved, onSave, clientId }) {
+  const [month, setMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; });
+  const [message, setMessage] = useState("");
+  const items = planItems(plan, saved);
+  const move = (item, date) => { try { onSave(scheduleItem(saved, item, date)); setMessage(date ? `Scadenza aggiornata: ${item.title}, ${date}` : `Scadenza rimossa: ${item.title}`); } catch (error) { setMessage(error.message); } };
+  return <section className="panel planning-panel"><h2>Calendario editoriale</h2><p>Trascina un’attività su un giorno oppure imposta la data dal suo campo. Le scadenze organizzano il lavoro; non pubblicano contenuti.</p><label>Mese<input type="month" min="1900-01" max="2100-12" value={month} onChange={event => setMonth(event.target.value)} /></label><p role="status">{message}</p>
+    <details open><summary>Attività e scadenze ({items.length})</summary><div className="calendar-items">{items.map(item => <article key={item.id} draggable onDragStart={event => event.dataTransfer.setData("application/x-seogrow-editorial", JSON.stringify({ clientId, id: item.id }))}><strong>{item.title}</strong><label>Scadenza<input type="date" aria-label={`Scadenza ${item.title}`} value={item.date || ""} onChange={event => move(item, event.target.value)} /></label></article>)}</div>{!items.length && <p>Importa Search Console o esegui un’analisi per ottenere suggerimenti editoriali.</p>}</details>
+    <div className="editorial-calendar">{calendarDays(month).map(day => <div className="calendar-day" key={day} aria-label={day} onDragOver={event => { if ([...event.dataTransfer.types].includes("application/x-seogrow-editorial")) event.preventDefault(); }} onDrop={event => { event.preventDefault(); try { const data = JSON.parse(event.dataTransfer.getData("application/x-seogrow-editorial")); const item = data.clientId === clientId && items.find(entry => entry.id === data.id); if (item) move(item, day); } catch { setMessage("Trascina un’attività di questo progetto."); } }}><time dateTime={day}>{new Date(`${day}T12:00:00`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric" })}</time>{items.filter(item => item.date === day).map(item => <p key={item.id}>{item.title}</p>)}</div>)}</div>
+  </section>;
+}
