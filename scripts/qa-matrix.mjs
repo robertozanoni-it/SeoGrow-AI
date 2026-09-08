@@ -1,4 +1,5 @@
 export const qaMatrix = [
+  ["FIELDS-ASSOCIATION", "Task manual association", "P1", "E2E Browser / Fields", "Search task", "Confirm, save, reload, revoke", "Explicit association retained then revoked", "full"],
   ["FIELDS-GOOGLE-IMPORT", "GOOGLE-IMPORT controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
   ["FIELDS-AUDIT-MODAL", "AUDIT-MODAL controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
 

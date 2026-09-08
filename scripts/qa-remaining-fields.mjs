@@ -30,7 +30,8 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
   await record('FIELDS-GEO',async()=>{
     await clickSidebar('GEO AI'); await waitFor("document.querySelector('.geo-questions textarea')",'GEO questions');
     await evaluate("(() => {const e=document.querySelector('.geo-questions textarea'); e.focus(); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'QA question one?\\nQA question two?'); e.dispatchEvent(new Event('input',{bubbles:true}));})()");
-    await evaluate("document.querySelector('.geo-questions textarea').blur()");
+    await waitFor("document.querySelector('.geo-question-actions span')?.textContent.includes('2/20')",'GEO React state updated before blur');
+    await evaluate("document.querySelector('.geo-questions textarea').focus();document.querySelector('.geo-questions textarea').blur()");
     await saved('seogrow-geo-v1',"value?.[9001]?.questions?.length===2");
     await revisit('GEO AI'); await waitFor("document.querySelector('.geo-questions textarea')?.value.includes('QA question two?')",'GEO questions retained');
     await evaluate("window.confirm = m => m.startsWith('Inviare a OpenAI 2 domande')");
@@ -167,6 +168,23 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
     await waitFor("document.querySelector('[role=dialog]').textContent.includes('QA modal rejected')",'Modal error');
     await evaluate("document.querySelector('[role=dialog] button[aria-label=\"Chiudi finestra\"]').click()");
     await waitFor("!document.querySelector('[role=dialog]')",'Modal closed');
+  });
+
+  await record('FIELDS-ASSOCIATION',async()=>{
+    await clickSidebar('Task');await waitFor("document.querySelector('.task-title-button')",'Tasks');
+    await evaluate("[...document.querySelectorAll('.task-title-button')].find(e=>e.textContent.includes('Ottimizza')).click()");
+    await waitFor("document.querySelector('.task-editor')",'Search task');
+    await set('.task-editor','Pagina da correggere o verificare','https://example.com/yoga/');
+    await waitFor("document.querySelector('.task-editor input[type=checkbox]')",'Manual association');
+    await evaluate("(()=>{const e=document.querySelector('.task-editor input[type=checkbox]');if(!e.checked)e.click();})()");
+    await waitFor("document.querySelector('.task-editor input[type=checkbox]').checked",'Association confirmed');
+    await submit('.task-editor');
+    await saved('seogrow-tasks-v2',"value?.some(t=>t.query==='yoga' && t.associationStatus==='verified-manual')");
+    await revisit('Task');
+    await evaluate("[...document.querySelectorAll('.task-title-button')].find(e=>e.textContent.includes('Ottimizza')).click()");
+    await waitFor("document.querySelector('.task-editor input[type=checkbox]')?.checked",'Association survives reload');
+    await evaluate("document.querySelector('.task-editor input[type=checkbox]').click()");await submit('.task-editor');
+    await saved('seogrow-tasks-v2',"value?.some(t=>t.query==='yoga' && t.associationStatus==='suggested')");
   });
   await record('FIELDS-ZIP',async()=>{
     await clickSidebar('Integrazioni');await waitFor("document.querySelector('input[type=file][accept*=zip]')",'ZIP picker');
