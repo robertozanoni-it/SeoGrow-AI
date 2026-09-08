@@ -15,7 +15,7 @@ test("la chiusura dei problemi è responsabilità del runtime nativo, non di pat
 });
 
 test("la selezione del problema attivo deriva dai dati e non nasconde righe via DOM", () => {
-  assert.match(host, /Problema da correggere/);
+  assert.match(host, /Problema da esaminare singolarmente/);
   assert.match(host, /audit-issue-select/);
   assert.match(host, /activeEntries/);
   assert.match(host, /disabled=\{verifiedKeys\.has\(entry\.key\)\}/);

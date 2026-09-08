@@ -270,6 +270,7 @@ export default function CorrectionsWorkspace() {
         </div>
       </div>
 
+      <section className="panel corrections-guide"><h2>Come verificare una correzione</h2><ol><li>Trova il problema nell’ultimo gruppo di modifiche o in “Tutto lo storico”.</li><li>Premi “Riverifica” e leggi l’esito nella scheda.</li><li>Se risulta verificato, puoi chiudere il task collegato. Se il problema persiste, apri la pagina e controlla il risultato.</li><li>Per tornare indietro, apri “Vedi Prima / Dopo” e usa “Ripristina versione precedente”, quando disponibile.</li></ol></section>
       <section className="corrections-logic panel">
         <div><span>1</span><strong>Salvato in WordPress</strong><small>REST conferma la scrittura</small></div>
         <i>→</i>
@@ -288,7 +289,7 @@ export default function CorrectionsWorkspace() {
       </div>
 
       <section className="panel corrections-security">
-        <div><ShieldCheck /><span><strong>Rollback WordPress stale-safe</strong><small>Prima di ripristinare, SeoGrow verifica che i campi live siano ancora uguali allo snapshot applicato. Modifiche successive bloccano il rollback.</small></span></div>
+        <div><ShieldCheck /><span><strong>Ripristino della versione precedente</strong><small>Per ripristinare inserisci la password applicativa qui sotto. SeoGrow controlla che i contenuti non siano stati modificati dopo la correzione; in quel caso il ripristino viene bloccato.</small></span></div>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" aria-label="Password applicativa WordPress del cliente selezionato" />
       </section>
 

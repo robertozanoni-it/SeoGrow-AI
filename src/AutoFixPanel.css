@@ -12,3 +12,53 @@
 .correction-explanation { padding: 12px; border-radius: 10px; background: #f8fafc; color: #172b4d; }
 .correction-explanation h4 { margin: 0 0 8px; }
 @media print { .auto-fix-list { max-height: none; overflow: visible; display: block; } .auto-fix-item { break-inside: avoid; margin-bottom: 10px; } }
+
+/* Section colors identify the task; text labels communicate its status. */
+.project-setup.panel { background: #eef5ff; border-color: #bdd3ee; }
+.project-monitoring.panel { background: #fff7e8; border-color: #ebd2a2; }
+.project-report.panel { background: #f5f0ff; border-color: #d9c8ed; }
+.workflow-category { display: block; color: #334155; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+.workflow-instructions { padding-left: 22px; color: #334155; line-height: 1.65; }
+.workflow-instructions li + li { margin-top: 6px; }
+.correction-route { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; padding: 0; gap: 8px; margin: 20px 0; }
+.correction-route li { display: flex; align-items: center; gap: 8px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px 8px; font-weight: 700; color: #172b4d; }
+.correction-route li span { font-size: 12px; border: 1px solid currentColor; border-radius: 50%; width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0; }
+.correction-route li:nth-child(1), .workflow-source { background: #eef5ff; }
+.correction-route li:nth-child(2), .workflow-selection { background: #f5f0ff; }
+.correction-route li:nth-child(3) { background: #fff7e8; }
+.correction-route li:nth-child(4) { background: #ecf9fc; }
+.correction-route li:nth-child(5), .workflow-verify { background: #edf9f1; }
+.workflow-step { padding: 20px; margin: 18px 0; border: 1px solid #cbd5e1; border-left: 4px solid #6684b5; border-radius: 12px; color: #172b4d; }
+.workflow-step h3 { margin-top: 0; }
+.workflow-step p, .wp-live-remediation-v2 p, .audit-unified-credentials span { color: #334155; line-height: 1.6; }
+.workflow-selection { border-left-color: #8b5cb5; }
+.workflow-verify { border-left-color: #39865a; }
+.auto-fix-item { background: #fff; }
+.auto-fix-item.manual { background: #fff8ed; cursor: default; }
+.auto-fix-item:has(input:checked) { border-color: #7c3fa1; box-shadow: inset 3px 0 #7c3fa1; }
+.workflow-diagnostics { margin: 14px 0; }
+.auto-fix-slot .audit-unified-remediation { padding: 0; border: 0; box-shadow: none; background: transparent; }
+.audit-unified-remediation .audit-unified-credentials { background: #fff7e8; border: 1px solid #ebd2a2; border-left: 4px solid #b98723; }
+.audit-unified-remediation .wp-live-remediation-v2 { background: #ecf9fc; border: 1px solid #b9dce3; border-left: 4px solid #388696; }
+.wp-live-remediation-v2 .wp-live-preview-row { background: #fff; border: 1px solid #bdcbd7; padding: 18px; }
+.wp-live-remediation-v2 .wp-live-preview-row.applied, .wp-live-remediation-v2 .wp-live-preview-row.resolved { background: #edf9f1; }
+.wp-live-remediation-v2 .wp-live-preview-row.ownership_error, .wp-live-remediation-v2 .wp-live-preview-row.auth_error { background: #fff4ed; }
+.wp-live-remediation-v2 .correction-explanation p { color: #334155; }
+.wp-live-remediation-v2 .wp-live-diff > section:first-child { background: #f1f5f9; }
+.wp-live-remediation-v2 .wp-live-diff > section:nth-child(2) { background: #edf9f1; }
+@media (max-width: 900px) { .correction-route { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .correction-route { grid-template-columns: 1fr 1fr; }
+  .correction-route li { font-size: 13px; }
+  .workflow-step { padding: 14px; }
+  .auto-fix-panel .feature-toolbar button { width: 100%; }
+  .wp-live-remediation-v2 .wp-live-preview-row { padding: 12px; }
+}
+.workflow-pending { border: 1px dashed #94a3b8; border-radius: 12px; padding: 16px; color: #334155; }
+.auto-fix-panel .workflow-step p, .planning-panel .workflow-pending p,
+.audit-unified-remediation .wp-live-remediation-v2 p { color: #334155; }
+.workflow-step, .auto-fix-panel, .audit-unified-credentials, .wp-live-remediation-v2, .wp-live-preview-row { scroll-margin-top: 96px; }
+.wp-live-remediation-v2 .wp-live-apply-one { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 12px 16px; margin-top: 14px; border: 1px solid #12683b; border-radius: 10px; background: #147d48; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.wp-live-remediation-v2 .wp-live-apply-one:disabled { opacity: .55; cursor: not-allowed; }
+.wp-live-remediation-v2 .wp-live-apply-one:focus-visible { outline: 3px solid #172b4d; outline-offset: 3px; }
+@media (max-width: 600px) { .wp-live-remediation-v2 .wp-live-apply-one { width: 100%; } }
