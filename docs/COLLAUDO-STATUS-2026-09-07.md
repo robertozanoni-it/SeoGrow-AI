@@ -208,3 +208,12 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - Correzione repository: dashboard usa lo stesso gruppo filtrato (almeno 10 impressioni, massimo 50) dell'elenco, con criteri espliciti. Le opportunità usano dati query–pagina quando disponibili e distinguono suggerimenti da associazioni documentate. Le nuove attività salvano sourceUrl, query e provenienza; riconoscono task search già presenti e vecchie destinazioni manuali equivalenti, senza sovrascrivere note o eliminare duplicati storici.
 - Validazione locale della correzione: lint, build, 609/609 test PASS. La verifica manuale di questa nuova correzione resta da eseguire sul Mac dopo aggiornamento.
 - Nessuna scrittura WordPress eseguita in questo batch. G07 shared/staging resta PARTIAL; il precedente collaudo minimo dei ruoli in staging non equivale a una matrice di scritture live.
+
+### Stato azione Opportunità dopo reload — 8 settembre 2026
+
+- PR #66 merged, gate #728 e #729 PASS, ma il collaudo utente ha rilevato che il pulsante restava "Crea task": il controllo duplicati era solo nel gestore del clic.
+- La riga ora consulta i task del progetto con lo stesso matching della creazione e mostra "Apri task" quando trova un'attività attiva; apre il dettaglio del task esistente senza nascondere l'opportunità.
+- Test browser CI aggiunto: fixture yoga senza task, creazione, cambio immediato del pulsante, apertura/salvataggio, flush della persistenza, reload, "Apri task", riapertura e verifica di una sola attività con sourceUrl conservato.
+- Lint, build e 609 test locali PASS; esito del nuovo scenario browser demandato al Release Gate della PR. Nessuna chiamata Google o scrittura WordPress necessaria per questa fixture.
+
+- Gate #730: fixture GSC incompleta; #731: reload del test prima del salvataggio differito. Fixture completata e attesa esplicita della persistenza aggiunta. In #732 lo scenario browser completo passa, ma il cleanup Chrome fallisce con ENOTEMPTY; aggiunti retry limitati per la rimozione del solo profilo temporaneo CI.
