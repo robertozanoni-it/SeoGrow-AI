@@ -1,4 +1,7 @@
 export const qaMatrix = [
+  ["FIELDS-GOOGLE-IMPORT", "GOOGLE-IMPORT controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
+  ["FIELDS-AUDIT-MODAL", "AUDIT-MODAL controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
+
   ["FIELDS-AGENT", "AGENT controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-CALENDAR", "CALENDAR controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-GEO", "GEO controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],

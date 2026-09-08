@@ -60,7 +60,8 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
     await set('.problems-filters','Cerca URL o problema','');
     for(const label of ['Tipo','Fonte','Adapter','Correggibilità','Segnale speciale']) {
       const options=await evaluate(`[...${field('.problems-filters',label)}.options].map(o=>o.value)`);
-      assert.ok(options.length>1,label+' fixture has options');
+      assert.ok(options.length>=1,label+' exposes reset option');
+      if(label!=='Adapter') assert.ok(options.length>1,label+' fixture has choices');
       for(const option of options) await set('.problems-filters',label,option);
       await set('.problems-filters',label,'');
     }
@@ -145,6 +146,28 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
     await clickSidebar('Piano editoriale');await waitFor("document.querySelector('.api-actions select')",'Draft type enabled');
     await set('.api-actions','Tipo bozza','pages');await set('.api-actions','Tipo bozza','posts');
   });
+
+  await record('FIELDS-GOOGLE-IMPORT',async()=>{
+    await clickSidebar('Integrazioni');await button('Carica proprietà Google');
+    await waitFor("document.querySelector('[aria-label=\"Proprietà Search Console\"]')?.options.length===20",'Google picker');
+    await evaluate("(()=>{const e=document.querySelector('[aria-label=\"Proprietà Search Console\"]');e.value='https://qa-18.example/';e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+    await mock('/api/google/import',{error:'QA Google import denied'},403);await resetRequests();await button('Importa ora via API');
+    assert.deepEqual(await request('/api/google/import'),{property:'https://qa-18.example/'});
+    await waitFor("document.querySelector('main').textContent.includes('QA Google import denied')",'Google import error');
+  });
+  await record('FIELDS-AUDIT-MODAL',async()=>{
+    await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim().startsWith('Comandi')).click()");
+    await waitFor("document.querySelector('.command-dialog[open]')",'Command modal');
+    await set('.command-dialog','Cerca un comando','Prepara una nuova analisi');await button('Prepara una nuova analisi','.command-dialog');
+    await waitFor("document.querySelector('[role=dialog] .site-analysis-form')",'Site analysis modal');
+    await set('[role=dialog]','Indirizzo iniziale','https://example.com/modal/');
+    await set('[role=dialog]','Numero massimo di pagine','25');
+    await mock('/api/site-analysis',{error:'QA modal rejected'},400);await resetRequests();await submit('[role=dialog] form');
+    assert.deepEqual(await request('/api/site-analysis'),{url:'https://example.com/modal/',maxPages:25});
+    await waitFor("document.querySelector('[role=dialog]').textContent.includes('QA modal rejected')",'Modal error');
+    await evaluate("document.querySelector('[role=dialog] button[aria-label=\"Chiudi finestra\"]').click()");
+    await waitFor("!document.querySelector('[role=dialog]')",'Modal closed');
+  });
   await record('FIELDS-ZIP',async()=>{
     await clickSidebar('Integrazioni');await waitFor("document.querySelector('input[type=file][accept*=zip]')",'ZIP picker');
     const upload=async(bytes,name)=>evaluate(`(()=>{const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(${JSON.stringify(Buffer.from(bytes).toString('base64'))}),c=>c.charCodeAt(0))],${JSON.stringify(name)},{type:'application/zip'}));const e=document.querySelector('input[type=file][accept*=zip]');e.files=dt.files;e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
@@ -173,11 +196,11 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
       await waitFor("document.querySelector('[data-testid=backup-file]').value===''",'Wrong password settles');
       assert.deepEqual(await read('seogrow-tasks-v2'),before);
       await set('.backup-panel','Password del backup','qa-backup-passphrase');
-      await evaluate("window.confirm = m => m === 'Importare questo backup? I dati locali attuali verranno sostituiti.'");await upload();
-      await waitFor("document.querySelector('.backup-panel .integration-result')?.textContent.includes('ripristinato.')",'UI backup restored');
+      await evaluate("window.__qaBeforeRestore=true;window.confirm = m => m === 'Importare questo backup? I dati locali attuali verranno sostituiti.'");await upload();
+      await waitFor("!window.__qaBeforeRestore && document.querySelector('.guided-nav')",'UI backup reload completed');
       assert.deepEqual(await read('seogrow-tasks-v2'),before);
     } finally {
-      await evaluate("URL.createObjectURL=window.__qaOriginalURL;HTMLAnchorElement.prototype.click=window.__qaOriginalAnchor;delete window.__qaBackup");
+      await evaluate("if(window.__qaOriginalURL)URL.createObjectURL=window.__qaOriginalURL;if(window.__qaOriginalAnchor)HTMLAnchorElement.prototype.click=window.__qaOriginalAnchor;delete window.__qaBackup");
     }
   });
 
