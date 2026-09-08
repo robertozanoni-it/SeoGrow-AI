@@ -13,6 +13,18 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: seogrow-test-only
+          MYSQL_DATABASE: seogrow_qa
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pseogrow-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -44,6 +56,10 @@ jobs:
           php scripts/test-rankmath-journal.php
           php scripts/test-atomic-write.php
           php scripts/test-wordpress-inventory.php
+          php scripts/test-elementor-text-write.php
+        env:
+          SEOGROW_TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=seogrow_qa
+          SEOGROW_TEST_MYSQL_PASSWORD: seogrow-test-only
 
       - name: Build and verify complete Connector package
         run: node scripts/package-connector.mjs
@@ -51,8 +67,8 @@ jobs:
       - name: Upload complete Connector
         uses: actions/upload-artifact@v6
         with:
-          name: seogrow-connector-1.3.4
-          path: artifacts/seogrow-connector-1.3.4.zip
+          name: seogrow-connector-1.3.5
+          path: artifacts/seogrow-connector-1.3.5.zip
 
       - name: Install zsh for macOS launcher syntax check
         run: |

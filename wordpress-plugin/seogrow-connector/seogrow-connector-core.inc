@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SEOGROW_CONNECTOR_VERSION = '1.3.4';
+const SEOGROW_CONNECTOR_VERSION = '1.3.5';
 
 function seogrow_connector_can_edit_meta($allowed, $meta_key, $object_id) {
     $post_id = absint($object_id);
@@ -93,6 +93,7 @@ function seogrow_connector_register_meta() {
 add_action('init', 'seogrow_connector_register_meta', 99);
 
 function seogrow_connector_clear_elementor_cache($meta_id, $post_id, $meta_key) {
+    if (isset($GLOBALS['seogrow_elementor_text_saving_id']) && (int) $GLOBALS['seogrow_elementor_text_saving_id'] === (int) $post_id) { return; }
     if ($meta_key !== '_elementor_data') {
         return;
     }
