@@ -50,6 +50,7 @@ export async function runScheduledAudit({ locks, read, save, transport, now = Da
       if (signal?.aborted) throw new Error("Controllo interrotto");
       const response = await transport("/api/audit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: client.url }), signal });
       const data = await response.json();
+      if (signal?.aborted) throw new Error("Controllo interrotto");
       if (!response.ok) throw new Error(data.error || `Audit HTTP ${response.status}`);
       const snapshot = auditSnapshot(data, now());
       const baseline = previous.history?.[0];
@@ -57,6 +58,7 @@ export async function runScheduledAudit({ locks, read, save, transport, now = Da
     } catch (error) { result = { ...running, status: "error", error: String(error.message || "Audit non riuscito").slice(0, 500) }; }
     const latest = await read();
     if (latest.generation !== source.generation || !latest.clients.some(item => item.id === client.id && item.url === client.url)) return { skipped: true };
+    if (signal?.aborted && result.status === "success") result = { ...running, status: "error", error: "Controllo interrotto" };
     await save({ ...latest.records, [client.id]: result });
     return result;
   });
@@ -68,6 +70,6 @@ export function normalizeMonitorRecords(value) {
     const history = (Array.isArray(item.history) ? item.history : []).flatMap(snapshot => {
       try { const time = Date.parse(snapshot?.fetchedAt); return Number.isFinite(time) ? [auditSnapshot(snapshot, time)] : []; } catch { return []; }
     }).slice(0, 12);
-    return [id, { requestedUrl: item.requestedUrl, lastAttemptAt: String(item.lastAttemptAt || ""), status: ["success", "running", "error"].includes(item.status) ? item.status : "error", error: String(item.error || "").slice(0, 500), completedAt: history[0]?.fetchedAt, history, changes: history[0] ? auditChanges(history[0], history[1]) : undefined }];
+    return [id, { requestedUrl: item.requestedUrl, lastAttemptAt: String(item.lastAttemptAt || ""), status: item.status === "success" && !history.length ? "error" : ["success", "running", "error"].includes(item.status) ? item.status : "error", error: item.status === "success" && !history.length ? "Storico del controllo non valido: risultato non verificabile." : String(item.error || "").slice(0, 500), completedAt: history[0]?.fetchedAt, history, changes: history[0] ? auditChanges(history[0], history[1]) : undefined }];
   }));
 }

@@ -4,3 +4,9 @@ import { calendarDays, validDate, scheduleItem, planItems, reportTemplate } from
 test("calendar handles leap years and rejects rolled-over dates", () => { assert.equal(calendarDays("2028-02").length, 29); assert.equal(calendarDays("2026-02").length, 28); assert.equal(validDate("2026-02-30"), false); assert.deepEqual(calendarDays("2026-13"), []); });
 test("editorial schedule survives changing recommendations and supports removal", () => { const item = { id: "a", title: "A" }; const saved = scheduleItem([], item, "2026-09-08"); assert.equal(planItems([], saved)[0].date, "2026-09-08"); assert.equal(planItems([{ ...item, title: "Updated" }], saved)[0].date, "2026-09-08"); assert.deepEqual(scheduleItem(saved, item, ""), []); assert.throws(() => scheduleItem(saved, item, "2026-02-30")); });
 test("report configuration limits free text and rejects CSS injection", () => { const config = reportTemplate({ color: "red;display:none", title: "a".repeat(500), sections: { tasks: false, geo: false, links: false, queries: false, issues: false } }); assert.equal(config.color, "#16a05d"); assert.equal(config.title.length, 100); assert.equal(config.sections.tasks, true); });
+test("malformed imported calendar entries cannot crash rendered cards", () => {
+  const items = planItems([null, { id: "bad", title: {} }], [null, { id: "bad", title: {}, date: "2026-09-08" }, { id: "ok", title: "Valid", date: "2026-09-08" }]);
+  assert.equal(items.length, 1); assert.equal(items[0].id, "ok");
+  assert.deepEqual(scheduleItem([null], { id: "a", title: "A" }, ""), []);
+  assert.throws(() => scheduleItem([], { id: "a", title: {} }, "2026-09-08"));
+});

@@ -2977,9 +2977,16 @@ app.use((error, _req, res, _next) => {
 const isDirectExecution =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectExecution)
-  app.listen(port, host, () =>
-    console.log(`seoGrow API locale disponibile su http://${host}:${port}`),
-  );
+  app.listen(port, host, (error) => {
+    if (error) {
+      console.error(error.code === "EADDRINUSE"
+        ? `Avvio API non riuscito: porta ${port} già occupata. Chiudi la precedente sessione SeoGrow prima di riavviare.`
+        : `Avvio API non riuscito: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`seoGrow API locale disponibile su http://${host}:${port}`);
+  });
 
 export {
   app,

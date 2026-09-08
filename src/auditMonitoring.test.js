@@ -19,3 +19,13 @@ test("changed project or restored workspace discards response", async () => { le
 test("disabled, credentialed and future-dated schedules never run", () => { assert.equal(dueAudit([client], {}, {}, time), undefined); assert.equal(dueAudit([{ ...client, url: "https://user:pass@example.com" }], settings, {}, time), undefined); assert.equal(dueAudit([client], settings, { 1: { requestedUrl: client.url, lastAttemptAt: "2030-01-01" } }, time), undefined); });
 test("freshness rejects future dates and comparisons require the same page", () => { assert.equal(freshness("2030-01-01", 7, time).state, "missing"); assert.equal(freshness("2026-09-01T12:00:00Z", 7, time).state, "stale"); assert.equal(auditChanges(result).baseline, true); assert.equal(auditChanges(result, { ...result, url: "https://other.com" }).baseline, true); const changes = auditChanges(result, { ...result, score: 95, issues: [{ label: "Missing title", severity: "alta" }] }); assert.equal(changes.resolved.length, 1); assert.equal(changes.scoreDelta, 5); });
 test("restored monitor data cannot inject malformed history or changes", () => { const normalized = normalizeMonitorRecords({ 1: { requestedUrl: client.url, history: [null, {}], changes: "bad" }, x: {} }); assert.deepEqual(normalized[1].history, []); assert.equal(normalized[1].changes, undefined); assert.equal(normalized.x, undefined); });
+test("cancellation during response parsing cannot publish success", async () => {
+  const controller = new AbortController();
+  const f = fixture({ signal: controller.signal, transport: async () => ({ ok: true, json: async () => { controller.abort(); return result; } }) });
+  const record = await runScheduledAudit(f.deps);
+  assert.equal(record.status, "error"); assert.equal(record.changes, undefined);
+});
+test("restored success without a valid sample is downgraded to error", () => {
+  const record = normalizeMonitorRecords({ 1: { requestedUrl: client.url, status: "success", history: [] } })[1];
+  assert.equal(record.status, "error"); assert.equal(record.completedAt, undefined); assert.match(record.error, /non verificabile/);
+});
