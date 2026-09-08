@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { savedViews } from "./productivity.js";
 
-export function SavedViews({ views, filters, onApply, onSave, label }) {
+export function SavedViews({ views, filters, onApply, onSave, label, savedViewId, onSelectView }) {
   const [name, setName] = useState("");
   const items = savedViews(views);
   return <div className="feature-toolbar" aria-label={`Viste salvate ${label}`}>
-    <label>Vista salvata<select value="" onChange={event => { const view = items.find(item => item.id === event.target.value); if (view) onApply(view.filters); }}><option value="">Scegli una vista…</option>{items.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>
+    <label>Vista salvata<select value={items.some(view => view.id === savedViewId) ? savedViewId : ""} onChange={event => { onSelectView(event.target.value); const view = items.find(item => item.id === event.target.value); if (view) onApply(view.filters); }}><option value="">Scegli una vista…</option>{items.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>
     <label>Nome nuova vista<input maxLength={60} value={name} onChange={event => setName(event.target.value)} /></label>
     <button className="secondary" disabled={!name.trim() || items.length >= 30} onClick={() => { onSave([...items, { id: crypto.randomUUID(), name: name.trim(), filters }]); setName(""); }}>Salva filtri</button>
     {items.length > 0 && <details><summary>Gestisci viste ({items.length}/30)</summary>{items.map(view => <p key={view.id}>{view.name} <button className="secondary" aria-label={`Elimina vista ${view.name}`} onClick={() => onSave(items.filter(item => item.id !== view.id))}>Elimina</button></p>)}</details>}
