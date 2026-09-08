@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { workspaceStorage } from './workspaceDatabase.js';
 import { normalizeAnalysisHistory } from './platform.js';
 import { AUTO_FIX_LIMIT, buildAutoFixPlan } from './autoFixPlan.js';
+import WordPressConnectionControl from './WordPressConnectionControl.jsx';
 import RemediationHost from './RemediationHost.jsx';
 import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2.jsx';
 import './AutoFixPanel.css';
@@ -49,13 +50,13 @@ export default function AutoFixPanel({ client, onNavigate }) {
       <p>Audit del {new Date(plan.analyzedAt).toLocaleString('it-IT')} · {plan.entries.length} problemi · {eligible.length} da approvare · {plan.entries.length - eligible.length} manuali · 0 modifiche automatiche</p>
       <p>La disponibilità della correzione viene confermata durante l’anteprima. Le operazioni non supportate restano bloccate.</p>
       {!plan.entries.length && <p>Nessun problema segnalato nell’audit salvato.</p>}
-      <div className="auto-fix-list">{plan.entries.map(entry => <label className="auto-fix-item" key={entry.index}>
+      <details open={!batch}><summary>{batch ? "Problemi selezionati: " + selected.length + " — mostra elenco" : "Scegli i problemi da esaminare"}</summary><div className="auto-fix-list">{plan.entries.map(entry => <label className="auto-fix-item" key={entry.index}>
         <input type="checkbox" aria-label={`Seleziona ${entry.issue?.label || entry.issue?.type || 'problema ' + (entry.index + 1)}`} checked={selected.includes(entry.index)} disabled={Boolean(batch) || entry.level !== 'approval' || (!selected.includes(entry.index) && selected.length >= AUTO_FIX_LIMIT)} onChange={event => setSelected(current => event.target.checked ? [...current, entry.index] : current.filter(i => i !== entry.index))} />
         <span><strong>{entry.issue?.label || entry.issue?.type || 'Problema SEO'}</strong><small>{entry.level === 'approval' ? 'Da approvare' : 'Manuale'} · {entry.reason}</small><small>{entry.issue?.targetUrl || entry.issue?.url || plan.siteUrl}</small></span>
-      </label>)}</div>
+      </label>)}</div></details>
       <details><summary>Diagnostica dei dati interni</summary><p>{plan.diagnostics.duplicateIds} ID task duplicati nel progetto. {plan.diagnostics.orphanTasks} task con progetto mancante nel workspace. Le anomalie richiedono revisione; nessun task viene eliminato.</p></details>
       <div className="feature-toolbar"><button className="primary" disabled={!selected.length || Boolean(batch)} onClick={() => setBatch({ ...plan, indexes: [...selected] })}>Revisiona {selected.length} problemi selezionati</button><span>{selected.length}/{AUTO_FIX_LIMIT} selezionati</span></div>
-      {batch && <><button className="secondary" disabled={busy} onClick={() => setBatch(null)}>Modifica selezione</button><p>Inserisci la connessione WordPress e prepara le anteprime. Dopo ogni applicazione, apri Correzioni per la verifica e l’eventuale ripristino controllato.</p><div className="auto-fix-slot" /><RemediationHost initialAudit={batch} slotSelector=".auto-fix-slot" /><WordPressLiveRemediationControlV2 batchPlan={batch} onBusyChange={setBusy} /></>}
+      {batch && <><button className="secondary" disabled={busy} onClick={() => setBatch(null)}>Modifica selezione</button><p>Inserisci la connessione WordPress e prepara le anteprime. Dopo ogni applicazione, apri Correzioni per la verifica e l’eventuale ripristino controllato.</p><div className="auto-fix-slot" /><RemediationHost initialAudit={batch} slotSelector=".auto-fix-slot" /><WordPressConnectionControl clientId={client.id} /><WordPressLiveRemediationControlV2 batchPlan={batch} onBusyChange={setBusy} /></>}
     </>}
   </section>;
 }

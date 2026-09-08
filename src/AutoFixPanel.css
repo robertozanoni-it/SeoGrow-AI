@@ -7,3 +7,8 @@
 .auto-fix-item:focus-within { outline: 2px solid #5b21b6; outline-offset: 2px; }
 .auto-fix-slot { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .auto-fix-panel .feature-toolbar { flex-wrap: wrap; } .auto-fix-slot .wp-live-diff { grid-template-columns: 1fr; } }
+
+.correction-readable pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.correction-explanation { padding: 12px; border-radius: 10px; background: #f8fafc; color: #172b4d; }
+.correction-explanation h4 { margin: 0 0 8px; }
+@media print { .auto-fix-list { max-height: none; overflow: visible; display: block; } .auto-fix-item { break-inside: avoid; margin-bottom: 10px; } }

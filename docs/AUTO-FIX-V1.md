@@ -49,3 +49,19 @@ Include catture desktop/mobile e controllo overflow.
 
 Il test storico sull'host è aggiornato per il nuovo parametro `initialAudit`
 (predefinito null); restano le verifiche di selezione esatta e assenza di fallback.
+
+## Chiarezza e connessione WordPress
+
+Il pannello include Collega WordPress, esito visibile e riutilizzo della connessione
+verificata durante la stessa sessione, condivisa con Integrazioni. Le password
+restano in una mappa JavaScript in memoria, isolate per progetto e installazione,
+con scadenza di 30 minuti. Una risposta di connessione tardiva non può confermare
+credenziali che nel frattempo sono cambiate. Un riavvio richiede nuovamente la password.
+
+Le proposte pronte mostrano i campi Adesso sul sito / Dopo la modifica e il pulsante
+Applica questa modifica sul sito, con la conferma singola esistente. I blocchi
+di ownership/Elementor mostrano Nessuna proposta applicabile e un prossimo passo
+comprensibile; il dettaglio tecnico è espandibile. Nessuna guardia è stata rimossa.
+La lista dei problemi si richiude durante la revisione; la stampa espande correttamente
+le liste aperte. Il test browser verifica collegamento fallito/riuscito, riuso
+della sessione, blocchi senza pulsante apply e proposte leggibili con approvazione.

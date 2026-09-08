@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { getWordPressSession, rememberWordPressSession, forgetWordPressSession } from "./wordpressSession.js";
+import { workspaceStorage } from "./workspaceDatabase.js";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Plug, XCircle } from "lucide-react";
 import { apiFetch } from "./api";
@@ -18,7 +20,10 @@ const readCredentials = (target) => {
   return { url, username, applicationPassword };
 };
 
-export default function WordPressConnectionControl() {
+export default function WordPressConnectionControl({ clientId } = {}) {
+  const activeClient = useCallback(() => clientId ?? JSON.parse(workspaceStorage.getItem("seogrow-selected-client-v1") || "null"), [clientId]);
+  const busy = useRef(false);
+  const generation = useRef(0);
   const [target, setTarget] = useState(() => resolveTarget());
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState({ state: "idle", message: "" });
@@ -44,22 +49,29 @@ export default function WordPressConnectionControl() {
     const update = () => {
       const credentials = readCredentials(target);
       setReady(Boolean(credentials.url && credentials.username && credentials.applicationPassword));
-      setStatus((current) =>
-        current.state === "idle" ? current : { state: "idle", message: "" },
-      );
+      const session = getWordPressSession(activeClient(), credentials.url);
+      const verified = session && session.username === credentials.username && session.applicationPassword === credentials.applicationPassword;
+      setStatus(verified ? { state: "success", message: "WordPress collegato. Connessione verificata riutilizzata in questa sessione." } : { state: "idle", message: "Collegamento non verificato per queste credenziali. Premi Collega WordPress." });
     };
     const timer = window.setTimeout(update, 0);
-    target.addEventListener("input", update);
+    const changed = () => { generation.current += 1; forgetWordPressSession(activeClient(), readCredentials(target).url); update(); };
+    target.addEventListener("input", changed);
+    const expiry = window.setInterval(update, 30000);
     return () => {
       window.clearTimeout(timer);
-      target.removeEventListener("input", update);
+      generation.current += 1;
+      window.clearInterval(expiry);
+      target.removeEventListener("input", changed);
     };
-  }, [target]);
+  }, [target, activeClient]);
 
   if (!target) return null;
 
   const connect = async () => {
+    if (busy.current) return;
     const credentials = readCredentials(target);
+    const requestedClient = activeClient();
+    const version = generation.current;
     if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
       setStatus({
         state: "error",
@@ -68,6 +80,7 @@ export default function WordPressConnectionControl() {
       return;
     }
 
+    busy.current = true;
     setConnecting(true);
     setStatus({ state: "loading", message: "Connessione a WordPress in corso…" });
     try {
@@ -81,19 +94,24 @@ export default function WordPressConnectionControl() {
         }),
       });
       const data = await response.json();
+      if (version !== generation.current || !target.isConnected || activeClient() !== requestedClient || JSON.stringify(readCredentials(target)) !== JSON.stringify(credentials)) return;
       if (!response.ok) throw new Error(data.error || "Connessione WordPress non riuscita.");
+      rememberWordPressSession(requestedClient, { ...credentials, name: data?.user?.name });
       const name = data?.user?.name ? ` come ${data.user.name}` : "";
       const connector = data?.connector?.version ? ` · Connector ${data.connector.version}` : " · Connector non rilevato";
       setStatus({
         state: "success",
-        message: `Connessione WordPress riuscita${name}${connector}. Le credenziali sono valide per questa sessione.`,
+        message: `WordPress collegato${name}${connector}. Puoi preparare la proposta; ogni modifica richiede approvazione.`,
       });
     } catch (error) {
+      if (version !== generation.current || !target.isConnected) return;
+      forgetWordPressSession(requestedClient, credentials.url);
       setStatus({
         state: "error",
         message: error instanceof Error ? error.message : "Connessione WordPress non riuscita.",
       });
     } finally {
+      busy.current = false;
       setConnecting(false);
     }
   };
@@ -107,7 +125,7 @@ export default function WordPressConnectionControl() {
         disabled={!ready || connecting}
       >
         {status.state === "success" ? <Check /> : <Plug />}
-        {connecting ? "Connessione…" : status.state === "success" ? "Connesso" : "Connetti WordPress"}
+        {connecting ? "Connessione…" : status.state === "success" ? "WordPress collegato" : "Collega WordPress"}
       </button>
       {status.message && (
         <span
