@@ -192,3 +192,9 @@ Corretto l'avvio API con porta occupata: il callback di Express riceve l'errore,
 Rafforzata la gestione delle nuove UI: obiettivo importato non testuale e voci calendario malformate non bloccano la schermata; la palette non si sovrappone a un altro dialogo aperto. Il monitoraggio non pubblica un successo se annullato durante la lettura della risposta e non considera verificato uno storico importato privo di campioni validi.
 
 602 test locali PASS, lint/build/launcher PASS. Il Release Gate della PR resta il riferimento per le verifiche CI. L'utente ha confermato l'apertura del Centro progetto sul Mac e l'inserimento dell'obiettivo: ciò non equivale al collaudo visuale completo delle nuove schermate. G07 resta PARTIAL; nessuna operazione WordPress eseguita in questo follow-up.
+
+## Selettore proprietà Google — 8 settembre 2026
+
+Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile), il selettore ha una riga completa, etichetta e più opzioni visibili con scorrimento. La risposta iniziale dello stato Google non può più cancellare le proprietà già caricate. Richiesta selezione esplicita prima dell'importazione; nessun sito scelto automaticamente.
+
+604 test locali PASS, lint/build PASS. Browser smoke CI esteso con 19 proprietà simulate, verifica delle dimensioni del selettore e selezione dell'ultima proprietà. Nessuna richiesta reale Google o WordPress durante il test.

@@ -1,3 +1,4 @@
+import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
 import EditorialCalendar from "./EditorialCalendar.jsx";
@@ -3052,7 +3053,7 @@ function Integrations({
   useEffect(() => {
     fetch("/api/google/status")
       .then((response) => response.json())
-      .then(setGoogle)
+      .then(status => setGoogle(current => mergeGoogleStatus(current, status)))
       .catch(() => {});
   }, []);
   const loadProperties = async () => {
@@ -3061,13 +3062,10 @@ function Integrations({
       const response = await fetch("/api/google/properties");
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Lettura non riuscita");
-      setGoogle((current) => ({
-        ...current,
-        connected: true,
-        properties: data.properties,
-      }));
-      setProperty(data.properties[0]?.url || "");
-      setImportStatus(`${data.properties.length} proprietà disponibili.`);
+      const properties = normalizeGoogleProperties(data.properties);
+      setGoogle((current) => ({ ...current, configured: true, connected: true, properties }));
+      setProperty(current => properties.some(item => item.url === current) ? current : "");
+      setImportStatus(`${properties.length} proprietà disponibili. Seleziona il sito nell’elenco qui sopra prima di importare.`);
     } catch (error) {
       setImportStatus(`Errore Google: ${error.message}`);
     }
@@ -3275,20 +3273,25 @@ function Integrations({
               </>
             ) : google.properties?.length ? (
               <>
-                <select
-                  value={property}
-                  onChange={(event) => setProperty(event.target.value)}
-                >
-                  {google.properties.map((item) => (
-                    <option key={item.url} value={item.url}>
-                      {item.url}
-                    </option>
-                  ))}
-                </select>
+                <label className="google-property-picker">
+                  Proprietà Search Console ({google.properties.length})
+                  <select
+                    aria-label="Proprietà Search Console"
+                    size={Math.min(7, google.properties.length + 1)}
+                    value={property}
+                    onChange={(event) => setProperty(event.target.value)}
+                  >
+                    <option value="" disabled>Seleziona la proprietà del sito…</option>
+                    {google.properties.map((item) => (
+                      <option key={item.url} value={item.url}>{item.url}</option>
+                    ))}
+                  </select>
+                  <small>Scorri l’elenco per vedere tutti i siti disponibili.</small>
+                </label>
                 <button
                   className="primary"
                   onClick={importApi}
-                  disabled={importing}
+                  disabled={importing || !property}
                 >
                   Importa ora via API
                 </button>
