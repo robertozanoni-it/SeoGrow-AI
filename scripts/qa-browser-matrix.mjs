@@ -9,7 +9,11 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
   };
   const select = (selector, value) => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) throw new Error('Missing select'); e.value = ${JSON.stringify(value)}; e.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   const input = (selector, value) => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) throw new Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, ${JSON.stringify(value)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-  const click = text => evaluate(`(() => { const e = [...(document.querySelector('[role=dialog]') || document).querySelectorAll('button')].find(e => e.textContent.trim() === ${JSON.stringify(text)}); if (!e) throw new Error('Missing button'); e.click(); })()`);
+  const click = async text => {
+    const target = `[...(document.querySelector('[role=dialog]') || document).querySelectorAll('button')].find(e => e.textContent.trim() === ${JSON.stringify(text)} && !e.disabled)`;
+    await waitFor(target, `Enabled button: ${text}`);
+    await evaluate(`(${target}).click()`);
+  };
   // Existing table does not need test-only markup: labelled status select is unambiguous.
   const status = '[aria-label^="Stato della task"]';
   await clickSidebar("Task");
