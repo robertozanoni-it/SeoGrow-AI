@@ -70,7 +70,12 @@ export async function runFieldBoundaries({evaluate, waitFor, clickSidebar, recor
     assert.equal(await evaluate("document.querySelector('[data-qa-injected]') !== null"), false);
     await evaluate("document.querySelector('[aria-label=\"Chiudi finestra\"]').click()");
     await waitFor("!document.querySelector('.task-editor')", 'Unsaved editor closed');
-    await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(taskKey)},${JSON.stringify(JSON.stringify(before))});await m.flushWorkspace()})()`);
+    await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(taskKey)},${JSON.stringify(JSON.stringify(before))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(taskKey)},newValue:${JSON.stringify(JSON.stringify(before))}}))})()`);
+    // Restore React's task state too: pagehide must not write the edited fixture back.
+    await openTask();
+    await waitFor(`${field('.task-editor', 'Note operative')}.value === ${JSON.stringify(original.notes)}`, 'Restored task visible in React');
+    await evaluate("document.querySelector('[aria-label=\"Chiudi finestra\"]').click()");
+    await waitFor("!document.querySelector('.task-editor')", 'Restored editor closed');
     await revisit('Task');
     assert.deepEqual(await read(taskKey), before, 'Boundary task fixture restored');
   });
