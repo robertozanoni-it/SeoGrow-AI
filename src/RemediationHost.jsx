@@ -49,7 +49,8 @@ const selectAudit = (clientId, requested) => {
 
 const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
 
-const resolveTarget = () => {
+const resolveTarget = (slotSelector) => {
+  if (slotSelector) return document.querySelector(slotSelector);
   if (typeof document === "undefined") return null;
   try {
     if (decodeURIComponent(window.location.hash.slice(1)) !== "Audit SEO") return null;
@@ -63,11 +64,11 @@ const platformLabel = (platform) => platform === "wordpress"
     ? "GPTSites"
     : "Manuale / altro CMS";
 
-export default function RemediationHost() {
-  const [target, setTarget] = useState(() => resolveTarget());
+export default function RemediationHost({ initialAudit = null, slotSelector = "" } = {}) {
+  const [target, setTarget] = useState(() => resolveTarget(slotSelector));
   const [revision, setRevision] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [requestedAudit, setRequestedAudit] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(initialAudit?.indexes?.[0] ?? 0);
+  const [requestedAudit, setRequestedAudit] = useState(initialAudit);
   const [platformChoice, setPlatformChoice] = useState({ clientId: null, value: "" });
   const [wpDraft, setWpDraft] = useState({ clientId: null, username: "", url: "" });
   const [passwordDraft, setPasswordDraft] = useState({ clientId: null, value: "" });
@@ -93,7 +94,8 @@ export default function RemediationHost() {
     issueIndex: index,
   });
 
-  const issueEntries = issues.map((issue, index) => ({ issue, index, key: issueKeyAt(issue, index) }));
+  const issueEntries = issues.map((issue, index) => ({ issue, index, key: issueKeyAt(issue, index) }))
+    .filter(entry => !initialAudit || initialAudit.indexes.includes(entry.index));
   const activeEntries = issueEntries.filter((entry) => !verifiedKeys.has(entry.key));
   const selectedCandidate = issueEntries.find((entry) => entry.index === selectedIndex) || null;
   const selectedEntry = selectedCandidate && !verifiedKeys.has(selectedCandidate.key)
@@ -111,7 +113,7 @@ export default function RemediationHost() {
     let disposed = false;
     const scan = () => {
       if (disposed) return;
-      const next = resolveTarget();
+      const next = resolveTarget(slotSelector);
       setTarget((current) => {
         if (current === next && (!current || current.isConnected)) return current;
         return next;
@@ -132,7 +134,7 @@ export default function RemediationHost() {
       window.removeEventListener("storage", refresh);
       window.removeEventListener("seogrow-storage-ok", refresh);
     };
-  }, []);
+  }, [slotSelector]);
 
   useEffect(() => {
     let cancelled = false;

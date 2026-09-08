@@ -417,7 +417,7 @@ try {
 
   browserReport.scenarios.push({ id: "EXISTING-REGRESSION", status: "PASS", covers: ["OPPORTUNITY-001", "OPPORTUNITY-002", "OPPORTUNITY-003", "OPPORTUNITY-005", "OPPORTUNITY-006", "VIEWS-001", "GOOGLE-001", "NAV-001"] });
   await runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
-  await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, mode: process.env.QA_MODE || "release" });
+  await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, screenshot, command, mode: process.env.QA_MODE || "release" });
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
   await assertViewportVisibility(1440, "desktop", "desktop");

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { runAutoFix } from './qa-auto-fix.mjs';
 import { runRemainingFields } from './qa-remaining-fields.mjs';
 import { runFieldBoundaries } from './qa-field-boundaries.mjs';
 
 // Real React controls and IndexedDB; all external responses are explicit fixtures.
-export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, mode }) {
+export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, screenshot, command, mode }) {
   if (mode === 'smoke') return;
   const q = JSON.stringify;
   const field = (scope, label) => `(() => { const root = document.querySelector(${q(scope)}); const labels = [...(root?.querySelectorAll('label') || [])]; const matches = labels.filter(l => (() => { const direct=[...l.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim(); if(direct)return direct; const copy=l.cloneNode(true); copy.querySelectorAll('input,select,textarea,a,small').forEach(e=>e.remove()); return copy.textContent.trim(); })() === ${q(label)}); if (matches.length !== 1) throw new Error('Ambiguous/missing label: ' + ${q(label)}); return matches[0].control || matches[0].querySelector('input,select,textarea'); })()`;
@@ -156,6 +157,7 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     assert.equal(await evaluate(`${field('.wordpress-integration','Password applicativa')}.value`),'');
   });
   await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
+  await runAutoFix({evaluate,waitFor,clickSidebar,record,button,set,read,revisit,mock,resetRequests,screenshot,command});
   await runFieldBoundaries({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
 
 }
