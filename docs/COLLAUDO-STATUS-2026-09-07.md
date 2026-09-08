@@ -8,7 +8,7 @@ Le PR #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49 e #50
 
 La scansione di `server/` e `scripts/` non rileva richieste WordPress REST autenticate instradate al fetch nativo: gli script usano direttamente `pinnedHttpsFetch`; nel runtime restano anche call site `fetch(...)` intercettati dal boundary centrale di `remediationBootstrap.js`. Non equivale a zero occorrenze testuali di `fetch`.
 
-Il batch interno iniziale non ha eseguito accessi WordPress live/staging. Successivamente, su richiesta esplicita, è stato collegato lo staging Hostinger: le letture e il ciclo di creazione/pulizia degli utenti temporanei sono documentati sotto. Nessuna scrittura di contenuti o modifica Elementor shared in questa estensione. I test automatici delle route usano DNS/HTTPS simulati e un server SeoGrow locale. Provider AI invariati: OpenAI e DataForSEO.
+Il batch interno iniziale non ha eseguito accessi WordPress live/staging. Successivamente, su richiesta esplicita, è stato collegato lo staging autorizzato: le letture e il ciclo di creazione/pulizia degli utenti temporanei sono documentati sotto. Nessuna scrittura di contenuti o modifica Elementor shared in questa estensione. I test automatici delle route usano DNS/HTTPS simulati e un server SeoGrow locale. Provider AI invariati: OpenAI e DataForSEO.
 
 ## Batch completati e controlli
 
@@ -107,71 +107,37 @@ Verifica GitHub alla chiusura tecnica: nessuna PR aperta, nessun thread di revie
 
 ### G07 — Elementor shared
 
-**PARTIAL / NON CHIUSO**. Sullo staging: header/footer propagati e ripristinati su 38 record pagina/articolo (37 URL richiesti distinti, redirect preesistenti); dati identici ai backup e nessun marker residuo. Archive, Single isolato, HTML non eseguibile e CSS con purge hanno le prove descritte nel report. Connector 1.3.4 installato e inventario pagine corretto. Confronto responsive before/after/rollback dell’header sul post 7197 eseguito, ma variazioni tipografiche da diagnosticare e matrice visuale degli altri scope incompleta. CPT finale non certificato: quota giornaliera WPVibe esaurita durante l’ultima lettura. Dettagli in `docs/qa/G07-STAGING-2026-09-07.md`; nessuna modifica al live.
+**PARTIAL / NON CHIUSO**. Sullo staging: header/footer propagati e ripristinati su 38 record pagina/articolo (37 URL richiesti distinti, redirect preesistenti); dati identici ai backup e nessun marker residuo. Archive, Single isolato, HTML non eseguibile e CSS con purge hanno le prove descritte nel report. Connector 1.3.4 installato e inventario pagine corretto. Confronto responsive before/after/rollback dell’header sul post campione eseguito, ma variazioni tipografiche da diagnosticare e matrice visuale degli altri scope incompleta. CPT finale non certificato: quota giornaliera WPVibe esaurita durante l’ultima lettura. Dettagli in `docs/qa/G07-STAGING-2026-09-07.md`; nessuna modifica al live.
 
 ### G13 — matrice ruoli WordPress
 
 **PASS sullo staging — matrice read-only eseguita dal Mac dell'utente il 2026-09-07**. Administrator ed Editor: connection-check, inspect-fast e live-preview HTTP 200. Subscriber: connection-check HTTP 200, inspect-fast e live-preview HTTP 400 come richiesto dall'harness. Tre ruoli eseguiti, zero skipped, nessuna write tentata. Il report completo è stato fornito dall'utente in chat ed è trascritto in `docs/qa/G13-STAGING-2026-09-07.json`; non è una nuova esecuzione dell'assistente.
 
-Target: post 7197 sullo staging. Account temporanei Editor 13 e Subscriber 14 eliminati secondo il report; assenza confermata indipendentemente via REST autenticata (`include=13,14`, risposta `[]`). Revocate via WPVibe la password applicativa amministrativa `SeoGrow QA staging` usata nel batch e la precedente `eoGrow QA staging`, entrambe create durante questa sessione: risposta `deleted=true` per ciascuna. Le altre credenziali preesistenti non sono state modificate. Nessun test eseguito su produzione e nessuna prova `live-apply`: PASS limitato alla matrice minima read-only del runbook.
+Pulizia degli account temporanei e revoca delle credenziali di prova confermate. Nessun test su produzione; PASS limitato alla matrice minima read-only, senza prove di scrittura per ruolo.
 
 ## Limiti della chiusura
 
 Il perimetro interno di hardening/QA richiesto è chiuso con i gate tecnici riportati PASS. Non è una certificazione di assenza assoluta di bug né una nuova prova dei casi live storici. Il backlog Sonar di qualità/manutenibilità già documentato non è stato dichiarato risolto da questi batch. Nel perimetro della matrice minima concordata G13 è PASS sullo staging; resta G07 Elementor shared PARTIAL. Il risultato G13 non certifica write per ruolo o comportamento su altri siti.
 
-## Estensione staging autorizzata — 2026-09-07
+## Estensione staging autorizzata — riepilogo pubblico
 
-- Ambiente: `https://staging.yogabuenaonda.it`, Hostinger; backup ripristinabile confermato dall’utente. Permalink e redirect canonico corretti dall’utente; homepage e REST index rispondono HTTP 200. Connector raggiungibile: 401 senza autenticazione, status autenticato disponibile tramite WPVibe.
-- Letture autenticate tramite WPVibe: Elementor/Pro e Rank Math presenti; inventario pubblico Connector completo (`total=40`, `truncated=false`); impact inspect read-only dei template header 185, footer 327, archive 584, single-post 598 e section 2789. `sharedWriteAllowed=false`. Queste letture non certificano save/render/rollback né la matrice runtime SeoGrow.
-- G13: utenti `seogrow-qa-editor` (ID 11) e `seogrow-qa-subscriber` (ID 12) creati con autorizzazione esplicita, senza invio email. Password applicative di prova revocate; eliminazione di entrambi approvata dall’utente tramite WPVibe e verificata con elenco utenti. Restano i soli due amministratori preesistenti.
-- Blocco credenziale iniziale, successivamente risolto con autorizzazione esplicita: auto-review ha rifiutato la creazione di una password applicativa per l’amministratore esistente perché fuori dal consenso specifico ai due utenti temporanei. Nessuna credenziale amministrativa creata e nessun aggiramento.
-- Blocco esecuzione: una GET non autenticata con il vero `pinnedHttpsFetch` dal runtime Node della sessione fallisce con `getaddrinfo EAI_AGAIN staging.yogabuenaonda.it`. L’accesso del connettore WPVibe non equivale a connettività DNS/HTTPS del processo SeoGrow. Nessuna modifica a DNS, pinning o controlli di rete per aggirare il blocco.
-- Correzione interna del launcher G13: `APP_API_TOKEN` obbligatorio, header `x-seogrow-token` su tutte le API locali, redirect manuali. Test comportamentali simulati verificano nove richieste autenticate sui tre ruoli, assenza di write, stop senza token e rifiuto redirect. Non sono prove dei ruoli WordPress reali.
-- Alla fine del preflight iniziale servivano runtime raggiungibile e credenziali autorizzate. La successiva esecuzione dal Mac descritta sotto ha completato G13. G07 resta PARTIAL.
+I dettagli identificativi dell'ambiente, dei target e degli account temporanei sono omessi da questo riepilogo pubblico. Gli esiti restano distinti dalle verifiche interne automatizzate.
 
-Verifica locale della correzione launcher #49: lint PASS, **569/569 test PASS**, build PASS, launcher syntax PASS. [Release Gate #693 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141729327); [post-merge main #694 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34141875475), commit `551eb27ad397d99e32c514cdb90624eda7d24fd5`.
+- G13: matrice minima read-only eseguita dall'utente; tre ruoli, zero skip, nessuna scrittura dei contenuti. Pulizia completata. Non certifica le scritture per ruolo.
+- G07: prove parziali shared e rollback eseguite nello staging autorizzato; copertura visuale e CPT incompleta. Stato PARTIAL, con prosecuzione ambientale rinviata.
+- Connector 1.3.4: correzione dell'inventario pagine verificata. Nessuna modifica al live in questa estensione.
 
-### Ripresa dal Mac dell'utente
+| PR | Stato | Gate PR | Gate main |
+| --- | --- | --- | --- |
+| #49 | merged | #693 PASS | #694 PASS |
+| #50 | merged | #695 PASS | #696 PASS |
+| #51 | merged | #697 PASS | #698 PASS |
+| #52 | merged | #699 PASS | #700 PASS |
+| #53 | merged | #701 PASS | #702 PASS |
+| #54 | merged | #704 PASS | #705 PASS |
+| #55 | merged | #706 PASS | #707 PASS |
 
-Il Mac è stato aggiornato a main e il runtime riavviato. L'utente ha riportato: GET staging via `pinnedHttpsFetch` HTTP 200; `/wp/v2/users/me?context=edit` HTTP 200 con ruolo `administrator`; `/api/wordpress/connection-check` locale HTTP 200 e `ok=true`. Sono prove di connettività/autenticazione amministrativa, non della matrice completa G13. Il precedente blocco DNS persiste nell'ambiente dell'assistente; il percorso dal Mac è invece disponibile. L'autorizzazione specifica alla password applicativa amministrativa temporanea è stata acquisita e l'utente l'ha creata sullo staging senza comunicarla in chat.
-
-Preparato wrapper `wordpress-role-staging-batch.mjs`: creazione/pulizia dei due account autorizzati, harness esistente sui tre ruoli, nessuna write sui contenuti, report locale senza credenziali. Test simulati coprono successo, fallimento password, collisione utente, identità cambiata, conferma host e guasto del checkpoint durante la pulizia. Il batch reale è stato poi eseguito dal Mac: `ok=true`, tre ruoli conformi e `pendingAccounts=[]`. G13 è PASS nel perimetro read-only; G07 resta PARTIAL.
-
-### Evidenza e gate del batch #50
-
-PR #50 merged; [Release Gate #695 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34146966742), [post-merge main #696 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34147086055), commit `4c16ea8dc6b53b90deb784e07145afeb2d1e8e79`. Verifica locale del batch: lint, **575/575 test**, build e launcher syntax PASS.
-
-Report originale sul Mac: `.qa-runtime/role-staging-c5cd6e97-17c0-48ba-b9f1-372813e226d8.json`. La copia versionata è una trascrizione del JSON completo fornito dall'utente, con gli URL ripristinati a stringhe semplici dalla formattazione Markdown della chat. Non contiene password, token, email o IP. Le verifiche indipendenti dell'assistente riguardano la pulizia degli account e la revoca delle password temporanee; gli esiti della matrice provengono dall'esecuzione utente sul runtime locale.
-
-### G07 — esecuzione staging parziale e rollback verificato
-
-PR #51 merged; [Release Gate #697 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148733033), [main #698 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34148823626), commit `6762d7e9d1c4a1be8bce059b696a89b24758c054`.
-
-Autorizzazione specifica acquisita per modifiche temporanee ai template shared sul solo staging e ripristino. Header/footer verificati su homepage e post 7197; Archive sulla categoria 38 con controllo negativo sulla homepage. Dati Elementor ripristinati esattamente e condizioni conservate. Staging inizialmente indicizzabile: `blog_public` impostato a `0`, robots `nofollow, noindex` verificato e mantenuto. Le prove utilizzano la pipeline ufficiale WPVibe/Elementor, non certificano una write shared attraverso SeoGrow: `sharedWriteAllowed=false` resta invariato.
-
-### Ripresa G07 con autorizzazione esplicita
-
-PR #52 merged; [Release Gate #699 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150502471), [main #700 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34150617648), commit `927d2329d2f897237401cd48c5d57f8b1fcffde9`.
-
-Dopo «Autorizzo Go7»: custom CSS dell’header verificato nell’editor e nel frontend autenticato, con rollback esatto. Single salvato ma non applicato al post campione, poi ripristinato. Cache anonima ancora non certificata: letture dell’asset aggregato incoerenti anche dopo purge confermato. Anteprime tablet/mobile dell’editor accessibili, solo osservazioni post-rollback eseguite. G07 resta PARTIAL; dettaglio aggiornato nel report G07.
-
-### G07 — Single/CSS verificati; inventario pagine corretto nel repository
-
-PR #53 merged, [Release Gate #701 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34164631093), [main #702 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34164725967), commit `1060a6a1c0be53657b3cc6510aeba8d648b300af`.
-
-Single 598 verificato con override temporaneo `elementor_theme` sul post 7197: il kit Full Width spiegava la mancata applicazione. Template e layout articolo ripristinati esattamente. CSS aggregato anonimo verificato con due letture complete identiche prima e dopo rollback, marker presente/assente come atteso, usando purge esplicito sullo staging.
-
-Emerso bug interno: l’inventario installato di 40 risorse omette le 16 pagine WordPress, quindi la precedente dichiarazione di completezza non certificava tutti i riferimenti shared. Connector 1.3.4 corregge la scoperta tramite `is_post_type_viewable`, con regressioni PHP/architetturali e versione runtime coerente. Pacchetto da installare e verificare sullo staging dopo gate verde; live invariato. G07 resta PARTIAL per copertura completa e visual QA residua. Verifica locale: lint, 575 test, build e launcher PASS; PHP demandato al Release Gate perché non installato localmente.
-
-### Connector 1.3.4 — merge e verifica installazione staging
-
-PR #54 merged, [Release Gate #704 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166449464), [main #705 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34166528528), commit `e326afd90545554e38dea33244ac5b3452355f66`. Il primo gate #703 era fallito per un’asserzione di versione obsoleta; corretta prima del gate verde e del merge.
-
-Dopo autorizzazione esplicita, Connector 1.3.4 installato e attivo sul solo staging. Inventario completo reale di 56 risorse (16 pagine, 22 articoli, 18 documenti Elementor), senza troncamento. Lettura reference di homepage 5303 e articolo 7197 riuscita. `readOnly=true` e `sharedWriteAllowed=false` confermati. Difetto delle pagine omesse risolto anche nell’ambiente installato. G07 resta PARTIAL per copertura shared/CPT e visual QA residua; G13 mantiene il PASS della matrice read-only staging già documentata.
-
-### G07 — propagazione su 38 record e rollback conclusi
-
-PR #55 merged; Release Gate #706 e main #707 PASS (link nel report G07). Nuova prova header/footer: marker presenti dopo save su 38/38 record e assenti dopo rollback su 38/38, dati originali e condizioni verificati. Evidenza in `docs/qa/G07-SHARED-SCOPE-2026-09-07.json`. Confronto responsive parziale eseguito; nessuna certificazione visuale completa per le differenze tipografiche osservate. Blocco reale WPVibe: limite giornaliero, raggiunto dopo il ripristino verificato. Per proseguire le letture staging serve quota disponibile; non occorrono nuove credenziali né interventi sul live.
+Il gate #703 era fallito per un'asserzione di versione obsoleta, corretta prima del merge #54. Le verifiche ambientali riportate sono storiche, non nuove esecuzioni del batch QA automatizzato.
 
 ## Estensione UI/UX successiva
 
@@ -228,5 +194,7 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - Baseline main 7de18babea0fe7e78aa12bb20292f19b2785c723, PR #68 merged, Gate #735 e #736 (attempt 2) PASS.
 - Utente: ricerca task, viste salvate e relativa selezione confermate; undo con reload confermato nel collaudo riportato.
 - Nuovo batch: comandi qa:smoke/full/release, matrice eseguibile, runtime/profilo temporanei senza credenziali, flussi Task/Undo/CRUD/filtri/reload/errori e screenshot responsive.
-- Node locale: 613/613 PASS, 0 skip, 2015.916762 ms; lint/build PASS. Browser completo da verificare nel gate prima del merge.
+- Node locale: 613/613 PASS, 0 fail, 0 skip, 2080.788264 ms; lint/build PASS.
+- PR #69: Release Gate #741 PASS su head 693fa26a4891ea926e3a4cbafa11f6ff8545bc4a; qa:smoke, qa:full e qa:release eseguiti realmente, inclusi browser Chrome, backup cifrato, error injection, 500 task e IndexedDB nativo. Launcher macOS e controlli Connector PASS. PR #69 merged nel commit dcdc922267484fb9dd649bd54889ff825ecb891a; Release Gate #742 su main PASS. Durate CI circa 8s smoke, 24s full, 30s release.
+- Gate intermedi: #737 selettore Elimina non circoscritto al dialogo; #739 seed eseguito nelle fixture data: prive di storage; #740 clic prima della risposta Google status. Cause corrette con selettore del dialogo, isolamento del seed all'origine app e attesa del pulsante abilitato. Nessun test rimosso o trasformato in skip. #738 e #741 PASS.
 - Dettagli, limiti e distinzione visuale automatico/manuale in QA-AUTOMATION.md. G07 e gli altri vincoli WordPress restano invariati.
