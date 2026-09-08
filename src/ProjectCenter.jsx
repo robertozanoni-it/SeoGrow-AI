@@ -5,14 +5,15 @@ export default function ProjectCenter({ client, dataset, analysis, connection, a
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const template = reportTemplate(settings.report);
+  const objective = typeof settings.objective === "string" ? settings.objective : "";
   const verified = connection?.verifiedAt && now - Date.parse(connection.verifiedAt) < 30 * 60_000 && Date.parse(connection.verifiedAt) <= now;
   const updateTemplate = patch => onSave({ ...settings, report: { ...template, ...patch } });
   return <><div className="page-title"><div><h1>Centro progetto — {client.name}</h1><p>Configura il lavoro e controlla quali dati sono disponibili.</p></div></div>
     <section className="panel planning-panel"><h2>Configurazione guidata</h2><ol className="wizard-steps">{["Obiettivo", "Dati SEO", "WordPress", "Riepilogo"].map((label, index) => <li key={label}><button className="secondary" aria-current={index === step ? "step" : undefined} onClick={() => setStep(index)}>{index + 1}. {label}</button></li>)}</ol>
-      {step === 0 && <label>Obiettivo del progetto<textarea maxLength={1000} value={settings.objective || ""} onChange={event => onSave({ ...settings, objective: event.target.value })} placeholder="Es. aumentare le richieste per i corsi di yoga" /></label>}
+      {step === 0 && <label>Obiettivo del progetto<textarea maxLength={1000} value={objective} onChange={event => onSave({ ...settings, objective: event.target.value })} placeholder="Es. aumentare le richieste per i corsi di yoga" /></label>}
       {step === 1 && <><p>Search Console: {dataset ? "dati importati" : "dati mancanti"}. Audit del sito: {analysis ? "disponibile" : "non eseguito"}.</p><button className="secondary" onClick={() => onNavigate("Integrazioni")}>Importa Search Console</button><button className="secondary" onClick={() => onNavigate("Audit SEO")}>Apri audit SEO</button></>}
       {step === 2 && <><p>WordPress: {verified ? "connessione verificata in questa sessione" : "verifica assente o scaduta"}. La verifica della connessione legge il sito senza modificare contenuti.</p><button className="secondary" onClick={() => onNavigate("Integrazioni")}>Verifica connessione WordPress</button></>}
-      {step === 3 && <ul><li>Obiettivo: {settings.objective?.trim() || "da definire"}</li><li>Search Console: {dataset ? "presente" : "da importare"}</li><li>Audit: {analysis ? "presente" : "da eseguire"}</li><li>WordPress: {verified ? "verificato" : "da verificare nelle Integrazioni"}</li><li>OpenAI: {aiConfigured ? "configurato" : "non configurato, facoltativo per i controlli locali"}</li></ul>}
+      {step === 3 && <ul><li>Obiettivo: {objective.trim() || "da definire"}</li><li>Search Console: {dataset ? "presente" : "da importare"}</li><li>Audit: {analysis ? "presente" : "da eseguire"}</li><li>WordPress: {verified ? "verificato" : "da verificare nelle Integrazioni"}</li><li>OpenAI: {aiConfigured ? "configurato" : "non configurato, facoltativo per i controlli locali"}</li></ul>}
       <div className="feature-toolbar"><button className="secondary" disabled={step === 0} onClick={() => setStep(value => value - 1)}>Indietro</button><button className="primary" disabled={step === 3} onClick={() => setStep(value => value + 1)}>Avanti</button></div>
     </section>
     {children}

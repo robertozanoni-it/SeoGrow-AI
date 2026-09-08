@@ -184,3 +184,11 @@ Le PR #60, #61 e #62 sono **merged**, con Release Gate #716, #718 e #720 PASS pr
 598 test locali PASS, lint/build/launcher PASS. Il gate #720 comprende browser smoke esteso alle nuove schermate e avvio macOS. Nessuna esecuzione automatica su siti reali durante lo sviluppo. Dettagli d'uso, limiti e prove in [FEATURES-2026-09-08.md](FEATURES-2026-09-08.md).
 
 La revisione visuale manuale è ancora bloccata dall'accesso del browser cloud all'app locale. G07 resta PARTIAL e rinviato; i risultati G13 già documentati non sono modificati da questo batch.
+
+## Follow-up residui — 8 settembre 2026
+
+Corretto l'avvio API con porta occupata: il callback di Express riceve l'errore, termina con codice non zero e non annuncia disponibilità. Prova automatica con una porta locale realmente occupata. In Integrazioni è ora mostrato il redirect URI fornito dal server con istruzioni OAuth; la registrazione del client Google resta una configurazione esterna da completare.
+
+Rafforzata la gestione delle nuove UI: obiettivo importato non testuale e voci calendario malformate non bloccano la schermata; la palette non si sovrappone a un altro dialogo aperto. Il monitoraggio non pubblica un successo se annullato durante la lettura della risposta e non considera verificato uno storico importato privo di campioni validi.
+
+602 test locali PASS, lint/build/launcher PASS. Il Release Gate della PR resta il riferimento per le verifiche CI. L'utente ha confermato l'apertura del Centro progetto sul Mac e l'inserimento dell'obiettivo: ciò non equivale al collaudo visuale completo delle nuove schermate. G07 resta PARTIAL; nessuna operazione WordPress eseguita in questo follow-up.

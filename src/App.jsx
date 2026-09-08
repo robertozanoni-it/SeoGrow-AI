@@ -3244,6 +3244,13 @@ function Integrations({
               disabled={importing}
             />
           </label>
+          <details className="google-oauth-help">
+            <summary>Configurazione Google e errore redirect_uri_mismatch</summary>
+            <p>Client ID e Client Secret OAuth vanno nelle variabili GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET del file .env nella cartella SeoGrow. Dopo averli modificati, riavvia l’app.</p>
+            <p>Nel client OAuth di Google Cloud, aggiungi questo valore agli URI di reindirizzamento autorizzati, esattamente come mostrato:</p>
+            {typeof google.redirectUri === "string" ? <input aria-label="URI di reindirizzamento Google" readOnly value={google.redirectUri} onFocus={event => event.target.select()} /> : <p>Indirizzo non disponibile: verifica che l’API locale sia avviata e riapri Integrazioni.</p>}
+            <p>Non inserire qui email, password Google o Client Secret. Per autorizzare l’accesso usa il pulsante Collega account Google.</p>
+          </details>
           <div className="api-actions">
             {!google.configured ? (
               <div className="integration-note">

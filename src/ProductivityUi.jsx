@@ -17,7 +17,7 @@ export function CommandPalette({ pages, onNavigate, onNewAudit }) {
   const [query, setQuery] = useState("");
   const dialog = useRef(null);
   useEffect(() => {
-    const shortcut = event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) { event.preventDefault(); setOpen(value => !value); } };
+    const shortcut = event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) { if (!dialog.current?.open && document.querySelector('[role="dialog"], dialog[open]')) return; event.preventDefault(); setOpen(value => !value); } };
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, []);
