@@ -1,3 +1,4 @@
+import { opportunityGroups } from "./platform.js";
 import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
@@ -279,12 +280,7 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
   const pendingCorrections = corrections.filter((item) =>
     ["Applicato", "Da verificare"].includes(item.status),
   );
-  const opportunities = Array.isArray(dataset?.queries)
-    ? dataset.queries.filter((row) => {
-        const position = Number(row.position);
-        return Number.isFinite(position) && position >= 4 && position <= 20;
-      }).length
-    : 0;
+  const opportunities = opportunityGroups(dataset).quickWins.length;
 
   const actions = [];
   if (activeTasks.length) {
@@ -337,7 +333,7 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
       Icon: Target,
       tone: "growth",
       title: `${opportunities} query tra posizione 4 e 20`,
-      text: "Sono candidate naturali per una revisione orientata a migliorare visibilità e clic.",
+      text: "Almeno 10 impressioni; fino a 50 opportunità ordinate per impressioni.",
     });
   }
 

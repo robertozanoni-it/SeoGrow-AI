@@ -1,3 +1,4 @@
+import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
 import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
@@ -1214,7 +1215,7 @@ function TaskEditor({ task, save, remove, close, clients = [] }) {
               </strong>
               <p>
                 {suggested
-                  ? "Lo ZIP separa query e pagine: questa URL è un suggerimento, non una relazione certificata."
+                  ? "Nei dati importati manca una relazione query–pagina confermata. L’eventuale URL suggerita va verificata."
                   : manuallyVerified
                     ? "Hai confermato questa relazione: resta modificabile dal dettaglio task."
                     : "La pagina proviene dai dati query–pagina dell’importazione API."}
@@ -1954,19 +1955,13 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
     ["cannibalizations", "Cannibalizzazioni"],
   ];
   const rows = dataset ? groups[tab] : [];
-  const pageFor = (row) =>
-    row.page ||
-    row.pages?.[0] ||
-    suggestPageForQuery(row.dimension || row.query, dataset?.pages || [])
-      ?.url ||
-    "";
   return (
     <>
       <EmptyTitle
         title="Opportunità"
         text={
           dataset
-            ? "Analisi delle query reali. Le associazioni certe query–pagina sono disponibili con il collegamento API Google."
+            ? "Analisi delle query reali. Le pagine suggerite sono distinte dalle associazioni presenti nei dati Google."
             : "Importa Search Console per ottenere opportunità reali."
         }
       />
@@ -1994,6 +1989,7 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
           </button>
         ))}
       </div>
+      {tab === "quickWins" && <p className="block-note">Query in posizione 4–20 con almeno 10 impressioni; massimo 50 risultati, ordinati per impressioni.</p>}
       <section className="panel opportunity-table">
         <div className="table-scroll">
           <table>
@@ -2011,7 +2007,8 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
               {rows.length ? (
                 rows.map((row, index) => {
                   const queryText = row.dimension || row.query;
-                  const pageUrl = pageFor(row);
+                  const taskValues = opportunityTask(row, dataset, tab);
+                  const pageUrl = taskValues.sourceUrl;
                   return (
                     <tr key={`${queryText}-${index}`}>
                       <td>
@@ -2031,11 +2028,11 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
                             rel="noreferrer"
                           >
                             <ExternalLink />
-                            Apri pagina
+                            {taskValues.associationStatus === "verified" ? "Apri pagina associata" : "Apri pagina suggerita"}
                           </a>
                         ) : (
                           <span className="task-detail">
-                            Non determinabile dal file
+                            Pagina non disponibile nei dati importati
                           </span>
                         )}
                       </td>
@@ -2050,13 +2047,7 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
                           className="secondary mini"
                           disabled={!dataset}
                           onClick={() =>
-                            onCreateTask({
-                              title: `${tab === "cannibalizations" ? "Verifica cannibalizzazione" : "Ottimizza"} “${queryText}”`,
-                              targetUrl: pageUrl,
-                              detail: row.pages?.length
-                                ? `URL coinvolti: ${row.pages.join(", ")}`
-                                : `${formatInteger(row.impressions)} impressioni · posizione ${Number(row.position).toFixed(1)}`,
-                            })
+                            onCreateTask(taskValues)
                           }
                         >
                           Crea task
@@ -4720,14 +4711,7 @@ export default function App() {
       setToast({ kind: "error", message: "Task non creata: inserisci un titolo." });
       return null;
     }
-    const duplicate = tasks.find(
-      (item) =>
-        item.sourceClientId === selectedClient &&
-        item.status !== "Completato" &&
-        String(item.title || "").trim().toLowerCase() === title.toLowerCase() &&
-        (item.sourceUrl || "") === (values.sourceUrl || "") &&
-        (item.targetUrl || "") === (values.targetUrl || ""),
-    );
+    const duplicate = findExistingTask(tasks, values, selectedClient);
     if (duplicate) {
       setToast({ kind: "info", message: `Task già presente: ${duplicate.title}`, taskId: duplicate.id, clientId: selectedClient });
       return duplicate;
@@ -4745,7 +4729,8 @@ export default function App() {
       kind: values.kind || "manual",
       targetUrl: values.targetUrl || "",
       sourceUrl: values.sourceUrl || "",
-      linkLabel: values.targetUrl ? "Apri risorsa" : "Apri pagina",
+      linkLabel: values.linkLabel || (values.targetUrl ? "Apri risorsa" : "Apri pagina"),
+      ...(values.query ? { query: values.query, associationStatus: values.associationStatus } : {}),
       detail: values.detail || "",
       notes: "",
       createdAt: new Date().toISOString(),
