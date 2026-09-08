@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { workspaceStorage } from './workspaceDatabase.js';
 import { normalizeAnalysisHistory } from './platform.js';
 import { AUTO_FIX_LIMIT, buildAutoFixPlan } from './autoFixPlan.js';
@@ -14,6 +14,21 @@ export default function AutoFixPanel({ client, onNavigate }) {
   const [batch, setBatch] = useState(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!plan) return undefined;
+    const check = () => {
+      const key = plan.auditType === 'page' ? 'seogrow-page-audit-history-v2' : 'seogrow-analyses-v2';
+      const audits = normalizeAnalysisHistory(read(key, {})[client.id]);
+      const matches = audits.filter(a => (a?.analyzedAt || a?.startedAt || '') === plan.analyzedAt);
+      if (matches.length === 1 && JSON.stringify(matches[0]) === plan.fingerprint && client.url === plan.siteUrl) return;
+      setMessage('Il progetto o i dati dell’audit sono cambiati. Analizza nuovamente prima di continuare.');
+      if (!busy) { setBatch(null); setPlan(null); setSelected([]); }
+    };
+    check();
+    window.addEventListener('storage', check);
+    window.addEventListener('seogrow-storage-ok', check);
+    return () => { window.removeEventListener('storage', check); window.removeEventListener('seogrow-storage-ok', check); };
+  }, [plan, busy, client.id, client.url]);
   const analyze = () => {
     const candidates = [
       ...(read('seogrow-page-audit-history-v2', {})[client.id] || []).map(audit => ({ auditType: 'page', audit })),
