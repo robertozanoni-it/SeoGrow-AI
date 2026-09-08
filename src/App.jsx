@@ -1945,7 +1945,7 @@ function AuditResults({ data, views, onSaveViews }) {
   );
 }
 
-function Opportunities({ dataset, openIntegrations, onCreateTask }) {
+function Opportunities({ dataset, openIntegrations, onCreateTask, tasks, clientId, onOpenTask }) {
   const [tab, setTab] = useState("quickWins");
   const groups = opportunityGroups(dataset);
   const tabs = [
@@ -2008,6 +2008,7 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
                 rows.map((row, index) => {
                   const queryText = row.dimension || row.query;
                   const taskValues = opportunityTask(row, dataset, tab);
+                  const existingTask = findExistingTask(tasks, taskValues, clientId);
                   const pageUrl = taskValues.sourceUrl;
                   return (
                     <tr key={`${queryText}-${index}`}>
@@ -2047,10 +2048,10 @@ function Opportunities({ dataset, openIntegrations, onCreateTask }) {
                           className="secondary mini"
                           disabled={!dataset}
                           onClick={() =>
-                            onCreateTask(taskValues)
+                            existingTask ? onOpenTask(existingTask.id) : onCreateTask(taskValues)
                           }
                         >
-                          Crea task
+                          {existingTask ? "Apri task" : "Crea task"}
                         </button>
                       </td>
                     </tr>
@@ -4820,6 +4821,12 @@ export default function App() {
       return (
         <Opportunities
           dataset={selectedDatasetWithChanges}
+          tasks={selectedTasks}
+          clientId={selectedClient}
+          onOpenTask={id => {
+            setRequestedTask({ id, nonce: Date.now() });
+            setPage("Task");
+          }}
           openIntegrations={() => setPage("Integrazioni")}
           onCreateTask={createManualTask}
         />

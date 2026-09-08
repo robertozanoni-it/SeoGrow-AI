@@ -237,6 +237,15 @@ try {
         if (pathname === '/api/google/properties') return Promise.resolve(new Response(JSON.stringify({ properties: Array.from({ length: 19 }, (_, i) => ({ url: 'https://qa-' + i + '.example/' })) }), { headers: { 'content-type': 'application/json' } }));
         return realFetch(input, options);
       };
+      if (!sessionStorage.getItem('opportunity-qa-seeded')) {
+        localStorage.setItem('seogrow-gsc-v1', JSON.stringify({ [client.id]: {
+          queries: [{ dimension: 'yoga', position: 8, impressions: 100, clicks: 2, ctr: 2 }],
+          pages: [], queryPages: [{ query: 'yoga', pages: ['https://example.com/yoga/'] }],
+          dateFrom: '2026-06-07', dateTo: '2026-09-05', importedAt: '2026-09-08T08:00:00Z'
+        } }));
+        localStorage.setItem('seogrow-tasks-v2', '[]');
+        sessionStorage.setItem('opportunity-qa-seeded', 'true');
+      }
       localStorage.setItem('seogrow-clients', JSON.stringify([client]));
       localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
       localStorage.setItem('seogrow-selected-page-v1', JSON.stringify('Audit SEO'));
@@ -300,6 +309,29 @@ try {
   await waitFor("[...document.querySelectorAll('button')].some(button => button.textContent.includes('Importa ora via API') && !button.disabled)", "importazione abilitata dopo selezione esplicita");
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test Google simulato");
+
+  // Regression: create -> save -> reload -> open the same persisted task.
+  await clickSidebar("Opportunità");
+  const opportunityButton = "document.querySelector('.opportunity-table tbody tr button')";
+  await waitFor(opportunityButton + "?.textContent.trim() === 'Crea task'", "opportunità yoga senza task");
+  await evaluate(opportunityButton + ".click()");
+  await waitFor(opportunityButton + "?.textContent.trim() === 'Apri task'", "stato opportunità aggiornato dopo creazione");
+  await evaluate(opportunityButton + ".click()");
+  await waitFor("document.querySelector('.task-editor')", "apertura task esistente");
+  await evaluate("document.querySelector('.task-editor').requestSubmit()");
+  await waitFor("!document.querySelector('.task-editor')", "task salvato");
+  await evaluate("(async () => { const { flushWorkspace } = await import('/src/workspaceDatabase.js'); await flushWorkspace(); })()");
+  await command("Page.reload", {});
+  await waitFor("document.querySelector('.guided-nav')", "workspace ricaricato");
+  await clickSidebar("Opportunità");
+  await waitFor(opportunityButton + "?.textContent.trim() === 'Apri task'", "dopo reload nessun nuovo Crea task");
+  await evaluate(opportunityButton + ".click()");
+  await waitFor("document.querySelector('.task-editor')", "task persistito riaperto");
+  await evaluate("document.querySelector('[aria-label=\"Chiudi finestra\"]').click()");
+  const savedTasks = await evaluate("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2')).filter(task => task.query === 'yoga' && task.sourceClientId === 9001); })()");
+  if (savedTasks.length !== 1 || savedTasks[0].sourceUrl !== 'https://example.com/yoga/') throw new Error('Task duplicato o associazione persa dopo reload');
+  await clickSidebar("Audit SEO");
+  await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test persistenza opportunità");
 
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
