@@ -198,3 +198,13 @@ Rafforzata la gestione delle nuove UI: obiettivo importato non testuale e voci c
 Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile), il selettore ha una riga completa, etichetta e più opzioni visibili con scorrimento. La risposta iniziale dello stato Google non può più cancellare le proprietà già caricate. Richiesta selezione esplicita prima dell'importazione; nessun sito scelto automaticamente.
 
 604 test locali PASS, lint/build PASS. Browser smoke CI esteso con 19 proprietà simulate, verifica delle dimensioni del selettore e selezione dell'ultima proprietà. Nessuna richiesta reale Google o WordPress durante il test.
+
+### Collaudo manuale Google e task — 8 settembre 2026
+
+- PR #65 merged; Release Gate #726 pre-merge e #727 su main PASS.
+- Evidenza fornita dall'utente: elenco proprietà Google visibile, selezione Yoga Buena Onda e importazione del periodo 7 giugno–5 settembre 2026; dashboard con 61 clic, 3.322 impressioni, 206 query e 17 pagine.
+- Navigazione Opportunità e creazione/salvataggio task eseguite; l'utente conferma che il task resta visibile dopo ricaricamento.
+- Anomalie osservate: dashboard con 64 query contro 6 opportunità; URL salvato come destinazione; task manuale omonimo del suggerimento GSC.
+- Correzione repository: dashboard usa lo stesso gruppo filtrato (almeno 10 impressioni, massimo 50) dell'elenco, con criteri espliciti. Le opportunità usano dati query–pagina quando disponibili e distinguono suggerimenti da associazioni documentate. Le nuove attività salvano sourceUrl, query e provenienza; riconoscono task search già presenti e vecchie destinazioni manuali equivalenti, senza sovrascrivere note o eliminare duplicati storici.
+- Validazione locale della correzione: lint, build, 609/609 test PASS. La verifica manuale di questa nuova correzione resta da eseguire sul Mac dopo aggiornamento.
+- Nessuna scrittura WordPress eseguita in questo batch. G07 shared/staging resta PARTIAL; il precedente collaudo minimo dei ruoli in staging non equivale a una matrice di scritture live.
