@@ -44,5 +44,5 @@ test("dashboard and opportunities share impression threshold and result cap", ()
   assert.match(guided, /const opportunities = opportunityGroups\(dataset\).quickWins.length/);
   const app = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
   assert.match(app, /onCreateTask\(taskValues\)/);
-  assert.match(app, /findExistingTask\(tasks, values, selectedClient\)/);
+  assert.match(app, /findExistingTask\(tasksRef.current, values, selectedClient\)/);
 });
