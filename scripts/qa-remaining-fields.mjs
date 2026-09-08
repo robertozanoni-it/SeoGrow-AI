@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
+import { normalizeStoredTasks } from '../src/platform.js';
 
 export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:recordScenario,set,field,button,submit,read,saved,revisit,mock,request,resetRequests}) {
   const failures=[];
@@ -225,7 +226,8 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
       await set('.backup-panel','Password del backup','qa-backup-passphrase');
       await evaluate("window.__qaBeforeRestore=true;window.confirm = m => m === 'Importare questo backup? I dati locali attuali verranno sostituiti.'");await upload();
       await waitFor("!window.__qaBeforeRestore && document.querySelector('.guided-nav')",'UI backup reload completed');
-      assert.deepEqual(await read('seogrow-tasks-v2'),before);
+      await saved('seogrow-tasks-v2',"value?.every(t=>typeof t.notes==='string')");
+      assert.deepEqual(await read('seogrow-tasks-v2'),normalizeStoredTasks(before));
     } finally {
       await evaluate("if(window.__qaOriginalURL)URL.createObjectURL=window.__qaOriginalURL;if(window.__qaOriginalAnchor)HTMLAnchorElement.prototype.click=window.__qaOriginalAnchor;delete window.__qaBackup");
     }
