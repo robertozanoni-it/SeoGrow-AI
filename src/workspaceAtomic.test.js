@@ -64,3 +64,17 @@ test("validated backup prepares audit history and correction index from the same
   assert.equal(JSON.parse(prepared.entries.get("seogrow-remediation-history-v1"))[0].id, prepared.corrections[0].id);
   assert.equal(JSON.parse(prepared.entries.get("seogrow-page-audit-history-v2"))[1][0].url, "https://example.it/");
 });
+
+test("monitor history participates in restore while older backups keep their original key set", async () => {
+  const base = { schemaVersion: 4, clients: [{ id: 1, name: "QA", url: "https://example.it/" }], tasks: [], gscData: {} };
+  const auditMonitor = { 1: { requestedUrl: "https://example.it/", status: "error", error: "network" } };
+  const prepared = await prepareWorkspaceRestore({ ...base, auditMonitor });
+  assert.deepEqual(JSON.parse(prepared.entries.get("seogrow-audit-monitor-v1")), auditMonitor);
+  const legacy = await prepareWorkspaceRestore(base);
+  assert.equal(legacy.entries.has("seogrow-audit-monitor-v1"), false);
+  const { db, generation } = await fixture();
+  const updated = await commitWorkspaceRestore(db, prepared.entries, prepared.corrections, generation);
+  await commitWorkspaceRestore(db, legacy.entries, legacy.corrections, updated);
+  assert.equal((await readWorkspace(db)).has("seogrow-audit-monitor-v1"), false);
+  db.close();
+});

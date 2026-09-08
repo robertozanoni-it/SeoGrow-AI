@@ -7,6 +7,7 @@ const sections = {
   gscHistory: "seogrow-gsc-history-v1", analyses: "seogrow-analyses-v2",
   rankings: "seogrow-rankings-v1", topicalMaps: "seogrow-topical-maps-v1", geoData: "seogrow-geo-v1",
   contentDrafts: "seogrow-content-drafts-v1", wordpressProfiles: "seogrow-wordpress-profiles-v1",
+  auditMonitor: "seogrow-audit-monitor-v1",
   pageAuditHistory: "seogrow-page-audit-history-v2", auditResults: "seogrow-quick-audits-v1", agentRuns: "seogrow-agent-runs-v1", preferences: "seogrow-preferences-v1",
 };
 
@@ -15,7 +16,10 @@ export async function prepareWorkspaceRestore(input, { snapshots = [], correctio
   const text = JSON.stringify({ schemaVersion: 4, ...input, ...(corrections ? { corrections } : {}) });
   const backup = await readWorkspaceBackup({ size: new TextEncoder().encode(text).length, text: async () => text });
   const entries = new Map();
-  for (const [section, key] of Object.entries(sections)) entries.set(key, JSON.stringify(backup[section] ?? (section === "tasks" ? [] : {})));
+  for (const [section, key] of Object.entries(sections)) {
+    if (section === "auditMonitor" && backup.auditMonitor == null) continue; // Old backups restore the same key set; the transaction clears obsolete monitor data.
+    entries.set(key, JSON.stringify(backup[section] ?? (section === "tasks" ? [] : {})));
+  }
   entries.set("seogrow-gsc-history-v1", JSON.stringify(backup.gscHistory || Object.fromEntries(Object.entries(backup.gscData).map(([id, data]) => [id, [data]]))));
   const selected = backup.clients.some(client => client.id === Number(backup.selectedClient)) ? Number(backup.selectedClient) : backup.clients[0].id;
   entries.set("seogrow-selected-client-v1", JSON.stringify(selected));

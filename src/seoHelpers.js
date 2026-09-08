@@ -359,6 +359,7 @@ export async function readWorkspaceBackup(file, passphrase = "") {
     "pageAuditHistory",
     "agentRuns",
     "preferences",
+    "auditMonitor",
   ]) {
     if (key in data && !validRecord(data[key]))
       throw new Error(`Il backup contiene una sezione non valida: ${key}.`);
