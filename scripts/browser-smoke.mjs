@@ -239,6 +239,8 @@ try {
       };
       if (!sessionStorage.getItem('opportunity-qa-seeded')) {
         localStorage.setItem('seogrow-gsc-v1', JSON.stringify({ [client.id]: {
+          totals: { clicks: 2, impressions: 100, ctr: 2, position: 8 },
+          graph: [], countries: [], devices: [], imports: [],
           queries: [{ dimension: 'yoga', position: 8, impressions: 100, clicks: 2, ctr: 2 }],
           pages: [], queryPages: [{ query: 'yoga', pages: ['https://example.com/yoga/'] }],
           dateFrom: '2026-06-07', dateTo: '2026-09-05', importedAt: '2026-09-08T08:00:00Z'
