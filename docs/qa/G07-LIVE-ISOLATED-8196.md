@@ -61,3 +61,27 @@ Il testo modificato è comparso nei due contesti e il testo iniziale è tornato 
 Stato finale: draft, noindex/nofollow; titolo WordPress e stringa _elementor_data esattamente uguali alla baseline. Lettura HTML separata dell’URL dopo il ritiro restituisce la pagina error404 del sito. Pagina di test conservata in bozza.
 
 **Esito limitato: PASS per il ciclo nativo Elementor sulla fixture indipendente e per il confronto desktop/mobile descritto. Il ciclo end-to-end SeoGrow → Elementor resta NON CHIUSO per ATOMIC_WRITE_UNAVAILABLE. G07 resta PARTIAL per shared/CPT/cache pubblica e copertura visuale complessiva.**
+
+## Connector 1.3.5 installed — direct Connector cycle
+
+User confirmed ZIP installation and authorized the isolated test. Active plugin inventory confirmed Connector 1.3.5 with Elementor 4.2.4. Page 8196 remained draft throughout this cycle, with Canvas and noindex/nofollow.
+
+- Saved fresh REST baseline before mutation.
+- Enabled `_seogrow_elementor_text_enabled=1` only on page 8196.
+- POST `/seogrow/v1/atomic-write`, operation apply, changed heading from “versione iniziale” to “versione di prova”. Response ok=true, atomicGuaranteed=true, staleChecked=true. Independent REST reread matched target JSON exactly.
+- Authenticated frontend preview showed the changed heading; Elementor mobile preview showed the changed heading. Screenshots inspected; no horizontal overflow observed.
+- Rollback with outdated expectedCurrent returned HTTP 409 STALE_CONFLICT.
+- Rollback with the actual applied snapshot returned success through the same Connector endpoint.
+- Independent final REST reread: original Elementor JSON, raw post_content and raw page title matched baseline byte for byte. Draft, Canvas and noindex/nofollow retained.
+- Temporary per-page enablement metadata deleted successfully after rollback. WPVibe automatically purged LiteSpeed/Elementor/object caches on its metadata enable/cleanup commands; cache behavior of the Connector alone is therefore not independently certified by this cycle.
+
+| Observation | After apply | After rollback |
+|---|---|---|
+| Desktop heading font | Roboto, sans-serif; 36px; 600 | Same |
+| Desktop line height / box | 40.68px; 1160 × 40.6875px | Same |
+| Desktop viewport / scroll width | 1363 / 1363px | Same |
+| Editor mobile heading font | Roboto, sans-serif; 26px; 600 | Same |
+| Editor mobile line height / box | 29.38px; 312 × 58.75px | Same |
+| Editor mobile viewport / scroll width | 360 / 360px | Same |
+
+Scope: direct authenticated Connector test via WPVibe plus browser rendering verification. This was NOT the SeoGrow application approval-token/button/runtime authentication path. That end-to-end gate remains open. No shared templates, production content pages, anonymous cache matrix, or font asset inventory were certified. Connector remains installed; isolated opt-in was removed.
