@@ -41,7 +41,8 @@ test("l'host usa esattamente audit type e analyzedAt richiesti senza fallback si
   assert.match(host, /requested\.auditType/);
   assert.match(host, /requested\.analyzedAt/);
   assert.match(host, /return matches\.length === 1 \? matches\[0\] : null/);
-  assert.match(host, /const \[requestedAudit, setRequestedAudit\] = useState\(null\)/);
+  assert.match(host, /const \[requestedAudit, setRequestedAudit\] = useState\(initialAudit\)/);
+  assert.match(host, /initialAudit = null/);
   assert.match(host, /setRequestedAudit\(/);
   assert.doesNotMatch(host, /selectAudit\([^)]*\) \|\| candidates/);
 });

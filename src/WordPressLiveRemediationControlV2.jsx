@@ -1,7 +1,8 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
-import { useEffect, useMemo, useState } from "react";
+import { AUTO_FIX_LIMIT, selectedAutoFixIssues } from "./autoFixPlan.js";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
@@ -385,13 +386,14 @@ const flattenState = (state, fields) => {
 };
 const previewText = (value) => JSON.stringify(value, null, 2) || "(anteprima non disponibile)";
 
-export default function WordPressLiveRemediationControlV2() {
+export default function WordPressLiveRemediationControlV2({ batchPlan = null, onBusyChange } = {}) {
+  const busyRef = useRef(false);
   const [target, setTarget] = useState(() => resolveTarget());
   const [running, setRunning] = useState(false);
   const [applyingId, setApplyingId] = useState("");
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
-  const [requestedAudit, setRequestedAudit] = useState(null);
+  const [requestedAudit, setRequestedAudit] = useState(batchPlan);
 
   useEffect(() => {
     if (target) return undefined;
@@ -429,20 +431,26 @@ export default function WordPressLiveRemediationControlV2() {
     const clients = readJson(CLIENTS_KEY, []);
     const clientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
     const client = clients.find((item) => normalizeClientId(item?.id) === clientId) || null;
-    const audit = client ? selectAudit(clientId, requestedAudit) : null;
+    const audit = client ? selectAudit(clientId, batchPlan || requestedAudit) : null;
     const issues = Array.isArray(audit?.item?.issues) ? audit.item.issues : [];
     const corrections = clientId ? await listCorrections({ clientId }) : [];
     const verifiedKeys = new Set(corrections.filter((record) => record.status === "Verificato").flatMap((record) => [record.issueKey, record.legacyIssueKey].filter(Boolean)));
+    const permitted = batchPlan ? selectedAutoFixIssues(batchPlan, batchPlan.indexes, { clientId, audit: audit?.item }) : issues;
     const activeIssues = issues.filter((issue) => !verifiedKeys.has(stableIssueKey({
       issue,
       issueType: issue?.type || "audit",
       issueLabel: issue?.label || "",
       sourceUrl: issueUrl(issue, audit?.item, client),
     })));
-    return { clientId, client, audit, issues, activeIssues };
+    return { clientId, client, audit, issues, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
   };
 
   const prepare = async (all) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    onBusyChange?.(true);
+    setRunning(true);
+    try {
     const credentials = readCredentials();
     if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
       setMessage("Connetti WordPress inserendo URL, utente e password applicativa prima di preparare le correzioni.");
@@ -455,7 +463,7 @@ export default function WordPressLiveRemediationControlV2() {
     }
     const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
     const requestedIndex = requestedAudit && normalizeClientId(requestedAudit.clientId) === context.clientId ? Number(requestedAudit.issueIndex || 0) : domIndex;
-    const selected = all ? context.activeIssues : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
+    const selected = all ? context.activeIssues.slice(0, AUTO_FIX_LIMIT) : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
     if (!selected.length) {
       setResults([]);
       setMessage("Nessun problema attivo da preparare.");
@@ -534,11 +542,16 @@ export default function WordPressLiveRemediationControlV2() {
     setMessage(
       `Esaminati ${next.length}/${selected.length} · pronti ${ready} · già risolti ${resolved} · bloccati ${blocked} · conflitti ${foundConflicts.length}. ${ready > 1 ? "Le anteprime si applicano una alla volta per sicurezza." : "Nessuna modifica live è stata ancora eseguita."}`,
     );
-    setRunning(false);
+    } catch (error) {
+      setResults([]); setMessage(error.message || "Preparazione non riuscita.");
+    } finally { busyRef.current = false; onBusyChange?.(false); setRunning(false); }
   };
 
   const applyOne = async (item) => {
-    if (!item || item.status !== "preview" || applyingId) return;
+    if (!item || item.status !== "preview" || busyRef.current) return;
+    busyRef.current = true;
+    onBusyChange?.(true);
+    try {
     const credentials = readCredentials();
     if (!credentials.username || !credentials.applicationPassword) {
       setMessage("La password applicativa non è disponibile. Reinseriscila prima dell'approvazione.");
@@ -550,7 +563,9 @@ export default function WordPressLiveRemediationControlV2() {
       setMessage(error.message);
       return;
     }
-    const liveContext = await currentContext();
+    let liveContext;
+    try { liveContext = await currentContext(); }
+    catch (error) { setResults([]); setMessage(error.message); return; }
     const stale = normalizeClientId(item.contextSnapshot?.clientId) !== liveContext.clientId ||
       item.contextSnapshot?.auditType !== liveContext.audit?.type ||
       String(item.contextSnapshot?.analyzedAt || "") !== String(auditTimestamp(liveContext.audit) || "");
@@ -644,6 +659,7 @@ export default function WordPressLiveRemediationControlV2() {
     } finally {
       setApplyingId("");
     }
+    } finally { busyRef.current = false; onBusyChange?.(false); }
   };
 
   return createPortal(
@@ -657,7 +673,7 @@ export default function WordPressLiveRemediationControlV2() {
       </div>
 
       <div className="wp-live-remediation-actions">
-        <button data-seogrow-live="1" type="button" className="primary" disabled={running || Boolean(applyingId)} onClick={() => prepare(true)}><Eye />{running ? "Esame in corso…" : "Prepara le anteprime dei problemi attivi"}</button>
+        <button data-seogrow-live="1" type="button" className="primary" disabled={running || Boolean(applyingId)} onClick={() => prepare(true)}><Eye />{running ? "Esame in corso…" : batchPlan ? "Prepara le anteprime selezionate" : "Prepara le anteprime dei problemi attivi"}</button>
         <button data-seogrow-live="1" type="button" className="secondary" disabled={running || Boolean(applyingId)} onClick={() => prepare(false)}><Wrench />Prepara solo questo problema</button>
       </div>
 

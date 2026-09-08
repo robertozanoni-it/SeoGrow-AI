@@ -1,4 +1,5 @@
 export const qaMatrix = [
+  ["AUTO-FIX-ASSISTED", "Assisted correction plan", "P0", "E2E Browser", "Synthetic audit and mocked WordPress", "Select, limit, prepare, change audit", "Exact selection, no writes, stale blocked, no task mutation", "full"],
   ["FIELDS-CONTENT-FORMATS", "Content topic and formats", "P1", "E2E Browser / Fields", "Mock generator", "Blank topic, all three formats, save and reload", "Blank blocked, exact format payload, persisted content", "full"],
   ["FIELDS-TASK-INVALID", "Task invalid inputs", "P0", "E2E Browser / Fields", "Saved task", "Empty/blank title, invalid URLs, cancel", "No storage changes", "full"],
   ["FIELDS-TASK-OPTIONS", "Task complete finite options", "P1", "E2E Browser / Fields", "Saved task", "All 12 priority/state pairs, Unicode, empty optional values, reload", "Stable ID, exact round trip, plain text, fixture restored", "full"],
