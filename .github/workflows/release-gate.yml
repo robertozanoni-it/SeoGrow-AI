@@ -27,14 +27,17 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Complete automated QA release
-        run: npm run qa:release
+        run: |
+          npm run qa:smoke
+          npm run qa:full
+          npm run qa:release
 
       - name: Upload QA reports and browser evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: qa-release
-          path: .qa-runtime/automation/release/
+          path: .qa-runtime/automation/
           if-no-files-found: error
 
       - name: Lint SeoGrow Connector PHP

@@ -9,7 +9,7 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
   };
   const select = (selector, value) => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) throw new Error('Missing select'); e.value = ${JSON.stringify(value)}; e.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   const input = (selector, value) => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) throw new Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, ${JSON.stringify(value)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-  const click = text => evaluate(`(() => { const e = [...document.querySelectorAll('button')].find(e => e.textContent.trim() === ${JSON.stringify(text)}); if (!e) throw new Error('Missing button'); e.click(); })()`);
+  const click = text => evaluate(`(() => { const e = [...(document.querySelector('[role=dialog]') || document).querySelectorAll('button')].find(e => e.textContent.trim() === ${JSON.stringify(text)}); if (!e) throw new Error('Missing button'); e.click(); })()`);
   // Existing table does not need test-only markup: labelled status select is unambiguous.
   const status = '[aria-label^="Stato della task"]';
   await clickSidebar("Task");
@@ -103,10 +103,10 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
     await record("ERROR-001", async () => {
       await clickSidebar("Integrazioni");
       for (const failure of ["400", "500", "offline", "invalid", "empty", "timeout"]) {
-        await evaluate(`window.__qaGoogleFailure = ${JSON.stringify(failure)}`);
+        await evaluate(`window.__qaFailureRequests = 0; window.__qaGoogleFailure = ${JSON.stringify(failure)}`);
         await click("Carica proprietà Google");
         await waitFor("[...document.querySelectorAll('button')].some(b => b.textContent.includes('Carica proprietà Google') && !b.disabled)", "error settles without infinite loading");
-        await waitFor("Boolean(document.querySelector('.error'))", "visible error " + failure);
+        await waitFor("window.__qaFailureRequests > 0 && document.querySelector('.integration-result')?.textContent.includes('Errore Google:')", "visible error " + failure);
         assert.equal((await tasks()).length, 2);
       }
       await evaluate("window.__qaGoogleFailure = null");

@@ -11,7 +11,7 @@ await mkdir(output, { recursive: true });
 const browserReport = { ok: false, scenarios: [], startedAt: new Date().toISOString() };
 async function record(id, action) {
   const start = Date.now();
-  try { await action(); browserReport.scenarios.push({ id, status: "PASS", durationMs: Date.now() - start }); }
+  try { await action(); console.log(id + ": PASS"); browserReport.scenarios.push({ id, status: "PASS", durationMs: Date.now() - start }); }
   catch (error) { browserReport.scenarios.push({ id, status: "FAIL", durationMs: Date.now() - start, error: error.message }); throw error; }
 }
 async function screenshot(name) {
@@ -256,6 +256,7 @@ try {
         const pathname = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
         if (pathname === '/api/google/status') return Promise.resolve(new Response(JSON.stringify({ configured: true, connected: true }), { headers: { 'content-type': 'application/json' } }));
         if (pathname === '/api/google/properties' && window.__qaGoogleFailure) {
+          window.__qaFailureRequests = (window.__qaFailureRequests || 0) + 1;
           const failure = window.__qaGoogleFailure;
           if (failure === 'offline') return Promise.reject(new TypeError('QA offline'));
           if (failure === 'timeout') return Promise.reject(new DOMException('QA timeout', 'TimeoutError'));

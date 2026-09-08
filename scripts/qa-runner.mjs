@@ -21,7 +21,9 @@ async function run(name, args, cwd = root, env = process.env) {
   const child = spawn(process.execPath, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", value => { text += value; });
   child.stderr.on("data", value => { text += value; });
+  const timeout = setTimeout(() => child.kill("SIGKILL"), 120000);
   const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("exit", resolve); });
+  clearTimeout(timeout);
   await writeFile(log, text);
   report.steps.push({ name, exitCode: code, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
