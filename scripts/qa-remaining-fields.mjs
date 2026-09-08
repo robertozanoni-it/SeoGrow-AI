@@ -36,6 +36,13 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     await evaluate("document.querySelector('.geo-questions textarea').dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:document.body}))");
     await saved('seogrow-geo-v1',"value?.[9001]?.questions?.length===2");
     await revisit('GEO AI'); await waitFor("document.querySelector('.geo-questions textarea')?.value.includes('QA question two?')",'GEO questions retained');
+    await evaluate("(()=>{const e=document.querySelector('.geo-questions textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await waitFor("document.querySelector('.geo-question-actions span')?.textContent.includes('0/20')",'Empty GEO state');
+    await evaluate("document.querySelector('.geo-questions textarea').dispatchEvent(new FocusEvent('focusout',{bubbles:true}))");
+    await saved('seogrow-geo-v1',"value?.[9001]?.questions?.length===0");
+    await revisit('GEO AI');await waitFor("document.querySelector('.geo-questions textarea')?.value === ''",'Explicit empty questions survive reload');
+    await evaluate("(()=>{const e=document.querySelector('.geo-questions textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'QA question one?\\nQA question two?');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await waitFor("document.querySelector('.geo-question-actions span')?.textContent.includes('2/20')",'GEO restored fixture');
     await evaluate("window.confirm = m => m.startsWith('Inviare a OpenAI 2 domande')");
     await mock('/api/geo/simulate',{error:'QA simulation rejected'},400); await resetRequests(); await button('Simula con OpenAI');
     const sent=await request('/api/geo/simulate'); assert.deepEqual(sent.questions,['QA question one?','QA question two?']);
@@ -84,7 +91,7 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     await clickSidebar('Audit SEO'); await waitFor("document.querySelector('.audit-inline-form')",'Audit taxonomy fixture');
     await evaluate("document.querySelectorAll('.audit-mode-card')[0].click()");
     await set('.audit-inline-form','URL della pagina','https://example.com/category/qa/');
-    await mock('/api/audit',{url:'https://example.com/category/qa/',score:70,analyzedAt:'2026-09-08T12:00:00Z',issues:[{type:'canonical',label:'Canonical QA',severity:'alta',targetUrl:'https://example.com/category/qa/'},{type:'noindex',label:'Noindex QA',severity:'alta',targetUrl:'https://example.com/category/qa/'}]});
+    await mock('/api/audit',{url:'https://example.com/category/qa/',score:70,evidencePolicy:'confirmed-issues-only',scoreSource:'seogrow-derived',analyzedAt:'2026-09-08T12:00:00Z',issues:[{type:'canonical',label:'Canonical QA',severity:'alta',targetUrl:'https://example.com/category/qa/'},{type:'noindex',label:'Noindex QA',severity:'alta',targetUrl:'https://example.com/category/qa/'}]});
     await submit('.audit-inline-form');
     await waitFor("document.querySelector('.audit-issue-select select')?.options.length===2",'Two taxonomy issues');
     await mock('/api/wordpress/inspect-taxonomy',{resource:'taxonomy',writable:true,ownership:'rank_math',term:{id:100,name:'QA category',taxonomy:'category',link:'https://example.com/category/qa/'}});

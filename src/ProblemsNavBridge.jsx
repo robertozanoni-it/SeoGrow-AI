@@ -21,13 +21,17 @@ export default function ProblemsNavBridge() {
   const [target, setTarget] = useState(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
+    let frame = 0;
+    let attempts = 0;
+    const findTarget = () => {
       const groups = [...document.querySelectorAll(".guided-nav-group")];
       const improve = groups.find(
         (group) => group.querySelector(".guided-nav-label")?.textContent?.trim() === "Migliora",
       );
-      setTarget(improve || null);
-    });
+      if (improve) setTarget(improve);
+      else if (++attempts < 120) frame = window.requestAnimationFrame(findTarget);
+    };
+    frame = window.requestAnimationFrame(findTarget);
     return () => window.cancelAnimationFrame(frame);
   }, []);
 

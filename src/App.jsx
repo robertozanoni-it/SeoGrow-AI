@@ -3117,7 +3117,7 @@ function Integrations({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Importazione non riuscita");
-      const assigned = onGscImport(data);
+      const assigned = await onGscImport(data);
       setImportStatus(`Dati API importati e abbinati a ${assigned.clientName}.`);
     } catch (error) {
       setImportStatus(`Errore Google: ${error.message}`);
@@ -3170,7 +3170,7 @@ function Integrations({
       for (const file of files) {
         try {
           const data = await importGscZip(file);
-          assignments.push({ data, assignment: onGscImport(data) });
+          assignments.push({ data, assignment: await onGscImport(data) });
         } catch (error) {
           failures.push(`${file.name}: ${error.message}`);
         }
@@ -4508,7 +4508,7 @@ export default function App() {
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("Aggiornamento automatico non riuscito");
-        handleGscImportRef.current?.(await response.json());
+        await handleGscImportRef.current?.(await response.json());
       } catch (error) {
         if (error.message !== "Richiesta annullata.")
           setStorageError(`Aggiornamento automatico: ${error.message}`);
