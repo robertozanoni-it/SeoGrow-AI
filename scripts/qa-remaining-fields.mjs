@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 
-export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests}) {
+export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:recordScenario,set,field,button,submit,read,saved,revisit,mock,request,resetRequests}) {
+  const failures=[];
+  const record=async(id,action)=>{try{await recordScenario(id,action);}catch(error){failures.push(id+': '+error.message.slice(0,220));console.error(failures.at(-1));await evaluate(`document.querySelector('[role=dialog] button[aria-label="Chiudi finestra"]')?.click()`).catch(()=>{});}};
   await record('FIELDS-AGENT',async()=>{
     await clickSidebar('SEO Agent'); await waitFor("document.querySelector('#seo-agent-goal')",'Agent');
     await set('.agent-console','Cosa vuoi ottenere?','   ');
@@ -31,7 +33,7 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
     await clickSidebar('GEO AI'); await waitFor("document.querySelector('.geo-questions textarea')",'GEO questions');
     await evaluate("(() => {const e=document.querySelector('.geo-questions textarea'); e.focus(); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'QA question one?\\nQA question two?'); e.dispatchEvent(new Event('input',{bubbles:true}));})()");
     await waitFor("document.querySelector('.geo-question-actions span')?.textContent.includes('2/20')",'GEO React state updated before blur');
-    await evaluate("document.querySelector('.geo-questions textarea').focus();document.querySelector('.geo-questions textarea').blur()");
+    await evaluate("document.querySelector('.geo-questions textarea').dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:document.body}))");
     await saved('seogrow-geo-v1',"value?.[9001]?.questions?.length===2");
     await revisit('GEO AI'); await waitFor("document.querySelector('.geo-questions textarea')?.value.includes('QA question two?')",'GEO questions retained');
     await evaluate("window.confirm = m => m.startsWith('Inviare a OpenAI 2 domande')");
@@ -221,5 +223,7 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record,s
       await evaluate("if(window.__qaOriginalURL)URL.createObjectURL=window.__qaOriginalURL;if(window.__qaOriginalAnchor)HTMLAnchorElement.prototype.click=window.__qaOriginalAnchor;delete window.__qaBackup");
     }
   });
+
+  if(failures.length)throw new Error('Conditional fields failed: '+failures.join(' | '));
 
 }
