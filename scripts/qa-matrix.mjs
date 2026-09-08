@@ -1,4 +1,10 @@
 export const qaMatrix = [
+  ["FIELDS-CONTENT-FORMATS", "Content topic and formats", "P1", "E2E Browser / Fields", "Mock generator", "Blank topic, all three formats, save and reload", "Blank blocked, exact format payload, persisted content", "full"],
+  ["FIELDS-TASK-INVALID", "Task invalid inputs", "P0", "E2E Browser / Fields", "Saved task", "Empty/blank title, invalid URLs, cancel", "No storage changes", "full"],
+  ["FIELDS-TASK-OPTIONS", "Task complete finite options", "P1", "E2E Browser / Fields", "Saved task", "All 12 priority/state pairs, Unicode, empty optional values, reload", "Stable ID, exact round trip, plain text, fixture restored", "full"],
+  ["FIELDS-SEARCH-OPTIONS", "Rankings field boundaries", "P1", "E2E Browser / Fields", "Mock provider", "Invalid localities, all depth/device/language options, empty keywords", "Invalid values blocked before requests", "full"],
+  ["FIELDS-TOPICAL-INVALID", "Topical empty normalized seeds", "P1", "E2E Browser / Fields", "Mock provider", "Whitespace and separator-only topics", "No paid request", "full"],
+  ["STORAGE-QUEUE-001", "Queued write failure", "P0", "Storage/Persistence / Error Injection / Regression / E2E Browser", "Persisted tasks", "Inject native put failure, queue second key, reload", "Visible failure, no optimistic phantom data, exact durable tasks preserved", "full"],
   ["FIELDS-ASSOCIATION", "Task manual association", "P1", "E2E Browser / Fields", "Search task", "Confirm, save, reload, revoke", "Explicit association retained then revoked", "full"],
   ["FIELDS-GOOGLE-IMPORT", "GOOGLE-IMPORT controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
   ["FIELDS-AUDIT-MODAL", "AUDIT-MODAL controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],

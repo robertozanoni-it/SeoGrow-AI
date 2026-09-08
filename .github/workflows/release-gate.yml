@@ -27,10 +27,8 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Complete automated QA release
-        run: |
-          npm run qa:smoke
-          npm run qa:full
-          npm run qa:release
+        # Release is a strict superset of full and smoke. Run each test once.
+        run: npm run qa:release
 
       - name: Upload QA reports and browser evidence
         if: always()

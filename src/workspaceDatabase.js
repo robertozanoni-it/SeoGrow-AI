@@ -3,6 +3,7 @@ export const WORKSPACE_STORE = "workspace";
 export const CORRECTIONS_STORE = "corrections";
 const GENERATION = "__generation";
 let cache = null;
+let committedCache = null;
 let generation = null;
 let frozen = false;
 let pending = Promise.resolve();
@@ -74,6 +75,7 @@ export async function initializeWorkspace(nativeStorage = globalThis.localStorag
       };
     });
     cache = await readWorkspace(db);
+    committedCache = new Map(cache);
     generation = cache.get(GENERATION);
     frozen = false;
     lastError = null;
@@ -84,6 +86,7 @@ export async function initializeWorkspace(nativeStorage = globalThis.localStorag
         if (data.generation !== generation) { frozen = true; window.location.reload(); return; }
         if (typeof data.key !== "string") return;
         if (data.value === null) cache.delete(data.key); else cache.set(data.key, data.value);
+        if (data.value === null) committedCache.delete(data.key); else committedCache.set(data.key, data.value);
         window.dispatchEvent(new StorageEvent("storage", { key: data.key, newValue: data.value }));
       };
     }
@@ -118,9 +121,12 @@ function queueWrite(key, value) {
         const store = tx.objectStore(WORKSPACE_STORE);
         if (value === null) store.delete(key); else store.put(value, key);
       }), [WORKSPACE_STORE]);
+      if (value === null) committedCache.delete(key); else committedCache.set(key, value);
       channel?.postMessage({ generation, key, value });
     } catch (error) {
-      if (before === undefined) cache.delete(key); else cache.set(key, before);
+      // Later queued writes have already changed the optimistic cache, but will
+      // not run after this failure. Restore all keys to the last committed state.
+      cache = new Map(committedCache);
       lastError = error;
       frozen = true;
       window.dispatchEvent(new CustomEvent("seogrow-storage-error", { detail: { key, message: error.message } }));

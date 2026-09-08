@@ -1,4 +1,6 @@
 import { qaMatrix, requiredScenarios } from "./qa-matrix.mjs";
+import { parseTestSummary, validateBrowserEvidence } from "./qa-evidence.mjs";
+import { randomUUID } from "node:crypto";
 import { spawn, execFileSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, rm, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,7 +13,7 @@ const mode = process.argv[2];
 if (!["smoke", "full", "release"].includes(mode)) throw new Error("Usage: qa-runner.mjs smoke|full|release");
 const output = path.join(root, ".qa-runtime", "automation", mode);
 await mkdir(output, { recursive: true });
-const report = { mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), startedAt: new Date().toISOString(), steps: [], ok: false };
+const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), dirty: Boolean(execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim()), startedAt: new Date().toISOString(), steps: [], ok: false };
 const children = [];
 const runtimes = [];
 let temporary;
@@ -19,16 +21,17 @@ async function run(name, args, cwd = root, env = process.env) {
   const started = Date.now();
   const log = path.join(output, name + ".log");
   let text = "";
+  let timedOut = false;
   const child = spawn(process.execPath, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", value => { text += value; });
   child.stderr.on("data", value => { text += value; });
-  const timeout = setTimeout(() => child.kill("SIGKILL"), 120000);
+  const timeout = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, 120000);
   const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", resolve); });
   clearTimeout(timeout);
   await writeFile(log, text);
-  report.steps.push({ name, exitCode: code, durationMs: Date.now() - started, log });
+  report.steps.push({ name, exitCode: code, signal: child.signalCode, timedOut, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
-  if (code !== 0) throw new Error(name + " failed: " + text.slice(-1800));
+  if (code !== 0) throw new Error(name + (timedOut ? " exceeded 120000ms deadline: " : " failed: ") + text.slice(-1800));
 }
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer(); server.on("error", reject);
@@ -47,8 +50,7 @@ try {
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
     await run("unit-integration-storage", ["--test", "--test-reporter=tap", ...tests]);
     const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
-    report.tests = Object.fromEntries(["tests", "pass", "fail", "skipped", "duration_ms"].map(key => [key, Number(tap.match(new RegExp("# " + key + " ([0-9.]+)"))?.[1])]));
-    if (!report.tests.tests || report.tests.fail || report.tests.skipped) throw new Error("Incomplete or skipped Node test suite");
+    report.tests = parseTestSummary(tap);
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
   // macOS /var is a symlink to /private/var. Node resolves module URLs to
@@ -64,7 +66,7 @@ try {
   const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: tmpdir(), PORT: String(apiPort),
     APP_ORIGIN: "http://127.0.0.1:" + uiPort, APP_API_TOKEN: "qa-token-".repeat(8),
     CREDENTIAL_ENCRYPTION_KEY: "qa-key-".repeat(10), NODE_ENV: "development",
-    QA_MODE: mode, QA_OUTPUT: output, CHROME_BIN: process.env.CHROME_BIN || "" };
+    QA_MODE: mode, QA_OUTPUT: output, QA_RUN_ID: report.runId, QA_COMMIT: report.commit, CHROME_BIN: process.env.CHROME_BIN || "" };
   for (const [name, args] of [
     ["api", ["--import=" + path.join(temporary, "server/remediationBootstrap.js"), path.join(temporary, "server/index.js")]],
     ["vite", [path.join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"]],
@@ -90,10 +92,7 @@ try {
   if (!ready) throw new Error("QA runtime health check failed");
   await run("browser", [path.join(temporary, "scripts/browser-smoke.mjs"), url], temporary, env);
   const browser = JSON.parse(await readFile(path.join(output, "browser-report.json"), "utf8"));
-  if (!browser.ok || !browser.scenarios?.length) throw new Error("Browser matrix did not execute");
-  for (const id of requiredScenarios(mode)) {
-    if (!browser.scenarios.some(s => s.id === id && s.status === "PASS")) throw new Error("Required scenario did not pass: " + id);
-  }
+  validateBrowserEvidence(browser, report, requiredScenarios(mode));
   report.matrix = qaMatrix;
   report.browser = browser;
   report.ok = true;

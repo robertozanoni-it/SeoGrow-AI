@@ -72,3 +72,44 @@ prima del merge; nessuno scenario obbligatorio è stato rimosso o saltato.
 
 Gate post-merge del codice: [#762 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34225505395),
 commit `7c55f414d0d1db6516a2a189f2fc468e34b04f99`.
+
+## Estensione batch nel branch `qa/release-gate-integrity`
+
+Questa estensione è locale: non è stata caricata su GitHub e non è una nuova PR.
+Riutilizza tutti i 22 scenari dei campi precedenti e aggiunge cinque scenari
+obbligatori in `qa:full` e `qa:release`, senza interventi manuali tra i test.
+
+| Scenario | Controlli aggiunti | Risultato richiesto |
+| --- | --- | --- |
+| FIELDS-TASK-INVALID | Titolo vuoto e composto da spazi; URL sorgente e destinazione non validi; chiusura senza salvare | Archivio identico allo stato iniziale |
+| FIELDS-TASK-OPTIONS | Tutte le 12 combinazioni delle 3 priorità e dei 4 stati; note/istruzioni Unicode e testo simile a HTML; date e URL facoltativi svuotati; reload | ID stabile, nessuna duplicazione, contenuti letterali conservati e dataset ripristinato automaticamente |
+| FIELDS-SEARCH-OPTIONS | Località 0, negativa e frazionaria; tutte le profondità, dispositivi e lingue disponibili; keyword vuote o costituite da separatori | Input invalidi bloccati prima delle richieste; selezioni coerenti |
+| FIELDS-CONTENT-FORMATS | Argomento composto da spazi; Brief SEO, Articolo e Metadati; payload e reload della bozza | Errore comprensibile senza chiamata per argomento vuoto; formato corretto e contenuto conservato |
+| FIELDS-TOPICAL-INVALID | Argomenti composti soltanto da spazi, virgole e punti e virgola | Errore visibile e nessuna richiesta con lista di argomenti vuota |
+
+Il test Topical è stato osservato fallire: partiva una richiesta con argomenti
+normalizzati vuoti. La normalizzazione ora precede conferma e richiesta. Lo
+stesso blocco preventivo è stato aggiunto al generatore di contenuti per un
+argomento composto soltanto da spazi. Gli errori vengono mostrati nella pagina;
+non si simula un successo. I test usano risposte locali e nessun costo API reale.
+
+La matrice aggiornata contiene 27 scenari `FIELDS-*`, 38 scenari browser in full
+e 40 in release. La suite Node resta di 633 test. Il numero degli scenari non
+corrisponde al numero dei singoli campi o delle asserzioni.
+
+Restano validi i limiti dell'inventario sopra: controlli nascosti del vecchio
+Audit, servizi esterni reali e tutte le possibili combinazioni arbitrarie non
+vengono presentati come collaudati da questo batch.
+
+### Esito verificato dell’estensione locale
+
+Commit collaudato: `37097de74698dd242f8c9d1b051af5e01b90a226` (working tree pulito all’avvio del Release Gate).
+
+- `qa:full`: PASS, 633 test Node e 38 scenari browser.
+- `qa:release`: PASS, 633 test Node e 40 scenari browser.
+- Campi: 27 scenari `FIELDS-*` PASS.
+- Falliti, saltati, annullati e todo: 0.
+- Lint e build production: PASS.
+- Report strutturato: `qa/baselines/2026-09-08-fields-complete.json`.
+- Verifica eseguita in Chromium, con fixture isolate e provider simulati.
+- Branch conservato localmente; upload, PR e CI remota restano da eseguire.
