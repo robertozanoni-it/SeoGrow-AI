@@ -1,3 +1,4 @@
+import { runFormMatrix } from "./qa-form-matrix.mjs";
 import { runBrowserMatrix } from "./qa-browser-matrix.mjs";
 import { access, rm, mkdir, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
@@ -264,7 +265,16 @@ try {
       };
       const realFetch = window.fetch.bind(window);
       window.fetch = (input, options) => {
-        const pathname = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
+        const requestUrl = new URL(typeof input === 'string' ? input : input.url, location.href);
+        const pathname = requestUrl.pathname;
+        const method = (options?.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
+        if (requestUrl.origin !== location.origin) return Promise.reject(new Error('QA blocked external request'));
+        const fixture = window.__qaFormMocks?.[pathname];
+        if (fixture && method === 'POST') {
+          (window.__qaFormRequests ||= []).push({path:pathname, body:JSON.parse(options?.body || '{}')});
+          return Promise.resolve(new Response(JSON.stringify(fixture.body), {status:fixture.status, headers:{'content-type':'application/json'}}));
+        }
+        if (pathname === '/api/dataforseo/status') return Promise.resolve(new Response(JSON.stringify({configured:true,maxSerpCost:0.1}), {headers:{'content-type':'application/json'}}));
         if (pathname === '/api/google/status') return Promise.resolve(new Response(JSON.stringify({ configured: true, connected: true }), { headers: { 'content-type': 'application/json' } }));
         if (pathname === '/api/google/properties' && window.__qaGoogleFailure) {
           window.__qaFailureRequests = (window.__qaFailureRequests || 0) + 1;
@@ -275,7 +285,7 @@ try {
         }
         if (pathname === '/api/google/properties') return Promise.resolve(new Response(JSON.stringify({ properties: Array.from({ length: 19 }, (_, i) => ({ url: 'https://qa-' + i + '.example/' })) }), { headers: { 'content-type': 'application/json' } }));
         const url = new URL(typeof input === 'string' ? input : input.url, location.href);
-        if (url.origin !== location.origin || (options?.method && options.method !== 'GET')) return Promise.reject(new Error('QA blocked non-read request'));
+        if (url.origin !== location.origin || method !== 'GET') return Promise.reject(new Error('QA blocked non-read request'));
         return realFetch(input, options);
       };
       if (!sessionStorage.getItem('opportunity-qa-seeded')) {
@@ -397,6 +407,7 @@ try {
 
   browserReport.scenarios.push({ id: "EXISTING-REGRESSION", status: "PASS", covers: ["OPPORTUNITY-001", "OPPORTUNITY-002", "OPPORTUNITY-003", "OPPORTUNITY-005", "OPPORTUNITY-006", "VIEWS-001", "GOOGLE-001", "NAV-001"] });
   await runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
+  await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, mode: process.env.QA_MODE || "release" });
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
   await assertViewportVisibility(1440, "desktop", "desktop");

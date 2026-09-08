@@ -1621,7 +1621,8 @@ function ClientsPage({
   const [formError, setFormError] = useState("");
   const add = (e) => {
     e.preventDefault();
-    if (!form.name || !form.url) return;
+    if (!form.name.trim()) return setFormError("Inserisci un nome cliente valido.");
+    if (!form.url) return;
     let normalizedUrl;
     try {
       normalizedUrl = normalizeProjectUrl(form.url);
@@ -2923,6 +2924,7 @@ function ContentPage({
             )}
           </div>
           <textarea
+            aria-label="Bozza da revisionare"
             value={content}
             onChange={(event) => {
               setContent(event.target.value);
