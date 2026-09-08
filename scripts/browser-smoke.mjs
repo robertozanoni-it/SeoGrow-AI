@@ -274,6 +274,7 @@ try {
           (window.__qaFormRequests ||= []).push({path:pathname, body:JSON.parse(options?.body || '{}')});
           return Promise.resolve(new Response(JSON.stringify(fixture.body), {status:fixture.status, headers:{'content-type':'application/json'}}));
         }
+        if (pathname === '/api/openai/status') return Promise.resolve(new Response(JSON.stringify({configured:true}), {headers:{'content-type':'application/json'}}));
         if (pathname === '/api/dataforseo/status') return Promise.resolve(new Response(JSON.stringify({configured:true,maxSerpCost:0.1}), {headers:{'content-type':'application/json'}}));
         if (pathname === '/api/google/status') return Promise.resolve(new Response(JSON.stringify({ configured: true, connected: true }), { headers: { 'content-type': 'application/json' } }));
         if (pathname === '/api/google/properties' && window.__qaGoogleFailure) {
