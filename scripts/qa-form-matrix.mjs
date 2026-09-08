@@ -142,15 +142,15 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
   });
 
   await record('FIELDS-WORDPRESS', async () => {
-    await clickSidebar('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration form')",'WordPress form');
+    await clickSidebar('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration')",'WordPress form');
     for(const [label,value] of Object.entries({'URL sito':'https://example.com/','Nome utente':'qa-user','Password applicativa':'qa-synthetic-password-only'})) await set('.wordpress-integration',label,value);
-    await mock('/api/wordpress/test',{error:'QA forbidden'},403); await resetRequests(); await submit('.wordpress-integration form');
+    await mock('/api/wordpress/test',{error:'QA forbidden'},403); await resetRequests(); await submit('.wordpress-integration');
     assert.deepEqual(await request('/api/wordpress/test'),{url:'https://example.com/',username:'qa-user',applicationPassword:'qa-synthetic-password-only'});
     await waitFor("document.querySelector('.wordpress-integration').textContent.includes('QA forbidden')",'Auth error shown');
-    await mock('/api/wordpress/test',{name:'QA user',site:'https://example.com/',canCreatePosts:true,canCreatePages:false}); await submit('.wordpress-integration form');
+    await mock('/api/wordpress/test',{name:'QA user',site:'https://example.com/',canCreatePosts:true,canCreatePages:false}); await submit('.wordpress-integration');
     await waitFor("document.querySelector('.wordpress-integration').textContent.includes('Connessione verificata come QA user')",'Connection retry');
     const profile = await read('seogrow-wordpress-profiles-v1'); assert.ok(!JSON.stringify(profile).includes('qa-synthetic-password-only'));
-    await revisit('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration form')",'Connection reload');
+    await revisit('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration')",'Connection reload');
     assert.equal(await evaluate(`${field('.wordpress-integration','Password applicativa')}.value`),'');
   });
 }
