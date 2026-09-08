@@ -92,7 +92,7 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
   let lastError;
   while (Date.now() - started < timeoutMs) {
     try {
-      if (await evaluate(`Boolean(${expression})`)) return;
+      if (await evaluate(`(async () => Boolean(await (${expression})))()`)) return;
     } catch (error) {
       lastError = error;
     }
@@ -322,6 +322,8 @@ try {
   await waitFor("document.querySelector('.task-editor')", "apertura task esistente");
   await evaluate("document.querySelector('.task-editor').requestSubmit()");
   await waitFor("!document.querySelector('.task-editor')", "task salvato");
+  await waitFor("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2') || '[]').some(task => task.query === 'yoga' && task.userEdited === true); })()", "salvataggio task completato dopo debounce");
+  const originalTaskId = await evaluate("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2')).find(task => task.query === 'yoga').id; })()");
   await evaluate("(async () => { const { flushWorkspace } = await import('/src/workspaceDatabase.js'); await flushWorkspace(); })()");
   await command("Page.reload", {});
   await waitFor("document.querySelector('.guided-nav')", "workspace ricaricato");
@@ -331,7 +333,7 @@ try {
   await waitFor("document.querySelector('.task-editor')", "task persistito riaperto");
   await evaluate("document.querySelector('[aria-label=\"Chiudi finestra\"]').click()");
   const savedTasks = await evaluate("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2')).filter(task => task.query === 'yoga' && task.sourceClientId === 9001); })()");
-  if (savedTasks.length !== 1 || savedTasks[0].sourceUrl !== 'https://example.com/yoga/') throw new Error('Task duplicato o associazione persa dopo reload');
+  if (savedTasks.length !== 1 || savedTasks[0].id !== originalTaskId || savedTasks[0].sourceUrl !== 'https://example.com/yoga/') throw new Error('Task duplicato o associazione persa dopo reload');
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test persistenza opportunità");
 
