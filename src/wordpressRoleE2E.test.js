@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 
@@ -27,7 +30,7 @@ test("il comando npm del batch ruolo-per-ruolo è esposto", () => {
   assert.equal(pkg.scripts["test:wordpress-role-e2e"], "node scripts/wordpress-role-e2e.mjs");
 });
 
-function runHarness(appUrl, token = "role-test-local-token") {
+function runHarness(appUrl, token = "role-test-local-token", scriptUrl = new URL("../scripts/wordpress-role-e2e.mjs", import.meta.url)) {
   const env = {
     ...process.env,
     APP_API_TOKEN: token,
@@ -43,7 +46,7 @@ function runHarness(appUrl, token = "role-test-local-token") {
     env[`SEOGROW_WP_${prefix}_APPLICATION_PASSWORD`] = "fixture-password";
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [new URL("../scripts/wordpress-role-e2e.mjs", import.meta.url).pathname], { env });
+    const child = spawn(process.execPath, [fileURLToPath(scriptUrl)], { env });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
@@ -52,6 +55,17 @@ function runHarness(appUrl, token = "role-test-local-token") {
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
 }
+
+test("il launcher carica lo script da cartelle con spazi e caratteri URL", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "Seo Grow QA # % "));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "wordpress-role-e2e.mjs");
+  await writeFile(file, script);
+  const result = await runHarness("http://127.0.0.1:1", "", pathToFileURL(file));
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /Imposta APP_API_TOKEN/);
+  assert.doesNotMatch(result.stderr, /MODULE_NOT_FOUND/);
+});
 
 async function localApi(t, handler) {
   const server = createServer(handler);
