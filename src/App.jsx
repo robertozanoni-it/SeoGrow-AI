@@ -12,7 +12,7 @@ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
-import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -4017,15 +4017,19 @@ export default function App() {
       return [];
     }
   });
+  const tasksRef = useRef(tasks);
+  useLayoutEffect(() => { tasksRef.current = tasks; }, [tasks]);
   const [taskUndo, setTaskUndo] = useState(null);
   const [undoError, setUndoError] = useState("");
   const changeTasks = update => {
-    const next = typeof update === "function" ? update(tasks) : update;
-    const changes = taskChange(tasks, next);
+    const before = tasksRef.current;
+    const next = typeof update === "function" ? update(before) : update;
+    const changes = taskChange(before, next);
+    tasksRef.current = next;
     if (changes.length) { setTaskUndo(changes); setUndoError(""); setTasks(next); }
   };
   const undoTasks = () => {
-    try { setTasks(undoTaskChange(tasks, taskUndo)); setTaskUndo(null); setUndoError(""); }
+    try { const next = undoTaskChange(tasksRef.current, taskUndo); tasksRef.current = next; setTasks(next); setTaskUndo(null); setUndoError(""); }
     catch (error) { setUndoError(error.message); }
   };
   const [gscData, setGscData] = useStoredState("seogrow-gsc-v1", {});
@@ -4714,7 +4718,7 @@ export default function App() {
       setToast({ kind: "error", message: "Task non creata: inserisci un titolo." });
       return null;
     }
-    const duplicate = findExistingTask(tasks, values, selectedClient);
+    const duplicate = findExistingTask(tasksRef.current, values, selectedClient);
     if (duplicate) {
       setToast({ kind: "info", message: `Task già presente: ${duplicate.title}`, taskId: duplicate.id, clientId: selectedClient });
       return duplicate;
@@ -4738,7 +4742,8 @@ export default function App() {
       notes: "",
       createdAt: new Date().toISOString(),
     };
-    setTasks((current) => [task, ...current]);
+    tasksRef.current = [task, ...tasksRef.current];
+    setTasks(tasksRef.current);
     setToast({ kind: "success", message: `Task creata: ${task.title}`, taskId: task.id, clientId: selectedClient });
     return task;
   };

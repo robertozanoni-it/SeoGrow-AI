@@ -223,3 +223,10 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - Applicata al componente condiviso Task/Audit. Nessuna nuova persistenza su disco dei filtri o modifica ai dati delle viste.
 - Test browser aggiunto per "Yoga da fare": richiamo, filtri ripristinati, nome mantenuto dopo render non legato ai filtri, azzeramento su modifica manuale di ricerca/stato.
 - Lint, build e 609 test locali PASS; scenario browser verificato tramite Release Gate.
+
+### Automazione del collaudo — baseline 8 settembre 2026
+- Baseline main 7de18babea0fe7e78aa12bb20292f19b2785c723, PR #68 merged, Gate #735 e #736 (attempt 2) PASS.
+- Utente: ricerca task, viste salvate e relativa selezione confermate; undo con reload confermato nel collaudo riportato.
+- Nuovo batch: comandi qa:smoke/full/release, matrice eseguibile, runtime/profilo temporanei senza credenziali, flussi Task/Undo/CRUD/filtri/reload/errori e screenshot responsive.
+- Node locale: 613/613 PASS, 0 skip, 2015.916762 ms; lint/build PASS. Browser completo da verificare nel gate prima del merge.
+- Dettagli, limiti e distinzione visuale automatico/manuale in QA-AUTOMATION.md. G07 e gli altri vincoli WordPress restano invariati.

@@ -1,12 +1,33 @@
-import { access, rm } from "node:fs/promises";
+import { runBrowserMatrix } from "./qa-browser-matrix.mjs";
+import { access, rm, mkdir, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
 const appUrl = process.argv[2] || "http://127.0.0.1:5176/";
 const debuggingPort = 10_000 + (process.pid % 40_000);
 const profile = `/tmp/seogrow-browser-smoke-${process.pid}`;
 
+const output = process.env.QA_OUTPUT || ".qa-runtime/automation/browser";
+await mkdir(output, { recursive: true });
+const browserReport = { ok: false, scenarios: [], startedAt: new Date().toISOString() };
+async function record(id, action) {
+  const start = Date.now();
+  try { await action(); browserReport.scenarios.push({ id, status: "PASS", durationMs: Date.now() - start }); }
+  catch (error) { browserReport.scenarios.push({ id, status: "FAIL", durationMs: Date.now() - start, error: error.message }); throw error; }
+}
+async function screenshot(name) {
+  const result = await command("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  await writeFile(output + "/" + name + ".png", Buffer.from(result.data, "base64"));
+}
+async function reload() {
+  await evaluate("window.__qaOldDocument = true");
+  await command("Page.reload", {});
+  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.task-filters')", "new document hydrated after reload");
+}
+
 const candidates = [
   process.env.CHROME_BIN,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
   "/usr/bin/google-chrome",
   "/usr/bin/google-chrome-stable",
   "/usr/bin/chromium",
@@ -83,7 +104,7 @@ const evaluate = async (expression) => {
     awaitPromise: true,
     returnByValue: true,
   });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text || "Errore JavaScript browser.");
+  if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Errore JavaScript browser.");
   return result.result?.value;
 };
 
@@ -104,7 +125,7 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
 
 const clickSidebar = async (label) => {
   const clicked = await evaluate(`(() => {
-    const matches = (root) => [...root.querySelectorAll('button')]
+    const matches = (root) => [...(root?.querySelectorAll('button') || [])]
       .find((node) => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
     const guided = document.querySelector('.guided-nav');
     const button = (guided && matches(guided)) || matches(document.querySelector('.sidebar'));
@@ -234,7 +255,15 @@ try {
       window.fetch = (input, options) => {
         const pathname = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
         if (pathname === '/api/google/status') return Promise.resolve(new Response(JSON.stringify({ configured: true, connected: true }), { headers: { 'content-type': 'application/json' } }));
+        if (pathname === '/api/google/properties' && window.__qaGoogleFailure) {
+          const failure = window.__qaGoogleFailure;
+          if (failure === 'offline') return Promise.reject(new TypeError('QA offline'));
+          if (failure === 'timeout') return Promise.reject(new DOMException('QA timeout', 'TimeoutError'));
+          return Promise.resolve(new Response(failure === 'invalid' ? '{' : failure === 'empty' ? '' : JSON.stringify({ error: 'QA ' + failure }), { status: ['400', '500'].includes(failure) ? Number(failure) : 200, headers: { 'content-type': 'application/json' } }));
+        }
         if (pathname === '/api/google/properties') return Promise.resolve(new Response(JSON.stringify({ properties: Array.from({ length: 19 }, (_, i) => ({ url: 'https://qa-' + i + '.example/' })) }), { headers: { 'content-type': 'application/json' } }));
+        const url = new URL(typeof input === 'string' ? input : input.url, location.href);
+        if (url.origin !== location.origin || (options?.method && options.method !== 'GET')) return Promise.reject(new Error('QA blocked non-read request'));
         return realFetch(input, options);
       };
       if (!sessionStorage.getItem('opportunity-qa-seeded')) {
@@ -334,7 +363,7 @@ try {
   await clickSidebar("Opportunità");
   const opportunityButton = "document.querySelector('.opportunity-table tbody tr button')";
   await waitFor(opportunityButton + "?.textContent.trim() === 'Crea task'", "opportunità yoga senza task");
-  await evaluate(opportunityButton + ".click()");
+  await evaluate("(() => { const button = " + opportunityButton + "; button.click(); button.click(); button.click(); })()");
   await waitFor(opportunityButton + "?.textContent.trim() === 'Apri task'", "stato opportunità aggiornato dopo creazione");
   await evaluate(opportunityButton + ".click()");
   await waitFor("document.querySelector('.task-editor')", "apertura task esistente");
@@ -343,8 +372,7 @@ try {
   await waitFor("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2') || '[]').some(task => task.query === 'yoga' && task.userEdited === true); })()", "salvataggio task completato dopo debounce");
   const originalTaskId = await evaluate("(async () => { const { workspaceStorage } = await import('/src/workspaceDatabase.js'); return JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2')).find(task => task.query === 'yoga').id; })()");
   await evaluate("(async () => { const { flushWorkspace } = await import('/src/workspaceDatabase.js'); await flushWorkspace(); })()");
-  await command("Page.reload", {});
-  await waitFor("document.querySelector('.guided-nav')", "workspace ricaricato");
+  await reload();
   await clickSidebar("Opportunità");
   await waitFor(opportunityButton + "?.textContent.trim() === 'Apri task'", "dopo reload nessun nuovo Crea task");
   await evaluate(opportunityButton + ".click()");
@@ -355,13 +383,24 @@ try {
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test persistenza opportunità");
 
+  browserReport.scenarios.push({ id: "EXISTING-REGRESSION", status: "PASS", covers: ["OPPORTUNITY-001", "OPPORTUNITY-002", "OPPORTUNITY-003", "OPPORTUNITY-005", "OPPORTUNITY-006", "VIEWS-001", "GOOGLE-001", "NAV-001"] });
+  await runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
+  await clickSidebar("Audit SEO");
+  await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
   await assertViewportVisibility(390, "mobile", "mobile");
   await command("Emulation.clearDeviceMetricsOverride");
 
+  browserReport.ok = true;
   console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO e visibilità desktop/tablet/mobile verificate.`);
+} catch (error) {
+  browserReport.error = error.message;
+  await screenshot("failure").catch(() => {});
+  await writeFile(output + "/failure-dom.txt", await evaluate("document.documentElement.outerHTML").catch(() => "Document unavailable"));
+  throw error;
 } finally {
+  await writeFile(output + "/browser-report.json", JSON.stringify(browserReport, null, 2));
   if (socket) {
     try { socket.close(); } catch { /* già chiuso */ }
   }
