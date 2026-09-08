@@ -2715,3 +2715,7 @@ td:first-child {
 .calendar-day p { padding: 6px; background: #edf6ff; font-size: 12px; }
 @media (max-width: 800px) { .editorial-calendar { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .editorial-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planning-panel { padding: 16px; } }
+
+.freshness-notice { margin: 12px 24px; border: 1px solid #d6e1ef; border-left: 4px solid #1767d5; border-radius: 8px; background: #f4f8fd; padding: 12px 16px; overflow-wrap: anywhere; }
+.freshness-notice p { margin: 6px 0 10px; }
+.freshness-notice button { margin: 4px 8px 4px 0; }

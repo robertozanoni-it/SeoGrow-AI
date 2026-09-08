@@ -1,3 +1,5 @@
+import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
+import { readAuditMonitor } from "./auditMonitorStore.js";
 import EditorialCalendar from "./EditorialCalendar.jsx";
 import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
@@ -3825,6 +3827,7 @@ function SettingsPage({
                     wordpressProfiles,
                     auditResults,
                     agentRuns,
+                    auditMonitor: readAuditMonitor(),
                     preferences,
                   },
                   backupPassword,
@@ -4299,6 +4302,7 @@ export default function App() {
             wordpressProfiles,
             auditResults,
             agentRuns,
+            auditMonitor: readAuditMonitor(),
             preferences,
           },
         },
@@ -4758,7 +4762,7 @@ export default function App() {
   const projectSettings = preferences.projectSettings?.[selectedClient] || {};
   const saveProjectSettings = settings => setPreferences(current => ({ ...current, projectSettings: { ...current.projectSettings, [selectedClient]: settings } }));
   const content = (() => {
-    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)} />;
+    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
     if (page === "Panoramica")
       return (
         <Dashboard
@@ -5048,6 +5052,9 @@ export default function App() {
           {taskUndo && <><button className="secondary" onClick={undoTasks}>Annulla ultima modifica task</button><button className="secondary" onClick={() => { setTaskUndo(null); setUndoError(""); }}>Ignora annullamento</button></>}
           {undoError && <p role="alert">{undoError}</p>}
         </div>
+        <AuditScheduler />
+        <FreshnessNotice key={`fresh-${selectedClient}`} sources={[{ labelName: "Search Console", date: selectedDataset?.importedAt }, { labelName: "Audit SEO", date: selectedAnalysis?.analyzedAt || auditResults[selectedClient]?.fetchedAt }, { labelName: "Posizionamenti", date: rankings[selectedClient]?.[0]?.checkedAt }]} settings={projectSettings} onOpen={() => setPage("Centro progetto")} />
+        <AuditUpdateNotice key={`notice-${selectedClient}`} clientId={selectedClient} settings={projectSettings} onRead={monitorSeenAt => saveProjectSettings({ ...projectSettings, monitorSeenAt })} onOpen={() => setPage("Centro progetto")} />
         <main>{content}</main>
       </div>
       {quickAudit && (

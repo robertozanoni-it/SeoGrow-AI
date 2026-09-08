@@ -268,6 +268,21 @@ try {
     "ritorno ad Audit SEO con RemediationHost",
   );
 
+  // Product features are exercised on an isolated QA profile; no remote audits enabled.
+  await clickSidebar("Centro progetto");
+  await waitFor("document.querySelector('main h1')?.textContent.includes('Centro progetto')", "Centro progetto");
+  await waitFor("document.querySelector('.wizard-steps') && document.querySelector('.report-option')", "wizard e modello report");
+  await evaluate("[...document.querySelectorAll('.workspace-tools button')].find(button => button.textContent.startsWith('Comandi')).click()");
+  await waitFor("document.querySelector('.command-dialog')?.open", "palette comandi aperta");
+  await evaluate("[...document.querySelectorAll('.command-dialog button')].find(button => button.textContent === 'Chiudi').click()");
+  await waitFor("!document.querySelector('.command-dialog')?.open", "palette comandi chiusa");
+  await clickSidebar("Task");
+  await waitFor("document.querySelector('[aria-label=\"Viste salvate task\"]')", "viste task salvabili");
+  await clickSidebar("Piano editoriale");
+  await waitFor("document.querySelectorAll('.calendar-day').length >= 28", "calendario mensile");
+  await clickSidebar("Audit SEO");
+  await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno al controllo Audit SEO");
+
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
   await assertViewportVisibility(390, "mobile", "mobile");
