@@ -17,7 +17,7 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
   const submit = selector => evaluate(`document.querySelector(${q(selector)}).requestSubmit()`);
   const read = key => evaluate(`(async () => { const m = await import('/src/workspaceDatabase.js'); await m.flushWorkspace(); return JSON.parse(m.workspaceStorage.getItem(${q(key)}) || 'null'); })()`);
   const saved = (key, condition) => waitFor(`(async () => { const m = await import('/src/workspaceDatabase.js'); const value = JSON.parse(m.workspaceStorage.getItem(${q(key)}) || 'null'); return ${condition}; })()`, 'Stored ' + key);
-  const revisit = async page => { await read('seogrow-preferences-v1'); await clickSidebar('Task'); await waitFor("document.querySelector('.task-filters')", 'Task before reload'); await reload(); await clickSidebar(page); };
+  const revisit = async page => { await read('seogrow-preferences-v1'); await clickSidebar('Task'); await waitFor("document.querySelector('.task-filters')", 'Task before reload'); await saved('seogrow-selected-page-v1', "value === 'Task'"); await read('seogrow-selected-page-v1'); await reload(); await clickSidebar(page); };
   const mock = (path, body, status = 200) => evaluate(`window.__qaFormMocks = {...window.__qaFormMocks, [${q(path)}]: {body:${q(body)},status:${status}}}`);
   const request = async path => { await waitFor(`window.__qaFormRequests?.some(r => r.path === ${q(path)})`, 'Mock request ' + path); return evaluate(`window.__qaFormRequests.filter(r => r.path === ${q(path)}).at(-1).body`); };
   const resetRequests = () => evaluate('window.__qaFormRequests = []');
