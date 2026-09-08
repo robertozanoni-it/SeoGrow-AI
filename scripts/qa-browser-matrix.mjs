@@ -93,8 +93,25 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
 
   if (mode !== "smoke") {
     await record("TASK-004", async () => {
+      await evaluate("(async () => { const m = await import('/src/workspaceDatabase.js'); await m.flushWorkspace(); })()");
       const before = await tasks();
+      // Hold the actual application transaction open. A fast reload alone can
+      // happen before the debounced write starts and never exercise interruption.
+      await evaluate(`(() => {
+        const put = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function(value, key) {
+          const result = put.call(this, value, key);
+          if (this.name === 'workspace' && key === 'seogrow-tasks-v2' &&
+              JSON.parse(value).some(t => t.status === 'In revisione')) {
+            window.__qaWriteInFlight = true;
+            const keepAlive = () => { const request = this.get(key); request.onsuccess = keepAlive; };
+            keepAlive();
+          }
+          return result;
+        };
+      })()`);
       await select(status, "In revisione");
+      await waitFor("window.__qaWriteInFlight === true", "native task write transaction is in flight before reload");
       await reload(); await clickSidebar("Task");
       const after = await tasks();
       assert.equal(after.length, before.length);
@@ -102,8 +119,34 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       for (const task of after) {
         const old = before.find(t => t.id === task.id); assert.ok(old);
         assert.ok([old.status, "In revisione"].includes(task.status));
-        for (const key of ["title", "sourceUrl", "query", "notes"]) assert.equal(task[key], old[key]);
+        for (const key of Object.keys(old).filter(key => !["status", "updatedAt"].includes(key))) assert.deepEqual(task[key], old[key]);
       }
+    });
+    await record("STORAGE-QUEUE-001", async () => {
+      const before = await tasks();
+      const result = await evaluate(`(async () => {
+        const m = await import('/src/workspaceDatabase.js');
+        await m.flushWorkspace();
+        const before = m.workspaceStorage.getItem('seogrow-tasks-v2');
+        const put = IDBObjectStore.prototype.put;
+        let injected = false, rejected = false;
+        IDBObjectStore.prototype.put = function(value, key) {
+          if (key === 'seogrow-tasks-v2') { injected = true; throw new DOMException('QA quota failure', 'QuotaExceededError'); }
+          return put.call(this, value, key);
+        };
+        try {
+          const changed = JSON.parse(before).map(t => ({ ...t, notes: 'Uncommitted' }));
+          m.workspaceStorage.setItem('seogrow-tasks-v2', JSON.stringify(changed));
+          m.workspaceStorage.setItem('seogrow-qa-uncommitted', 'must disappear');
+          try { await m.flushWorkspace(); } catch { rejected = true; }
+          return { injected, rejected, same: m.workspaceStorage.getItem('seogrow-tasks-v2') === before,
+            noPhantomKey: m.workspaceStorage.getItem('seogrow-qa-uncommitted') === null };
+        } finally { IDBObjectStore.prototype.put = put; }
+      })()`);
+      assert.deepEqual(result, { injected: true, rejected: true, same: true, noPhantomKey: true });
+      await waitFor("document.body.innerText.includes('non salvati')", "storage failure is visible, never a success");
+      await reload(); await clickSidebar("Task");
+      assert.deepEqual(await tasks(), before, "quota failure and reload preserve complete tasks");
     });
     await record("BACKUP-001", async () => {
       const result = await evaluate(`(async () => {
@@ -144,6 +187,7 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
 
   if (mode === "release") {
     await record("STRESS-500", async () => {
+      const beforeStress = await tasks();
       await evaluate("(async () => { const m = await import('/src/workspaceDatabase.js'); const tasks = JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')); const generated = Array.from({length: 500}, (_, i) => ({ id: 'stress-' + i, title: 'Stress item ' + i, sourceClientId: i === 499 ? 9002 : 9001, client: 'Browser QA', status: 'Da fare', priority: 'Media', due: '', notes: 'Keep', kind: 'manual' })); const value = JSON.stringify([...tasks, ...generated]); m.workspaceStorage.setItem('seogrow-tasks-v2', value); await m.flushWorkspace(); window.dispatchEvent(new StorageEvent('storage', { key: 'seogrow-tasks-v2', newValue: value })); })()");
       await clickSidebar("Task");
       await input('.task-filters input', 'Stress item 498');
@@ -155,6 +199,11 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       await reload(); await clickSidebar("Task");
       assert.equal((await tasks()).length, 502);
       assert.equal(new Set((await tasks()).map(t => t.id)).size, 502);
+      // Do not turn every unrelated field scenario into another stress test.
+      // The stress assertions above run on all 502 records before cleanup.
+      await evaluate(`(async () => { const m = await import('/src/workspaceDatabase.js'); m.workspaceStorage.setItem('seogrow-tasks-v2', ${JSON.stringify(JSON.stringify(beforeStress))}); await m.flushWorkspace(); })()`);
+      await reload(); await clickSidebar("Task");
+      assert.deepEqual(await tasks(), beforeStress, "stress fixture cleanup restores the exact starting records");
     });
     await record("IDB-REAL-001", async () => {
       const valid = await evaluate(`(async () => {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { runRemainingFields } from './qa-remaining-fields.mjs';
+import { runFieldBoundaries } from './qa-field-boundaries.mjs';
 
 // Real React controls and IndexedDB; all external responses are explicit fixtures.
 export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, mode }) {
@@ -155,5 +156,6 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     assert.equal(await evaluate(`${field('.wordpress-integration','Password applicativa')}.value`),'');
   });
   await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
+  await runFieldBoundaries({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
 
 }

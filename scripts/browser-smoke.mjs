@@ -9,7 +9,7 @@ const profile = `/tmp/seogrow-browser-smoke-${process.pid}`;
 
 const output = process.env.QA_OUTPUT || ".qa-runtime/automation/browser";
 await mkdir(output, { recursive: true });
-const browserReport = { ok: false, scenarios: [], startedAt: new Date().toISOString() };
+const browserReport = { runId: process.env.QA_RUN_ID, commit: process.env.QA_COMMIT, mode: process.env.QA_MODE || "release", ok: false, scenarios: [], startedAt: new Date().toISOString() };
 async function record(id, action) {
   const start = Date.now();
   try { await action(); console.log(id + ": PASS"); browserReport.scenarios.push({ id, status: "PASS", durationMs: Date.now() - start }); }
@@ -130,6 +130,12 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
 }
 
 const clickSidebar = async (label) => {
+  // On mobile, use the menu entry point before selecting a destination. A DOM
+  // click on an off-screen item otherwise hides navigation accessibility bugs.
+  if (await evaluate("innerWidth <= 760 && !document.querySelector('.sidebar')?.classList.contains('open')")) {
+    await evaluate("document.querySelector('[aria-label=\"Apri menu\"]').click()");
+    await waitFor("document.querySelector('.sidebar.open')?.getBoundingClientRect().left >= -1", "mobile menu fully open");
+  }
   const clicked = await evaluate(`(() => {
     const matches = (root) => [...(root?.querySelectorAll('button') || [])]
       .find((node) => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
@@ -142,6 +148,9 @@ const clickSidebar = async (label) => {
     return true;
   })()`);
   if (!clicked) throw new Error(`Voce sidebar visibile non trovata: ${label}`);
+  if (await evaluate("innerWidth <= 760")) {
+    await waitFor("document.querySelector('.sidebar')?.getBoundingClientRect().right <= 0", "mobile navigation closes after selection");
+  }
 };
 
 const responsiveFixture = `<!doctype html>

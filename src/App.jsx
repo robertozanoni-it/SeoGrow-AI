@@ -2101,6 +2101,11 @@ function TopicalMapPanel({
   const [error, setError] = useState("");
   const generate = async (event) => {
     event.preventDefault();
+    const seedList = seeds.split(/[\n,;]/).map(value => value.trim()).filter(Boolean);
+    if (!seedList.length) {
+      setError("Inserisci almeno un argomento valido.");
+      return;
+    }
     if (!dataForSeo.configured) return onNavigate("Integrazioni");
     if (
       !window.confirm(
@@ -2115,10 +2120,7 @@ function TopicalMapPanel({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          seeds: seeds
-            .split(/[\n,;]/)
-            .map((value) => value.trim())
-            .filter(Boolean),
+          seeds: seedList,
           existingKeywords: (dataset?.queries || []).map(
             (row) => row.dimension,
           ),
@@ -2190,7 +2192,7 @@ function TopicalMapPanel({
               : "Configura DataForSEO"}
         </button>
       </form>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       {topicalMap && (
         <>
           <div className="topical-summary">
@@ -2612,6 +2614,10 @@ function ContentPage({
   });
   const generate = async (event) => {
     event.preventDefault();
+    if (!topic.trim()) {
+      setGenerationError("Inserisci un argomento prima di generare il contenuto.");
+      return;
+    }
     setLoading(true);
     setGenerationError("");
     setPublishResult("");
@@ -4120,6 +4126,15 @@ export default function App() {
       window.history.pushState(null, "", nextHash);
   }, [page]);
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const closeMenu = () => setMenuOpen(false);
+    window.addEventListener("hashchange", closeMenu);
+    window.addEventListener("seogrow-locationchange", closeMenu);
+    return () => {
+      window.removeEventListener("hashchange", closeMenu);
+      window.removeEventListener("seogrow-locationchange", closeMenu);
+    };
+  }, []);
   const [query, setQuery] = useState("");
   const [quickAudit, setQuickAudit] = useState(false);
   const [auditResults, setAuditResults] = useStoredState("seogrow-quick-audits-v1", {});

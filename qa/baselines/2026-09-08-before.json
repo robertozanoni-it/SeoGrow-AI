@@ -1,0 +1,55 @@
+{
+  "mode": "release",
+  "commit": "f7f8069bde486383b4668103c66a7d4c2e43a829",
+  "startedAt": "2026-09-08T13:25:31.482Z",
+  "steps": [
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "durationMs": 14457,
+      "log": "/workspace/scratch/08222e9e4e71/SeoGrow-AI/.qa-runtime/automation/release/lint.log"
+    },
+    {
+      "name": "unit-integration-storage",
+      "exitCode": 0,
+      "durationMs": 10700,
+      "log": "/workspace/scratch/08222e9e4e71/SeoGrow-AI/.qa-runtime/automation/release/unit-integration-storage.log"
+    },
+    {
+      "name": "production-build",
+      "exitCode": 0,
+      "durationMs": 1798,
+      "log": "/workspace/scratch/08222e9e4e71/SeoGrow-AI/.qa-runtime/automation/release/production-build.log"
+    },
+    {
+      "name": "browser",
+      "exitCode": 1,
+      "durationMs": 349,
+      "log": "/workspace/scratch/08222e9e4e71/SeoGrow-AI/.qa-runtime/automation/release/browser.log"
+    }
+  ],
+  "ok": false,
+  "tests": {
+    "tests": 614,
+    "pass": 614,
+    "fail": 0,
+    "skipped": 0,
+    "duration_ms": 10342.527355
+  },
+  "error": "browser failed: file:///tmp/seogrow-qa-zz2G6B/scripts/browser-smoke.mjs:48\nif (!chromeBin) throw new Error(\"Chrome/Chromium non disponibile sul runner.\");\n                      ^\n\nError: Chrome/Chromium non disponibile sul runner.\n    at file:///tmp/seogrow-qa-zz2G6B/scripts/browser-smoke.mjs:48:23\n\nNode.js v24.19.0\n",
+  "runtime": [
+    {
+      "name": "api",
+      "exitCode": null,
+      "signal": "SIGTERM",
+      "error": null
+    },
+    {
+      "name": "vite",
+      "exitCode": 143,
+      "signal": null,
+      "error": null
+    }
+  ],
+  "finishedAt": "2026-09-08T13:25:59.966Z"
+}

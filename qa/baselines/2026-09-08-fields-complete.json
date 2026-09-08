@@ -1,0 +1,274 @@
+{
+  "branch": "qa/release-gate-integrity",
+  "testedCommit": "37097de74698dd242f8c9d1b051af5e01b90a226",
+  "full": {
+    "ok": true,
+    "tests": {
+      "tests": 633,
+      "pass": 633,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 10904.775597
+    },
+    "scenarios": 38
+  },
+  "release": {
+    "ok": true,
+    "dirty": false,
+    "tests": {
+      "tests": 633,
+      "pass": 633,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 10834.57631
+    },
+    "startedAt": "2026-09-08T13:58:42.367Z",
+    "finishedAt": "2026-09-08T14:00:07.798Z",
+    "steps": [
+      {
+        "name": "lint",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "durationMs": 14569
+      },
+      {
+        "name": "unit-integration-storage",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "durationMs": 11148
+      },
+      {
+        "name": "production-build",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "durationMs": 1744
+      },
+      {
+        "name": "browser",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "durationMs": 56767
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "EXISTING-REGRESSION",
+        "status": "PASS",
+        "covers": [
+          "OPPORTUNITY-001",
+          "OPPORTUNITY-002",
+          "OPPORTUNITY-003",
+          "OPPORTUNITY-005",
+          "OPPORTUNITY-006",
+          "VIEWS-001",
+          "GOOGLE-001",
+          "NAV-001"
+        ]
+      },
+      {
+        "id": "TASK-001",
+        "status": "PASS",
+        "durationMs": 200
+      },
+      {
+        "id": "TASK-002",
+        "status": "PASS",
+        "durationMs": 1013
+      },
+      {
+        "id": "TASK-005",
+        "status": "PASS",
+        "durationMs": 1339
+      },
+      {
+        "id": "CRUD-001",
+        "status": "PASS",
+        "durationMs": 1445
+      },
+      {
+        "id": "FILTER-006",
+        "status": "PASS",
+        "durationMs": 102
+      },
+      {
+        "id": "TASK-004",
+        "status": "PASS",
+        "durationMs": 781
+      },
+      {
+        "id": "STORAGE-QUEUE-001",
+        "status": "PASS",
+        "durationMs": 423
+      },
+      {
+        "id": "BACKUP-001",
+        "status": "PASS",
+        "durationMs": 568
+      },
+      {
+        "id": "ERROR-001",
+        "status": "PASS",
+        "durationMs": 513
+      },
+      {
+        "id": "STRESS-500",
+        "status": "PASS",
+        "durationMs": 9422
+      },
+      {
+        "id": "IDB-REAL-001",
+        "status": "PASS",
+        "durationMs": 5
+      },
+      {
+        "id": "RESPONSIVE-001",
+        "status": "PASS",
+        "durationMs": 1969
+      },
+      {
+        "id": "FIELDS-CLIENT",
+        "status": "PASS",
+        "durationMs": 1957
+      },
+      {
+        "id": "FIELDS-TASK",
+        "status": "PASS",
+        "durationMs": 966
+      },
+      {
+        "id": "FIELDS-PREFERENCES",
+        "status": "PASS",
+        "durationMs": 1906
+      },
+      {
+        "id": "FIELDS-PROJECT",
+        "status": "PASS",
+        "durationMs": 1714
+      },
+      {
+        "id": "FIELDS-RANKINGS",
+        "status": "PASS",
+        "durationMs": 297
+      },
+      {
+        "id": "FIELDS-CONTENT",
+        "status": "PASS",
+        "durationMs": 2190
+      },
+      {
+        "id": "FIELDS-TOPICAL",
+        "status": "PASS",
+        "durationMs": 229
+      },
+      {
+        "id": "FIELDS-WORDPRESS",
+        "status": "PASS",
+        "durationMs": 1539
+      },
+      {
+        "id": "FIELDS-AGENT",
+        "status": "PASS",
+        "durationMs": 1068
+      },
+      {
+        "id": "FIELDS-CALENDAR",
+        "status": "PASS",
+        "durationMs": 1675
+      },
+      {
+        "id": "FIELDS-GEO",
+        "status": "PASS",
+        "durationMs": 1959
+      },
+      {
+        "id": "FIELDS-AUDIT",
+        "status": "PASS",
+        "durationMs": 444
+      },
+      {
+        "id": "FIELDS-PROBLEM-FILTERS",
+        "status": "PASS",
+        "durationMs": 880
+      },
+      {
+        "id": "FIELDS-COMMAND",
+        "status": "PASS",
+        "durationMs": 64
+      },
+      {
+        "id": "FIELDS-TAXONOMY",
+        "status": "PASS",
+        "durationMs": 1176
+      },
+      {
+        "id": "FIELDS-SESSION",
+        "status": "PASS",
+        "durationMs": 684
+      },
+      {
+        "id": "FIELDS-BOZZA-TYPE",
+        "status": "PASS",
+        "durationMs": 427
+      },
+      {
+        "id": "FIELDS-GOOGLE-IMPORT",
+        "status": "PASS",
+        "durationMs": 334
+      },
+      {
+        "id": "FIELDS-AUDIT-MODAL",
+        "status": "PASS",
+        "durationMs": 147
+      },
+      {
+        "id": "FIELDS-ASSOCIATION",
+        "status": "PASS",
+        "durationMs": 1408
+      },
+      {
+        "id": "FIELDS-ZIP",
+        "status": "PASS",
+        "durationMs": 537
+      },
+      {
+        "id": "FIELDS-BACKUP-UI",
+        "status": "PASS",
+        "durationMs": 1989
+      },
+      {
+        "id": "FIELDS-TASK-INVALID",
+        "status": "PASS",
+        "durationMs": 342
+      },
+      {
+        "id": "FIELDS-TASK-OPTIONS",
+        "status": "PASS",
+        "durationMs": 4865
+      },
+      {
+        "id": "FIELDS-SEARCH-OPTIONS",
+        "status": "PASS",
+        "durationMs": 352
+      },
+      {
+        "id": "FIELDS-CONTENT-FORMATS",
+        "status": "PASS",
+        "durationMs": 2311
+      },
+      {
+        "id": "FIELDS-TOPICAL-INVALID",
+        "status": "PASS",
+        "durationMs": 56
+      }
+    ]
+  },
+  "remoteDelivery": "not uploaded; CI not run for this branch"
+}
