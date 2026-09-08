@@ -230,6 +230,13 @@ try {
           targetUrl: 'https://example.com/pagina-test/'
         }]
       };
+      const realFetch = window.fetch.bind(window);
+      window.fetch = (input, options) => {
+        const pathname = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
+        if (pathname === '/api/google/status') return Promise.resolve(new Response(JSON.stringify({ configured: true, connected: true }), { headers: { 'content-type': 'application/json' } }));
+        if (pathname === '/api/google/properties') return Promise.resolve(new Response(JSON.stringify({ properties: Array.from({ length: 19 }, (_, i) => ({ url: 'https://qa-' + i + '.example/' })) }), { headers: { 'content-type': 'application/json' } }));
+        return realFetch(input, options);
+      };
       localStorage.setItem('seogrow-clients', JSON.stringify([client]));
       localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
       localStorage.setItem('seogrow-selected-page-v1', JSON.stringify('Audit SEO'));
@@ -282,6 +289,17 @@ try {
   await waitFor("document.querySelectorAll('.calendar-day').length >= 28", "calendario mensile");
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno al controllo Audit SEO");
+
+  await clickSidebar("Integrazioni");
+  await waitFor("[...document.querySelectorAll('button')].some(button => button.textContent.includes('Carica proprietà Google'))", "caricamento proprietà disponibile");
+  await evaluate("[...document.querySelectorAll('button')].find(button => button.textContent.includes('Carica proprietà Google')).click()");
+  await waitFor("document.querySelector('[aria-label=\"Proprietà Search Console\"]')?.options.length === 20", "19 proprietà Google visibili nel selettore");
+  const propertyPicker = await evaluate("(() => { const select = document.querySelector('[aria-label=\"Proprietà Search Console\"]'); const rect = select.getBoundingClientRect(); return { width: rect.width, height: rect.height, size: select.size, value: select.value }; })()");
+  if (propertyPicker.width < 200 || propertyPicker.height < 100 || propertyPicker.size < 2 || propertyPicker.value !== "") throw new Error(`Selettore proprietà compresso o selezione implicita: ${JSON.stringify(propertyPicker)}`);
+  await evaluate("(() => { const select = document.querySelector('[aria-label=\"Proprietà Search Console\"]'); select.value = 'https://qa-18.example/'; select.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await waitFor("[...document.querySelectorAll('button')].some(button => button.textContent.includes('Importa ora via API') && !button.disabled)", "importazione abilitata dopo selezione esplicita");
+  await clickSidebar("Audit SEO");
+  await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test Google simulato");
 
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
