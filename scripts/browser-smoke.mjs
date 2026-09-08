@@ -354,7 +354,7 @@ try {
     await sleep(300);
   }
   if (chrome.exitCode === null) chrome.kill("SIGKILL");
-  await rm(profile, { recursive: true, force: true });
+  await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   if (chrome.exitCode && chrome.exitCode !== 0 && !chromeLog.includes("DevTools listening")) {
     console.warn(chromeLog.slice(-1500));
   }

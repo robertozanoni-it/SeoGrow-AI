@@ -215,3 +215,5 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - La riga ora consulta i task del progetto con lo stesso matching della creazione e mostra "Apri task" quando trova un'attività attiva; apre il dettaglio del task esistente senza nascondere l'opportunità.
 - Test browser CI aggiunto: fixture yoga senza task, creazione, cambio immediato del pulsante, apertura/salvataggio, flush della persistenza, reload, "Apri task", riapertura e verifica di una sola attività con sourceUrl conservato.
 - Lint, build e 609 test locali PASS; esito del nuovo scenario browser demandato al Release Gate della PR. Nessuna chiamata Google o scrittura WordPress necessaria per questa fixture.
+
+- Gate #730: fixture GSC incompleta; #731: reload del test prima del salvataggio differito. Fixture completata e attesa esplicita della persistenza aggiunta. In #732 lo scenario browser completo passa, ma il cleanup Chrome fallisce con ENOTEMPTY; aggiunti retry limitati per la rimozione del solo profilo temporaneo CI.
