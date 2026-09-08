@@ -1,6 +1,6 @@
 import { qaMatrix, requiredScenarios } from "./qa-matrix.mjs";
 import { spawn, execFileSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, rm, symlink } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, rm, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
@@ -51,7 +51,9 @@ try {
     if (!report.tests.tests || report.tests.fail || report.tests.skipped) throw new Error("Incomplete or skipped Node test suite");
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
-  temporary = await mkdtemp(path.join(tmpdir(), "seogrow-qa-"));
+  // macOS /var is a symlink to /private/var. Node resolves module URLs to
+  // real paths; the server's direct-execution guard must receive that same path.
+  temporary = await realpath(await mkdtemp(path.join(tmpdir(), "seogrow-qa-")));
   for (const entry of ["src", "server", "scripts", "wordpress-plugin", "public", "index.html", "package.json", "vite.config.js"]) {
     try { await cp(path.join(root, entry), path.join(temporary, entry), { recursive: true }); }
     catch (error) { if (error.code !== "ENOENT" || !["public", "vite.config.js"].includes(entry)) throw error; }
