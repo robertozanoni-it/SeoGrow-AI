@@ -668,8 +668,8 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       <div className="wp-live-remediation-head">
         <div>
           <span><ShieldCheck /> Modalità live controllata</span>
-          <h3>Prepara la proposta → controlla → applica sul sito</h3>
-          <p>Prima prepara la proposta: vedrai cosa cambia sul sito. Il pulsante per applicarla compare soltanto quando i controlli sono superati. Un problema bloccato non è una proposta pronta.</p>
+          <h3>{batchPlan ? "4. Prepara e approva le proposte" : "2. Prepara e approva le proposte"}</h3>
+          <p><strong>Cosa fare:</strong> premi il pulsante qui sotto per leggere il sito e preparare le proposte. Questa operazione non modifica WordPress. Poi segui le istruzioni nella scheda di ciascun problema.</p>
         </div>
       </div>
 
@@ -687,11 +687,12 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             <div>
               <strong>{item.issue?.label || "Problema SEO"}</strong>
               {item.targetUrl && <small>{item.targetUrl}</small>}
-              {item.status === "preview" && <small>Risorsa: {item.inspected?.resource} #{item.inspected?.entity?.id} · campi: {(item.data.changed || []).join(", ")}</small>}
+
             </div>
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
           {item.status === "preview" && <>
+            <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
             {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
             <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>

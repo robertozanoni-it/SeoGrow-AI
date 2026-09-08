@@ -224,8 +224,8 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
       <div className="audit-remediation-head">
         <div>
           <span className="audit-remediation-kicker"><Sparkles /> Correzione guidata</span>
-          <h2>Correzione controllata</h2>
-          <p>1. Collega WordPress. 2. Prepara la proposta. 3. Controlla il risultato proposto e applica la singola modifica.</p>
+          <h2>{initialAudit ? "Problemi selezionati: prepara le correzioni" : "Correzione controllata"}</h2>
+          <p>{initialAudit ? "Continua dal passaggio 3. Le proposte per i problemi selezionati compariranno nel passaggio 4." : "1. Collega WordPress. 2. Prepara la proposta. 3. Controlla il risultato proposto e applica la singola modifica."}</p>
         </div>
         <span className="audit-unified-badge"><ListChecks />{activeEntries.length} attivi / {issues.length}</span>
       </div>
@@ -237,7 +237,7 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
       </div>
 
       {platform === "wordpress" && <section className="audit-unified-credentials">
-        <div className="audit-card-title"><ShieldCheck /><div><strong>Connessione WordPress</strong><span>Una connessione già verificata in questa sessione viene riutilizzata. Dopo un riavvio, inserisci nuovamente la password e premi Collega WordPress.</span></div></div>
+        <div className="audit-card-title"><ShieldCheck /><div><strong>{initialAudit ? "3. Collega WordPress" : "1. Connessione WordPress"}</strong><span>Cosa fare: controlla URL e utente, inserisci la password applicativa e premi Collega WordPress. Se leggi “WordPress collegato”, passa alle proposte. La connessione verificata viene riutilizzata in questa sessione; dopo un riavvio va verificata di nuovo.</span></div></div>
         <div className="audit-unified-credential-grid">
           <label>URL del sito<input value={wpUrl} onChange={(event) => updateWpDraft("url", event.target.value)} placeholder="https://example.com" autoComplete="url" /></label>
           <label>Utente WordPress<input value={wpUsername} onChange={(event) => updateWpDraft("username", event.target.value)} placeholder="utente WordPress" autoComplete="username" /></label>
@@ -247,7 +247,7 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
 
       <div className="audit-remediation-context-row">
         <section className="audit-context-card issue-select-card">
-          <div className="audit-card-title purple"><ListChecks /><strong>Problema da correggere</strong></div>
+          <div className="audit-card-title purple"><ListChecks /><strong>Problema da esaminare singolarmente</strong></div>
           <label className="audit-issue-select">
             <select value={selectedEntry?.index ?? 0} onChange={(event) => selectIssue(event.target.value)}>
               {issueEntries.map((entry) => (
@@ -256,7 +256,7 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
                 </option>
               ))}
             </select>
-          </label>
+          </label><p>Usa questo elenco solo per “Prepara solo questo problema”. Il pulsante principale esamina tutti i problemi selezionati.</p>
         </section>
 
         <section className="audit-context-card issue-detail-card">

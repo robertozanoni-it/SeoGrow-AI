@@ -325,7 +325,7 @@ try {
     "RemediationHost nativo in Audit SEO",
   );
   const remediationText = await evaluate("document.querySelector('.remediation-host')?.textContent || ''");
-  if (!/Correzione controllata/i.test(remediationText) || !/Problema da correggere/i.test(remediationText)) {
+  if (!/Correzione controllata/i.test(remediationText) || !/Problema da esaminare singolarmente/i.test(remediationText)) {
     throw new Error(`Host remediation incompleto: ${remediationText}`);
   }
 
@@ -337,7 +337,7 @@ try {
   await clickSidebar("Correzioni");
   await waitFor("document.querySelector('.corrections-workspace-root')", "workspace Correzioni");
   const correctionsText = await evaluate("document.querySelector('.corrections-workspace-root')?.textContent || ''");
-  if (!/Rollback WordPress stale-safe/i.test(correctionsText)) {
+  if (!/Ripristino della versione precedente/i.test(correctionsText)) {
     throw new Error(`Workspace Correzioni incompleto: ${correctionsText}`);
   }
 
