@@ -1,4 +1,13 @@
 export const qaMatrix = [
+  ["FIELDS-CLIENT", "CLIENT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-TASK", "TASK form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-PREFERENCES", "PREFERENCES form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-PROJECT", "PROJECT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-RANKINGS", "RANKINGS form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-CONTENT", "CONTENT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-TOPICAL", "TOPICAL form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+  ["FIELDS-WORDPRESS", "WORDPRESS form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
+
   ["EXISTING-REGRESSION", "Opportunities, saved views, Google, navigation", "P0", "E2E Browser / Regression", "Isolated Browser QA, yoga query, no task", "Create repeatedly, save, reload, reopen; select views", "One stable task, Apri task, selected view and restored filters", "smoke"],
   ["TASK-001", "Task state and filters", "P0", "E2E Browser / Storage", "Active yoga task", "Da fare -> In corso with Da fare / In corso filters", "Same ID and fields, stored once, hidden only by filter", "smoke"],
   ["TASK-002", "Undo and reload", "P0", "E2E Browser / Regression", "TASK-001", "Undo then reload", "Da fare persisted, UI filters reset per current contract", "smoke"],
