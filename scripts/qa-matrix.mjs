@@ -6,6 +6,7 @@ export const qaMatrix = [
   ["CRUD-001", "Task CRUD", "P0", "E2E Browser / Storage", "Clean fixture", "Create, read, update, reload, delete, undo", "Stable ID and restored deleted task", "smoke"],
   ["FILTER-006", "Combined filters", "P1", "E2E Browser", "Two tasks", "Combine search and state", "AND matching; no task deleted", "smoke"],
   ["TASK-004", "Reload during update", "P0", "E2E Browser / Storage", "Persisted tasks", "Change state and reload immediately", "Old or new valid records only; no partial fields or duplicate IDs", "full"],
+  ["BACKUP-001", "Encrypted backup", "P0", "Import/Export / Integration", "Persisted fixture tasks", "Export encrypted backup, read it, try wrong password", "Same tasks round-trip; wrong password rejected", "full"],
   ["ERROR-001", "Google property errors", "P1", "Error Injection / E2E Browser", "Configured mock Google", "400, 500, offline, timeout exception, invalid JSON, empty response", "Visible error, loading settles, tasks preserved, retry succeeds", "full"],
   ["STRESS-500", "500 tasks and project isolation", "P1", "E2E Browser / Performance", "Two existing tasks", "Seed 500, search, filter foreign project, reload", "502 stored IDs unique, foreign task excluded, filters respond", "release"],
   ["IDB-REAL-001", "Native IndexedDB abort", "P0", "Storage/Persistence / Error Injection", "Disposable native browser DB", "Write, abort replacement, reopen", "Original complete record survives", "release"],

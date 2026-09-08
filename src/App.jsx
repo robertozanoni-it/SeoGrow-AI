@@ -1188,6 +1188,7 @@ function TaskTable({
 }
 
 function TaskEditor({ task, save, remove, close, clients = [] }) {
+  const submissionPending = useRef(false);
   const [form, setForm] = useState(task);
   const suggested = form.associationStatus === "suggested";
   const manuallyVerified = form.associationStatus === "verified-manual";
@@ -1197,8 +1198,10 @@ function TaskEditor({ task, save, remove, close, clients = [] }) {
         className="form task-editor"
         onSubmit={(event) => {
           event.preventDefault();
-          if (form.title.trim())
-            save({ ...form, updatedAt: new Date().toISOString() });
+          if (!form.title.trim() || submissionPending.current) return;
+          submissionPending.current = true;
+          try { save({ ...form, updatedAt: new Date().toISOString() }); }
+          finally { queueMicrotask(() => { submissionPending.current = false; }); }
         }}
       >
         {form.kind === "search" && (

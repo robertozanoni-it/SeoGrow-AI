@@ -56,9 +56,10 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
     await click("Nuova task");
     await waitFor("document.querySelector('.task-editor')", "new task modal");
     await input('.task-editor input', 'QA Manual');
-    await evaluate("document.querySelector('.task-editor').requestSubmit()");
+    await evaluate("(() => { const form = document.querySelector('.task-editor'); form.requestSubmit(); form.requestSubmit(); })()");
     await persisted("tasks.some(t => t.title === 'QA Manual')");
     const manual = (await tasks()).find(t => t.title === "QA Manual");
+    assert.equal((await tasks()).filter(t => t.title === "QA Manual").length, 1, "double submit creates one task");
     await evaluate("[...document.querySelectorAll('.task-title-button')].find(b => b.textContent.includes('QA Manual')).click()");
     await waitFor("document.querySelector('.task-editor')", "read manual task");
     await input('.task-editor input', 'QA Edited');
@@ -99,6 +100,28 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
         assert.ok([old.status, "In revisione"].includes(task.status));
         for (const key of ["title", "sourceUrl", "query", "notes"]) assert.equal(task[key], old[key]);
       }
+    });
+    await record("BACKUP-001", async () => {
+      const result = await evaluate(`(async () => {
+        const { exportWorkspaceBackup, readWorkspaceBackup } = await import('/src/seoHelpers.js');
+        const { workspaceStorage } = await import('/src/workspaceDatabase.js');
+        const tasks = JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2'));
+        const data = { schemaVersion: 4, clients: [{id: 9001, name: 'Browser QA', url: 'https://example.com/'}], tasks, gscData: {} };
+        const originalURL = URL.createObjectURL, originalClick = HTMLAnchorElement.prototype.click;
+        let blob;
+        URL.createObjectURL = value => { blob = value; return originalURL.call(URL, value); };
+        HTMLAnchorElement.prototype.click = function() {};
+        try {
+          await exportWorkspaceBackup(data, 'qa-passphrase-only');
+          if (!blob) throw new Error('No exported backup');
+          const restored = await readWorkspaceBackup(blob, 'qa-passphrase-only');
+          let rejected = false;
+          try { await readWorkspaceBackup(blob, 'wrong-password'); } catch { rejected = true; }
+          return { same: JSON.stringify(restored.tasks) === JSON.stringify(tasks), rejected };
+        } finally { URL.createObjectURL = originalURL; HTMLAnchorElement.prototype.click = originalClick; }
+      })()`);
+      assert.equal(result.same, true);
+      assert.equal(result.rejected, true);
     });
     await record("ERROR-001", async () => {
       await clickSidebar("Integrazioni");
@@ -158,8 +181,10 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       assert.ok(geometry.buttons > 0);
       await evaluate("document.querySelector('.task-title-button').click()");
       await waitFor("document.querySelector('[role=dialog]')", "modal viewport");
-      const dialog = await evaluate("(() => { const e = document.querySelector('[role=dialog]'); const r = e.getBoundingClientRect(); return { name: e.getAttribute('aria-labelledby'), left: r.left, right: r.right, width: innerWidth, focusInside: e.contains(document.activeElement) }; })()");
+      const dialog = await evaluate("(() => { const e = document.querySelector('[role=dialog]'); const r = e.getBoundingClientRect(); return { name: e.getAttribute('aria-labelledby'), left: r.left, right: r.right, width: innerWidth, focusInside: e.contains(document.activeElement), unlabelled: [...e.querySelectorAll('input,select,textarea')].filter(n => !n.labels?.length && !n.getAttribute('aria-label') && !n.getAttribute('aria-labelledby')).length, unnamedButtons: [...e.querySelectorAll('button')].filter(n => !n.textContent.trim() && !n.getAttribute('aria-label')).length }; })()");
       assert.ok(dialog.name && dialog.focusInside);
+      assert.equal(dialog.unlabelled, 0);
+      assert.equal(dialog.unnamedButtons, 0);
       assert.ok(dialog.left >= -2 && dialog.right <= dialog.width + 2);
       await screenshot("task-modal-" + width);
       await command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });

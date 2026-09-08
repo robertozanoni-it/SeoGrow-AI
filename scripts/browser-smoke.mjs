@@ -87,6 +87,7 @@ let socket = null;
 let version = null;
 let messageId = 0;
 const pending = new Map();
+const browserEvents = [];
 
 const command = (method, params = {}) => new Promise((resolve, reject) => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -94,7 +95,11 @@ const command = (method, params = {}) => new Promise((resolve, reject) => {
     return;
   }
   const id = ++messageId;
-  pending.set(id, { resolve, reject });
+  const timer = setTimeout(() => { pending.delete(id); reject(new Error("CDP timeout: " + method)); }, 15000);
+  pending.set(id, {
+    resolve: value => { clearTimeout(timer); resolve(value); },
+    reject: error => { clearTimeout(timer); reject(error); },
+  });
   socket.send(JSON.stringify({ id, method, params }));
 });
 
@@ -224,6 +229,10 @@ try {
 
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
+    if (["Runtime.exceptionThrown", "Runtime.consoleAPICalled", "Network.loadingFailed"].includes(message.method)) {
+      browserEvents.push(message);
+      if (browserEvents.length > 500) browserEvents.shift();
+    }
     if (!message.id || !pending.has(message.id)) return;
     const { resolve, reject } = pending.get(message.id);
     pending.delete(message.id);
@@ -233,6 +242,7 @@ try {
 
   await command("Page.enable");
   await command("Runtime.enable");
+  await command("Network.enable");
 
   // Il target parte da about:blank: così lo script di inizializzazione viene eseguito
   // prima del primo mount React dell'app, senza che lo stato di esempio possa sovrascriverlo.
@@ -393,6 +403,8 @@ try {
   await assertViewportVisibility(390, "mobile", "mobile");
   await command("Emulation.clearDeviceMetricsOverride");
 
+  const uncaught = browserEvents.filter(event => event.method === "Runtime.exceptionThrown");
+  if (uncaught.length) throw new Error("Uncaught browser exceptions: " + JSON.stringify(uncaught));
   browserReport.ok = true;
   console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO e visibilità desktop/tablet/mobile verificate.`);
 } catch (error) {
@@ -401,6 +413,7 @@ try {
   await writeFile(output + "/failure-dom.txt", await evaluate("document.documentElement.outerHTML").catch(() => "Document unavailable"));
   throw error;
 } finally {
+  await writeFile(output + "/browser-events.json", JSON.stringify(browserEvents, null, 2));
   await writeFile(output + "/browser-report.json", JSON.stringify(browserReport, null, 2));
   if (socket) {
     try { socket.close(); } catch { /* già chiuso */ }

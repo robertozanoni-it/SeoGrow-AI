@@ -44,7 +44,10 @@ try {
   if (mode !== "smoke") {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
-    await run("unit-integration-storage", ["--test", ...tests]);
+    await run("unit-integration-storage", ["--test", "--test-reporter=tap", ...tests]);
+    const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
+    report.tests = Object.fromEntries(["tests", "pass", "fail", "skipped", "duration_ms"].map(key => [key, Number(tap.match(new RegExp("# " + key + " ([0-9.]+)"))?.[1])]));
+    if (!report.tests.tests || report.tests.fail || report.tests.skipped) throw new Error("Incomplete or skipped Node test suite");
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
   temporary = await mkdtemp(path.join(tmpdir(), "seogrow-qa-"));

@@ -62,3 +62,18 @@ the existing CDP runner; Playwright was not added as a second infrastructure.
 - G07 Elementor shared/staging remains PARTIAL; WordPress live writes and the full
   live role matrix are outside this standard gate. Previous minimal staging roles
   result is preserved.
+
+## First complete execution
+Release Gate #738 executed qa:smoke, qa:full and qa:release successfully
+on the same runner installation (about 18s / 24s / 29s respectively).
+Further regression additions cover double-submit, encrypted backup round-trip
+and wrong password, bounded CDP waits and captured browser exception/network events.
+The final PR head must pass the full gate again before merge.
+
+## Fixes covered by the matrix
+- P0 rapid opportunity clicks: the creation handler now consults and updates an
+  immediate task snapshot so several same-turn clicks cannot use stale React state.
+- P0 repeated manual form submission: suppress repeated submission in the same
+  event turn; retries after validation remain possible.
+- P1 QA reliability: identify the newly hydrated document after reload; modal
+  actions are scoped to the dialog; asynchronous conditions are awaited.
