@@ -19,7 +19,7 @@ test("bulk preview V2 lavora sui soli problemi attivi e non sull'intero storico 
 
 test("il bulk live non transazionale è stato sostituito da approvazione singola", () => {
   assert.match(live, /const applyOne = async/);
-  assert.match(live, /Approva e applica questa modifica/);
+  assert.match(live, /Applica questa modifica sul sito/);
   assert.match(live, /Le anteprime si applicano una alla volta per sicurezza/);
   assert.doesNotMatch(live, /Approva e applica al sito live \(/);
 });
@@ -31,7 +31,7 @@ test("apply invalida preview stale su client auditType e analyzedAt", () => {
 });
 
 test("preview approvabile mantiene il payload completo", () => {
-  assert.match(live, /Prima → Dopo · payload completo/);
+  assert.match(live, /Dettagli tecnici della modifica/);
   assert.match(live, /previewText\(item\.data\.previewBefore\)/);
   assert.match(live, /previewText\(item\.data\.previewAfter\)/);
   assert.doesNotMatch(live, /compactPreviewValue|differenceWindow/);

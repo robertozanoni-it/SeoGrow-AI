@@ -1,3 +1,4 @@
+import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
@@ -667,8 +668,8 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       <div className="wp-live-remediation-head">
         <div>
           <span><ShieldCheck /> Modalità live controllata</span>
-          <h3>Esamina → prepara → approva una modifica → riverifica</h3>
-          <p>SeoGrow separa problema, intervento e verifica. Le anteprime concorrenti sullo stesso campo vengono rilevate e nessun batch multiplo viene scritto live in modo non transazionale.</p>
+          <h3>Prepara la proposta → controlla → applica sul sito</h3>
+          <p>Prima prepara la proposta: vedrai cosa cambia sul sito. Il pulsante per applicarla compare soltanto quando i controlli sono superati. Un problema bloccato non è una proposta pronta.</p>
         </div>
       </div>
 
@@ -685,14 +686,15 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             {item.status === "applied" || item.status === "resolved" ? <CheckCircle2 /> : <AlertTriangle />}
             <div>
               <strong>{item.issue?.label || "Problema SEO"}</strong>
-              <small>{item.status === "preview" ? `${item.data.adapter} · anteprima tecnica pronta${item.plan.quality ? " · quality gate superato" : ""}` : item.status === "applied" ? `${item.data.apply?.adapter || item.plan?.adapter} · applicato live · da verificare` : item.status === "resolved" ? `Già risolto · ${item.reason}` : `${item.category ? `${item.category}: ` : ""}${item.reason || item.status}`}</small>
               {item.targetUrl && <small>{item.targetUrl}</small>}
               {item.status === "preview" && <small>Risorsa: {item.inspected?.resource} #{item.inspected?.entity?.id} · campi: {(item.data.changed || []).join(", ")}</small>}
             </div>
           </div>
+          <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
           {item.status === "preview" && <>
-            <details><summary>Prima → Dopo · payload completo</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
-            <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Approva e applica questa modifica"}</button>
+            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
+            <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
+            <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>
           </>}
         </article>)}
       </div>}

@@ -1,3 +1,4 @@
+import { getWordPressSession } from "./wordpressSession.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -104,9 +105,10 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
   const selectedIssue = selectedEntry?.issue || null;
   const selectedUrl = safeHttpHref(issueUrl(selectedIssue, selectedAudit?.item, client));
 
-  const wpUsername = wpDraft.clientId === clientId ? wpDraft.username : profile?.username || "";
+  const wpUsername = wpDraft.clientId === clientId ? wpDraft.username : getWordPressSession(clientId, client?.url)?.username || profile?.username || "";
   const wpUrl = wpDraft.clientId === clientId ? wpDraft.url : profile?.url || client?.url || "";
-  const wpPassword = passwordDraft.clientId === clientId ? passwordDraft.value : "";
+  const session = getWordPressSession(clientId, wpUrl);
+  const wpPassword = passwordDraft.clientId === clientId ? passwordDraft.value : session?.applicationPassword || "";
 
   useEffect(() => {
     let timer = 0;
@@ -221,9 +223,9 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
     <section className="panel audit-unified-remediation remediation-host" data-remediation-platform={platform}>
       <div className="audit-remediation-head">
         <div>
-          <span className="audit-remediation-kicker"><Sparkles /> Remediation guidata</span>
+          <span className="audit-remediation-kicker"><Sparkles /> Correzione guidata</span>
           <h2>Correzione controllata</h2>
-          <p>Seleziona il problema e la piattaforma. Le modifiche WordPress live passano dal flusso V2 con anteprima, approvazione singola e riverifica.</p>
+          <p>1. Collega WordPress. 2. Prepara la proposta. 3. Controlla il risultato proposto e applica la singola modifica.</p>
         </div>
         <span className="audit-unified-badge"><ListChecks />{activeEntries.length} attivi / {issues.length}</span>
       </div>
@@ -235,7 +237,7 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
       </div>
 
       {platform === "wordpress" && <section className="audit-unified-credentials">
-        <div className="audit-card-title"><ShieldCheck /><div><strong>Connessione WordPress</strong><span>La password applicativa resta solo in memoria per questa sessione e non viene salvata.</span></div></div>
+        <div className="audit-card-title"><ShieldCheck /><div><strong>Connessione WordPress</strong><span>Una connessione già verificata in questa sessione viene riutilizzata. Dopo un riavvio, inserisci nuovamente la password e premi Collega WordPress.</span></div></div>
         <div className="audit-unified-credential-grid">
           <label>URL del sito<input value={wpUrl} onChange={(event) => updateWpDraft("url", event.target.value)} placeholder="https://example.com" autoComplete="url" /></label>
           <label>Utente WordPress<input value={wpUsername} onChange={(event) => updateWpDraft("username", event.target.value)} placeholder="utente WordPress" autoComplete="username" /></label>

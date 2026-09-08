@@ -1,3 +1,4 @@
+import { getWordPressSession } from "./wordpressSession.js";
 import AutoFixPanel from "./AutoFixPanel.jsx";
 import { useEffect, useState } from "react";
 import { reportSections, reportTemplate } from "./projectPlanning.js";
@@ -7,7 +8,8 @@ export default function ProjectCenter({ client, dataset, analysis, connection, a
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const template = reportTemplate(settings.report);
   const objective = typeof settings.objective === "string" ? settings.objective : "";
-  const verified = connection?.verifiedAt && now - Date.parse(connection.verifiedAt) < 30 * 60_000 && Date.parse(connection.verifiedAt) <= now;
+  const currentConnection = getWordPressSession(client.id, client.url) || connection;
+  const verified = currentConnection?.verifiedAt && now - Date.parse(currentConnection.verifiedAt) < 30 * 60_000 && Date.parse(currentConnection.verifiedAt) <= now;
   const updateTemplate = patch => onSave({ ...settings, report: { ...template, ...patch } });
   return <><div className="page-title"><div><h1>Centro progetto — {client.name}</h1><p>Configura il lavoro e controlla quali dati sono disponibili.</p></div></div>
     <section className="panel planning-panel"><h2>Configurazione guidata</h2><ol className="wizard-steps">{["Obiettivo", "Dati SEO", "WordPress", "Riepilogo"].map((label, index) => <li key={label}><button className="secondary" aria-current={index === step ? "step" : undefined} onClick={() => setStep(index)}>{index + 1}. {label}</button></li>)}</ol>

@@ -12,7 +12,7 @@ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("la remediation live V2 richiede anteprima e approvazione esplicita", () => {
   assert.match(client, /\/api\/wordpress\/live-preview/);
-  assert.match(client, /Approva e applica questa modifica/);
+  assert.match(client, /Applica questa modifica sul sito/);
   assert.match(client, /window\.confirm/);
   assert.match(client, /\/api\/wordpress\/live-apply/);
   assert.match(client, /await applyJournaledCorrection\(pendingRecord/);

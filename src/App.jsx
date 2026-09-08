@@ -1,3 +1,4 @@
+import { rememberWordPressSession, getWordPressSession } from "./wordpressSession.js";
 import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
 import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
@@ -3034,15 +3035,15 @@ function Integrations({
 }) {
   const [wp, setWp] = useState(
     () =>
-      wordpressConnection || {
+      getWordPressSession(selectedClient.id, selectedClient.url) || {
         url: wordpressProfile?.url || selectedClient.url,
         username: wordpressProfile?.username || "",
         applicationPassword: "",
       },
   );
   const [result, setResult] = useState(() =>
-    wordpressConnection
-      ? `Connessione attiva come ${wordpressConnection.name || wordpressConnection.username}.`
+    getWordPressSession(selectedClient.id, selectedClient.url)
+      ? `Connessione attiva come ${getWordPressSession(selectedClient.id, selectedClient.url)?.name || getWordPressSession(selectedClient.id, selectedClient.url)?.username}.`
       : "",
   );
   const [importStatus, setImportStatus] = useState("");
@@ -4982,6 +4983,7 @@ export default function App() {
           wordpressConnection={wordpressConnections[selectedClient]}
           wordpressProfile={wordpressProfiles[selectedClient]}
           onWordPressVerified={(connection) => {
+            rememberWordPressSession(selectedClient, connection);
             setWordpressConnections((current) => ({
               ...current,
               [selectedClient]: connection,
