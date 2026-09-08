@@ -92,18 +92,35 @@ jobs:
   macos-launcher-smoke:
     runs-on: macos-latest
     timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: Seo Grow AI
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          path: Seo Grow AI
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: Seo Grow AI/package-lock.json
 
       - name: Install exact dependencies
         run: npm ci --ignore-scripts
+
+      - name: Complete QA release on macOS in spaced checkout
+        run: npm run qa:release
+
+      - name: Upload macOS QA evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: qa-release-macos
+          path: Seo Grow AI/.qa-runtime/automation/
+          if-no-files-found: error
 
       - name: Validate launcher syntax on macOS
         run: npm run test:launcher

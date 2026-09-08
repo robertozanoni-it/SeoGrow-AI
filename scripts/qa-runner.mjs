@@ -1,6 +1,6 @@
 import { qaMatrix, requiredScenarios } from "./qa-matrix.mjs";
 import { spawn, execFileSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, rm, symlink } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, rm, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
@@ -13,6 +13,7 @@ const output = path.join(root, ".qa-runtime", "automation", mode);
 await mkdir(output, { recursive: true });
 const report = { mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), startedAt: new Date().toISOString(), steps: [], ok: false };
 const children = [];
+const runtimes = [];
 let temporary;
 async function run(name, args, cwd = root, env = process.env) {
   const started = Date.now();
@@ -22,7 +23,7 @@ async function run(name, args, cwd = root, env = process.env) {
   child.stdout.on("data", value => { text += value; });
   child.stderr.on("data", value => { text += value; });
   const timeout = setTimeout(() => child.kill("SIGKILL"), 120000);
-  const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("exit", resolve); });
+  const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", resolve); });
   clearTimeout(timeout);
   await writeFile(log, text);
   report.steps.push({ name, exitCode: code, durationMs: Date.now() - started, log });
@@ -34,7 +35,7 @@ const freePort = () => new Promise((resolve, reject) => {
   server.listen(0, "127.0.0.1", () => { const port = server.address().port; server.close(() => resolve(port)); });
 });
 async function stop(child) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null || !child.pid) return;
   const closed = new Promise(resolve => child.once("exit", resolve));
   child.kill("SIGTERM");
   const timer = setTimeout(() => child.kill("SIGKILL"), 3000);
@@ -50,7 +51,9 @@ try {
     if (!report.tests.tests || report.tests.fail || report.tests.skipped) throw new Error("Incomplete or skipped Node test suite");
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
-  temporary = await mkdtemp(path.join(tmpdir(), "seogrow-qa-"));
+  // macOS /var is a symlink to /private/var. Node resolves module URLs to
+  // real paths; the server's direct-execution guard must receive that same path.
+  temporary = await realpath(await mkdtemp(path.join(tmpdir(), "seogrow-qa-")));
   for (const entry of ["src", "server", "scripts", "wordpress-plugin", "public", "index.html", "package.json", "vite.config.js"]) {
     try { await cp(path.join(root, entry), path.join(temporary, entry), { recursive: true }); }
     catch (error) { if (error.code !== "ENOENT" || !["public", "vite.config.js"].includes(entry)) throw error; }
@@ -68,16 +71,19 @@ try {
   ]) {
     const child = spawn(process.execPath, args, { cwd: temporary, env, stdio: ["ignore", "pipe", "pipe"] });
     children.push(child);
-    let logs = "";
-    child.stdout.on("data", data => { logs += data; });
-    child.stderr.on("data", data => { logs += data; });
-    child.on("exit", () => { writeFile(path.join(output, name + ".log"), logs).catch(() => {}); });
+    const runtime = { name, child, logs: "", error: null };
+    runtimes.push(runtime);
+    child.stdout.on("data", data => { runtime.logs += data; });
+    child.stderr.on("data", data => { runtime.logs += data; });
+    child.on("error", error => { runtime.error = error.message; });
+    runtime.closed = new Promise(resolve => child.once("close", resolve));
   }
   const url = "http://127.0.0.1:" + uiPort + "/";
   const deadline = Date.now() + 20000;
   let ready = false;
   while (Date.now() < deadline) {
-    if (children.some(child => child.exitCode !== null)) throw new Error("QA runtime exited before health check");
+    const failed = runtimes.find(({ child, error }) => error || child.exitCode !== null || child.signalCode !== null);
+    if (failed) throw new Error(`QA ${failed.name} exited before health check (exit=${failed.child.exitCode}, signal=${failed.child.signalCode}, error=${failed.error || "none"})`);
     try { const response = await fetch(url + "api/health", { signal: AbortSignal.timeout(700) }); if (response.ok && (await response.json()).ok === true) { ready = true; break; } } catch { /* poll bounded readiness */ }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -95,6 +101,15 @@ try {
   report.error = error.message; process.exitCode = 1; console.error(error.message);
 } finally {
   for (const child of children) await stop(child);
+  report.runtime = [];
+  for (const runtime of runtimes) {
+    await runtime.closed;
+    const status = { name: runtime.name, exitCode: runtime.child.exitCode, signal: runtime.child.signalCode, error: runtime.error };
+    report.runtime.push(status);
+    const diagnostic = JSON.stringify(status) + "\n" + runtime.logs;
+    await writeFile(path.join(output, runtime.name + ".log"), diagnostic);
+    if (!report.ok) console.error(diagnostic.slice(-4000));
+  }
   if (temporary) await rm(temporary, { recursive: true, force: true, maxRetries: 5 });
   report.finishedAt = new Date().toISOString();
   await writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));
