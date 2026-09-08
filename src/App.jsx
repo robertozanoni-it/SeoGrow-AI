@@ -902,6 +902,7 @@ function TaskTable({
   const [editing, setEditing] = useState(
     () => tasks.find((item) => item.id === openTaskId) || null,
   );
+  const [savedViewId, setSavedViewId] = useState("");
   const [taskQuery, setTaskQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tutti");
   useEffect(() => {
@@ -987,7 +988,7 @@ function TaskTable({
           </div>
         )}
       </div>
-      {!compact && onSaveViews && <SavedViews label="task" views={views} filters={{ query: taskQuery, status: statusFilter }} onSave={onSaveViews} onApply={filters => { setTaskQuery(typeof filters.query === "string" ? filters.query : ""); setStatusFilter(["Tutti", "Archiviate", ...statuses].includes(filters.status) ? filters.status : "Tutti"); }} />}
+      {!compact && onSaveViews && <SavedViews savedViewId={savedViewId} onSelectView={setSavedViewId} label="task" views={views} filters={{ query: taskQuery, status: statusFilter }} onSave={onSaveViews} onApply={filters => { setTaskQuery(typeof filters.query === "string" ? filters.query : ""); setStatusFilter(["Tutti", "Archiviate", ...statuses].includes(filters.status) ? filters.status : "Tutti"); }} />}
       {!compact && (
         <div className="task-filters">
           <label>
@@ -995,14 +996,14 @@ function TaskTable({
             <Search />
             <input
               value={taskQuery}
-              onChange={(event) => setTaskQuery(event.target.value)}
+              onChange={(event) => { setSavedViewId(""); setTaskQuery(event.target.value); }}
               placeholder="Cerca nelle task…"
             />
           </label>
           <select
             aria-label="Filtra per stato"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) => { setSavedViewId(""); setStatusFilter(event.target.value); }}
           >
             <option>Tutti</option>
             <option>Da fare</option>
@@ -1861,6 +1862,7 @@ function AuditPage({
 }
 
 function AuditResults({ data, views, onSaveViews }) {
+  const [savedViewId, setSavedViewId] = useState("");
   const [query, setQuery] = useState("");
   const [severity, setSeverity] = useState("");
   const issues = data.issues.filter(issue => (!severity || issue.severity === severity) && `${issue.label} ${issue.detail || ""} ${issue.url || ""}`.toLocaleLowerCase("it").includes(query.toLocaleLowerCase("it")));
@@ -1923,8 +1925,8 @@ function AuditResults({ data, views, onSaveViews }) {
       </section>
       <section className="panel issues">
         <h2>Problemi rilevati</h2>
-        <div className="feature-toolbar"><label>Cerca problemi<input value={query} onChange={event => setQuery(event.target.value)} /></label><label>Gravità<select value={severity} onChange={event => setSeverity(event.target.value)}><option value="">Tutte</option>{[...new Set(data.issues.map(issue => issue.severity))].map(value => <option key={value}>{value}</option>)}</select></label></div>
-        {onSaveViews && <SavedViews label="audit" views={views} filters={{ query, severity }} onSave={onSaveViews} onApply={filters => { setQuery(typeof filters.query === "string" ? filters.query : ""); setSeverity(typeof filters.severity === "string" ? filters.severity : ""); }} />}
+        <div className="feature-toolbar"><label>Cerca problemi<input value={query} onChange={event => { setSavedViewId(""); setQuery(event.target.value); }} /></label><label>Gravità<select value={severity} onChange={event => { setSavedViewId(""); setSeverity(event.target.value); }}><option value="">Tutte</option>{[...new Set(data.issues.map(issue => issue.severity))].map(value => <option key={value}>{value}</option>)}</select></label></div>
+        {onSaveViews && <SavedViews savedViewId={savedViewId} onSelectView={setSavedViewId} label="audit" views={views} filters={{ query, severity }} onSave={onSaveViews} onApply={filters => { setQuery(typeof filters.query === "string" ? filters.query : ""); setSeverity(typeof filters.severity === "string" ? filters.severity : ""); }} />}
         {data.issues.length ? (
           issues.length ? issues.map((issue, i) => (
             <div key={i}>

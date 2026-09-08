@@ -217,3 +217,9 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - Lint, build e 609 test locali PASS; esito del nuovo scenario browser demandato al Release Gate della PR. Nessuna chiamata Google o scrittura WordPress necessaria per questa fixture.
 
 - Gate #730: fixture GSC incompleta; #731: reload del test prima del salvataggio differito. Fixture completata e attesa esplicita della persistenza aggiunta. In #732 lo scenario browser completo passa, ma il cleanup Chrome fallisce con ENOTEMPTY; aggiunti retry limitati per la rimozione del solo profilo temporaneo CI.
+
+### Selezione della vista salvata — 8 settembre 2026
+- Correzione limitata allo stato UI savedViewId: il selettore conserva il nome richiamato fino a modifica manuale dei filtri o scelta di un'altra vista. Le callback di ripristino dei filtri restano invariate.
+- Applicata al componente condiviso Task/Audit. Nessuna nuova persistenza su disco dei filtri o modifica ai dati delle viste.
+- Test browser aggiunto per "Yoga da fare": richiamo, filtri ripristinati, nome mantenuto dopo render non legato ai filtri, azzeramento su modifica manuale di ricerca/stato.
+- Lint, build e 609 test locali PASS; scenario browser verificato tramite Release Gate.
