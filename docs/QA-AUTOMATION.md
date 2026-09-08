@@ -68,7 +68,12 @@ Release Gate #738 executed qa:smoke, qa:full and qa:release successfully
 on the same runner installation (about 18s / 24s / 29s respectively).
 Further regression additions cover double-submit, encrypted backup round-trip
 and wrong password, bounded CDP waits and captured browser exception/network events.
-The final PR head must pass the full gate again before merge.
+Release Gate #741 PASS on 693fa26a4891ea926e3a4cbafa11f6ff8545bc4a
+includes all those additions: all three commands executed, with native Chrome,
+encrypted backup and wrong-password rejection, API failure recovery and 500 tasks.
+PR #69 merged as dcdc922267484fb9dd649bd54889ff825ecb891a.
+Post-merge Release Gate #742 PASS: smoke about 8s, full 24s, release 30s.
+The documentation follow-up uses the same mandatory Release Gate.
 
 ## Fixes covered by the matrix
 - P0 rapid opportunity clicks: the creation handler now consults and updates an
@@ -77,3 +82,6 @@ The final PR head must pass the full gate again before merge.
   event turn; retries after validation remain possible.
 - P1 QA reliability: identify the newly hydrated document after reload; modal
   actions are scoped to the dialog; asynchronous conditions are awaited.
+- P1 QA fixtures: seed only the application origin, leaving synthetic data: pages
+  untouched; Google actions await configured status and an enabled button.
+  Uncaught browser exceptions still fail the entire gate.
