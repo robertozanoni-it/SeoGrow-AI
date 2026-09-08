@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { runRemainingFields } from './qa-remaining-fields.mjs';
 
 // Real React controls and IndexedDB; all external responses are explicit fixtures.
 export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, mode }) {
   if (mode === 'smoke') return;
   const q = JSON.stringify;
-  const field = (scope, label) => `(() => { const root = document.querySelector(${q(scope)}); const labels = [...(root?.querySelectorAll('label') || [])]; const matches = labels.filter(l => [...l.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() === ${q(label)}); if (matches.length !== 1) throw new Error('Ambiguous/missing label: ' + ${q(label)}); return matches[0].control || matches[0].querySelector('input,select,textarea'); })()`;
+  const field = (scope, label) => `(() => { const root = document.querySelector(${q(scope)}); const labels = [...(root?.querySelectorAll('label') || [])]; const matches = labels.filter(l => (() => { const direct=[...l.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim(); if(direct)return direct; const copy=l.cloneNode(true); copy.querySelectorAll('input,select,textarea,a,small').forEach(e=>e.remove()); return copy.textContent.trim(); })() === ${q(label)}); if (matches.length !== 1) throw new Error('Ambiguous/missing label: ' + ${q(label)}); return matches[0].control || matches[0].querySelector('input,select,textarea'); })()`;
   const set = async (scope, label, value) => {
     const expr = field(scope, label);
     await evaluate(`(() => { const e = ${expr}; if (!e || e.disabled) throw new Error('Unavailable field'); if (e.tagName === 'SELECT') { e.value = ${q(value)}; e.dispatchEvent(new Event('change', {bubbles:true})); } else { const proto = e.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(e, ${q(value)}); e.dispatchEvent(new Event('input', {bubbles:true})); } })()`);
@@ -153,4 +154,6 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     await revisit('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration')",'Connection reload');
     assert.equal(await evaluate(`${field('.wordpress-integration','Password applicativa')}.value`),'');
   });
+  await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
+
 }

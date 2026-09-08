@@ -109,10 +109,13 @@ export default function CorrectionsWorkspace() {
     const storage = (event) => {
       if ([REMEDIATION_INDEX_KEY, REMEDIATION_LAST_BATCH_KEY, SELECTED_CLIENT_KEY].includes(event.key)) refresh();
     };
+    const storedInThisTab = event => storage(event.detail || {});
+    window.addEventListener("seogrow-storage-ok", storedInThisTab);
     window.addEventListener("storage", storage);
     window.addEventListener("seogrow-remediation-history", refresh);
     window.addEventListener("seogrow-remediation-applied", refresh);
     return () => {
+      window.removeEventListener("seogrow-storage-ok", storedInThisTab);
       window.removeEventListener("storage", storage);
       window.removeEventListener("seogrow-remediation-history", refresh);
       window.removeEventListener("seogrow-remediation-applied", refresh);

@@ -144,7 +144,7 @@ const validateStoredValue = (key, value, initial) => {
   }
   if (key === "seogrow-agent-runs-v1") return normalizeAgentRuns(value, initial);
   if (key === "seogrow-selected-page-v1")
-    return nav.some(([label]) => label === value) ? value : initial;
+    return nav.some(([label]) => label === value) || ["Problemi", "Correzioni"].includes(value) ? value : initial;
   if (key === "seogrow-selected-client-v1")
     return Number.isSafeInteger(value) && value > 0 ? value : initial;
   if (Array.isArray(initial)) return Array.isArray(value) ? value : initial;
@@ -3117,7 +3117,7 @@ function Integrations({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Importazione non riuscita");
-      const assigned = onGscImport(data);
+      const assigned = await onGscImport(data);
       setImportStatus(`Dati API importati e abbinati a ${assigned.clientName}.`);
     } catch (error) {
       setImportStatus(`Errore Google: ${error.message}`);
@@ -3170,7 +3170,7 @@ function Integrations({
       for (const file of files) {
         try {
           const data = await importGscZip(file);
-          assignments.push({ data, assignment: onGscImport(data) });
+          assignments.push({ data, assignment: await onGscImport(data) });
         } catch (error) {
           failures.push(`${file.name}: ${error.message}`);
         }
@@ -4105,7 +4105,7 @@ export default function App() {
     const fromHash = () => {
       try {
         const requested = decodeURIComponent(window.location.hash.slice(1));
-        setPage(nav.some(([label]) => label === requested) ? requested : "Panoramica");
+        setPage(nav.some(([label]) => label === requested) || ["Problemi", "Correzioni"].includes(requested) ? requested : "Panoramica");
       } catch {
         setPage("Panoramica");
       }
@@ -4508,7 +4508,7 @@ export default function App() {
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("Aggiornamento automatico non riuscito");
-        handleGscImportRef.current?.(await response.json());
+        await handleGscImportRef.current?.(await response.json());
       } catch (error) {
         if (error.message !== "Richiesta annullata.")
           setStorageError(`Aggiornamento automatico: ${error.message}`);
@@ -4770,6 +4770,8 @@ export default function App() {
   const projectSettings = preferences.projectSettings?.[selectedClient] || {};
   const saveProjectSettings = settings => setPreferences(current => ({ ...current, projectSettings: { ...current.projectSettings, [selectedClient]: settings } }));
   const content = (() => {
+    // These pages render through their dedicated portals.
+    if (["Problemi", "Correzioni"].includes(page)) return null;
     if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
     if (page === "Panoramica")
       return (

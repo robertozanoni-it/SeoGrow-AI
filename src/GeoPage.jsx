@@ -81,9 +81,9 @@ export default function GeoPage({
   const initialQuestionsText = initialQuestions.join("\n");
   const savedQuestionsText = Array.isArray(saved?.questions)
     ? saved.questions.join("\n")
-    : "";
+    : null;
   const [questionsOverride, setQuestionsOverride] = useState(null);
-  const questionsText = questionsOverride ?? (savedQuestionsText || initialQuestionsText);
+  const questionsText = questionsOverride ?? savedQuestionsText ?? initialQuestionsText;
   const [audit, setAudit] = useState(
     saved?.audit && typeof saved.audit === "object" ? saved.audit : null,
   );

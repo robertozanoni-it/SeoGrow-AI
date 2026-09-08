@@ -1,4 +1,20 @@
 export const qaMatrix = [
+  ["FIELDS-ASSOCIATION", "Task manual association", "P1", "E2E Browser / Fields", "Search task", "Confirm, save, reload, revoke", "Explicit association retained then revoked", "full"],
+  ["FIELDS-GOOGLE-IMPORT", "GOOGLE-IMPORT controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
+  ["FIELDS-AUDIT-MODAL", "AUDIT-MODAL controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
+
+  ["FIELDS-AGENT", "AGENT controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-CALENDAR", "CALENDAR controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-GEO", "GEO controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-AUDIT", "AUDIT controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-PROBLEM-FILTERS", "PROBLEM-FILTERS controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-COMMAND", "COMMAND controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-TAXONOMY", "TAXONOMY controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-SESSION", "SESSION controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-BOZZA-TYPE", "BOZZA-TYPE controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-ZIP", "ZIP controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+  ["FIELDS-BACKUP-UI", "BACKUP-UI controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
+
   ["FIELDS-CLIENT", "CLIENT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-TASK", "TASK form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-PREFERENCES", "PREFERENCES form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],

@@ -117,7 +117,7 @@ export default function WordPressTaxonomyRemediationControl() {
   const [target, setTarget] = useState(null);
   const [, setRevision] = useState(0);
   const [requestedAudit, setRequestedAudit] = useState(null);
-  const [inspection, setInspection] = useState(null);
+  const [inspectionState, setInspection] = useState(null);
   const [detecting, setDetecting] = useState(false);
   const [detectionError, setDetectionError] = useState("");
   const [preview, setPreview] = useState(null);
@@ -133,16 +133,14 @@ export default function WordPressTaxonomyRemediationControl() {
   const [indexingConfirmed, setIndexingConfirmed] = useState(false);
 
   useEffect(() => {
-    let frame = 0;
-    let attempts = 0;
+    let timer = 0;
     const find = () => {
       const next = document.querySelector(".audit-unified-remediation");
-      if (next) { setTarget(next); return; }
-      attempts += 1;
-      if (attempts < 120) frame = window.requestAnimationFrame(find);
+      setTarget(current => current === next ? current : next);
+      timer = window.setTimeout(find, 100);
     };
     find();
-    return () => window.cancelAnimationFrame(frame);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -190,7 +188,9 @@ export default function WordPressTaxonomyRemediationControl() {
   const suspected = suspectedTaxonomyUrl(sourceUrl);
 
   const connection = readCredentials();
-  const signature = `${clientId}|${auditTimestamp(audit)}|${selectedIndex}|${sourceUrl}|${connection.siteUrl}|${connection.username}|${Boolean(connection.applicationPassword)}`;
+  const signature = JSON.stringify([clientId, auditTimestamp(audit), selectedIndex, sourceUrl, connection.siteUrl, connection.username, connection.applicationPassword]);
+  // Volatile only: an inspection never authorizes a different audit or credential context.
+  const inspection = inspectionState?.signature === signature ? inspectionState.data : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +211,7 @@ export default function WordPressTaxonomyRemediationControl() {
       try {
         const data = await inspectTaxonomy(sourceUrl, credentials);
         if (cancelled) return;
-        setInspection(data);
+        setInspection({ signature, data });
         setDetectionError("");
         setCanonicalTarget(data.term?.link || sourceUrl);
         setCanonicalConfirmed(false);
