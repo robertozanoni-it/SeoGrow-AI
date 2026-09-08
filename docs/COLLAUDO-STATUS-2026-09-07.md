@@ -198,3 +198,46 @@ Dopo la segnalazione dell'utente (19 proprietà ricevute ma elenco non visibile)
 - PR #69: Release Gate #741 PASS su head 693fa26a4891ea926e3a4cbafa11f6ff8545bc4a; qa:smoke, qa:full e qa:release eseguiti realmente, inclusi browser Chrome, backup cifrato, error injection, 500 task e IndexedDB nativo. Launcher macOS e controlli Connector PASS. PR #69 merged nel commit dcdc922267484fb9dd649bd54889ff825ecb891a; Release Gate #742 su main PASS. Durate CI circa 8s smoke, 24s full, 30s release.
 - Gate intermedi: #737 selettore Elimina non circoscritto al dialogo; #739 seed eseguito nelle fixture data: prive di storage; #740 clic prima della risposta Google status. Cause corrette con selettore del dialogo, isolamento del seed all'origine app e attesa del pulsante abilitato. Nessun test rimosso o trasformato in skip. #738 e #741 PASS.
 - Dettagli, limiti e distinzione visuale automatico/manuale in QA-AUTOMATION.md. G07 e gli altri vincoli WordPress restano invariati.
+
+
+## Batch finale dei campi — 8 settembre 2026
+
+Questa sezione aggiorna le baseline storiche precedenti. PR #70, #71, #72,
+#73 e #74 **merged**. La documentazione dei batch iniziali (#35, #37–#43 e
+successivi) e la distinzione tra runtime e script standalone restano valide.
+Questo batch riguarda la UI e il collaudo locale, senza nuove operazioni sui
+siti WordPress.
+
+| PR | Esito | Release Gate PR | Gate main |
+| --- | --- | --- | --- |
+| #70 documentazione QA | merged | #743 PASS | #744 PASS |
+| #71 percorsi dei test con spazi | merged | #745 PASS | #746 PASS |
+| #72 avvio runtime QA macOS | merged | #748 PASS | #749 PASS |
+| #73 campi principali | merged | [#752 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34221761562) | [#753 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34222127722) |
+| #74 campi condizionali e correzioni | merged | [#761 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34225075612) | [#762 PASS](https://github.com/robertozanoni-it/SeoGrow-AI/actions/runs/34225505395) |
+
+**614 test Node e 34 scenari browser release**, di cui 22 dedicati ai campi.
+Lint, build, suite browser e launcher reale macOS PASS; il gate comprende anche
+PHP, packaging Connector, dependency audit e assenza di runtime/segreti tracciati.
+La suite completa viene eseguita su Linux e macOS, con checkout macOS contenente
+spazi. Il browser usa profili e dati temporanei; i servizi esterni sono simulati.
+
+Difetti riprodotti e corretti: nome cliente di soli spazi, etichetta della bozza,
+import Google/ZIP non atteso prima del messaggio di successo, stato Correzioni
+non aggiornato al cambio progetto nella stessa scheda, domande GEO vuote
+ripopolate al reload, montaggio e route dei portal Problemi/Correzioni, pannello
+taxonomy scollegato dopo nuovo audit e riuso di ispezioni dopo cambio contesto.
+Il cambio di canonical/indexing revoca le conferme; il cambio di problema o
+password invalida subito l'ispezione precedente. Nessun apply WordPress eseguito.
+
+I gate intermedi falliti hanno evidenziato sia questi difetti sia problemi nelle
+fixture/attese del test (label composite, blur, pagina non idonea alla taxonomy,
+normalizzazione delle note vuote al restore). Le cause sono state corrette e i
+casi mantenuti obbligatori prima del gate verde e del merge.
+
+Inventario completo dei campi e relativi limiti: [QA-FIELDS.md](QA-FIELDS.md).
+Comandi e prove CI: [QA-AUTOMATION.md](QA-AUTOMATION.md).
+Il PASS non certifica ogni combinazione possibile di input, tutte le integrazioni
+reali, tutti i browser o una revisione estetica/WCAG completa.
+**G07 resta PARTIAL e rinviato; G13 conserva il PASS minimo read-only su staging
+fornito dall'utente, senza certificare una matrice di scritture live per ruolo.**

@@ -19,8 +19,9 @@ required scenario fails, never skips. No credentials are required.
 The runner copies application source into a disposable directory, supplies
 temporary API secrets, launches on free loopback ports and never imports
 the user's .env or runtime database. Browser profiles are unique. Browser
-fetch rejects remote origins and non-read requests. All writes are fixture
-storage only. The original WordPress and paid API E2E scripts are excluded.
+fetch rejects remote origins and unconfigured non-read requests. Explicit local
+API mocks exercise form submissions without reaching an external provider.
+All persistent writes are fixture storage only. The original WordPress and paid API E2E scripts are excluded.
 The macOS launcher and Connector/security packaging gates remain separate.
 
 ## Executable matrix
@@ -85,3 +86,34 @@ The documentation follow-up uses the same mandatory Release Gate.
 - P1 QA fixtures: seed only the application origin, leaving synthetic data: pages
   untouched; Google actions await configured status and an enabled button.
   Uncaught browser exceptions still fail the entire gate.
+
+## Current field coverage — batch PR #73 / #74
+
+The release matrix now requires **34 browser scenarios**, including **22 field
+scenarios**; full requires 32 and smoke 7. The Node suite has **614 tests**.
+Both PRs are merged. Their final Release Gates are #752 and #761, both PASS.
+Linux runs smoke/full/release; macOS runs release from a path containing spaces
+and the real launcher smoke. Missing required scenarios remain a failure.
+
+`scripts/qa-form-matrix.mjs` and `scripts/qa-remaining-fields.mjs` exercise real
+React controls, validation, conditional options, payloads, failure/retry,
+IndexedDB persistence and actual document reloads. ZIP input uses synthetic CSVs;
+the backup test uses the export/import buttons, encryption and wrong-password
+rejection. Restore comparison uses the application's canonical task schema,
+including defaults added when legacy records are hydrated.
+
+External responses are explicit disposable browser mocks, never real WordPress
+writes or paid provider calls. Changing taxonomy input revokes confirmation;
+changing the issue or credentials invalidates the old inspection before another
+request completes. No test submits WordPress apply or draft publication.
+
+The complete field inventory, observed fixes and exclusions are in
+[QA-FIELDS.md](QA-FIELDS.md). This is automated functional coverage, not a claim
+that every arbitrary input combination or all visual/accessibility behavior has
+been manually certified. G07 remains PARTIAL and G13 retains only its previously
+recorded minimal read-only staging result.
+
+Earlier macOS follow-ups #71 and #72 are merged: native filesystem paths replace
+URL-encoded test paths, and QA process startup handles the spaced checkout.
+Their final PR/main gates were #745/#746 and #748/#749, all PASS. The user also
+reported all four local qa:release stages PASS before this new fields batch.
