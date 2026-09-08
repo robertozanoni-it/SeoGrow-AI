@@ -107,6 +107,7 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     await set('.taxonomy-intent-box','Canonical da impostare','https://example.com/category/qa-changed/');
     assert.equal(await evaluate("document.querySelector('.taxonomy-confirm input').checked"),false);
     await evaluate("(()=>{const e=document.querySelector('.audit-issue-select select');e.value='1';e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+    await waitFor("!document.querySelector('.taxonomy-prepare')",'Changed issue immediately invalidates inspection');
     await waitFor("document.querySelector('.taxonomy-intent-box select')",'Indexing controls');
     await set('.taxonomy-intent-box','Intento di indicizzazione','index');
     await evaluate("document.querySelector('.taxonomy-confirm input').click()");
@@ -116,6 +117,10 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     await button('Prepara anteprima tassonomia','.taxonomy-remediation');
     await waitFor("document.querySelector('.taxonomy-message')?.textContent.includes('Scegli e conferma')",'Index requires renewed confirmation');
     assert.equal(await evaluate("window.__qaFormRequests.some(r=>/apply|write|preview/.test(r.path))"),false);
+    const inspections=await evaluate("window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/inspect-taxonomy').length");
+    await set('.audit-unified-credentials','Password applicativa','qa-synthetic-updated');
+    await waitFor("!document.querySelector('.taxonomy-prepare')",'Changed password invalidates inspection');
+    await waitFor(`window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/inspect-taxonomy').length>${inspections}`,'Nonempty password change retries inspection');
     await set('.audit-unified-credentials','Password applicativa','');
   });
 

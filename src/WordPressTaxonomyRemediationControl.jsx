@@ -117,7 +117,7 @@ export default function WordPressTaxonomyRemediationControl() {
   const [target, setTarget] = useState(null);
   const [, setRevision] = useState(0);
   const [requestedAudit, setRequestedAudit] = useState(null);
-  const [inspection, setInspection] = useState(null);
+  const [inspectionState, setInspection] = useState(null);
   const [detecting, setDetecting] = useState(false);
   const [detectionError, setDetectionError] = useState("");
   const [preview, setPreview] = useState(null);
@@ -188,7 +188,9 @@ export default function WordPressTaxonomyRemediationControl() {
   const suspected = suspectedTaxonomyUrl(sourceUrl);
 
   const connection = readCredentials();
-  const signature = `${clientId}|${auditTimestamp(audit)}|${selectedIndex}|${sourceUrl}|${connection.siteUrl}|${connection.username}|${Boolean(connection.applicationPassword)}`;
+  const signature = JSON.stringify([clientId, auditTimestamp(audit), selectedIndex, sourceUrl, connection.siteUrl, connection.username, connection.applicationPassword]);
+  // Volatile only: an inspection never authorizes a different audit or credential context.
+  const inspection = inspectionState?.signature === signature ? inspectionState.data : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -209,7 +211,7 @@ export default function WordPressTaxonomyRemediationControl() {
       try {
         const data = await inspectTaxonomy(sourceUrl, credentials);
         if (cancelled) return;
-        setInspection(data);
+        setInspection({ signature, data });
         setDetectionError("");
         setCanonicalTarget(data.term?.link || sourceUrl);
         setCanonicalConfirmed(false);
