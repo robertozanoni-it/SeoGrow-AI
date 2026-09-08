@@ -133,16 +133,14 @@ export default function WordPressTaxonomyRemediationControl() {
   const [indexingConfirmed, setIndexingConfirmed] = useState(false);
 
   useEffect(() => {
-    let frame = 0;
-    let attempts = 0;
+    let timer = 0;
     const find = () => {
       const next = document.querySelector(".audit-unified-remediation");
-      if (next) { setTarget(next); return; }
-      attempts += 1;
-      if (attempts < 120) frame = window.requestAnimationFrame(find);
+      setTarget(current => current === next ? current : next);
+      timer = window.setTimeout(find, 100);
     };
     find();
-    return () => window.cancelAnimationFrame(frame);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {

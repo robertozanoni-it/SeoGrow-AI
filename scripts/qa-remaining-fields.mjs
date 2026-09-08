@@ -90,11 +90,11 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
   await record('FIELDS-TAXONOMY',async()=>{
     await clickSidebar('Audit SEO'); await waitFor("document.querySelector('.audit-inline-form')",'Audit taxonomy fixture');
     await evaluate("document.querySelectorAll('.audit-mode-card')[0].click()");
-    await set('.audit-inline-form','URL della pagina','https://example.com/category/qa/');
-    await mock('/api/audit',{url:'https://example.com/category/qa/',score:70,evidencePolicy:'confirmed-issues-only',scoreSource:'seogrow-derived',analyzedAt:'2026-09-08T12:00:00Z',issues:[{type:'canonical',label:'Canonical QA',severity:'alta',targetUrl:'https://example.com/category/qa/'},{type:'noindex',label:'Noindex QA',severity:'alta',targetUrl:'https://example.com/category/qa/'}]});
+    await set('.audit-inline-form','URL della pagina','https://example.com/qa-taxonomy/');
+    await mock('/api/audit',{url:'https://example.com/qa-taxonomy/',score:70,evidencePolicy:'confirmed-issues-only',scoreSource:'seogrow-derived',analyzedAt:'2026-09-08T12:00:00Z',issues:[{type:'canonical',label:'Canonical QA',severity:'alta',targetUrl:'https://example.com/qa-taxonomy/'},{type:'noindex',label:'Noindex QA',severity:'alta',targetUrl:'https://example.com/qa-taxonomy/'}]});
     await submit('.audit-inline-form');
     await waitFor("document.querySelector('.audit-issue-select select')?.options.length===2",'Two taxonomy issues');
-    await mock('/api/wordpress/inspect-taxonomy',{resource:'taxonomy',writable:true,ownership:'rank_math',term:{id:100,name:'QA category',taxonomy:'category',link:'https://example.com/category/qa/'}});
+    await mock('/api/wordpress/inspect-taxonomy',{resource:'taxonomy',writable:true,ownership:'rank_math',term:{id:100,name:'QA category',taxonomy:'category',link:'https://example.com/qa-taxonomy/'}});
     for(const [label,value] of Object.entries({'URL del sito':'https://example.com/','Utente WordPress':'qa-user','Password applicativa':'qa-synthetic-taxonomy'})) await set('.audit-unified-credentials',label,value);
     await waitFor("document.querySelector('.taxonomy-intent-box input:not([type=checkbox])')",'Canonical controls');
     await set('.taxonomy-intent-box','Canonical da impostare','https://example.com/category/qa-target/');

@@ -144,7 +144,7 @@ const validateStoredValue = (key, value, initial) => {
   }
   if (key === "seogrow-agent-runs-v1") return normalizeAgentRuns(value, initial);
   if (key === "seogrow-selected-page-v1")
-    return nav.some(([label]) => label === value) ? value : initial;
+    return nav.some(([label]) => label === value) || ["Problemi", "Correzioni"].includes(value) ? value : initial;
   if (key === "seogrow-selected-client-v1")
     return Number.isSafeInteger(value) && value > 0 ? value : initial;
   if (Array.isArray(initial)) return Array.isArray(value) ? value : initial;
@@ -4105,7 +4105,7 @@ export default function App() {
     const fromHash = () => {
       try {
         const requested = decodeURIComponent(window.location.hash.slice(1));
-        setPage(nav.some(([label]) => label === requested) ? requested : "Panoramica");
+        setPage(nav.some(([label]) => label === requested) || ["Problemi", "Correzioni"].includes(requested) ? requested : "Panoramica");
       } catch {
         setPage("Panoramica");
       }
@@ -4770,6 +4770,8 @@ export default function App() {
   const projectSettings = preferences.projectSettings?.[selectedClient] || {};
   const saveProjectSettings = settings => setPreferences(current => ({ ...current, projectSettings: { ...current.projectSettings, [selectedClient]: settings } }));
   const content = (() => {
+    // These pages render through their dedicated portals.
+    if (["Problemi", "Correzioni"].includes(page)) return null;
     if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
     if (page === "Panoramica")
       return (
