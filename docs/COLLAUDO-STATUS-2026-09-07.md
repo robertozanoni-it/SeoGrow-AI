@@ -176,3 +176,11 @@ PR #55 merged; Release Gate #706 e main #707 PASS (link nel report G07). Nuova p
 ## Estensione UI/UX successiva
 
 PR #57 e #58 **merged**, rispettivamente con Release Gate #710 e #712 PASS sui commit delle PR. Anche il gate #711 su main dopo #57 è PASS. Revisione di ricerca, navigazione, feedback e console Agent descritta in [UX-REVIEW-2026-09-07.md](UX-REVIEW-2026-09-07.md), incluse le proposte future e il limite della verifica visuale manuale. G07 resta PARTIAL e rinviato su richiesta dell'utente; questa estensione non modifica lo stato dei collaudi WordPress.
+
+## Funzioni aggiunte — 8 settembre 2026
+
+Le PR #60, #61 e #62 sono **merged**, con Release Gate #716, #718 e #720 PASS prima dei merge. Implementate le otto estensioni proposte: viste salvate, palette comandi, annullamento task, configurazione guidata, calendario editoriale, report personalizzabili, avvisi sui dati e audit periodici pubblici in sola lettura.
+
+598 test locali PASS, lint/build/launcher PASS. Il gate #720 comprende browser smoke esteso alle nuove schermate e avvio macOS. Nessuna esecuzione automatica su siti reali durante lo sviluppo. Dettagli d'uso, limiti e prove in [FEATURES-2026-09-08.md](FEATURES-2026-09-08.md).
+
+La revisione visuale manuale è ancora bloccata dall'accesso del browser cloud all'app locale. G07 resta PARTIAL e rinviato; i risultati G13 già documentati non sono modificati da questo batch.
