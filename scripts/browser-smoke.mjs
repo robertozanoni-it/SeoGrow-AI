@@ -248,6 +248,7 @@ try {
   // prima del primo mount React dell'app, senza che lo stato di esempio possa sovrascriverlo.
   await command("Page.addScriptToEvaluateOnNewDocument", {
     source: `(() => {
+      if (location.origin !== ${JSON.stringify(new URL(appUrl).origin)}) return;
       const client = { id: 9001, name: 'Browser QA', url: 'https://example.com/' };
       const audit = {
         url: 'https://example.com/pagina-test/',
