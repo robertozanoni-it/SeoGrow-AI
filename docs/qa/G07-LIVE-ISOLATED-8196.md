@@ -85,3 +85,10 @@ User confirmed ZIP installation and authorized the isolated test. Active plugin 
 | Editor mobile viewport / scroll width | 360 / 360px | Same |
 
 Scope: direct authenticated Connector test via WPVibe plus browser rendering verification. This was NOT the SeoGrow application approval-token/button/runtime authentication path. That end-to-end gate remains open. No shared templates, production content pages, anonymous cache matrix, or font asset inventory were certified. Connector remains installed; isolated opt-in was removed.
+
+
+## Ciclo dalla UI SeoGrow — 9 settembre 2026
+
+Roberto ha eseguito la preparazione, applicazione e il ripristino dalla UI del branch `feat/elementor-protected-text-save`, pagina isolata 8196. La schermata delle 01:29 mostra il salvataggio; quella delle 01:40 mostra `Ripristinato`, zero da verificare e un ripristino. Lettura REST indipendente dopo applicazione: titolo Elementor “Collaudo SeoGrow — versione di prova”; anteprima autenticata desktop aperta e osservata. Lettura REST dopo rollback: “Collaudo SeoGrow — versione iniziale”, draft, Canvas, noindex/nofollow, impostazioni tipografiche e struttura originali. Il flag `_seogrow_elementor_text_enabled` è stato rimosso dalla sola pagina 8196 dopo il rollback (esito riuscito). La rimozione tramite WPVibe ha anche svuotato le cache automaticamente.
+
+Questa evidenza chiude applicazione e ripristino dalla UI sulla pagina isolata. Non costituisce una nuova verifica visuale mobile dopo questo specifico ciclo, né una certificazione dei template condivisi o di ogni modifica Elementor.
