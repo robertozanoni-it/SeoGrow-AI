@@ -12,7 +12,9 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
   const next = [...current];
   for (const task of generated) {
     const key = auditTaskIdentity(task);
-    const index = next.findIndex(item => Number(item.sourceClientId) === Number(clientId) && auditTaskIdentity(item) === key);
+    const matches = item => !item.duplicateOf && Number(item.sourceClientId) === Number(clientId) && auditTaskIdentity(item) === key;
+    let index = next.findIndex(item => matches(item) && !item.stale && item.status !== 'Completato');
+    if (index < 0) index = next.findIndex(matches);
     if (index < 0) { next.push(task); continue; }
     const previous = next[index];
     const reappeared = previous.status === 'Completato';

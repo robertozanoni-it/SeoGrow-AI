@@ -1,6 +1,7 @@
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
+import { auditTaskIdentity } from './auditTaskReconciliation.js';
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -58,7 +59,7 @@ const currentPage = () => {
 };
 
 const resultTimestamp = (item) => item?.analyzedAt || item?.startedAt || "";
-const resultSourceUrl = (issue, result, client) => issue?.targetUrl || issue?.url || result?.url || client?.url || "";
+const resultSourceUrl = (issue, result, client) => issue?.sourceUrl || issue?.url || issue?.targetUrl || result?.url || client?.url || "";
 
 const pageKindFromUrl = (value) => {
   try {
@@ -69,11 +70,7 @@ const pageKindFromUrl = (value) => {
   } catch { return "unknown"; }
 };
 
-const taskIssueKey = (task) => issueIdentity({
-  issueType: task?.kind,
-  issueLabel: task?.title,
-  sourceUrl: task?.sourceUrl || task?.targetUrl || "",
-});
+const taskIssueKey = auditTaskIdentity;
 
 function AuditWorkspaceView({ client, clientId, refresh }) {
   const pageStore = readJson(PAGE_HISTORY_KEY, {});
@@ -141,7 +138,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
     const issueKey = issueIdentity({ issueType: issue.type, issueLabel: title, sourceUrl, issue });
     const duplicate = tasks.find((task) =>
       normalizeClientId(task.sourceClientId) === normalizeClientId(clientId) &&
-      task.status !== "Completato" &&
+      !task.stale && task.status !== "Completato" &&
       taskIssueKey(task) === issueKey,
     );
     if (duplicate) return;
@@ -154,7 +151,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       due: "",
       status: "Da fare",
       kind: issue.type || "audit",
-      targetUrl: "",
+      targetUrl: /broken-(?:external-)?link/.test(issue.type || '') ? issue.targetUrl || issue.brokenUrl || issue.href || '' : '',
       sourceUrl,
       linkLabel: "Apri pagina",
       detail: issue.detail || `Problema rilevato dall’audit ${resultType === "page" ? "pagina" : "sito"}.`,

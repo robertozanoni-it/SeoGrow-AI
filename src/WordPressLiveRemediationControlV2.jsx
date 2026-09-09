@@ -21,7 +21,7 @@ import {
   previewIdentity,
   remediationContextDecision,
 } from "./remediationPlanSafety";
-import { normalizeClientId } from "./reliabilityModel";
+import { normalizeClientId, safeHttpHref } from "./reliabilityModel";
 import {
   assessCoreOwnership,
   chooseElementorContentCandidate,
@@ -476,11 +476,11 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     const next = [];
     for (let index = 0; index < selected.length; index += 1) {
       const currentIssue = selected[index];
+      const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
       setMessage(`Esaminati ${index}/${selected.length} · in elaborazione: ${currentIssue?.label || "problema SEO"}…`);
       try {
         const kind = classifyIssue(currentIssue);
         if (!kind) throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
-        const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
         const [inspected, frontendContext] = await Promise.all([
           inspectWordPress(targetUrl, credentials),
           inspectFrontend(targetUrl),
@@ -531,7 +531,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
         }
         next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data, contextSnapshot, inspected, frontendContext, ...identity });
       } catch (error) {
-        next.push({ ...preparationFailure(error), issue: currentIssue, quality: error?.quality || null });
+        next.push({ ...preparationFailure(error), issue: currentIssue, targetUrl, quality: error?.quality || null });
       }
       setResults([...next]);
     }
@@ -691,6 +691,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             </div>
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
+          {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
             {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
