@@ -1,3 +1,4 @@
+import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v3";
@@ -80,7 +81,16 @@ const toReviewItem = (issue, reason) => ({
 
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
-  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived") return data;
+  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 1) return data;
+  const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
+  excludeLegalSeo(data);
+  if (alreadyNormalized) {
+    if (data.legalPages.length) {
+      data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues, data.pagesFailed);
+      data.summary = data.issues.reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
+    }
+    return data;
+  }
 
   const rawInternal = Array.isArray(data.brokenLinks) ? data.brokenLinks : [];
   const rawExternal = Array.isArray(data.brokenExternalLinks) ? data.brokenExternalLinks : [];
@@ -148,7 +158,7 @@ const normalizeSiteAnalysis = (data) => {
   }, {});
 
   data.rawScore = Number.isFinite(Number(data.score)) ? Number(data.score) : null;
-  data.score = scoreFromVerifiedEvidence(data, data.issues, operationalFailures.length);
+  data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues, operationalFailures.length);
   data.scoreSource = "seogrow-derived";
   data.scoreLabel = "Indice di salute tecnica SeoGrow";
   data.scoreMethodology = "Indice interno derivato dai problemi confermati e dai fallimenti del crawl; non è un voto Google.";

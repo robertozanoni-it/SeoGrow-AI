@@ -1,3 +1,4 @@
+import { isLegalPage } from "../src/legalPageScope.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
 import express from "express";
@@ -1065,6 +1066,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
           0,
         ),
     );
+    if (isLegalPage(response.url)) return res.json({ url: response.url, analyzedAt: new Date().toISOString(), legalOnly: true, legalPages: [{ url: response.url }], issues: [], score: null });
     res.json({
       url: response.url,
       fetchedAt: new Date().toISOString(),
@@ -1300,13 +1302,15 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
         : [];
     });
     const sitemap = await sitemapUrls(crawlSeed, siteHost, robotsText, requestController.signal);
+    const legalPages = pages.filter(page => isLegalPage(page.url)).map(page => ({ url: page.url }));
+    for (let i = pages.length - 1; i >= 0; i--) if (isLegalPage(pages[i].url)) pages.splice(i, 1);
     const issues = technicalIssues(
       pages,
       linkSources,
       brokenLinks,
       queueCursor < queue.length ? [] : sitemap,
       brokenExternalLinks,
-    );
+    ).filter(issue => !isLegalPage(issue.url || issue.targetUrl));
     const penalty = issues.reduce(
       (sum, issue) =>
         sum +
@@ -1394,6 +1398,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
     }
     res.json({
       url: seed.origin,
+      legalPages,
       analyzedAt: new Date().toISOString(),
       pagesChecked: pages.length,
       pagesAttempted: visited.size,
