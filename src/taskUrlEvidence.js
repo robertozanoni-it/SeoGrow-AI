@@ -13,8 +13,14 @@ export function slashPairs(tasks) {
 }
 
 export function confirmedSlashAlias(pair, results) {
+  // A shared WordPress ID/canonical does not prove that pagination is a duplicate.
+  try {
+    const first = new URL(pair[0]);
+    if (first.protocol !== 'https:' || first.search || first.hash || pair[0].endsWith('/') || pair[1] !== `${pair[0]}/`) return false;
+  } catch { return false; }
   const [a, b] = results;
   return a?.ok === true && b?.ok === true && a.status === 200 && b.status === 200 && a.isHtml === true && b.isHtml === true &&
+    a.canonicalCount === 1 && b.canonicalCount === 1 &&
     a.url === pair[0] && b.url === pair[1] && a.canonical === pair[1] && b.canonical === pair[1] &&
     Number.isSafeInteger(a.wordpressDocumentId) && a.wordpressDocumentId > 0 && a.wordpressDocumentId === b.wordpressDocumentId;
 }

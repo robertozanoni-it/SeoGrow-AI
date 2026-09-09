@@ -2,7 +2,7 @@ import { issueIdentity, normalizeClientId, normalizeHttpUrl } from './reliabilit
 
 const text = value => String(value || '').trim().toLocaleLowerCase('it');
 const url = value => normalizeHttpUrl(value) || String(value || '').trim();
-const auditKind = task => /^(?:title|h1|meta-description|meta_description|canonical|noindex|indexability|broken-link|broken-external-link|orphan)$/.test(task.kind || '') ||
+const auditKind = task => /^(?:title|h1|thin|duplicate-title|duplicate-description|description|meta-description|meta_description|canonical|canonical-different|noindex|indexability|broken-link|broken-external-link|orphan)$/.test(task.kind || '') ||
   (task.kind === 'content' && /contenuto breve|\d+ parole/i.test(task.title || ''));
 
 export function sameTask(a, b) {

@@ -19,7 +19,7 @@ test('legacy legal tasks are archived on load, preserve work and cannot be regen
 });
 test('slash aliases require positive matching WordPress IDs and exact canonical agreement',()=>{
  const pair=['https://example.com/page','https://example.com/page/'];
- const results=pair.map(url=>({ok:true,status:200,isHtml:true,url,canonical:pair[1],wordpressDocumentId:123}));
+ const results=pair.map(url=>({ok:true,status:200,isHtml:true,url,canonical:pair[1],canonicalCount:1,wordpressDocumentId:123}));
  assert.equal(confirmedSlashAlias(pair,results),true);
  for(const changed of [{status:404},{canonical:pair[0]},{wordpressDocumentId:null},{wordpressDocumentId:456},{isHtml:false}]) assert.equal(confirmedSlashAlias(pair,[results[0],{...results[1],...changed}]),false);
  assert.equal(wordpressDocumentId('<body class="single postid-123 elementor-page-5">'),123);
