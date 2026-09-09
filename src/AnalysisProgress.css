@@ -1,0 +1,4 @@
+.analysis-progress { grid-column: 1 / -1; padding: 16px; border: 1px solid #b8d7ed; border-radius: 12px; background: #eff8ff; display: grid; gap: 10px; }
+.analysis-progress progress { width: 100%; height: 16px; accent-color: #149d65; }
+.analysis-progress small { color: #40556c; }
+.analysis-last-run { padding: 10px 14px; background: #f0f7f3; border-radius: 8px; overflow-wrap: anywhere; }
