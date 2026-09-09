@@ -936,7 +936,7 @@ function TaskTable({
                 (statusFilter === "Tutti" || task.status === statusFilter),
         )
         .filter((task) =>
-          `${task.title} ${task.detail || ""}`
+          `${task.title} ${task.detail || ""} ${task.sourceUrl || ""} ${task.targetUrl || ""}`
             .toLowerCase()
             .includes(taskQuery.trim().toLowerCase()),
         )
@@ -959,7 +959,7 @@ function TaskTable({
         </div>
         {!compact && (
           <div className="inline-actions">
-            <TaskCleanup tasks={tasks} clientId={client?.id} setTasks={setTasks} />
+            <TaskCleanup key={client?.id} tasks={tasks} clientId={client?.id} setTasks={setTasks} />
             <button
               className="secondary small-button"
               onClick={() =>
@@ -1044,6 +1044,7 @@ function TaskTable({
                         <Zap />
                       </span>
                       <strong>{task.title}</strong>
+                      {task.completionReason && task.status === 'Completato' && <small>{task.completionReason}</small>}
                       {task.stale && (task.archivedReason || task.staleReason) && <small>{task.archivedReason || task.staleReason}</small>}
                     </button>
                   </td>
@@ -1066,6 +1067,7 @@ function TaskTable({
                           </span>
                         )
                       )}
+                      {task.targetUrl && <small style={{ overflowWrap: 'anywhere' }}>{task.targetUrl}</small>}
                       {task.sourceUrl && (
                         <a
                           className="task-link"
@@ -1079,6 +1081,7 @@ function TaskTable({
                             : "Apri pagina sorgente"}
                         </a>
                       )}
+                      {task.sourceUrl && <small style={{ overflowWrap: 'anywhere' }}>{task.sourceUrl}</small>}
                     </div>
                   </td>
                   <td>

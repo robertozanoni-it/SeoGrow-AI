@@ -51,6 +51,18 @@ function canonicalHref(html) {
     firstMatch(html, /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*canonical[^"']*["']/i);
 }
 
+function canonicalMarkup(html) {
+  const head = String(html || '').match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  return head.replace(/<!--[\s\S]*?-->|<(script|style|template|noscript)\b[\s\S]*?<\/\1>/gi, '');
+}
+
+export function canonicalCount(html) {
+  return [...canonicalMarkup(html).matchAll(/<link\b[^>]*>/gi)].filter(([tag]) => {
+    const rel = tag.match(/\brel\s*=\s*["']([^"']*)["']/i)?.[1] || '';
+    return rel.toLowerCase().split(/\s+/).includes('canonical');
+  }).length;
+}
+
 function decodeEntity(entity) {
   const body = String(entity || "").slice(1, -1);
   const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…" };
@@ -283,7 +295,8 @@ async function inspect(url) {
     xRobotsTag: result.xRobotsTag,
     noindex: result.noindex,
     indexable: result.indexable,
-    canonical: result.canonical,
+    canonical: canonicalHref(canonicalMarkup(page.html)),
+    canonicalCount: canonicalCount(page.html),
     wordpressDocumentId: wordpressDocumentId(page.html),
     visibilityModel: result.visibilityModel,
     visibilityConfidence: result.visibilityConfidence,
