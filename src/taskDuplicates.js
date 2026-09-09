@@ -17,17 +17,21 @@ export function sameTask(a, b) {
 }
 
 // Preserve every record, note and due date. The existing task undo restores this operation.
-export function archiveDuplicateTasks(tasks, clientId) {
+export function archiveDuplicateTasks(tasks, clientId, aliases = {}) {
   const client = normalizeClientId(clientId);
   if (!client) return tasks;
   const counts = new Map();
   for (const task of tasks) counts.set(task.id, (counts.get(task.id) || 0) + 1);
   const active = tasks.filter(task => task.id && counts.get(task.id) === 1 && normalizeClientId(task.sourceClientId) === client && !task.stale && task.status !== 'Completato');
   const weight = task => ({ 'In revisione': 3, 'In corso': 2, 'Da fare': 1 })[task.status] || 0;
+  const comparable = task => {
+    if (!/^(duplicate-title|duplicate-description|h1|thin)$/.test(task.kind)) return task;
+    return { ...task, sourceUrl: aliases[task.sourceUrl] || task.sourceUrl, targetUrl: aliases[task.targetUrl] || task.targetUrl };
+  };
   const kept = [];
   const duplicates = new Map();
   for (const task of [...active].sort((a, b) => weight(b) - weight(a))) {
-    const existing = kept.find(item => item.id !== task.id && sameTask(item, task));
+    const existing = kept.find(item => item.id !== task.id && sameTask(comparable(item), comparable(task)));
     if (existing) duplicates.set(task.id, existing.id);
     else kept.push(task);
   }

@@ -1,3 +1,4 @@
+import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
 import dns from "node:dns/promises";
 import net from "node:net";
 
@@ -283,6 +284,7 @@ async function inspect(url) {
     noindex: result.noindex,
     indexable: result.indexable,
     canonical: result.canonical,
+    wordpressDocumentId: wordpressDocumentId(page.html),
     visibilityModel: result.visibilityModel,
     visibilityConfidence: result.visibilityConfidence,
     responsiveHiddenMarkupDetected: result.responsiveHiddenMarkupDetected,

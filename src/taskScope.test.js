@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { archiveLegalSeoTasks } from './taskScope.js';
+import { normalizeStoredTasks } from './platform.js';
+import { reconcileAuditTasks } from './auditTaskReconciliation.js';
+import { archiveDuplicateTasks } from './taskDuplicates.js';
+import { wordpressDocumentId, slashPairs, confirmedSlashAlias } from './taskUrlEvidence.js';
+import { taskChange, undoTaskChange } from './productivity.js';
+const base = { id:'a', sourceClientId:4, kind:'h1', title:'0 H1 rilevati', status:'In corso', notes:'Conserva', due:'2026-10-01', targetUrl:'https://example.com/termini-di-uso/' };
+test('legacy legal tasks are archived on load, preserve work and cannot be regenerated',()=>{
+ const rows=[base,{...base,id:'manual',kind:'gdpr'},{...base,id:'link',kind:'broken-link',sourceUrl:'https://example.com/course/'},{...base,id:'article',targetUrl:'https://example.com/guida-privacy/'}];
+ const next=normalizeStoredTasks(rows);
+ assert.equal(next[0].stale,true); assert.equal(next[0].excludedFromSeo,true);
+ assert.equal(next[0].status,'In corso'); assert.equal(next[0].notes,'Conserva'); assert.equal(next[0].due,base.due);
+ assert.ok(next.slice(1).every(r=>!r.stale));
+ assert.equal(archiveLegalSeoTasks(next),next);
+ const fresh=reconcileAuditTasks(next,[{...base,id:'new'}],4,'2026-09-09');
+ assert.equal(fresh.length,4); assert.equal(fresh[0].stale,true);
+});
+test('slash aliases require positive matching WordPress IDs and exact canonical agreement',()=>{
+ const pair=['https://example.com/page','https://example.com/page/'];
+ const results=pair.map(url=>({ok:true,status:200,isHtml:true,url,canonical:pair[1],wordpressDocumentId:123}));
+ assert.equal(confirmedSlashAlias(pair,results),true);
+ for(const changed of [{status:404},{canonical:pair[0]},{wordpressDocumentId:null},{wordpressDocumentId:456},{isHtml:false}]) assert.equal(confirmedSlashAlias(pair,[results[0],{...results[1],...changed}]),false);
+ assert.equal(wordpressDocumentId('<body class="single postid-123 elementor-page-5">'),123);
+ assert.equal(wordpressDocumentId('<body class="postid-123 page-id-456">'),null);
+ assert.equal(wordpressDocumentId('<body><div class="postid-123">'),null);
+});
+test('verified alias archival is reversible and new audits reuse the surviving task',()=>{
+ const a={...base,kind:'duplicate-title',targetUrl:'https://example.com/page',status:'Da fare'};
+ const b={...a,id:'b',targetUrl:'https://example.com/page/',status:'In corso'};
+ const rows=[a,b];
+ assert.deepEqual(slashPairs(rows),[[a.targetUrl,b.targetUrl]]);
+ assert.equal(archiveDuplicateTasks(rows,4),rows);
+ const next=archiveDuplicateTasks(rows,4,{[a.targetUrl]:b.targetUrl});
+ assert.equal(next[0].duplicateOf,'b'); assert.equal(next[1],b);
+ assert.deepEqual(undoTaskChange(next,taskChange(rows,next)),rows);
+ const recheck=reconcileAuditTasks(next,[{...a,id:'new',detail:'fresh evidence'}],4,'2026-09-09');
+ assert.equal(recheck.length,2); assert.equal(recheck[0].stale,true); assert.equal(recheck[1].detail,'fresh evidence');
+});

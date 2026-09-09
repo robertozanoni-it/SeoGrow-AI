@@ -171,7 +171,7 @@ export function buildUnifiedProblems({
   }
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
-    if (task.duplicateOf && task.stale) continue;
+    if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
     if (normalizeClientId(task?.sourceClientId) !== normalizedClientId) {
       if (!task?.sourceClientId && task?.client) warnings.push(`Task legacy non associata tramite ID: ${task.title || "senza titolo"}.`);
       continue;

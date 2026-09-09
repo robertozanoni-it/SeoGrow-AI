@@ -1,3 +1,4 @@
+import { archiveLegalSeoTasks, isLegalSeoTask } from './taskScope.js';
 import { issueIdentity } from './reliabilityModel.js';
 
 export const auditTaskIdentity = task => issueIdentity({
@@ -9,10 +10,11 @@ export const auditTaskIdentity = task => issueIdentity({
 
 // An absent finding in a partial crawl is not evidence of resolution.
 export function reconcileAuditTasks(current, generated, clientId, observedAt) {
-  const next = [...current];
+  const next = [...archiveLegalSeoTasks(current)];
   for (const task of generated) {
+    if (isLegalSeoTask(task)) continue;
     const key = auditTaskIdentity(task);
-    const matches = item => !item.duplicateOf && Number(item.sourceClientId) === Number(clientId) && auditTaskIdentity(item) === key;
+    const matches = item => !item.duplicateOf && Number(item.sourceClientId) === Number(clientId) && (auditTaskIdentity(item) === key || next.some(alias => alias.duplicateOf === item.id && Number(alias.sourceClientId) === Number(clientId) && auditTaskIdentity(alias) === key));
     let index = next.findIndex(item => matches(item) && !item.stale && item.status !== 'Completato');
     if (index < 0) index = next.findIndex(matches);
     if (index < 0) { next.push(task); continue; }
