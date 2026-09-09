@@ -28,3 +28,11 @@ Official implementation references:
 - https://dev.mysql.com/doc/refman/8.1/en/innodb-transaction-isolation-levels.html
 
 The earlier live-page report is in `docs/qa/G07-LIVE-ISOLATED-8196.md`; it covers Connector 1.3.3 core writes and a separate native Elementor visual cycle, not this candidate adapter.
+
+## Dedicated application QA panel
+
+The project center now exposes a dedicated panel only for the exact Yoga Buena Onda site. It submits an isolatedQa request through the existing live-preview API, then uses the existing single-use approval/apply and correction journal. The server constructs the text change from its fixed authorized document fixture, checks site/page/draft/Canvas/robots/document identity, and rechecks scope at apply. Client-provided changes cannot expand this QA request. Normal remediation ownership checks remain unchanged.
+
+The panel does not insert a synthetic SEO issue into audits. The correction is labeled “Collaudo Elementor 8196” and retains its exact before/after snapshot in the normal history, whose existing rollback path is used. App credentials stay in the project-scoped in-memory session. Live completion is pending the actual user action in this panel; fixture tests do not certify that action.
+
+For the authorized live test, the page-specific Connector opt-in must be enabled only on 8196, retained until rollback completes, then removed. This does not require another Connector ZIP version.
