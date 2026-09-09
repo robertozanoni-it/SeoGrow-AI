@@ -1,3 +1,4 @@
+import { archiveLegalSeoTasks } from "./taskScope.js";
 import { issueIdentity } from "./reliabilityModel.js";
 const day = 86_400_000;
 
@@ -47,7 +48,7 @@ export function normalizeStoredTasks(value, fallback = []) {
       stale: task.stale === true,
     });
   }
-  return normalized;
+  return archiveLegalSeoTasks(normalized);
 }
 
 export const latestOf = (value) =>

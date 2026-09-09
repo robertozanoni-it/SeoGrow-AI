@@ -1,7 +1,7 @@
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { rememberWordPressSession, getWordPressSession } from "./wordpressSession.js";
 import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
-import { archiveDuplicateTasks } from './taskDuplicates.js';
+import TaskCleanup from './TaskCleanup.jsx';
 import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
@@ -944,7 +944,6 @@ function TaskTable({
           return dueTime(a) - dueTime(b) || priorityWeight(a) - priorityWeight(b);
         });
   const statuses = ["Da fare", "In corso", "In revisione", "Completato"];
-  const duplicateCount = archiveDuplicateTasks(tasks, client?.id).filter((task, index) => task !== tasks[index]).length;
   return (
     <section className={`panel tasks-panel ${compact ? "compact" : ""}`}>
       <div className="panel-head">
@@ -960,7 +959,7 @@ function TaskTable({
         </div>
         {!compact && (
           <div className="inline-actions">
-            {duplicateCount > 0 && <button className="secondary small-button" onClick={() => setTasks(current => archiveDuplicateTasks(current, client?.id))}>Archivia {duplicateCount} duplicati</button>}
+            <TaskCleanup tasks={tasks} clientId={client?.id} setTasks={setTasks} />
             <button
               className="secondary small-button"
               onClick={() =>
@@ -1045,6 +1044,7 @@ function TaskTable({
                         <Zap />
                       </span>
                       <strong>{task.title}</strong>
+                      {task.stale && (task.archivedReason || task.staleReason) && <small>{task.archivedReason || task.staleReason}</small>}
                     </button>
                   </td>
                   <td>
