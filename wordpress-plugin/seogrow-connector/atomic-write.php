@@ -58,7 +58,9 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
     // Core post/page fields are stored on one wp_posts row, so they can be
     // updated with a single SQL compare-and-swap statement. Meta is a separate
     // row set and remains blocked to avoid a partially atomic mixed write.
-    if (array_key_exists('meta', $changes)) { return seogrow_connector_atomic_unavailable(); }
+    if (array_key_exists('meta', $changes)) {
+        return function_exists('seogrow_connector_elementor_text_write') ? seogrow_connector_elementor_text_write($request) : seogrow_connector_atomic_unavailable();
+    }
     $fields = array('title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt');
     foreach ($changes as $field => $value) {
         if (!isset($fields[$field]) || !array_key_exists($field, $expected) || !is_string($value) || !is_string($expected[$field])) {

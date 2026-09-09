@@ -74,8 +74,23 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
       await waitFor("document.querySelector('.auto-fix-panel [role=status]')?.textContent.includes('cambiati') && !document.querySelector('.wp-live-apply-one')",'Same-date audit replacement invalidates plan visibly');
       assert.equal(await evaluate('window.__qaFormRequests.length'),0,'Stale plan makes no remote requests');
       assert.deepEqual(await read('seogrow-tasks-v2'),tasks,'Diagnostic never edits tasks');
+      // Dedicated QA uses explicit mocked transport, never the live WordPress site.
+      await write('seogrow-clients',clients.map(c=>c.id===clientId?{...c,url:'https://yogabuenaonda.it/'}:c));
+      await revisit('Centro progetto');
+      await button('1. Prepara prova Elementor');
+      await waitFor("document.querySelector('[aria-label=\"Collaudo Elementor su pagina isolata\"] [role=status]')?.textContent.includes('assente o scaduta')",'QA requires verified project credentials');
+      await evaluate(`(async()=>{const m=await import('/src/wordpressSession.js');m.rememberWordPressSession(${clientId},{url:'https://yogabuenaonda.it/',username:'qa-fixture',applicationPassword:'qa-fixture'})})()`);
+      await mock('/api/wordpress/live-preview',{approvalToken:'qa-isolated-preview',resource:'pages',id:8196,previewBefore:{meta:{_elementor_data:'before'}},previewAfter:{meta:{_elementor_data:'after'}}});
+      await resetRequests(); await button('1. Prepara prova Elementor');
+      await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent==='2. Applica testo alla pagina di prova')",'QA explicit apply button');
+      const qaRequests=await evaluate('window.__qaFormRequests');
+      assert.equal(qaRequests.length,1);assert.equal(qaRequests[0].body.id,8196);assert.equal(qaRequests[0].body.isolatedQa,true);
+      assert.equal(qaRequests[0].path,'/api/wordpress/live-preview','Preparation never writes');
+      await evaluate("document.querySelector('[aria-label=\"Collaudo Elementor su pagina isolata\"]').scrollIntoView()");
+      await screenshot('isolated-elementor-preview');
+
     } finally {
-      await write(siteKey,sites); await write(pageKey,pages); await revisit('Centro progetto');
+      await write('seogrow-clients',clients); await write(siteKey,sites); await write(pageKey,pages); await revisit('Centro progetto');
     }
   });
 }

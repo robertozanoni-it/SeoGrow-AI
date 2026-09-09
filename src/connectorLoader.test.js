@@ -21,7 +21,7 @@ const pagedInventory = await readFile(
 
 test("loader conserva un solo header plugin e carica i moduli Connector", () => {
   assert.match(loader, /Plugin Name: SeoGrow Connector/);
-  assert.match(loader, /Version: 1\.3\.4/);
+  assert.match(loader, /Version: 1\.3\.5/);
   assert.match(loader, /require_once __DIR__ \. '\/seogrow-connector-core\.inc'/);
   assert.match(loader, /require_once __DIR__ \. '\/elementor-reference-read\.php'/);
   assert.match(loader, /require_once __DIR__ \. '\/wordpress-public-inventory-paged\.php'/);

@@ -56,6 +56,6 @@ test('WordPress atomic writes require object-level capabilities and fail closed 
   assert.match(atomicWrite, /current_user_can\('edit_term', \$term->term_id\)/);
   assert.match(atomicWrite, /ATOMIC_WRITE_UNAVAILABLE/);
   assert.match(atomicWrite, /if \(\$resource === 'taxonomy'\)[\s\S]*return seogrow_connector_atomic_unavailable\(\)/);
-  assert.match(atomicWrite, /array_key_exists\('meta', \$changes\)\)[^\n]*seogrow_connector_atomic_unavailable\(\)/);
+  assert.match(atomicWrite, /array_key_exists\('meta', \$changes\)\)[\s\S]*seogrow_connector_elementor_text_write[\s\S]*seogrow_connector_atomic_unavailable\(\)/);
   assert.match(atomicWrite, /STALE_CONFLICT/);
 });

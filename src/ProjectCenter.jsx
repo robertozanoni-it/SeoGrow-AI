@@ -1,3 +1,4 @@
+import IsolatedElementorQaPanel from "./IsolatedElementorQaPanel.jsx";
 import { getWordPressSession } from "./wordpressSession.js";
 import AutoFixPanel from "./AutoFixPanel.jsx";
 import { useEffect, useState } from "react";
@@ -20,6 +21,7 @@ export default function ProjectCenter({ client, dataset, analysis, connection, a
       <div className="feature-toolbar"><button className="secondary" disabled={step === 0} onClick={() => setStep(value => value - 1)}>Indietro</button><button className="primary" disabled={step === 3} onClick={() => setStep(value => value + 1)}>Avanti</button></div>
     </section>
     <AutoFixPanel client={client} onNavigate={onNavigate} />
+    <IsolatedElementorQaPanel key={client.id} client={client} onNavigate={onNavigate} />
     {children}
     <section className="panel planning-panel project-report"><span className="workflow-category">Condivisione dei risultati</span><h2>Modello del report</h2><ol className="workflow-instructions"><li>Personalizza nome, titolo e introduzione.</li><li>Scegli le sezioni da includere.</li><li>Premi “Scarica report personalizzato” per ottenere il file HTML, stampabile anche in PDF.</li></ol><div className="feature-toolbar"><label>Nome studio o agenzia<input maxLength={100} value={template.brand} onChange={event => updateTemplate({ brand: event.target.value })} /></label><label>Titolo<input maxLength={100} value={template.title} onChange={event => updateTemplate({ title: event.target.value })} /></label><label>Colore<input type="color" value={template.color} onChange={event => updateTemplate({ color: event.target.value })} /></label></div><label>Introduzione<textarea maxLength={2000} value={template.intro} onChange={event => updateTemplate({ intro: event.target.value })} /></label><fieldset><legend>Sezioni da includere</legend>{Object.entries(reportSections).map(([key, label]) => <label className="report-option" key={key}><input type="checkbox" checked={template.sections[key]} disabled={template.sections[key] && Object.values(template.sections).filter(Boolean).length === 1} onChange={event => updateTemplate({ sections: { ...template.sections, [key]: event.target.checked } })} />{label}</label>)}</fieldset><button className="primary" onClick={onReport}>Scarica report personalizzato</button></section>
   </>;
