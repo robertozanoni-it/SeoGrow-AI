@@ -1,3 +1,4 @@
+import AnalysisProgress from "./AnalysisProgress.jsx";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { useEffect, useRef, useState } from "react";
@@ -296,6 +297,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
           <div><h2>Nuovo audit</h2><p>Scegli il perimetro prima di avviare il controllo.</p></div>
           {loading && <span className="live"><i />Analisi in corso</span>}
         </div>
+        <p className="analysis-last-run">{initial && Number.isFinite(Date.parse(resultTimestamp(initial.item))) ? <>Ultima analisi completata: <time dateTime={resultTimestamp(initial.item)}>{new Date(resultTimestamp(initial.item)).toLocaleString("it-IT")}</time> · {initial.type === "page" ? "Pagina" : "Sito"} · {initial.item.url || client.url}</> : "Nessuna analisi completata per questo progetto."}</p>
         <div className="audit-mode-grid">
           <button type="button" className={`audit-mode-card ${mode === "page" ? "active" : ""}`} onClick={() => setMode("page")} disabled={loading}>
             <FileText /><span><strong>Analizza questa pagina</strong><small>Controllo rapido dell’URL indicato</small></span>
@@ -308,6 +310,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
           <label>{mode === "page" ? "URL della pagina" : "Indirizzo iniziale del sito"}<input type="url" value={url} onChange={(event) => setUrl(event.target.value)} required disabled={loading} /></label>
           {mode === "site" && <label>Numero massimo di pagine<select value={maxPages} onChange={(event) => setMaxPages(Number(event.target.value))} disabled={loading}><option value="25">25 — controllo rapido</option><option value="75">75 — consigliato</option><option value="150">150 — approfondito</option><option value="200">200 — massimo locale</option></select></label>}
           <div className="inline-actions"><button className="primary" disabled={loading}>{loading ? "Analisi in corso…" : mode === "page" ? "Analizza questa pagina" : "Analizza tutto il sito"}</button>{loading && <button type="button" className="secondary" onClick={() => requestRef.current?.abort()}>Interrompi</button>}</div>
+          {loading && <AnalysisProgress />}
           {error && <p className="error" role="alert">{error}</p>}
         </form>
       </section>
@@ -321,6 +324,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       </section>
 
       {result && <div className="audit-results audit-persistent-results">
+        <p className="analysis-last-run">Risultati visualizzati: {Number.isFinite(Date.parse(resultTimestamp(result))) ? new Date(resultTimestamp(result)).toLocaleString("it-IT") : "data non disponibile"} · {result.url || client.url}{loading ? " — risultati precedenti; nuova analisi in corso." : ""}</p>
         <section className="score-panel audit-truth-score">
           <div className="score-ring" style={{ "--score": `${Number(result.score || 0) * 3.6}deg` }}><span>{result.score ?? "—"}<small>/100</small></span></div>
           <div><span className="audit-derived-label"><ShieldCheck /> Indice interno SeoGrow</span><h2>{result.scoreLabel || "Indice di salute tecnica SeoGrow"}</h2>{safeHttpHref(result.url || client.url) && <a href={safeHttpHref(result.url || client.url)} target="_blank" rel="noreferrer">{result.url || client.url}</a>}<p>{result.scoreMethodology || "Indice derivato dai controlli SeoGrow; non è un voto Google."}</p></div>

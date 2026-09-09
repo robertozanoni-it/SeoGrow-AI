@@ -1,3 +1,4 @@
+import AnalysisProgress from "./AnalysisProgress.jsx";
 import { rememberWordPressSession, getWordPressSession } from "./wordpressSession.js";
 import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
 import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
@@ -3517,6 +3518,7 @@ function SiteAnalysisModal({
   useEffect(() => () => requestRef.current?.abort(), []);
   const run = async (event) => {
     event.preventDefault();
+    if (requestRef.current) return;
     setLoading(true);
     setError("");
     const controller = new AbortController();
@@ -3544,6 +3546,8 @@ function SiteAnalysisModal({
   };
   return (
     <Modal title={`Nuova analisi — ${client.name}`} close={close}>
+      <p className="analysis-last-run">Ultima analisi completata: {Number.isFinite(Date.parse(result?.analyzedAt || result?.startedAt)) ? new Date(result.analyzedAt || result.startedAt).toLocaleString("it-IT") : "nessuna data disponibile"}</p>
+      {loading && <AnalysisProgress />}
       <form className="site-analysis-form" onSubmit={run}>
         <label>
           Indirizzo iniziale
