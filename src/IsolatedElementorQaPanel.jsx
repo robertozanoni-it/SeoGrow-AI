@@ -16,7 +16,7 @@ async function post(path, body) {
 }
 export default function IsolatedElementorQaPanel({ client, onNavigate }) {
   const [preview, setPreview] = useState(null);
-  const [message, setMessage] = useState('Collega WordPress nel passaggio 3, poi prepara questa prova. Non serve selezionare un problema SEO.');
+  const [message, setMessage] = useState('Collega WordPress in Integrazioni, poi prepara questa prova. Non serve selezionare un problema SEO.');
   const [busy, setBusy] = useState(false);
   const [recorded, setRecorded] = useState(false);
   const lock = useRef(false);
@@ -27,7 +27,7 @@ export default function IsolatedElementorQaPanel({ client, onNavigate }) {
   if (!eligible) return null;
   const credentials = () => {
     const session = getWordPressSession(client.id, client.url);
-    if (!session) throw new Error('Collega WordPress nel passaggio 3: la connessione è assente o scaduta.');
+    if (!session) throw new Error('Collega WordPress in Integrazioni: la connessione è assente o scaduta.');
     return { siteUrl: SITE, username: session.username, applicationPassword: session.applicationPassword };
   };
   const run = async action => {
@@ -71,7 +71,7 @@ export default function IsolatedElementorQaPanel({ client, onNavigate }) {
     <h2>Collaudo Elementor — pagina di prova 8196</h2>
     <p>Questa prova cambia soltanto il titolo visibile nella bozza tecnica. Non corregge un problema SEO e non pubblica la pagina.</p>
     <ol className="workflow-instructions"><li>Prepara la prova e confronta il testo.</li><li>Approva la modifica alla bozza.</li><li>Controlla l’anteprima WordPress, poi apri il risultato e ripristina la versione precedente.</li></ol>
-    <div className="feature-toolbar"><button className="primary" disabled={busy || recorded} onClick={prepare}>1. Prepara prova Elementor</button><button className="secondary" disabled={busy} onClick={() => onNavigate('Correzioni')}>3. Apri risultato e ripristino</button></div>
+    <div className="feature-toolbar"><button className="secondary" disabled={busy} onClick={() => onNavigate('Integrazioni')}>Collega WordPress</button><button className="primary" disabled={busy || recorded} onClick={prepare}>1. Prepara prova Elementor</button><button className="secondary" disabled={busy} onClick={() => onNavigate('Correzioni')}>3. Apri risultato e ripristino</button></div>
     <p role="status">{busy ? 'Controllo in corso…' : message}</p>
     {preview && <div className="workflow-step workflow-proposals"><p><strong>Adesso:</strong> Collaudo SeoGrow — versione iniziale</p><p><strong>Dopo:</strong> Collaudo SeoGrow — versione di prova</p><p>Pagina 8196 · Bozza · Font, stile e struttura invariati nella proposta.</p><button className="primary" disabled={busy} onClick={apply}>2. Applica testo alla pagina di prova</button></div>}
     <p><a href={`${SITE}?page_id=8196&preview=true`} target="_blank" rel="noreferrer">Apri anteprima WordPress della pagina 8196</a> · Richiede accesso a WordPress.</p>
