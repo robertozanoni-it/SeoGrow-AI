@@ -25,6 +25,7 @@ import {
 import { correctionCredentials } from "./correctionCredentials.js";
 import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
+import { historyText, historyFieldLabel } from "./correctionHistoryText.js";
 
 const fetch = apiFetch;
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
@@ -235,7 +236,7 @@ export default function CorrectionsWorkspace() {
         rollbackNote: "Versione precedente ripristinata dopo verifica che lo stato WordPress non fosse cambiato.",
       });
       if (updated) reopenTask(updated);
-      setMessage("Rollback completato in sicurezza. La Task relativa è stata riaperta.");
+      setMessage("Versione precedente ripristinata. Eventuali task collegati sono stati riaperti.");
       setVersion((value) => value + 1);
     } catch (error) {
       setMessage(`Rollback non riuscito: ${error.message}`);
@@ -270,7 +271,7 @@ export default function CorrectionsWorkspace() {
         </div>
       </div>
 
-      <section className="panel corrections-guide"><h2>Come verificare una correzione</h2><ol><li>Trova il problema nell’ultimo gruppo di modifiche o in “Tutto lo storico”.</li><li>Premi “Riverifica” e leggi l’esito nella scheda.</li><li>Se risulta verificato, puoi chiudere il task collegato. Se il problema persiste, apri la pagina e controlla il risultato.</li><li>Per tornare indietro, apri “Vedi Prima / Dopo” e usa “Ripristina versione precedente”, quando disponibile.</li></ol></section>
+      <section className="panel corrections-guide"><h2>Come verificare una correzione</h2><ol><li>Trova il problema nell’ultimo gruppo di modifiche o in “Tutto lo storico”.</li><li>Premi “Riverifica” e leggi l’esito nella scheda.</li><li>Se risulta verificato, puoi chiudere il task collegato. Se il problema persiste, apri la pagina e controlla il risultato.</li><li>Per tornare indietro, usa “Ripristina versione precedente” nella scheda. “Vedi Prima / Dopo” mostra il confronto dei contenuti.</li></ol></section>
       <section className="corrections-logic panel">
         <div><span>1</span><strong>Salvato in WordPress</strong><small>REST conferma la scrittura</small></div>
         <i>→</i>
@@ -306,7 +307,7 @@ export default function CorrectionsWorkspace() {
                 <span className={`correction-status ${statusClass(record.status)}`}>{verified ? <CheckCircle2 /> : pending ? <AlertTriangle /> : <RotateCcw />}{record.status}</span>
                 <span className="correction-summary-main">
                   <strong>{record.issueLabel}</strong>
-                  <small>{record.fields?.join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small>
+                  <small>{record.fields?.map(historyFieldLabel).join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small>
                 </span>
                 <span className="correction-quick-state">
                   <span className={record.writeConfirmed === false ? "wait" : "ok"}>1 WordPress{record.writeConfirmed === false ? " da controllare" : ""}</span>
@@ -323,21 +324,22 @@ export default function CorrectionsWorkspace() {
                 <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
               </div>
 
-              <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{record.verificationNote || record.rollbackNote || "Modifica registrata."}</p>
+              <button type="button" className="secondary correction-rollback" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
+              <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{(isRolledBack(record) ? record.rollbackNote : record.verificationNote) || "Modifica registrata."}</p>
 
               {open && (
                 <div className="correction-details">
                   <div className="correction-diff-grid">
-                    <section className="before"><strong>Prima — versione precedente</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{field}</small><p>{preview(record.before?.[field])}</p>{String(record.before?.[field] || "").length > 300 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section>
-                    <section className="after"><strong>Dopo — versione inviata a WordPress</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{field}</small><p>{preview(record.after?.[field])}</p>{String(record.after?.[field] || "").length > 300 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section>
+                    <section className="before"><strong>Prima — versione precedente</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.before?.[field]), 1200)}</p>{(field === "meta._elementor_data" || String(record.before?.[field] || "").length > 300) && <details><summary>Mostra dati completi / dettagli tecnici</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section>
+                    <section className="after"><strong>Dopo — versione inviata a WordPress</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.after?.[field]), 1200)}</p>{(field === "meta._elementor_data" || String(record.after?.[field] || "").length > 300) && <details><summary>Mostra dati completi / dettagli tecnici</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section>
                   </div>
 
                   <div className="correction-footer">
                     <div>
-                      <strong>{record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
-                      <span>{record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
+                      <strong>{isRolledBack(record) ? "Versione precedente ripristinata" : record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
+                      <span>{isRolledBack(record) ? "Il confronto conserva lo storico della modifica annullata. Non occorre ripristinare di nuovo." : record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
                     </div>
-                    <button type="button" className="secondary" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
+                    
                   </div>
                 </div>
               )}
