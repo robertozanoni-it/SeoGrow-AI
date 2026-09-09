@@ -81,7 +81,7 @@ const toReviewItem = (issue, reason) => ({
 
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
-  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 1) return data;
+  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 2) return data;
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {

@@ -89,6 +89,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const [url, setUrl] = useState(client.url);
   const [mode, setMode] = useState("page");
   const [maxPages, setMaxPages] = useState(75);
+  const [progressId, setProgressId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedResult, setSelectedResult] = useState(initial ? { type: initial.type, data: initial.item } : null);
@@ -246,12 +247,14 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
     setError("");
     const controller = new AbortController();
     requestRef.current = controller;
+    const nextProgressId = crypto.randomUUID();
+    setProgressId(nextProgressId);
     const startedAt = new Date().toISOString();
     try {
       const response = await apiFetch(mode === "page" ? "/api/audit" : "/api/site-analysis", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(mode === "page" ? { url } : { url, maxPages }),
+        body: JSON.stringify(mode === "page" ? { url, progressId: nextProgressId } : { url, maxPages, progressId: nextProgressId }),
         signal: controller.signal,
       });
       const data = await response.json();
@@ -310,7 +313,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
           <label>{mode === "page" ? "URL della pagina" : "Indirizzo iniziale del sito"}<input type="url" value={url} onChange={(event) => setUrl(event.target.value)} required disabled={loading} /></label>
           {mode === "site" && <label>Numero massimo di pagine<select value={maxPages} onChange={(event) => setMaxPages(Number(event.target.value))} disabled={loading}><option value="25">25 — controllo rapido</option><option value="75">75 — consigliato</option><option value="150">150 — approfondito</option><option value="200">200 — massimo locale</option></select></label>}
           <div className="inline-actions"><button className="primary" disabled={loading}>{loading ? "Analisi in corso…" : mode === "page" ? "Analizza questa pagina" : "Analizza tutto il sito"}</button>{loading && <button type="button" className="secondary" onClick={() => requestRef.current?.abort()}>Interrompi</button>}</div>
-          {loading && <AnalysisProgress />}
+          {loading && <AnalysisProgress key={progressId} progressId={progressId} />}
           {error && <p className="error" role="alert">{error}</p>}
         </form>
       </section>

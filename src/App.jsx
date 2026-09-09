@@ -3514,6 +3514,7 @@ function SiteAnalysisModal({
   const [error, setError] = useState("");
   const [result, setResult] = useState(previousAnalysis || null);
   const [maxPages, setMaxPages] = useState(75);
+  const [progressId, setProgressId] = useState("");
   const requestRef = useRef(null);
   useEffect(() => () => requestRef.current?.abort(), []);
   const run = async (event) => {
@@ -3523,11 +3524,13 @@ function SiteAnalysisModal({
     setError("");
     const controller = new AbortController();
     requestRef.current = controller;
+    const nextProgressId = crypto.randomUUID();
+    setProgressId(nextProgressId);
     try {
       const response = await fetch("/api/site-analysis", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url, maxPages }),
+        body: JSON.stringify({ url, maxPages, progressId: nextProgressId }),
         signal: controller.signal,
       });
       const data = await response.json();
@@ -3547,7 +3550,7 @@ function SiteAnalysisModal({
   return (
     <Modal title={`Nuova analisi — ${client.name}`} close={close}>
       <p className="analysis-last-run">Ultima analisi completata: {Number.isFinite(Date.parse(result?.analyzedAt || result?.startedAt)) ? new Date(result.analyzedAt || result.startedAt).toLocaleString("it-IT") : "nessuna data disponibile"}</p>
-      {loading && <AnalysisProgress />}
+      {loading && <AnalysisProgress key={progressId} progressId={progressId} />}
       <form className="site-analysis-form" onSubmit={run}>
         <label>
           Indirizzo iniziale
