@@ -1,6 +1,7 @@
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { rememberWordPressSession, getWordPressSession } from "./wordpressSession.js";
 import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
+import { archiveDuplicateTasks } from './taskDuplicates.js';
 import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties.js";
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
@@ -943,6 +944,7 @@ function TaskTable({
           return dueTime(a) - dueTime(b) || priorityWeight(a) - priorityWeight(b);
         });
   const statuses = ["Da fare", "In corso", "In revisione", "Completato"];
+  const duplicateCount = archiveDuplicateTasks(tasks, client?.id).filter((task, index) => task !== tasks[index]).length;
   return (
     <section className={`panel tasks-panel ${compact ? "compact" : ""}`}>
       <div className="panel-head">
@@ -958,6 +960,7 @@ function TaskTable({
         </div>
         {!compact && (
           <div className="inline-actions">
+            {duplicateCount > 0 && <button className="secondary small-button" onClick={() => setTasks(current => archiveDuplicateTasks(current, client?.id))}>Archivia {duplicateCount} duplicati</button>}
             <button
               className="secondary small-button"
               onClick={() =>
@@ -1134,16 +1137,7 @@ function TaskTable({
           close={() => setEditing(null)}
           save={(task) => {
             const targetClientId = task.sourceClientId || client.id;
-            const duplicate = tasks.some(
-              (item) =>
-                item.id !== task.id &&
-                item.sourceClientId === targetClientId &&
-                item.status !== "Completato" &&
-                String(item.title || "").trim().toLocaleLowerCase("it") ===
-                  String(task.title || "").trim().toLocaleLowerCase("it") &&
-                (item.sourceUrl || "") === (task.sourceUrl || "") &&
-                (item.targetUrl || "") === (task.targetUrl || ""),
-            );
+            const duplicate = findExistingTask(tasks.filter(item => item.id !== task.id), { ...task, kind: task.kind || 'manual' }, targetClientId);
             if (duplicate) {
               window.alert("Esiste già una task attiva con lo stesso titolo e gli stessi collegamenti.");
               return;
@@ -4451,7 +4445,7 @@ export default function App() {
         current
           .filter(
             (task) =>
-              task.sourceClientId === targetClientId && task.kind === "search",
+              task.sourceClientId === targetClientId && task.kind === "search" && !task.duplicateOf,
           )
           .map((task) => [String(task.query || "").toLocaleLowerCase("it"), task]),
       );
@@ -4486,6 +4480,7 @@ export default function App() {
           (task) =>
             task.sourceClientId === targetClientId &&
             task.kind === "search" &&
+            !task.duplicateOf &&
             !generatedQueries.has(String(task.query || "").toLocaleLowerCase("it")),
         )
         .map((task) => ({
@@ -4497,7 +4492,7 @@ export default function App() {
       return [
         ...current.filter(
           (task) =>
-            !(task.sourceClientId === targetClientId && task.kind === "search"),
+            task.duplicateOf || !(task.sourceClientId === targetClientId && task.kind === "search"),
         ),
         ...archived,
         ...merged,

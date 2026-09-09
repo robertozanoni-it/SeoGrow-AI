@@ -1,4 +1,6 @@
 import { suggestPageForQuery } from "./seoHelpers.js";
+import { sameTask } from './taskDuplicates.js';
+import { normalizeClientId } from './reliabilityModel.js';
 
 const normalizedQuery = value => String(value || "").trim().toLocaleLowerCase("it");
 
@@ -26,7 +28,8 @@ export function opportunityTask(row, dataset, tab = "quickWins") {
 
 export function findExistingTask(tasks, values, clientId) {
   return tasks.find(item => {
-    if (item.sourceClientId !== clientId || item.stale || item.status === "Completato") return false;
+    if (!normalizeClientId(clientId) || normalizeClientId(item.sourceClientId) !== normalizeClientId(clientId) || item.stale || item.status === "Completato") return false;
+    if (sameTask(item, values)) return true;
     if (values.kind === "search" && item.kind === "search" && values.query &&
         normalizedQuery(item.query) === normalizedQuery(values.query)) return true;
     if (normalizedQuery(item.title) !== normalizedQuery(values.title)) return false;
