@@ -55,13 +55,13 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     assert.equal(await evaluate("document.querySelector('.audit-inline-form').checkValidity()"),false);
     await set('.audit-inline-form','URL della pagina','https://example.com/qa-page/');
     await mock('/api/audit',{error:'QA audit rejected'},400); await resetRequests(); await submit('.audit-inline-form');
-    assert.deepEqual(await request('/api/audit'),{url:'https://example.com/qa-page/'});
+    { const {progressId,...payload}=await request('/api/audit'); assert.match(progressId,/^[a-f0-9-]{36}$/); assert.deepEqual(payload,{url:'https://example.com/qa-page/'}); }
     await waitFor("document.querySelector('.audit-inline-form [role=alert]')?.textContent.includes('QA audit rejected')",'Audit failure');
     await evaluate("document.querySelectorAll('.audit-mode-card')[1].click()");
     await set('.audit-inline-form','Indirizzo iniziale del sito','https://example.com/qa-site/');
     for(const limit of ['25','75','150','200']) await set('.audit-inline-form','Numero massimo di pagine',limit);
     await mock('/api/site-analysis',{error:'QA site rejected'},400); await resetRequests(); await submit('.audit-inline-form');
-    assert.deepEqual(await request('/api/site-analysis'),{url:'https://example.com/qa-site/',maxPages:200});
+    { const {progressId,...payload}=await request('/api/site-analysis'); assert.match(progressId,/^[a-f0-9-]{36}$/); assert.deepEqual(payload,{url:'https://example.com/qa-site/',maxPages:200}); }
     await waitFor("document.querySelector('.audit-inline-form [role=alert]')?.textContent.includes('QA site rejected')",'Site failure');
   });
   await record('FIELDS-PROBLEM-FILTERS',async()=>{
@@ -179,7 +179,7 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
     await set('[role=dialog]','Indirizzo iniziale','https://example.com/modal/');
     await set('[role=dialog]','Numero massimo di pagine','25');
     await mock('/api/site-analysis',{error:'QA modal rejected'},400);await resetRequests();await submit('[role=dialog] form');
-    assert.deepEqual(await request('/api/site-analysis'),{url:'https://example.com/modal/',maxPages:25});
+    { const {progressId,...payload}=await request('/api/site-analysis'); assert.match(progressId,/^[a-f0-9-]{36}$/); assert.deepEqual(payload,{url:'https://example.com/modal/',maxPages:25}); }
     await waitFor("document.querySelector('[role=dialog]').textContent.includes('QA modal rejected')",'Modal error');
     await evaluate("document.querySelector('[role=dialog] button[aria-label=\"Chiudi finestra\"]').click()");
     await waitFor("!document.querySelector('[role=dialog]')",'Modal closed');

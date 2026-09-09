@@ -1001,7 +1001,28 @@ app.get("/api/openai/status", async (_req, res) => {
   }
 });
 
+const auditProgress = new Map();
+function trackAudit(req, res) {
+  const id = req.body.progressId;
+  if (typeof id !== "string" || !/^[a-zA-Z0-9-]{20,80}$/.test(id)) return () => {};
+  const now = Date.now();
+  for (const [key, value] of auditProgress) if (now - value.updatedAt > 3600000) auditProgress.delete(key);
+  if (auditProgress.size >= 200 || auditProgress.has(id)) return () => {};
+  const update = data => auditProgress.set(id, { ...data, updatedAt: Date.now() });
+  update({ phase: "Lettura della pagina", done: 0, total: 1 });
+  res.once("finish", () => update({ phase: res.statusCode < 400 ? "Analisi completata" : "Analisi non riuscita", done: 1, total: 1 }));
+  res.once("close", () => { if (!res.writableEnded) update({ phase: "Analisi interrotta", done: 0, total: 1 }); });
+  return update;
+}
+app.get("/api/analysis-progress/:id", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const state = auditProgress.get(req.params.id);
+  if (!state) return res.status(404).json({ error: "Analisi non disponibile" });
+  res.json(state);
+});
+
 app.post("/api/audit", crawlLimit, async (req, res) => {
+  trackAudit(req, res);
   try {
     const url = await safePublicUrl(req.body.url);
     const response = await fetchPublic(url, { timeout: 15000 });
@@ -1087,6 +1108,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
 });
 
 app.post("/api/site-analysis", crawlLimit, async (req, res) => {
+  const reportProgress = trackAudit(req, res);
   try {
     const requestController = new AbortController();
     req.once("aborted", () => requestController.abort());
@@ -1118,6 +1140,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
     let robotsText = await robotsRules(seed, requestController.signal);
 
     while (queueCursor < queue.length && visited.size < maxPages) {
+      reportProgress({ phase: "Pagine", done: queueCursor, total: Math.min(queue.length, maxPages), discovering: true });
       const { url: current, depth } = queue[queueCursor];
       queueCursor += 1;
       if (visited.has(current)) continue;
@@ -1235,6 +1258,8 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
       0,
       Math.min(maxPages * 8, 800),
     );
+    let linksDone = 0;
+    reportProgress({ phase: "Link interni", done: 0, total: targets.length });
     let cursor = 0;
     const workers = Array.from(
       { length: Math.min(3, targets.length) },
@@ -1242,8 +1267,8 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
         while (cursor < targets.length) {
           const target = targets[cursor];
           cursor += 1;
-          if (responseCache.has(target)) continue;
-          responseCache.set(target, await fetchStatusWithRetry(target, 2, requestController.signal));
+          if (!responseCache.has(target)) responseCache.set(target, await fetchStatusWithRetry(target, 2, requestController.signal));
+          reportProgress({ phase: "Link interni", done: ++linksDone, total: targets.length });
         }
       },
     );
@@ -1254,6 +1279,8 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
       .map(([url]) => url)
       .slice(0, 250);
     const externalResults = new Map();
+    let externalDone = 0;
+    reportProgress({ phase: "Link esterni", done: 0, total: externalTargets.length });
     let externalCursor = 0;
     await Promise.all(
       Array.from({ length: Math.min(2, externalTargets.length) }, async () => {
@@ -1261,6 +1288,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
           const target = externalTargets[externalCursor];
           externalCursor += 1;
           externalResults.set(target, await fetchStatusWithRetry(target, 2, requestController.signal));
+          reportProgress({ phase: "Link esterni", done: ++externalDone, total: externalTargets.length });
         }
       }),
     );
@@ -1301,6 +1329,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
           }]
         : [];
     });
+    reportProgress({ phase: "Sitemap e riepilogo", done: 0, total: 1 });
     const sitemap = await sitemapUrls(crawlSeed, siteHost, robotsText, requestController.signal);
     const legalPages = pages.filter(page => isLegalPage(page.url)).map(page => ({ url: page.url }));
     for (let i = pages.length - 1; i >= 0; i--) if (isLegalPage(pages[i].url)) pages.splice(i, 1);

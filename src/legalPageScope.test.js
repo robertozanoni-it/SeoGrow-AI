@@ -12,3 +12,10 @@ test('historic auto fix keeps original indexes after policy exclusions', () => {
   const plan=buildAutoFixPlan({clientId:1,siteUrl:'https://example.com',audit:{issues:[{url:'https://example.com/privacy/',label:'H1'},{url:'https://example.com/corsi/',label:'H1'}]}});
   assert.deepEqual(plan.entries.map(e=>e.index),[1]);
 });
+
+test('legal footer destinations and separator variants are excluded', () => {
+  for (const slug of ['cookie-policy', 'politica-di-utilizzo', 'termini-di-uso', 'termini-del-servizio', 'privacy-policy', 'Privacy_%20policy', 'Cookie_Policy.html']) {
+    assert.equal(isLegalPage(`https://yogabuenaonda.it/${slug}/`), true, slug);
+  }
+  assert.equal(isLegalPage('https://example.com/blog/guida-alla-cookie-policy/'), false);
+});
