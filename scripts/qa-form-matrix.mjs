@@ -69,7 +69,11 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     await clickSidebar('Impostazioni'); await waitFor("document.querySelector('.settings-form')", 'Settings');
     const before = await read('seogrow-preferences-v1');
     await set('.settings-form','Nome visualizzato','QA display');
-    for (const hours of ['6','12','24','0']) await set('.settings-form','Controllo automatico mentre l’app è aperta',hours);
+    await saved('seogrow-preferences-v1', "value?.name === 'QA display'");
+    for (const hours of ['6','12','24','0']) {
+      await set('.settings-form','Controllo automatico mentre l’app è aperta',hours);
+      await saved('seogrow-preferences-v1', `value?.refreshHours === ${Number(hours)} && value?.name === 'QA display'`);
+    }
     const initial = await evaluate("[...document.querySelectorAll('.settings-form input[type=checkbox]')].map(e=>e.checked)");
     assert.equal(initial.length,4);
     for (let i=0;i<4;i++) { await evaluate(`document.querySelectorAll('.settings-form input[type=checkbox]')[${i}].click()`); await waitFor(`document.querySelectorAll('.settings-form input[type=checkbox]')[${i}].checked === ${!initial[i]}`,'Checkbox changed'); }
