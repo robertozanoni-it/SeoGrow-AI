@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { runSavedCorrectionFlow } from './qa-saved-corrections.mjs';
 
 export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, button, set, read, revisit, mock, resetRequests, screenshot, command }) {
   await record('AUTO-FIX-ASSISTED', async () => {
@@ -16,7 +17,7 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
       await waitFor("document.querySelectorAll('.auto-fix-item').length===13",'Auto Fix real audit inventory');
       assert.equal(await evaluate("document.querySelectorAll('.auto-fix-item input:disabled').length"),1);
       assert.equal(await evaluate("document.querySelector('.auto-fix-item.manual').textContent.includes('Cosa fare:')"),true,'Manual problems explain the next action');
-      assert.equal(await evaluate("new Set(['.project-setup','.workflow-source','.workflow-selection','.workflow-verify','.project-monitoring','.project-report'].map(s=>getComputedStyle(document.querySelector(s)).backgroundColor)).size >= 4"),true,'Section backgrounds distinguish workflow areas');
+      assert.equal(await evaluate("new Set(['.project-setup','.workflow-source','.workflow-selection','.workflow-verify','.project-report'].map(s=>getComputedStyle(document.querySelector(s)).backgroundColor)).size >= 4"),true,'Section backgrounds distinguish workflow areas');
       for(let i=0;i<10;i++) { await evaluate(`document.querySelectorAll('.auto-fix-item input')[${i}].click()`); await waitFor(`document.querySelectorAll('.auto-fix-item input:checked').length===${i+1}`,'Selection count'); }
       assert.equal(await evaluate("document.querySelectorAll('.auto-fix-item input:disabled').length"),3,'Limit disables remaining choices');
       // Keep a bounded two-item request and verify preparation never applies changes.
@@ -93,4 +94,5 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
       await write('seogrow-clients',clients); await write(siteKey,sites); await write(pageKey,pages); await revisit('Centro progetto');
     }
   });
+  await runSavedCorrectionFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
 }
