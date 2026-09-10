@@ -1,0 +1,27 @@
+.problem-main .problem-external-target {
+  display: block;
+  margin-top: 3px;
+  color: #8b3f2c !important;
+  font-weight: 750 !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.problem-external-targets {
+  border: 1px solid #f0d3c7;
+  border-radius: 14px;
+  background: #fff7f3;
+  padding: 14px 16px;
+}
+
+.problem-external-targets h3 {
+  margin: 0 0 8px;
+}
+
+.problem-external-targets a {
+  display: block;
+  margin-top: 5px;
+  color: #8b3f2c;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
