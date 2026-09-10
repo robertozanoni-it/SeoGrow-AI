@@ -11,6 +11,8 @@ import {
 import { navigatePage } from "./navigationUx.js";
 import { opportunityGroups } from "./platform.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { listCorrections } from "./remediationStore.js";
+import SavedCorrectionDetails from "./SavedCorrectionDetails.jsx";
 import "./CardWorkspaceLayer.css";
 
 const CLIENTS_KEY = "seogrow-clients";
@@ -103,6 +105,8 @@ const card = ({
   solutions = [],
   actionPage = "",
   actionLabel = "",
+  correctionId = "",
+  clientId = null,
 }) => ({
   id,
   date: validDate(date),
@@ -115,6 +119,8 @@ const card = ({
   solutions,
   actionPage,
   actionLabel,
+  correctionId,
+  clientId,
 });
 
 const clientTasks = (tasks, client) => tasks.filter((task) =>
@@ -344,7 +350,9 @@ const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store 
   .filter((item) => Number(item.clientId) === Number(clientId))
   .map((item, index) => card({
     id: `correction-${item.id || index}`,
-    date: firstDate(item.verifiedAt, item.appliedAt, item.updatedAt, item.createdAt),
+    correctionId: item.id || "",
+    clientId,
+    date: firstDate(item.appliedAt, item.createdAt, item.updatedAt, item.verifiedAt),
     title: item.issueLabel || item.title || "Correzione SEO",
     subtitle: item.sourceUrl || item.url || item.status || "Intervento SeoGrow",
     kind: "correction",
@@ -353,11 +361,9 @@ const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store 
       field("Stato", item.status || "—"),
       field("Tipo", item.issueType || item.kind || "—"),
       field("Pagina", item.sourceUrl || item.url || "—"),
-      field("Prima", item.before || item.previousValue || "—"),
-      field("Dopo", item.after || item.nextValue || "—"),
-      field("Verifica", item.verificationNote || item.note || "—"),
+      field("Verifica", item.verificationNote || item.note || "Non ancora eseguita"),
     ],
-    solutions: ["Confronta Prima/Dopo.", "Riverifica frontend e SEO.", "Usa il rollback controllato se il risultato non è corretto."],
+    solutions: ["Confronta i testi completi Prima/Dopo qui sopra.", "Premi Riverifica senza riapplicare la modifica.", "Per il rollback apri lo storico e ripristino."],
     actionPage: "Problemi",
     actionLabel: "Torna ai problemi",
   }))
@@ -366,7 +372,7 @@ const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store 
 const buildTaskCards = (tasks, client) => clientTasks(tasks, client)
   .map((item, index) => card({
     id: `task-${item.id || index}`,
-    date: firstDate(item.updatedAt, item.createdAt, item.completedAt, item.due),
+    date: firstDate(item.updatedAt, item.createdAt, item.due),
     title: item.title || "Task SEO",
     subtitle: `${item.status || "Da fare"} · priorità ${item.priority || "—"}`,
     kind: "task",
@@ -664,6 +670,7 @@ function DatedCard({ item, index, onOpen }) {
     <button
       type="button"
       className={`card-record ${index % 2 ? "mint" : "blue"}`}
+      data-correction-id={item.correctionId || undefined}
       onClick={onOpen}
     >
       <span className="card-record-date"><CalendarDays /> {formatDate(item.date)}</span>
@@ -697,6 +704,10 @@ function HorizontalDetail({ item, page, managing, onBack, onManage }) {
         )) : <div><small>Informazioni</small><strong>Nessun dettaglio aggiuntivo disponibile.</strong></div>}
       </div>
 
+      {item.kind === "correction" && item.correctionId && (
+        <SavedCorrectionDetails key={`${item.clientId}:${item.correctionId}`} correctionId={item.correctionId} clientId={item.clientId} />
+      )}
+
       {item.rows.length > 0 && (
         <div className="card-horizontal-rows" role="region" aria-label={`Dati completi ${item.title}`}>
           {item.kind === "ranking" && <div className="card-row-head"><span>Keyword</span><span>Posizione</span><span>Variazione</span><span>URL</span></div>}
@@ -722,7 +733,7 @@ function HorizontalDetail({ item, page, managing, onBack, onManage }) {
           </ol>
         </div>
         <div className="card-horizontal-actions">
-          <button type="button" className="primary" onClick={onManage}><Settings2 /> {managing ? "Nascondi strumenti" : "Apri strumenti operativi"}</button>
+          <button type="button" className="primary" onClick={onManage}><Settings2 /> {managing ? "Nascondi strumenti" : item.kind === "correction" ? "Apri storico e ripristino" : "Apri strumenti operativi"}</button>
           {item.actionPage && item.actionPage !== page && (
             <button type="button" className="secondary" onClick={() => navigatePage(item.actionPage)}>{item.actionLabel || `Apri ${item.actionPage}`} <ChevronRight /></button>
           )}
@@ -740,6 +751,7 @@ export default function CardWorkspaceLayer() {
   const [host, setHost] = useState(null);
   const [selectedId, setSelectedId] = useState("");
   const [managing, setManaging] = useState(false);
+  const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [], error: "" });
 
   useEffect(() => {
     const refresh = () => {
@@ -757,6 +769,8 @@ export default function CardWorkspaceLayer() {
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-storage-ok", refreshData);
     window.addEventListener("storage", refreshData);
+    window.addEventListener("seogrow-remediation-history", refreshData);
+    window.addEventListener("seogrow-remediation-applied", refreshData);
     document.addEventListener("change", onChange, true);
     return () => {
       window.removeEventListener("hashchange", refresh);
@@ -764,6 +778,8 @@ export default function CardWorkspaceLayer() {
       window.removeEventListener("seogrow-locationchange", refresh);
       window.removeEventListener("seogrow-storage-ok", refreshData);
       window.removeEventListener("storage", refreshData);
+      window.removeEventListener("seogrow-remediation-history", refreshData);
+      window.removeEventListener("seogrow-remediation-applied", refreshData);
       document.removeEventListener("change", onChange, true);
     };
   }, []);
@@ -840,7 +856,6 @@ export default function CardWorkspaceLayer() {
     analyses: readJson("seogrow-analyses-v2", {}),
     pageAudits: readJson("seogrow-page-audit-history-v2", {}),
     rankings: readJson("seogrow-rankings-v1", {}),
-    corrections: readJson("seogrow-remediation-history-v1", []),
     contentDrafts: readJson("seogrow-content-drafts-v1", {}),
     topicalMaps: readJson("seogrow-topical-maps-v1", {}),
     agentRuns: readJson("seogrow-agent-runs-v1", {}),
@@ -850,10 +865,24 @@ export default function CardWorkspaceLayer() {
     preferences: readJson("seogrow-preferences-v1", {}),
   }), [version]);
 
-  const domClientId = Number(document.querySelector(".client-select select")?.value || 0);
-  const selectedClientId = domClientId || Number(readJson(SELECTED_CLIENT_KEY, 0));
-  const client = stores.clients.find((item) => Number(item.id) === selectedClientId) || stores.clients[0] || null;
-  const items = useMemo(() => buildCards(page, client, stores), [page, client, stores]);
+  const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
+  const client = stores.clients.find((item) => Number(item.id) === selectedClientId) || null;
+
+  useEffect(() => {
+    if (page !== "Correzioni" || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
+    let cancelled = false;
+    listCorrections({ clientId: selectedClientId }).then((rows) => {
+      if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows, error: "" });
+    }).catch((error) => {
+      if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows: [], error: error.message || "Storico non leggibile." });
+    });
+    return () => { cancelled = true; };
+  }, [page, selectedClientId, version]);
+
+  const items = useMemo(() => buildCards(page, client, {
+    ...stores,
+    corrections: correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.rows : [],
+  }), [page, client, stores, correctionSnapshot, selectedClientId]);
   const selected = selectedId ? items.find((item) => item.id === selectedId) || null : null;
 
   const openCard = (id) => {
@@ -880,9 +909,13 @@ export default function CardWorkspaceLayer() {
 
   if (!host || CARD_EXCLUDED_PAGES.has(page)) return null;
 
+  const correctionsLoading = page === "Correzioni" && client && correctionSnapshot.clientId !== selectedClientId;
+  const correctionsError = page === "Correzioni" && correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.error : "";
   return createPortal(
     <section className={`card-workspace ${selected ? "is-detail" : "is-hub"}`} aria-label={`Workspace a card ${page}`}>
-      {!selected ? (
+      {correctionsLoading ? <p role="status">Caricamento dello storico completo delle correzioni…</p> : correctionsError ? (
+        <section role="alert"><h2>Storico correzioni non leggibile</h2><p>{correctionsError}</p><button type="button" className="secondary" onClick={() => setVersion((value) => value + 1)}>Riprova</button></section>
+      ) : !selected ? (
         <>
           <div className="card-workspace-title">
             <div>
