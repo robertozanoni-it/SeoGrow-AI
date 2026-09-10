@@ -6,6 +6,7 @@ const budgetServer = await readFile(new URL("../server/providerBudgetConfigHook.
 const budgetUi = await readFile(new URL("./ProviderBudgetUx.js", import.meta.url), "utf8");
 const navigation = await readFile(new URL("./AutomaticProposalNavigation.js", import.meta.url), "utf8");
 const proposalLinks = await readFile(new URL("./ProposalBeforeAfterLinks.js", import.meta.url), "utf8");
+const presentation = await readFile(new URL("./correctionPresentation.js", import.meta.url), "utf8");
 const atomic = await readFile(new URL("../wordpress-plugin/seogrow-connector/atomic-write.php", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
@@ -38,6 +39,13 @@ test("proposta mostra URL cliccabile accanto al confronto prima dopo", () => {
   assert.match(proposalLinks, /Pagina della correzione:/);
   assert.match(proposalLinks, /Apri pagina interessata/);
   assert.match(main, /import ['"]\.\/ProposalBeforeAfterLinks['"]/);
+});
+
+test("errore di applicazione non viene più presentato come proposta assente", () => {
+  assert.match(presentation, /item\.status === 'error'.*ATOMIC_WRITE_UNAVAILABLE/s);
+  assert.match(presentation, /Applicazione bloccata dal Connector WordPress/);
+  assert.match(presentation, /Applicazione non completata/);
+  assert.match(presentation, /Anteprima scaduta — prepara di nuovo/);
 });
 
 test("Connector consente solo CAS atomico single-row sui meta SEO noti", () => {
