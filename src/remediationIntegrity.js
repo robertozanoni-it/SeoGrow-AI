@@ -1,5 +1,6 @@
 import { apiFetch } from "./api";
 import { correctionCredentials } from "./correctionCredentials.js";
+import { metadataVerificationTarget, metadataVerificationPatch } from "./metadataCorrectionVerification.js";
 import {
   listCorrections,
   readCorrection,
@@ -105,7 +106,8 @@ export async function recheckCorrection(record, credentials = {}) {
   if (record.resource === "taxonomy") return recheckTaxonomyCorrection(record, credentials);
 
   const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
-  const relevant = DUPLICATE_TITLE.test(text) || SHORT_CONTENT.test(text) || H1.test(text) || (record.fields || []).includes("title");
+  const metadataTarget = metadataVerificationTarget(record);
+  const relevant = metadataTarget || DUPLICATE_TITLE.test(text) || SHORT_CONTENT.test(text) || H1.test(text) || (record.fields || []).includes("title");
   if (!relevant) {
     const updated = await updateAndSync(record, {
       status: record.status === "Verificato" ? "Verificato" : "Da verificare",
@@ -124,8 +126,13 @@ export async function recheckCorrection(record, credentials = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica frontend non riuscita");
 
+    if (metadataTarget) {
+      const updated = await updateAndSync(record, metadataVerificationPatch(record, data));
+      return { changed: true, record: updated, needsAudit: true };
+    }
+
     if (DUPLICATE_TITLE.test(text)) {
-      const failedFrontend = data.titleMatchesExpected === false;
+      const failedFrontend = data.titleMatchesExpected !== true;
       const patch = failedFrontend
         ? {
             status: "Da verificare",
@@ -211,6 +218,7 @@ export async function recheckCorrection(record, credentials = {}) {
         status: "Da verificare",
         frontendConfirmed: matches,
         frontendFailure: !matches,
+        verifiedAt: matches ? record.verifiedAt || "" : "",
         lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: matches
           ? "Il <title> pubblico coincide con il valore applicato. Se il problema originale era un duplicato o dipendeva dal sito intero, serve comunque un nuovo crawl per confermarne la risoluzione."
@@ -234,6 +242,7 @@ export async function recheckCorrection(record, credentials = {}) {
 export async function recheckCorrectionById(id, credentials = {}) {
   const record = await readCorrection(id);
   if (!record) throw new Error("Correzione non trovata nello storico.");
+  if (credentials.clientId != null && Number(credentials.clientId) !== Number(record.clientId)) throw new Error("La correzione appartiene a un altro progetto.");
   return recheckCorrection(record, credentials);
 }
 
