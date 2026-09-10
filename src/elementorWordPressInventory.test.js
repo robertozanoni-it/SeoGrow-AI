@@ -92,7 +92,7 @@ test("duplicati, URL esterne e conteggi incoerenti bloccano l'inventario", () =>
   assert.equal(validateAuthoritativeWordPressInventory(mismatch, { siteUrl }).status, "count-mismatch");
 });
 
-test("inventario autorevole e coverage pubblica devono coincidere esattamente", () => {
+test("inventario autorevole e coverage pubblica coincidente attestano la coverage", () => {
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const publicCoverage = {
     publicCoverageReconciled: true,
@@ -106,12 +106,13 @@ test("inventario autorevole e coverage pubblica devono coincidere esattamente", 
   assert.equal(result.verified, true);
   assert.equal(result.status, "verified-complete");
   assert.equal(result.scope.globallyComplete, true);
+  assert.equal(result.totalUrls, 3);
   assert.deepEqual(result.publicUrlsOutsideInventory, []);
   assert.deepEqual(result.inventoryUrlsMissingFromPublicCoverage, []);
   assert.equal(result.sharedWriteAllowed, false);
 });
 
-test("una URL pubblica fuori dall'inventario post-type resta scope non attestabile", () => {
+test("categorie e archivi già compresi nella coverage verificata sono un superset sicuro", () => {
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const result = reconcileAuthoritativeInventoryWithPublicCoverage(inventory, {
     publicCoverageReconciled: true,
@@ -122,14 +123,16 @@ test("una URL pubblica fuori dall'inventario post-type resta scope non attestabi
       "https://example.com/category/news/",
     ],
   });
-  assert.equal(result.verified, false);
-  assert.equal(result.status, "public-routes-outside-post-type-inventory");
+  assert.equal(result.verified, true);
+  assert.equal(result.status, "verified-public-superset");
   assert.deepEqual(result.publicUrlsOutsideInventory, ["https://example.com/category/news/"]);
-  assert.equal(result.scope.globallyComplete, false);
+  assert.equal(result.totalUrls, 4);
+  assert.equal(result.scope.globallyComplete, true);
+  assert.equal(result.scope.publicSuperset, true);
   assert.equal(result.sharedWriteAllowed, false);
 });
 
-test("una risorsa WordPress assente dalla sitemap viene distinta dalle route pubbliche extra", () => {
+test("una risorsa WordPress assente dalla sitemap resta bloccante", () => {
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const result = reconcileAuthoritativeInventoryWithPublicCoverage(inventory, {
     publicCoverageReconciled: true,
@@ -139,4 +142,5 @@ test("una risorsa WordPress assente dalla sitemap viene distinta dalle route pub
   assert.equal(result.status, "inventory-routes-missing-from-public-coverage");
   assert.deepEqual(result.inventoryUrlsMissingFromPublicCoverage, ["https://example.com/b/"]);
   assert.deepEqual(result.publicUrlsOutsideInventory, []);
+  assert.equal(result.scope.globallyComplete, false);
 });
