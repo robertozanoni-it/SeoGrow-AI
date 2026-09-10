@@ -1,4 +1,5 @@
 const PAGE_HOST_SELECTORS = [
+  ".wizard-context-host",
   ".guided-page-wizard-host",
   ".card-workspace-host",
 ];
@@ -13,17 +14,16 @@ export function enforcePageStartHierarchy() {
   const title = main?.querySelector(".page-title");
   if (!main || !title) return false;
 
-  const wizard = main.querySelector(PAGE_HOST_SELECTORS[0]);
-  const cards = main.querySelector(PAGE_HOST_SELECTORS[1]);
-
   // Portal hosts are the only nodes moved. The React-owned page title is never
-  // detached from its component, so reconciliation remains safe.
+  // detached from its component, so reconciliation remains safe. The stable
+  // visual order is: H1 page -> step context -> guided wizard -> card workspace.
   let anchor = title;
-  if (wizard) {
-    if (anchor.nextElementSibling !== wizard) anchor.insertAdjacentElement("afterend", wizard);
-    anchor = wizard;
+  for (const selector of PAGE_HOST_SELECTORS) {
+    const host = main.querySelector(selector);
+    if (!host) continue;
+    if (anchor.nextElementSibling !== host) anchor.insertAdjacentElement("afterend", host);
+    anchor = host;
   }
-  if (cards && anchor.nextElementSibling !== cards) anchor.insertAdjacentElement("afterend", cards);
 
   return true;
 }
