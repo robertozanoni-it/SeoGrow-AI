@@ -167,6 +167,11 @@ export async function attestElementorCoverage({
     };
   }
 
+  const candidateUrls = [...new Set(publicCoverage.sitemapUrls || [])];
+  if (!candidateUrls.length || candidateUrls.length !== reconciliation.totalUrls) {
+    throw new Error("Coverage Elementor riconciliata ma set URL pubblico non coerente con l'attestazione.");
+  }
+
   const publicProof = publicCoverage.reconciliation || {};
   const provenanceId = `elementor-coverage:${randomUUID()}`;
   const attestation = registerElementorCoverageAttestation({
@@ -176,7 +181,7 @@ export async function attestElementorCoverage({
     complete: true,
     verified: true,
     discoveryProof: {
-      method: "crawl+sitemap-reconciled",
+      method: "crawl+sitemap+wordpress-inventory-reconciled",
       discoveredUrls: publicProof.discoveredUrls,
       inspectedUrls: publicProof.inspectedUrls,
       failedUrls: publicProof.failedUrls,
@@ -191,7 +196,7 @@ export async function attestElementorCoverage({
     readOnly: true,
     verified: true,
     provenanceId: attestation.provenanceId,
-    candidateUrls: inventory.resources.map((resource) => resource.url),
+    candidateUrls,
     totalUrls: attestation.totalUrls,
     expiresAt: attestation.expiresAt,
     publicCoverage,
@@ -200,7 +205,7 @@ export async function attestElementorCoverage({
     completeSiteEnumeration: true,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
-    note: "La completezza della coverage è attestata dal server. L'impatto dei singoli documenti Elementor resta soggetto a Display Conditions e ownership; la scrittura condivisa resta bloccata.",
+    note: "La coverage completa è attestata dal server sul set pubblico sitemap+crawl riconciliato con l’inventario WordPress. Categorie e archivi già inclusi nel crawl restano nel set di impatto. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
   };
 }
 
