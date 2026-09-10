@@ -204,7 +204,7 @@ export function issueCorrectability(issue = {}, { pageKind = "", ownershipBlocke
   if (ownershipBlocked) return "manual";
   if (/broken-external-link|link esterno/.test(text)) return "manual";
   if (/broken-link|link interno/.test(text)) return "assisted";
-  if (["archive", "taxonomy"].includes(String(pageKind).toLowerCase())) return "not_supported";
+  if (["archive", "taxonomy", "gdpr"].includes(String(pageKind).toLowerCase())) return "not_supported";
   if (/canonical|noindex/.test(text)) return "assisted";
   if (/meta description|title|titolo|h1|excerpt|estratto|contenuto|content|parole|word|brev/.test(text)) return "automatic";
   return "not_supported";
