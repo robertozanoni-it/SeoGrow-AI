@@ -29,7 +29,7 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.equal(result.pagesFailed, 0);
   assert.equal(result.crawlExclusions.length, 1);
   assert.equal(result.legalScopeVersion, 4);
-  assert.equal(result.scorePolicyVersion, 3);
+  assert.equal(result.scorePolicyVersion, 4);
 });
 
 test("canonical differente e noindex restano segnali da confermare e non penalizzano lo score", () => {
@@ -73,6 +73,17 @@ test("severity inglesi e italiane convergono prima di score e task derivati", ()
   const client = { id: 7, name: "QA", url: "https://example.com/" };
   assert.equal(tasksFromAnalysis(english, client)[0].priority, "Alta");
   assert.equal(tasksFromAnalysis(critical, client)[0].priority, "Alta");
+});
+
+test("severity mancante resta unknown e non viene declassata artificialmente a Bassa", () => {
+  const result = normalizeSiteAnalysis({
+    pagesChecked: 1,
+    analyzedAt: "2026-09-10T10:00:00Z",
+    issues: [{ type: "audit", label: "Segnale senza severity" }],
+  });
+  assert.equal(result.issues[0].severity, "unknown");
+  const task = tasksFromAnalysis(result, { id: 8, name: "QA", url: "https://example.com/" })[0];
+  assert.equal(task.priority, "Media");
 });
 
 test("sourceUrl diventa fallback della pagina del problema senza confondere il target di un link rotto", () => {
@@ -170,7 +181,7 @@ test("uno storico già normalizzato viene ricalcolato con scope legale e score c
   });
 
   assert.equal(result.legalScopeVersion, 4);
-  assert.equal(result.scorePolicyVersion, 3);
+  assert.equal(result.scorePolicyVersion, 4);
   assert.equal(result.pagesChecked, 1);
   assert.equal(result.pagesFailed, 0);
   assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
