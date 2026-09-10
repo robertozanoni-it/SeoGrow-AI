@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { tasksFromAnalysis } from "./platform.js";
 import { normalizeSiteAnalysis, normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 
 test("429 e 5xx non restano tra i link interrotti confermati", () => {
@@ -62,13 +63,16 @@ test("canonical rotta 404 rimane problema confermato", () => {
 });
 
 test("severity inglesi e italiane convergono prima di score e task derivati", () => {
-  const italian = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "alta", label: "Title mancante" }] });
-  const english = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "high", label: "Missing title" }] });
-  const critical = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "critical", label: "Missing title" }] });
+  const italian = normalizeSiteAnalysis({ pagesChecked: 5, analyzedAt: "2026-09-10T10:00:00Z", issues: [{ type: "title", severity: "alta", label: "Title mancante" }] });
+  const english = normalizeSiteAnalysis({ pagesChecked: 5, analyzedAt: "2026-09-10T10:00:00Z", issues: [{ type: "title", severity: "high", label: "Missing title" }] });
+  const critical = normalizeSiteAnalysis({ pagesChecked: 5, analyzedAt: "2026-09-10T10:00:00Z", issues: [{ type: "title", severity: "critical", label: "Missing title" }] });
   assert.equal(english.score, italian.score);
   assert.equal(critical.score, italian.score);
   assert.equal(english.issues[0].severity, "alta");
   assert.equal(critical.issues[0].severity, "alta");
+  const client = { id: 7, name: "QA", url: "https://example.com/" };
+  assert.equal(tasksFromAnalysis(english, client)[0].priority, "Alta");
+  assert.equal(tasksFromAnalysis(critical, client)[0].priority, "Alta");
 });
 
 test("sourceUrl diventa fallback della pagina del problema senza confondere il target di un link rotto", () => {
