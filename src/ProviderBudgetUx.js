@@ -141,7 +141,6 @@ export async function refreshProviderBudgets() {
   }
 }
 
-let timer = 0;
 let frame = 0;
 const schedule = () => {
   if (typeof window === "undefined" || frame) return;
@@ -157,7 +156,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
   const start = () => {
     observer.observe(document.getElementById("root") || document.documentElement, { childList: true, subtree: true });
     schedule();
-    timer = window.setInterval(schedule, 30_000);
+    window.setInterval(schedule, 30_000);
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
