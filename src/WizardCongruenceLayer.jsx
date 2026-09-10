@@ -36,8 +36,11 @@ const clearContext = () => {
 };
 
 const decorateCards = (page) => {
+  const wizardTitle = document.querySelector(".guided-page-wizard .guided-wizard-head h2");
+  if (wizardTitle) wizardTitle.textContent = `Percorso guidato ${page}`;
+
   const cards = [...document.querySelectorAll(".guided-step-card")];
-  if (!cards.length) return false;
+  if (!cards.length) return Boolean(wizardTitle);
 
   cards.forEach((card, index) => {
     const destination = wizardStepAction(page, index).page;
