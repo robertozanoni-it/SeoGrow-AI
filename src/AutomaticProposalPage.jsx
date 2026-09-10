@@ -243,9 +243,11 @@ export default function AutomaticProposalPage() {
         <button type="button" className="secondary" onClick={() => closeAndGo(PROPOSAL_ROUTE_PAGE)}>Apri elenco Correzioni</button>
       </header>
 
-      {latestCorrection && !correctionSnapshot.error && (
-        <SavedCorrectionDetails key={`${selectedClientId}:${latestCorrection.id}`} correctionId={latestCorrection.id} clientId={selectedClientId} onNavigate={closeAndGo} />
-      )}
+      <div className="automatic-proposal-saved-slot" aria-live="polite">
+        {latestCorrection && !correctionSnapshot.error && (
+          <SavedCorrectionDetails key={`${selectedClientId}:${latestCorrection.id}`} correctionId={latestCorrection.id} clientId={selectedClientId} onNavigate={closeAndGo} />
+        )}
+      </div>
 
       {!correctionsReady ? (
         <section className="automatic-proposal-warning" role="status">
