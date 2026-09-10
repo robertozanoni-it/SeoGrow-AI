@@ -10,9 +10,11 @@ import { apiFetch } from "./api";
 import {
   attachElementorImpactEvidence,
   elementorOwnershipDetail,
+  inspectElementorCoverageAttestation,
   inspectElementorImpactEvidence,
 } from "./elementorImpactClient";
 import { buildElementorImpactCandidateUrls } from "./elementorImpactCandidates";
+import { navigatePage } from "./navigationUx.js";
 import { normalizeAnalysisHistory } from "./platform";
 import { listCorrections, setLastBatch, stableIssueKey } from "./remediationStore";
 import {
@@ -386,6 +388,8 @@ const flattenState = (state, fields) => {
   return flat;
 };
 const previewText = (value) => JSON.stringify(value, null, 2) || "(anteprima non disponibile)";
+const openAiConfigurationMissing = (item) => item?.status === "generation_error" && /openai.*non (?:è )?configurat|OPENAI_API_KEY/i.test(String(item?.reason || ""));
+const h1OwnershipBlocked = (item) => item?.status === "ownership_error" && /h1/i.test(issueText(item?.issue));
 
 export default function WordPressLiveRemediationControlV2({ batchPlan = null, onBusyChange } = {}) {
   const busyRef = useRef(false);
@@ -446,7 +450,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     return { clientId, client, audit, issues, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
   };
 
-  const prepare = async (all) => {
+  const prepare = async (all, explicitItem = null) => {
     if (busyRef.current) return;
     busyRef.current = true;
     onBusyChange?.(true);
@@ -462,9 +466,21 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       setMessage("Il progetto o l'audit richiesto non è disponibile. Seleziona esplicitamente il progetto e riapri l'audit.");
       return;
     }
+    const issueKey = (issue, explicitUrl = "") => stableIssueKey({
+      issue,
+      issueType: issue?.type || "audit",
+      issueLabel: issue?.label || "",
+      sourceUrl: explicitUrl || issueUrl(issue, context.audit.item, context.client),
+    });
     const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
     const requestedIndex = requestedAudit && normalizeClientId(requestedAudit.clientId) === context.clientId ? Number(requestedAudit.issueIndex || 0) : domIndex;
-    const selected = all ? context.activeIssues.slice(0, AUTO_FIX_LIMIT) : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
+    let selected;
+    if (explicitItem?.issue) {
+      const wanted = issueKey(explicitItem.issue, explicitItem.targetUrl || "");
+      selected = context.activeIssues.filter((issue) => issueKey(issue) === wanted).slice(0, 1);
+    } else {
+      selected = all ? context.activeIssues.slice(0, AUTO_FIX_LIMIT) : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
+    }
     if (!selected.length) {
       setResults([]);
       setMessage("Nessun problema attivo da preparare.");
@@ -546,6 +562,42 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     } catch (error) {
       setResults([]); setMessage(error.message || "Preparazione non riuscita.");
     } finally { busyRef.current = false; onBusyChange?.(false); setRunning(false); }
+  };
+
+  const verifyH1Coverage = async (item) => {
+    if (!h1OwnershipBlocked(item) || busyRef.current) return;
+    busyRef.current = true;
+    onBusyChange?.(true);
+    setRunning(true);
+    let rerun = false;
+    try {
+      const credentials = readCredentials();
+      if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
+        setMessage("Collega WordPress prima di verificare l'origine degli H1.");
+        return;
+      }
+      setMessage("Verifica origine H1: controllo sitemap, pagine pubbliche e inventario WordPress in sola lettura…");
+      const diagnostic = await inspectElementorCoverageAttestation(credentials, { force: true });
+      if (diagnostic?.verified !== true) {
+        const reason = diagnostic?.error || diagnostic?.reconciliation?.reason || "Coverage completa non attestabile.";
+        setResults((current) => current.map((entry) => entry === item ? {
+          ...entry,
+          status: "ownership_error",
+          reason: `Verifica origine H1 non completata: ${reason}`,
+        } : entry));
+        setMessage(`Origine H1 non ancora verificabile: ${reason} Nessuna modifica è stata eseguita.`);
+        return;
+      }
+      setMessage(`Coverage completa verificata su ${diagnostic.candidateUrls.length} URL. SeoGrow può ora riesaminare l'ownership H1 e preparare la proposta se il campo è sicuro.`);
+      rerun = true;
+    } catch (error) {
+      setMessage(`Verifica origine H1 non completata: ${error.message || error}`);
+    } finally {
+      busyRef.current = false;
+      onBusyChange?.(false);
+      setRunning(false);
+    }
+    if (rerun) await prepare(false, item);
   };
 
   const applyOne = async (item) => {
@@ -691,6 +743,10 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             </div>
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
+          {(h1OwnershipBlocked(item) || openAiConfigurationMissing(item)) && <div className="wp-live-guidance-actions">
+            {h1OwnershipBlocked(item) && <button data-seogrow-live="1" type="button" className="primary" disabled={running || Boolean(applyingId)} onClick={() => verifyH1Coverage(item)}><Eye />{running ? "Verifica in corso…" : "Verifica origine H1"}</button>}
+            {openAiConfigurationMissing(item) && <button type="button" className="primary" onClick={() => navigatePage("Integrazioni")}><Wrench />Configura OpenAI</button>}
+          </div>}
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
