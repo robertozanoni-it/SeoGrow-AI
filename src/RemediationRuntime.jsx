@@ -4,6 +4,7 @@ import WordPressConnectionControl from "./WordPressConnectionControl";
 import WordPressLiveRemediationControlV2 from "./WordPressLiveRemediationControlV2";
 import WordPressTaxonomyRemediationControl from "./WordPressTaxonomyRemediationControl";
 import WordPressConnectorControl from "./WordPressConnectorControl";
+import { PROPOSAL_PAGE } from "./AutomaticProposalNavigation.js";
 
 const currentPage = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
@@ -25,11 +26,12 @@ export default function RemediationRuntime() {
     };
   }, []);
 
-  if (state.page !== "Audit SEO") return null;
+  const proposalMode = state.page === PROPOSAL_PAGE;
+  if (state.page !== "Audit SEO" && !proposalMode) return null;
   const key = `remediation-runtime-${state.generation}`;
   return (
     <>
-      <RemediationHost key={`${key}-host`} />
+      <RemediationHost key={`${key}-host`} slotSelector={proposalMode ? ".proposal-remediation-slot" : ""} />
       <WordPressConnectionControl key={`${key}-connection`} />
       <WordPressLiveRemediationControlV2 key={`${key}-live`} />
       <WordPressTaxonomyRemediationControl key={`${key}-taxonomy`} />
