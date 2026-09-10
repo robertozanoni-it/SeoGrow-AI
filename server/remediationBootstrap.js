@@ -1,5 +1,11 @@
+import { hydrateLocalProviderEnv } from "./providerEnv.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
+
+const providerEnv = hydrateLocalProviderEnv();
+if (providerEnv.imported) {
+  console.log("SeoGrow: configurazione OpenAI locale riutilizzata in memoria dalla installazione principale.");
+}
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const requestHeaders = (input, options) => {
