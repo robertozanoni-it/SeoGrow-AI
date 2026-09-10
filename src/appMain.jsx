@@ -23,6 +23,7 @@ import './SidebarReadabilityFix.css';
 import './CardWorkspaceVisibilityFix.css';
 import './ProjectCenterCardFlow.css';
 import './ReadableTypographyAndSidebar.css';
+import './GuidedWizardSurface.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
