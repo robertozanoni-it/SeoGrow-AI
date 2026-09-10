@@ -47,6 +47,7 @@ const remediationModules = await Promise.all([
   import("./elementorCoverageAttestationHook.js"),
   import("./elementorReferenceImpactHook.js"),
   import("./wordpressWriteReconciliationHook.js"),
+  import("./providerBudgetConfigHook.js"),
 ]);
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
@@ -83,6 +84,7 @@ export function registerRemediationRoutes(app) {
         "live-apply",
         "live-rollback",
         "write-reconciliation-read-only",
+        "provider-budget-status",
       ],
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
