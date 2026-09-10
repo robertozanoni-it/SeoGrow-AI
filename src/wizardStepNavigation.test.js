@@ -46,8 +46,10 @@ test("i wizard delle pagine operative usano solo destinazioni page", () => {
   assert.doesNotMatch(navigation, /scrollToSelector/);
 });
 
-test("anche Indietro e Successivo eseguono la pagina dello step raggiunto", () => {
+test("anche Indietro e Successivo eseguono la pagina dello step raggiunto con il contesto corretto", () => {
   assert.match(navigation, /guided-wizard-footer button/);
   assert.match(navigation, /Successivo/);
-  assert.match(navigation, /runWizardStepAction\(currentPage\(\), next\)/);
+  assert.match(navigation, /const targetCard = wizard\.querySelectorAll\("\.guided-step-card"\)\[next\]/);
+  assert.match(navigation, /const meta = readCardMeta\(targetCard, next\)/);
+  assert.match(navigation, /runWizardStepAction\(currentPage\(\), next, meta\)/);
 });
