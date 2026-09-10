@@ -83,8 +83,10 @@ export function issueIdentity(record = {}) {
 export const exactProblemStatus = (value) => {
   const status = stripDiacritics(value).toLowerCase().trim();
   if (["verificato", "verified"].includes(status)) return "verified";
-  if (["da verificare", "needs verification", "needs-verification"].includes(status)) return "needs_verification";
+  if (["da verificare", "needs verification", "needs-verification", "esito incerto", "uncertain", "uncertain outcome"].includes(status)) return "needs_verification";
   if (["applicato", "applied"].includes(status)) return "applied";
+  if (["approvato", "approved"].includes(status)) return "approved";
+  if (["pronto", "preparato", "prepared", "ready"].includes(status)) return "prepared";
   if (["ripristinato", "rollback", "rolled back", "rolled-back"].includes(status)) return "rolled_back";
   if (["fallito", "failed", "errore", "error"].includes(status)) return "failed";
   if (["in corso", "in lavorazione", "running", "working"].includes(status)) return "working";
@@ -172,6 +174,14 @@ export function correctionEvent(record = {}) {
     return {
       kind: "correction_applied",
       at: record.appliedAt || record.updatedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
+  if (normalized === "approved") {
+    return {
+      kind: "correction_approved",
+      at: record.approvedAt || record.updatedAt || record.preparedAt || record.createdAt || "",
       source: "correction",
       record,
     };
