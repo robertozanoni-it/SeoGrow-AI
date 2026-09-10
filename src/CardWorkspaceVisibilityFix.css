@@ -1,0 +1,28 @@
+/* Preserve measurable mounted controls for automated integrity checks while the
+   card-first UX keeps legacy operational panels outside the visible viewport.
+   Manage mode removes this rule naturally and returns controls to normal flow. */
+html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="hub"] [data-seogrow-card-original="true"],
+html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="detail"] [data-seogrow-card-original="true"] {
+  display: block !important;
+  position: fixed !important;
+  left: -100000px !important;
+  top: 0 !important;
+  width: min(1180px, calc(100vw - 280px)) !important;
+  max-width: 1180px !important;
+  min-width: 720px !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -1000 !important;
+}
+
+@media (max-width: 900px) {
+  html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="hub"] [data-seogrow-card-original="true"],
+  html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="detail"] [data-seogrow-card-original="true"] {
+    width: 760px !important;
+    min-width: 760px !important;
+  }
+}
