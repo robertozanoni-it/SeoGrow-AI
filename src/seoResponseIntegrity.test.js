@@ -15,9 +15,9 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
     ],
     failures: [{ url: "https://example.com/private", reason: "Esclusa da robots.txt" }],
     issues: [
-      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
-      { type: "broken-link", severity: "media", label: "Link interno interrotto (429)", targetUrl: "https://example.com/limitata", detail: "HTTP 429 · possibile errore temporaneo" },
-      { type: "broken-external-link", severity: "media", label: "Link esterno non raggiungibile (503)", targetUrl: "https://external.example/error", detail: "HTTP 503 · possibile errore temporaneo" },
+      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
+      { type: "broken-link", severity: "media", label: "Link interno interrotto (429)", sourceUrl: "https://example.com/", targetUrl: "https://example.com/limitata", detail: "HTTP 429 · possibile errore temporaneo" },
+      { type: "broken-external-link", severity: "media", label: "Link esterno non raggiungibile (503)", sourceUrl: "https://example.com/", targetUrl: "https://external.example/error", detail: "HTTP 503 · possibile errore temporaneo" },
     ],
   });
 
@@ -27,6 +27,7 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.deepEqual(result.issues.map((item) => item.label), ["Link interno interrotto (404)"]);
   assert.equal(result.pagesFailed, 0);
   assert.equal(result.crawlExclusions.length, 1);
+  assert.equal(result.legalScopeVersion, 3);
 });
 
 test("canonical differente e noindex restano segnali da confermare e non penalizzano lo score", () => {
@@ -66,7 +67,7 @@ test("la normalizzazione site-analysis è idempotente", () => {
     failures: [],
     brokenLinks: [{ url: "https://example.com/manca", status: 404 }],
     issues: [
-      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
+      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
     ],
   });
   const snapshot = JSON.stringify(first);
@@ -89,4 +90,31 @@ test("la risposta site-analysis viene normalizzata senza monkey-patch globale", 
   assert.equal(data.scoreSource, "seogrow-derived");
   assert.equal(data.issues.length, 0);
   assert.equal(data.reviewItems.length, 1);
+});
+
+test("uno storico già normalizzato v2 viene ricalcolato con lo scope legale v3", () => {
+  const result = normalizeSiteAnalysis({
+    evidencePolicy: "confirmed-issues-only",
+    scoreSource: "seogrow-derived",
+    legalScopeVersion: 2,
+    score: 91,
+    pagesChecked: 2,
+    pages: [
+      { url: "https://example.com/privacy-policy/" },
+      { url: "https://example.com/articolo/" },
+    ],
+    legalPages: [],
+    pagesFailed: 0,
+    issues: [
+      { type: "title", severity: "alta", label: "Title mancante", sourceUrl: "https://example.com/privacy-policy/" },
+      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/articolo/", targetUrl: "https://example.com/privacy-policy/", detail: "HTTP 404" },
+    ],
+    reviewItems: [],
+  });
+
+  assert.equal(result.legalScopeVersion, 3);
+  assert.equal(result.pagesChecked, 1);
+  assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
+  assert.equal(result.legalPages[0]?.url, "https://example.com/privacy-policy/");
+  assert.equal(result.summary["broken-link"], 1);
 });
