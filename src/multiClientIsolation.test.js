@@ -11,11 +11,12 @@ const record = {
   siteUrl: "https://a.example/",
 };
 
-test("all client-sensitive WordPress and slow API paths are project-scoped", () => {
+test("all client-sensitive audit, WordPress and slow API paths are project-scoped", () => {
   for (const expected of [
     "/api/dataforseo/",
     "/api/geo/simulate",
     "/api/generate",
+    "/api/audit",
     "/api/site-analysis",
     "/api/frontend/inspect",
     "/api/wordpress/",
@@ -23,12 +24,19 @@ test("all client-sensitive WordPress and slow API paths are project-scoped", () 
     assert.match(apiSource, new RegExp(expected.replaceAll("/", "\\/")));
   }
   assert.match(apiSource, /const projectScoped = isProjectScopedRequest\(inputText\)/);
+  assert.match(apiSource, /normalizeClientId\(JSON\.parse\(localStorage\.getItem\(SELECTED_CLIENT_KEY\)\)\)/);
 });
 
 test("project switch invalidates an in-flight response before it can be consumed", () => {
   assert.match(apiSource, /assertProjectStillSelected\(scopeEntry\);\s*if \(signal\.aborted\)/s);
   assert.match(apiSource, /const normalized = await normalizeGdprResponse[\s\S]*assertProjectStillSelected\(scopeEntry\);\s*return normalized;/);
-  assert.match(apiSource, /entry\.clientId != null && entry\.clientId !== current/);
+  assert.match(apiSource, /!entry\.clientId \|\| entry\.clientId !== current/);
+});
+
+test("project-scoped calls cannot start without a valid positive client id", () => {
+  assert.match(apiSource, /if \(!entry\) return;/);
+  assert.match(apiSource, /entry\.clientId && current === entry\.clientId/);
+  assert.match(apiSource, /Progetto non selezionato/);
 });
 
 test("correction credentials reject another client or another WordPress site", () => {
