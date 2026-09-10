@@ -30,6 +30,27 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.equal(result.crawlExclusions.length, 1);
   assert.equal(result.legalScopeVersion, 4);
   assert.equal(result.scorePolicyVersion, 4);
+  assert.equal(result.issueSchemaVersion, 2);
+});
+
+test("audit pagina senza type converge alla stessa tassonomia del crawl sito", () => {
+  const url = "https://example.com/servizio/";
+  const result = normalizeSiteAnalysis({
+    url,
+    pagesChecked: 1,
+    issues: [
+      { severity: "alta", label: "Title mancante" },
+      { severity: "alta", label: "Meta description mancante" },
+      { severity: "alta", label: "0 H1 rilevati" },
+      { severity: "media", label: "2 immagini senza alt" },
+      { severity: "media", label: "Canonical non rilevata" },
+    ],
+  });
+  assert.deepEqual(result.issues.map((item) => item.type), ["title", "description", "h1", "image"]);
+  assert.ok(result.issues.every((item) => item.url === url && item.sourceUrl === url));
+  assert.deepEqual(result.reviewItems.map((item) => item.type), ["canonical"]);
+  assert.equal(result.reviewItems[0].url, url);
+  assert.equal(result.reviewItems[0].sourceUrl, url);
 });
 
 test("canonical differente e noindex restano segnali da confermare e non penalizzano lo score", () => {
@@ -158,7 +179,7 @@ test("la risposta site-analysis viene normalizzata senza monkey-patch globale", 
   assert.equal(data.reviewItems.length, 1);
 });
 
-test("uno storico già normalizzato viene ricalcolato con scope legale e score correnti", () => {
+test("uno storico già normalizzato viene ricalcolato con scope legale, score e schema issue correnti", () => {
   const result = normalizeSiteAnalysis({
     evidencePolicy: "confirmed-issues-only",
     scoreSource: "seogrow-derived",
@@ -182,6 +203,7 @@ test("uno storico già normalizzato viene ricalcolato con scope legale e score c
 
   assert.equal(result.legalScopeVersion, 4);
   assert.equal(result.scorePolicyVersion, 4);
+  assert.equal(result.issueSchemaVersion, 2);
   assert.equal(result.pagesChecked, 1);
   assert.equal(result.pagesFailed, 0);
   assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
