@@ -1,14 +1,14 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
+import { normalizeClientId } from "./reliabilityModel.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
 
 const selectedClientId = () => {
   try {
-    const value = JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY));
-    return Number.isSafeInteger(Number(value)) ? Number(value) : null;
+    return normalizeClientId(JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY)));
   } catch {
     return null;
   }
@@ -29,6 +29,7 @@ export const isProjectScopedRequest = (input) => {
     "/api/dataforseo/",
     "/api/geo/simulate",
     "/api/generate",
+    "/api/audit",
     "/api/site-analysis",
     "/api/frontend/inspect",
     "/api/wordpress/",
@@ -36,10 +37,13 @@ export const isProjectScopedRequest = (input) => {
 };
 
 const assertProjectStillSelected = (entry) => {
-  if (!entry || entry.clientId == null) return;
+  if (!entry) return;
   const current = selectedClientId();
-  if (current === entry.clientId) return;
-  const reason = new DOMException("Progetto cambiato", "AbortError");
+  if (entry.clientId && current === entry.clientId) return;
+  const reason = new DOMException(
+    entry.clientId ? "Progetto cambiato" : "Progetto non selezionato",
+    "AbortError",
+  );
   if (!entry.controller.signal.aborted) entry.controller.abort(reason);
   throw reason;
 };
@@ -50,7 +54,7 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
     if (event?.detail?.key !== SELECTED_CLIENT_KEY) return;
     const current = selectedClientId();
     for (const entry of [...scopedRequests]) {
-      if (entry.clientId != null && entry.clientId !== current) {
+      if (!entry.clientId || entry.clientId !== current) {
         entry.controller.abort(new DOMException("Progetto cambiato", "AbortError"));
       }
     }
