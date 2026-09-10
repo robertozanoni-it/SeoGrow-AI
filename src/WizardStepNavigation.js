@@ -1,5 +1,7 @@
 import { navigatePage } from "./navigationUx.js";
 
+export const WIZARD_CONTEXT_KEY = "seogrow-wizard-context-v1";
+
 export const WIZARD_STEP_COUNTS = Object.freeze({
   Panoramica: 5,
   Clienti: 4,
@@ -38,8 +40,9 @@ export const WIZARD_DESTINATION_PAGES = Object.freeze([
   "Impostazioni",
 ]);
 
-// Regola UX: ogni card wizard apre sempre una PAGINA reale di SeoGrow AI.
-// Nessuna card apre più sezioni, pannelli, dettagli interni o scroll target.
+// Unica fonte di verità per card wizard -> pagina di destinazione.
+// Le destinazioni sono state riallineate al luogo in cui l'azione descritta
+// viene realmente eseguita, evitando aperture di pannelli o sezioni interne.
 const STEP_ACTIONS = Object.freeze({
   Panoramica: [
     { page: "Centro progetto" },      // Stato progetto
@@ -50,7 +53,7 @@ const STEP_ACTIONS = Object.freeze({
   ],
   Clienti: [
     { page: "Clienti" },             // Seleziona cliente
-    { page: "Panoramica" },          // Controlla dati
+    { page: "Clienti" },             // Controlla dati del cliente
     { page: "Integrazioni" },        // Collega strumenti
     { page: "Centro progetto" },     // Apri progetto
   ],
@@ -58,9 +61,9 @@ const STEP_ACTIONS = Object.freeze({
     { page: "Centro progetto" },     // Obiettivo
     { page: "Integrazioni" },        // Dati SEO
     { page: "Integrazioni" },        // WordPress
-    { page: "Problemi" },            // Audit e problemi
+    { page: "Audit SEO" },           // Audit e problemi
     { page: "Correzioni" },          // Correzioni
-    { page: "Storico" },             // Report / risultati
+    { page: "Centro progetto" },     // Report
   ],
   Problemi: [
     { page: "Problemi" },            // Visualizza
@@ -76,7 +79,7 @@ const STEP_ACTIONS = Object.freeze({
     { page: "Correzioni" },          // Correggi
   ],
   Posizionamenti: [
-    { page: "Integrazioni" },        // Dati
+    { page: "Integrazioni" },        // Dati Search Console
     { page: "Posizionamenti" },      // Filtra
     { page: "Posizionamenti" },      // Andamento
     { page: "Opportunità" },         // Opportunità
@@ -85,12 +88,12 @@ const STEP_ACTIONS = Object.freeze({
     { page: "Link interni" },        // Analizza
     { page: "Link interni" },        // Seleziona
     { page: "Task" },                // Crea task
-    { page: "Audit SEO" },           // Verifica
+    { page: "Link interni" },        // Verifica
   ],
   Opportunità: [
     { page: "Opportunità" },         // Filtra
     { page: "Opportunità" },         // Valuta
-    { page: "Task" },                // Decidi
+    { page: "Opportunità" },         // Decidi
     { page: "Task" },                // Crea task
   ],
   Correzioni: [
@@ -103,7 +106,7 @@ const STEP_ACTIONS = Object.freeze({
   Task: [
     { page: "Task" },                // Filtra
     { page: "Task" },                // Apri
-    { page: "Centro progetto" },     // Esegui
+    { page: "Task" },                // Esegui
     { page: "Audit SEO" },           // Verifica
     { page: "Task" },                // Chiudi
   ],
@@ -111,7 +114,7 @@ const STEP_ACTIONS = Object.freeze({
     { page: "Piano editoriale" },    // Tema
     { page: "Opportunità" },         // Priorità
     { page: "Piano editoriale" },    // Brief
-    { page: "SEO Agent" },           // Produci
+    { page: "Piano editoriale" },    // Produci
     { page: "Posizionamenti" },      // Misura
   ],
   "SEO Agent": [
@@ -125,25 +128,25 @@ const STEP_ACTIONS = Object.freeze({
     { page: "GEO AI" },              // Contesto
     { page: "GEO AI" },              // Analizza
     { page: "GEO AI" },              // Priorità
-    { page: "SEO Agent" },           // Migliora
+    { page: "GEO AI" },              // Migliora
     { page: "GEO AI" },              // Verifica
   ],
   Integrazioni: [
     { page: "Integrazioni" },        // Scegli
     { page: "Integrazioni" },        // Configura
     { page: "Integrazioni" },        // Verifica
-    { page: "Panoramica" },          // Salva / ritorno al progetto
+    { page: "Integrazioni" },        // Salva
   ],
   Impostazioni: [
     { page: "Impostazioni" },        // Sezione
     { page: "Impostazioni" },        // Modifica
     { page: "Impostazioni" },        // Controlla
-    { page: "Panoramica" },          // Salva / ritorno al lavoro
+    { page: "Impostazioni" },        // Salva
   ],
   Storico: [
     { page: "Storico" },             // Filtra
     { page: "Storico" },             // Apri
-    { page: "Panoramica" },          // Confronta / torna al quadro generale
+    { page: "Storico" },             // Confronta
   ],
 });
 
@@ -155,6 +158,29 @@ const currentPage = () => {
     return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica";
   } catch {
     return "Panoramica";
+  }
+};
+
+const readCardMeta = (card, index) => ({
+  label: card?.querySelector(".guided-step-copy strong")?.textContent?.trim() || `Passaggio ${index + 1}`,
+  detail: card?.querySelector(".guided-step-copy small")?.textContent?.trim() || "",
+});
+
+const rememberContext = (sourcePage, index, action, meta = {}) => {
+  if (!hasDom()) return;
+  const payload = {
+    sourcePage,
+    stepNumber: index + 1,
+    stepCount: WIZARD_STEP_COUNTS[sourcePage] || null,
+    label: meta.label || `Passaggio ${index + 1}`,
+    detail: meta.detail || "",
+    destinationPage: action.page,
+    createdAt: Date.now(),
+  };
+  try {
+    window.sessionStorage.setItem(WIZARD_CONTEXT_KEY, JSON.stringify(payload));
+  } catch {
+    /* La navigazione resta disponibile anche senza sessionStorage. */
   }
 };
 
@@ -177,8 +203,9 @@ export const wizardActionCoverageComplete = () => Object.entries(WIZARD_STEP_COU
     ),
 );
 
-export const runWizardStepAction = (page, index) => {
+export const runWizardStepAction = (page, index, meta = {}) => {
   const action = wizardStepAction(page, index);
+  rememberContext(page, index, action, meta);
   navigatePage(action.page);
   return true;
 };
@@ -198,7 +225,10 @@ const handleWizardClick = (event) => {
   const card = event.target.closest?.(".guided-step-card");
   if (card) {
     const index = stepIndexFromCard(card);
-    if (index >= 0) window.setTimeout(() => runWizardStepAction(currentPage(), index), 0);
+    if (index >= 0) {
+      const meta = readCardMeta(card, index);
+      window.setTimeout(() => runWizardStepAction(currentPage(), index, meta), 0);
+    }
     return;
   }
 
@@ -209,7 +239,11 @@ const handleWizardClick = (event) => {
   const current = activeStepIndex(wizard);
   const direction = /Successivo/i.test(footerButton.textContent || "") ? 1 : -1;
   const next = current + direction;
-  if (next >= 0) window.setTimeout(() => runWizardStepAction(currentPage(), next), 0);
+  const targetCard = wizard.querySelectorAll(".guided-step-card")[next];
+  if (next >= 0 && targetCard) {
+    const meta = readCardMeta(targetCard, next);
+    window.setTimeout(() => runWizardStepAction(currentPage(), next, meta), 0);
+  }
 };
 
 if (typeof document !== "undefined") {
