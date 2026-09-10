@@ -1,8 +1,9 @@
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v7";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v8";
 const SCORE_POLICY_VERSION = 4;
+const ISSUE_SCHEMA_VERSION = 2;
 
 const normalizeUrl = (value) => {
   try {
@@ -30,15 +31,29 @@ const normalizedSeverity = (value) => {
   return severity || "unknown";
 };
 
-const normalizedIssue = (issue) => {
+const inferredIssueType = (issue) => {
+  const explicit = String(issue?.type || "").trim().toLowerCase();
+  if (explicit) return explicit;
+  const text = `${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  if (/meta\s+description|metadescription/.test(text)) return "description";
+  if (/\bcanonical\b/.test(text)) return "canonical";
+  if (/\bh1\b/.test(text)) return "h1";
+  if (/immagin\w*\s+senza\s+alt|missing\s+alt|\balt\b.*immagin/.test(text)) return "image";
+  if (/\btitle\b|\btitolo\b/.test(text)) return "title";
+  return "";
+};
+
+const normalizedIssue = (issue, fallbackUrl = "") => {
   if (!issue || typeof issue !== "object" || Array.isArray(issue)) return issue;
-  const type = String(issue.type || "").toLowerCase();
+  const type = inferredIssueType(issue);
   const brokenLink = /broken-(?:external-)?link/.test(type);
-  const pageUrl = issue.url || issue.sourceUrl || (!brokenLink ? issue.targetUrl : "") || "";
+  const pageUrl = issue.url || issue.sourceUrl || (!brokenLink ? issue.targetUrl || fallbackUrl : "") || "";
   return {
     ...issue,
+    ...(type ? { type } : {}),
     severity: normalizedSeverity(issue.severity),
     ...(pageUrl && !issue.url ? { url: pageUrl } : {}),
+    ...(pageUrl && !issue.sourceUrl && !brokenLink ? { sourceUrl: pageUrl } : {}),
   };
 };
 
@@ -110,21 +125,23 @@ const normalizeSiteAnalysis = (data) => {
     data.evidencePolicy === "confirmed-issues-only" &&
     data.scoreSource === "seogrow-derived" &&
     data.legalScopeVersion === 4 &&
-    data.scorePolicyVersion === SCORE_POLICY_VERSION;
+    data.scorePolicyVersion === SCORE_POLICY_VERSION &&
+    data.issueSchemaVersion === ISSUE_SCHEMA_VERSION;
   if (currentPolicy) return data;
 
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {
-    data.issues = (Array.isArray(data.issues) ? data.issues : []).map(normalizedIssue);
-    data.reviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map(normalizedIssue);
+    data.issues = (Array.isArray(data.issues) ? data.issues : []).map((issue) => normalizedIssue(issue, data.url));
+    data.reviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map((issue) => normalizedIssue(issue, data.url));
     data.pagesFailed = Array.isArray(data.failures)
       ? data.failures.filter((failure) => !robotsExclusion(failure)).length
       : Math.max(0, Number(data.pagesFailed || 0));
     data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues || [], data.pagesFailed);
-    data.summary = (data.issues || []).reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
+    data.summary = (data.issues || []).reduce((out, issue) => { out[issue.type || "unknown"] = (out[issue.type || "unknown"] || 0) + 1; return out; }, {});
     data.legalScopeVersion = 4;
     data.scorePolicyVersion = SCORE_POLICY_VERSION;
+    data.issueSchemaVersion = ISSUE_SCHEMA_VERSION;
     return data;
   }
 
@@ -157,7 +174,7 @@ const normalizeSiteAnalysis = (data) => {
   data.pagesFailed = operationalFailures.length;
   data.crawlExclusions = exclusions;
 
-  const rawIssues = (Array.isArray(data.issues) ? data.issues : []).map(normalizedIssue);
+  const rawIssues = (Array.isArray(data.issues) ? data.issues : []).map((issue) => normalizedIssue(issue, data.url));
   const filtered = rawIssues.filter((issue) => {
     if (issueLooksTransientLink(issue)) return false;
     const target = normalizeUrl(issue?.targetUrl || "");
@@ -174,7 +191,7 @@ const normalizeSiteAnalysis = (data) => {
     else confirmed.push({ ...issue, diagnosisState: issue?.diagnosisState || "confirmed" });
   }
 
-  const previousReviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map(normalizedIssue);
+  const previousReviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map((issue) => normalizedIssue(issue, data.url));
   data.rawIssueCount = rawIssues.length;
   data.issues = confirmed;
   data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {
@@ -185,7 +202,8 @@ const normalizeSiteAnalysis = (data) => {
   });
 
   data.summary = data.issues.reduce((summary, issue) => {
-    summary[issue.type] = (summary[issue.type] || 0) + 1;
+    const type = issue.type || "unknown";
+    summary[type] = (summary[type] || 0) + 1;
     return summary;
   }, {});
   data.reviewSummary = data.reviewItems.reduce((summary, issue) => {
@@ -197,6 +215,7 @@ const normalizeSiteAnalysis = (data) => {
   data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues, operationalFailures.length);
   data.scoreSource = "seogrow-derived";
   data.scorePolicyVersion = SCORE_POLICY_VERSION;
+  data.issueSchemaVersion = ISSUE_SCHEMA_VERSION;
   data.scoreLabel = "Indice di salute tecnica SeoGrow";
   data.scoreMethodology = "Indice interno derivato dai problemi confermati e dai fallimenti del crawl; non è un voto Google.";
   data.evidencePolicy = "confirmed-issues-only";
