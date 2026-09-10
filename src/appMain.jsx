@@ -19,6 +19,7 @@ import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
 import './SidebarReadabilityFix.css';
+import './CardWorkspaceVisibilityFix.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
