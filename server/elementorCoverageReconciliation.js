@@ -1,4 +1,4 @@
-const DEFAULT_MAX_URLS = 30;
+const DEFAULT_MAX_URLS = 75;
 
 const normalizedHost = (hostname) => String(hostname || "").toLowerCase().replace(/^www\./, "");
 
@@ -86,7 +86,7 @@ export function reconcileElementorCoverage({
   let reason = "La discovery non dimostra una copertura completa e riconciliata.";
   if (overLimit || truncated === true) {
     status = "truncated";
-    reason = "Il set supera il limite Elementor o la discovery è stata troncata.";
+    reason = `Il set supera il limite Elementor di ${limit} URL o la discovery è stata troncata.`;
   } else if (failureCount > 0) {
     status = "crawl-failures";
     reason = "Una o più URL della coverage non sono state ispezionate con successo.";
