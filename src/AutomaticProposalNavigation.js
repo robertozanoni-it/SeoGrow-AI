@@ -3,8 +3,10 @@ import { normalizeClientId } from "./reliabilityModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 
 export const PROPOSAL_PAGE = "Proposta correzione";
+export const PROPOSAL_ROUTE_PAGE = "Correzioni";
 export const PROPOSAL_FOCUS_KEY = "seogrow-problem-proposal-v1";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
+const MAX_FOCUS_AGE = 15 * 60_000;
 
 const currentPage = () => {
   try {
@@ -37,12 +39,35 @@ export const proposalFocusFromProblemRow = (row) => {
   };
 };
 
+export const readAutomaticProposalFocus = () => {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const focus = JSON.parse(sessionStorage.getItem(PROPOSAL_FOCUS_KEY) || "null");
+    if (!focus || focus.openedFrom !== "automatic-badge" || !focus.title || !focus.sourceUrl) return null;
+    if (Date.now() - Number(focus.createdAt || 0) > MAX_FOCUS_AGE) return null;
+    return focus;
+  } catch {
+    return null;
+  }
+};
+
+export const clearAutomaticProposalFocus = () => {
+  try {
+    sessionStorage.removeItem(PROPOSAL_FOCUS_KEY);
+  } catch {
+    /* Il routing continua a funzionare anche senza sessionStorage. */
+  }
+};
+
 export const openAutomaticProposal = (row) => {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = proposalFocusFromProblemRow(row);
   if (!focus) return false;
   sessionStorage.setItem(PROPOSAL_FOCUS_KEY, JSON.stringify(focus));
-  navigatePage(PROPOSAL_PAGE);
+  navigatePage(PROPOSAL_ROUTE_PAGE);
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-open", { detail: focus }));
+  }, 0);
   return true;
 };
 
@@ -60,6 +85,6 @@ const interceptAutomaticClick = (event) => {
 };
 
 if (typeof document !== "undefined") {
-  // Capture phase: this runs before the legacy row handler can open the drawer.
+  // Capture phase: intercetta "Automatica" prima del click legacy sulla riga.
   document.addEventListener("click", interceptAutomaticClick, true);
 }
