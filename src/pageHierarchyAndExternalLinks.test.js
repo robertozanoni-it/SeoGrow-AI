@@ -7,10 +7,13 @@ const external = await readFile(new URL("./ExternalLinkDestinationUx.js", import
 const sidebar = await readFile(new URL("./SidebarContrastFinal.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
-test("titolo pagina precede sempre wizard e card senza spostare il nodo React del titolo", () => {
+test("titolo pagina precede sempre contesto, wizard e card senza spostare il nodo React del titolo", () => {
   assert.match(hierarchy, /const title = main\?\.querySelector\("\.page-title"\)/);
-  assert.match(hierarchy, /anchor\.insertAdjacentElement\("afterend", wizard\)/);
-  assert.match(hierarchy, /anchor\.insertAdjacentElement\("afterend", cards\)/);
+  assert.match(hierarchy, /"\.wizard-context-host"/);
+  assert.match(hierarchy, /"\.guided-page-wizard-host"/);
+  assert.match(hierarchy, /"\.card-workspace-host"/);
+  assert.match(hierarchy, /for \(const selector of PAGE_HOST_SELECTORS\)/);
+  assert.match(hierarchy, /anchor\.insertAdjacentElement\("afterend", host\)/);
   assert.doesNotMatch(hierarchy, /prepend\(title\)|appendChild\(title\)|insertBefore\(title/);
   assert.match(main, /import '\.\/PageStartHierarchy'/);
 });
