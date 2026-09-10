@@ -15,14 +15,34 @@ export function correctionPresentation(item) {
       : 'Apri la pagina per individuare il contenuto interessato. Serve una verifica mirata in Elementor prima di poter applicare questa correzione.';
     return { title: 'Modifica bloccata: nessuna proposta applicabile', explanation: reason || 'Il controllo non identifica con certezza il campo da modificare. Consulta la pagina in Elementor.', next };
   }
-  if (item.status === 'auth_error') return { title: 'WordPress non ha autorizzato l’operazione', explanation: 'La connessione o i permessi non consentono questa operazione.', next: 'Controlla la connessione con “Collega WordPress” e i permessi dell’utente.' };
+  if (item.status === 'auth_error') return { title: 'WordPress non ha autorizzato l’operazione', explanation: item.reason || 'La connessione o i permessi non consentono questa operazione.', next: 'Controlla la connessione con “Collega WordPress” e i permessi dell’utente.' };
+  if (item.status === 'quality_error') return {
+    title: 'Proposta respinta dal controllo qualità',
+    explanation: item.reason || 'La proposta generata non ha superato i controlli editoriali di SeoGrow; nessuna modifica è stata applicata.',
+    next: 'Riprova “Prepara solo questo problema”. Per i title duplicati SeoGrow usa anche un fallback deterministico sicuro quando disponibile.',
+  };
+  if (item.status === 'context_error') return {
+    title: 'Contesto SEO da confermare',
+    explanation: item.reason || 'Mancano informazioni sufficienti per preparare questa correzione in sicurezza.',
+    next: 'Controlla il dettaglio tecnico e conferma il contesto richiesto prima di riprovare.',
+  };
+  if (item.status === 'adapter_error') return {
+    title: 'Campo WordPress non scrivibile automaticamente',
+    explanation: item.reason || 'SeoGrow non trova un campo WordPress/SEO esposto in modo sicuro per questa modifica.',
+    next: 'Controlla Rank Math/Yoast e il Connector, quindi riprova la preparazione.',
+  };
+  if (item.status === 'timeout_error') return {
+    title: 'Controllo scaduto prima di completarsi',
+    explanation: item.reason || 'La lettura necessaria alla proposta non si è conclusa entro il tempo massimo.',
+    next: 'Riprova la preparazione. Se si ripete, controlla raggiungibilità e tempi di risposta del sito.',
+  };
   if (item.status === 'generation_error' && /openai.*non (?:è )?configurat|OPENAI_API_KEY/i.test(String(item.reason || ''))) return {
     title: 'Configurazione OpenAI mancante',
     explanation: 'WordPress è collegato, ma questa installazione di SeoGrow non vede ancora la configurazione OpenAI necessaria per generare la proposta.',
     next: 'Premi “Configura OpenAI” oppure riavvia la preview: SeoGrow prova a riutilizzare in memoria la configurazione della installazione principale senza copiarne la chiave.',
   };
-  if (item.status === 'generation_error') return { title: 'Generazione proposta non completata', explanation: 'La connessione WordPress è disponibile, ma il motore di generazione non ha prodotto una proposta valida.', next: 'Apri il dettaglio tecnico, correggi la causa e riprova la preparazione.' };
-  return { title: 'Proposta non disponibile', explanation: 'La preparazione non è stata completata. Nessuna modifica è stata applicata da questa preparazione.', next: 'Consulta il dettaglio del controllo e riprova dopo aver risolto la causa.' };
+  if (item.status === 'generation_error') return { title: 'Generazione proposta non completata', explanation: item.reason || 'La connessione WordPress è disponibile, ma il motore di generazione non ha prodotto una proposta valida.', next: 'Controlla la causa indicata e riprova la preparazione.' };
+  return { title: 'Proposta non disponibile', explanation: item.reason || 'La preparazione non è stata completata. Nessuna modifica è stata applicata da questa preparazione.', next: 'Consulta la causa indicata e riprova dopo averla risolta.' };
 }
 export function readableCorrectionFields(item) {
   const labels = { title: 'Titolo', content: 'Contenuto della pagina', excerpt: 'Estratto', 'meta.rank_math_title': 'Titolo SEO', 'meta.rank_math_description': 'Meta description', 'meta._yoast_wpseo_title': 'Titolo SEO', 'meta._yoast_wpseo_metadesc': 'Meta description' };
