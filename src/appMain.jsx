@@ -18,7 +18,7 @@ import CorrectionsWorkspace from './CorrectionsWorkspace';
 import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
-import './ProjectCenterCardFlow.css';
+import './SidebarReadabilityFix.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
