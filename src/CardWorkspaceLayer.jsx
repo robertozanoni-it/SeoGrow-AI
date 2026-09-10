@@ -769,10 +769,7 @@ export default function CardWorkspaceLayer() {
   }, []);
 
   useEffect(() => {
-    if (CARD_EXCLUDED_PAGES.has(page)) {
-      setHost(null);
-      return undefined;
-    }
+    if (CARD_EXCLUDED_PAGES.has(page)) return undefined;
     let cancelled = false;
     let frame = 0;
     let attempts = 0;
@@ -836,6 +833,7 @@ export default function CardWorkspaceLayer() {
   }, [host, page, selectedId, managing]);
 
   const stores = useMemo(() => ({
+    revision: version,
     clients: readJson(CLIENTS_KEY, []),
     tasks: readJson("seogrow-tasks-v2", []),
     gsc: readJson("seogrow-gsc-v1", {}),
