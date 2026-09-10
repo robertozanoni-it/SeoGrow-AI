@@ -24,7 +24,6 @@ test('numeric permalink is inspected instead of assumed to be pagination', async
  let calls = 0;
  setLocalStorage(t);
  workspaceStorage.setItem('seogrow-selected-client-v1', JSON.stringify(1));
- t.after(() => workspaceStorage.removeItem('seogrow-selected-client-v1'));
  setWindow(t, { location: { href: 'http://localhost/' }, setTimeout, clearTimeout, fetch: async () => { calls++; return Response.json({ ok: true }); } });
  const response = await apiFetch('/api/wordpress/inspect', { method: 'POST', body: JSON.stringify({ url: 'https://example.com/products/123' }) });
  assert.equal(response.status, 200); assert.equal(calls, 1);
