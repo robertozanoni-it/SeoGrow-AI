@@ -96,6 +96,9 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       assert.deepEqual(saved.after,{'meta.rank_math_description':after});
       assert.notEqual(saved.status,'Verificato','Matching metadata alone never closes a duplicate');
     } catch (error) {
+      const diagnostic = await evaluate("({messages:[...document.querySelectorAll('.wp-live-remediation-message,.correction-explanation,.saved-correction-details')].map(e=>e.textContent),credentials:[...document.querySelectorAll('.audit-unified-credentials')].map(e=>({inProposal:!!e.closest('.proposal-remediation-slot'),fields:[...e.querySelectorAll('input')].map(i=>({type:i.type,autocomplete:i.autocomplete,present:!!i.value}))})),requests:(window.__qaFormRequests||[]).map(r=>r.path)})").catch(()=>null);
+      console.error('SAVED_CORRECTION_DIAGNOSTIC '+JSON.stringify(diagnostic));
+      await evaluate("document.querySelector('.wp-live-remediation-message,.saved-correction-details')?.scrollIntoView({behavior:'instant',block:'center'})").catch(()=>{});
       await screenshot('correction-receipt-failure').catch(()=>{});
       throw error;
     } finally {
