@@ -7,11 +7,14 @@ import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleGauge,
   ClipboardCheck,
   Database,
   FileText,
   Globe2,
+  HelpCircle,
   History,
   Link2,
   Plug,
@@ -75,6 +78,158 @@ const groups = [
   },
 ];
 
+const PAGE_GUIDES = {
+  Panoramica: {
+    intro: "La Panoramica serve solo a capire lo stato del progetto e scegliere la prossima azione utile.",
+    steps: [
+      ["Controlla", "Verifica progetto attivo, dati disponibili e avvisi principali."],
+      ["Priorità", "Leggi le azioni suggerite e parti da quella con maggiore impatto."],
+      ["Apri", "Entra nel modulo indicato senza cercare la funzione nel menu."],
+    ],
+  },
+  "Centro progetto": {
+    intro: "Qui prepari il progetto una volta e poi passi al lavoro operativo.",
+    steps: [
+      ["Obiettivo", "Definisci il risultato SEO che vuoi ottenere."],
+      ["Dati", "Assicurati che Search Console e audit siano disponibili."],
+      ["WordPress", "Verifica la connessione prima di preparare o applicare modifiche."],
+      ["Correggi", "Apri i problemi e prepara solo le correzioni realmente supportate."],
+      ["Report", "Condividi i risultati quando il ciclo di lavoro è concluso."],
+    ],
+  },
+  Clienti: {
+    intro: "Ogni sito deve avere un progetto chiaro e isolato dagli altri.",
+    steps: [
+      ["Seleziona", "Scegli il progetto su cui vuoi lavorare."],
+      ["Controlla sito", "Verifica URL e dati identificativi prima di continuare."],
+      ["Collega", "Configura le integrazioni necessarie al progetto."],
+      ["Lavora", "Passa al Centro progetto o all'Audit SEO."],
+    ],
+  },
+  Storico: {
+    intro: "Lo Storico serve a ricostruire cosa è stato fatto e con quale risultato.",
+    steps: [
+      ["Filtra", "Riduci l'elenco al progetto o al periodo che ti interessa."],
+      ["Apri", "Esamina il run o la modifica rilevante."],
+      ["Confronta", "Valuta differenze, esito e stato finale."],
+    ],
+  },
+  "Audit SEO": {
+    intro: "L'audit crea la baseline tecnica su cui basare problemi, task e correzioni.",
+    steps: [
+      ["Perimetro", "Scegli se analizzare una pagina o l'intero sito."],
+      ["Avvia", "Inserisci l'URL e avvia il controllo."],
+      ["Risultati", "Leggi prima il riepilogo e i problemi confermati."],
+      ["Problemi", "Apri solo le anomalie che richiedono un intervento."],
+      ["Correggi", "Prepara una correzione o crea un task quando necessario."],
+    ],
+  },
+  "Link interni": {
+    intro: "Usa questa pagina per trovare collegamenti interni mancanti o migliorabili.",
+    steps: [
+      ["Analizza", "Controlla le pagine e le relazioni già presenti."],
+      ["Seleziona", "Scegli solo opportunità pertinenti e utili all'utente."],
+      ["Crea task", "Trasforma le opportunità approvate in attività operative."],
+      ["Verifica", "Controlla il risultato dopo l'applicazione sul sito."],
+    ],
+  },
+  Posizionamenti: {
+    intro: "Qui trasformi i dati di ricerca in priorità concrete per pagine e query.",
+    steps: [
+      ["Dati", "Verifica che l'import Search Console sia aggiornato."],
+      ["Filtra", "Riduci query e pagine al segmento che vuoi analizzare."],
+      ["Priorità", "Individua cali, crescita e posizioni migliorabili."],
+      ["Azione", "Crea un task o apri l'opportunità collegata."],
+    ],
+  },
+  Opportunità: {
+    intro: "Questa pagina deve mostrare poche opportunità ordinate per impatto, non un elenco da interpretare.",
+    steps: [
+      ["Seleziona", "Parti dalle opportunità con dati sufficienti."],
+      ["Valuta", "Controlla pagina, query, posizione e potenziale."],
+      ["Decidi", "Scegli se intervenire ora, rimandare o ignorare."],
+      ["Crea task", "Trasforma la decisione in un'attività tracciabile."],
+    ],
+  },
+  Correzioni: {
+    intro: "Il flusso di correzione deve essere sequenziale: problema, proposta, connessione, applicazione, verifica.",
+    steps: [
+      ["Problema", "Apri un problema confermato e verifica la pagina interessata."],
+      ["Genera", "Prepara la correzione automatica o assistita."],
+      ["WordPress", "Verifica la connessione e i permessi prima di scrivere."],
+      ["Applica", "Applica solo la modifica approvata."],
+      ["Verifica", "Ricontrolla il sito e chiudi il problema solo se risolto."],
+    ],
+  },
+  Task: {
+    intro: "I task devono essere una coda di lavoro semplice, ordinata e verificabile.",
+    steps: [
+      ["Filtra", "Mostra solo le attività rilevanti per il progetto corrente."],
+      ["Apri", "Leggi problema, URL e priorità prima di intervenire."],
+      ["Esegui", "Completa l'azione nel modulo corretto."],
+      ["Verifica", "Conferma che il risultato sia effettivamente visibile."],
+      ["Chiudi", "Segna completato solo dopo la verifica."],
+    ],
+  },
+  "Piano editoriale": {
+    intro: "Il piano editoriale organizza contenuti utili, priorità e stato di avanzamento.",
+    steps: [
+      ["Tema", "Scegli il cluster o l'obiettivo editoriale."],
+      ["Priorità", "Ordina i contenuti per opportunità e copertura."],
+      ["Prepara", "Definisci brief, pagina e intento."],
+      ["Produci", "Crea o aggiorna il contenuto."],
+      ["Misura", "Controlla pubblicazione e risultati."],
+    ],
+  },
+  "SEO Agent": {
+    intro: "L'agente deve lavorare su un obiettivo alla volta e rendere visibili piano, approvazioni ed esito.",
+    steps: [
+      ["Obiettivo", "Descrivi un risultato preciso e verificabile."],
+      ["Modalità", "Scegli il livello di autonomia appropriato."],
+      ["Piano", "Controlla le azioni proposte prima dell'esecuzione."],
+      ["Approva", "Autorizza soltanto le operazioni che vuoi eseguire."],
+      ["Verifica", "Controlla output, fonti, costi ed esito finale."],
+    ],
+  },
+  "GEO AI": {
+    intro: "GEO AI serve a valutare e migliorare la leggibilità del brand e dei contenuti per sistemi generativi.",
+    steps: [
+      ["Contesto", "Seleziona progetto e contenuto da valutare."],
+      ["Analizza", "Esegui i controlli disponibili senza confonderli con ranking Google."],
+      ["Priorità", "Individua le carenze realmente azionabili."],
+      ["Migliora", "Prepara interventi coerenti con il contenuto e il brand."],
+      ["Verifica", "Ripeti il controllo dopo le modifiche."],
+    ],
+  },
+  Integrazioni: {
+    intro: "Configura una sorgente alla volta e considerala pronta solo dopo una verifica riuscita.",
+    steps: [
+      ["Scegli", "Apri l'integrazione che serve al progetto."],
+      ["Configura", "Inserisci solo i dati richiesti."],
+      ["Verifica", "Esegui il test di connessione."],
+      ["Salva", "Conserva la configurazione soltanto se il test è valido."],
+    ],
+  },
+  Impostazioni: {
+    intro: "Le impostazioni raccolgono preferenze globali e limiti operativi; non devono interrompere il lavoro quotidiano.",
+    steps: [
+      ["Sezione", "Apri solo il gruppo di impostazioni che vuoi modificare."],
+      ["Modifica", "Cambia il minimo necessario."],
+      ["Controlla", "Verifica eventuali dipendenze o limiti."],
+      ["Salva", "Conferma e torna al flusso operativo."],
+    ],
+  },
+};
+
+const DEFAULT_GUIDE = {
+  intro: "Segui i passaggi in ordine e usa una sola azione principale per volta.",
+  steps: [
+    ["Controlla", "Verifica il contesto e i dati disponibili."],
+    ["Esegui", "Completa l'azione principale della pagina."],
+    ["Verifica", "Controlla il risultato prima di proseguire."],
+  ],
+};
+
 const readJson = (key, fallback) => {
   try {
     return JSON.parse(localStorage.getItem(key)) ?? fallback;
@@ -99,7 +254,6 @@ const readPage = () => {
     return "Panoramica";
   }
 };
-
 
 const cleanSite = (value) =>
   String(value || "")
@@ -129,7 +283,7 @@ function useUiSnapshot() {
   const [page, setPage] = useState(readPage);
   const [mode, setMode] = useState(readMode);
   const [targets, setTargets] = useState({ sidebar: null, topbar: null, main: null });
-  const [dashboardHost, setDashboardHost] = useState(null);
+  const [pageHosts, setPageHosts] = useState({ wizard: null, dashboard: null, help: null });
 
   useEffect(() => {
     const syncTargets = () =>
@@ -181,29 +335,52 @@ function useUiSnapshot() {
   }, [mode]);
 
   useEffect(() => {
-    let host = null;
-    const frame = window.requestAnimationFrame(() => {
-      if (page !== "Panoramica" || !targets.main) {
-        setDashboardHost(null);
-        return;
-      }
-      const title = targets.main.querySelector(":scope > .page-title");
+    let cancelled = false;
+    let frame = 0;
+    let attempts = 0;
+    let wizardHost = null;
+    let dashboardHost = null;
+    let helpHost = null;
+
+    const installHosts = () => {
+      if (cancelled || !targets.main) return;
+      const title = targets.main.querySelector(".page-title");
       if (!title) {
-        setDashboardHost(null);
+        if (attempts < 30) {
+          attempts += 1;
+          frame = window.requestAnimationFrame(installHosts);
+        }
         return;
       }
-      host = document.createElement("div");
-      host.className = "guided-next-actions-host";
-      title.insertAdjacentElement("afterend", host);
-      setDashboardHost(host);
-    });
+
+      wizardHost = document.createElement("div");
+      wizardHost.className = "guided-page-wizard-host";
+      title.insertAdjacentElement("afterend", wizardHost);
+
+      if (page === "Panoramica") {
+        dashboardHost = document.createElement("div");
+        dashboardHost.className = "guided-next-actions-host";
+        wizardHost.insertAdjacentElement("afterend", dashboardHost);
+      }
+
+      helpHost = document.createElement("div");
+      helpHost.className = "guided-page-help-host";
+      targets.main.appendChild(helpHost);
+      setPageHosts({ wizard: wizardHost, dashboard: dashboardHost, help: helpHost });
+    };
+
+    installHosts();
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
-      host?.remove();
+      wizardHost?.remove();
+      dashboardHost?.remove();
+      helpHost?.remove();
+      setPageHosts({ wizard: null, dashboard: null, help: null });
     };
   }, [page, targets.main]);
 
-  return { page, mode, setMode, targets, dashboardHost };
+  return { page, mode, setMode, targets, pageHosts };
 }
 
 function GuidedNav({ page, mode, setMode }) {
@@ -268,6 +445,68 @@ function ProjectContext({ client, dataset, analysis, page }) {
         GSC {readableDate(dataset?.importedAt || dataset?.dateTo)} · Audit {readableDate(analysis?.analyzedAt)}
       </span>
     </div>
+  );
+}
+
+function PageWizard({ page }) {
+  const guide = PAGE_GUIDES[page] || DEFAULT_GUIDE;
+  const [step, setStep] = useState(0);
+
+  useEffect(() => setStep(0), [page]);
+
+  const last = guide.steps.length - 1;
+  return (
+    <section className="guided-page-wizard" aria-label={`Passaggi guidati per ${page}`}>
+      <div className="guided-wizard-steps" role="list">
+        {guide.steps.map(([label], index) => (
+          <button
+            type="button"
+            key={`${page}-${label}`}
+            className={index === step ? "active" : index < step ? "done" : ""}
+            aria-current={index === step ? "step" : undefined}
+            onClick={() => setStep(index)}
+          >
+            <span className="guided-step-number">{index + 1}</span>
+            <strong>{label}</strong>
+          </button>
+        ))}
+      </div>
+      <div className="guided-wizard-footer">
+        <span>Passaggio <strong>{step + 1}</strong> di {guide.steps.length}: {guide.steps[step][0]}</span>
+        <div>
+          <button type="button" className="secondary mini" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>
+            <ChevronLeft /> Indietro
+          </button>
+          <button type="button" className="primary mini" disabled={step === last} onClick={() => setStep((value) => value + 1)}>
+            Successivo <ChevronRight />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PageHelp({ page }) {
+  const guide = PAGE_GUIDES[page] || DEFAULT_GUIDE;
+  return (
+    <section className="guided-page-help" aria-labelledby="guided-page-help-title">
+      <div className="guided-page-help-head">
+        <span className="guided-help-icon"><HelpCircle /></span>
+        <div>
+          <span className="guided-eyebrow">Spiegazioni</span>
+          <h2 id="guided-page-help-title">Come usare questa pagina</h2>
+          <p>{guide.intro}</p>
+        </div>
+      </div>
+      <ol>
+        {guide.steps.map(([label, detail], index) => (
+          <li key={`${page}-help-${label}`}>
+            <span>{index + 1}</span>
+            <div><strong>{label}</strong><p>{detail}</p></div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -391,7 +630,7 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
 }
 
 export default function GuidedUxLayer() {
-  const { page, mode, setMode, targets, dashboardHost } = useUiSnapshot();
+  const { page, mode, setMode, targets, pageHosts } = useUiSnapshot();
 
   const clients = readJson(CLIENTS_KEY, []);
   const domClientId = Number(document.querySelector(".client-select select")?.value || 0);
@@ -432,11 +671,9 @@ export default function GuidedUxLayer() {
           />,
           targets.topbar,
         )}
-      {dashboardHost &&
-        createPortal(
-          <NextActions {...snapshot} />,
-          dashboardHost,
-        )}
+      {pageHosts.wizard && createPortal(<PageWizard page={page} />, pageHosts.wizard)}
+      {pageHosts.dashboard && createPortal(<NextActions {...snapshot} />, pageHosts.dashboard)}
+      {pageHosts.help && createPortal(<PageHelp page={page} />, pageHosts.help)}
     </>
   );
 }
