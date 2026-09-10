@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ExternalLink, FileSearch, ShieldCheck, WandSparkles } from "lucide-react";
 import { buildUnifiedProblems } from "./problemsModel.js";
@@ -52,7 +52,11 @@ const matchesFocus = (problem, focus) => {
 
 const findAuditFocus = ({ clientId, client, focus, pageHistory, siteHistory }) => {
   if (!clientId || !client || !focus) return null;
-  const pages = Array.isArray(pageHistory?.[clientId]) ? pageHistory[clientId] : Array.isArray(pageHistory?.[String(clientId)]) ? pageHistory[String(clientId)] : [];
+  const pages = Array.isArray(pageHistory?.[clientId])
+    ? pageHistory[clientId]
+    : Array.isArray(pageHistory?.[String(clientId)])
+      ? pageHistory[String(clientId)]
+      : [];
   const sites = normalizeAnalysisHistory(siteHistory?.[clientId] ?? siteHistory?.[String(clientId)] ?? []);
   const candidates = [
     ...pages.map((item) => ({ auditType: "page", item })),
@@ -86,6 +90,18 @@ const labels = {
   correctability: { automatic: "Automatica", assisted: "Assistita", manual: "Manuale", not_supported: "Non supportata" },
 };
 
+function RemediationFocusDispatcher({ focus }) {
+  const serialized = focus ? JSON.stringify(focus) : "";
+  useEffect(() => {
+    if (!serialized) return undefined;
+    const timer = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("seogrow-remediation-open", { detail: JSON.parse(serialized) }));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [serialized]);
+  return null;
+}
+
 export default function AutomaticProposalPage() {
   const [active, setActive] = useState(currentPage() === PROPOSAL_PAGE);
   const [host, setHost] = useState(null);
@@ -109,10 +125,7 @@ export default function AutomaticProposalPage() {
   }, []);
 
   useEffect(() => {
-    if (!active) {
-      setHost(null);
-      return undefined;
-    }
+    if (!active) return undefined;
     let cancelled = false;
     let frame = 0;
     let attempts = 0;
@@ -141,38 +154,29 @@ export default function AutomaticProposalPage() {
     return () => { delete document.body.dataset.seogrowAutomaticProposal; };
   }, [active]);
 
-  const focus = active ? readFocus() : null;
-  const clients = useMemo(() => readJson(CLIENTS_KEY, []), [revision]);
+  if (!active || !host) return null;
+
+  const focus = readFocus();
+  const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
   const client = clients.find((item) => normalizeClientId(item?.id) === selectedClientId) || null;
-  const tasks = useMemo(() => readJson(TASKS_KEY, []), [revision]);
-  const pageHistory = useMemo(() => readJson(PAGE_HISTORY_KEY, {}), [revision]);
-  const siteHistory = useMemo(() => readJson(SITE_HISTORY_KEY, {}), [revision]);
-
-  const model = useMemo(() => client ? buildUnifiedProblems({
+  const tasks = readJson(TASKS_KEY, []);
+  const pageHistory = readJson(PAGE_HISTORY_KEY, {});
+  const siteHistory = readJson(SITE_HISTORY_KEY, {});
+  const model = client ? buildUnifiedProblems({
     clientId: client.id,
     siteHistory: siteHistory[client.id] || siteHistory[String(client.id)] || [],
     pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [],
     tasks,
     corrections: [],
-  }) : { rows: [] }, [client, siteHistory, pageHistory, tasks]);
-
+  }) : { rows: [] };
   const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
   const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, pageHistory, siteHistory });
-
-  useEffect(() => {
-    if (!active || !auditFocus) return undefined;
-    const timer = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("seogrow-remediation-open", { detail: auditFocus }));
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [active, auditFocus?.clientId, auditFocus?.issueIndex, auditFocus?.auditType, auditFocus?.analyzedAt]);
-
-  if (!active || !host) return null;
-
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
+
   const content = (
-    <div className="automatic-proposal-page">
+    <div className="automatic-proposal-page" data-revision={revision}>
+      <RemediationFocusDispatcher focus={auditFocus} />
       <header className="automatic-proposal-header">
         <button type="button" className="secondary" onClick={() => navigatePage("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
@@ -201,7 +205,9 @@ export default function AutomaticProposalPage() {
               <span>2</span>
               <div>
                 <h2>Prova</h2>
-                {problem.evidence?.length ? problem.evidence.slice(0, 3).map((item, index) => <p key={`${item.source}-${index}`}><FileSearch /> <strong>{item.source}</strong> · {item.detail}</p>) : <p>La prova è disponibile nei dati dell’audit collegato.</p>}
+                {problem.evidence?.length
+                  ? problem.evidence.slice(0, 3).map((item, index) => <p key={`${item.source}-${index}`}><FileSearch /> <strong>{item.source}</strong> · {item.detail}</p>)
+                  : <p>La prova è disponibile nei dati dell’audit collegato.</p>}
               </div>
             </article>
             <article>
