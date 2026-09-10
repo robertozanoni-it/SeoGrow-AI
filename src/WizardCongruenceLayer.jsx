@@ -127,7 +127,6 @@ export default function WizardCongruenceLayer() {
     let mountedHost = null;
 
     if (!context) {
-      setHost(null);
       delete document.body.dataset.seogrowWizardContext;
       delete document.body.dataset.seogrowWizardDestination;
       return undefined;
@@ -162,7 +161,6 @@ export default function WizardCongruenceLayer() {
       cancelled = true;
       window.cancelAnimationFrame(frame);
       mountedHost?.remove();
-      setHost(null);
       delete document.body.dataset.seogrowWizardContext;
       delete document.body.dataset.seogrowWizardDestination;
     };
