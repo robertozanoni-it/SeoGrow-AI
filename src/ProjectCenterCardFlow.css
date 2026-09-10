@@ -1,0 +1,28 @@
+.project-center-card-hub:has(+ .project-center-detail-shell:not([hidden])) {
+  display: none;
+}
+
+.project-center-detail-shell:not([hidden]) {
+  animation: project-center-detail-in 160ms ease-out;
+}
+
+.project-center-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-center-card-status svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+
+@keyframes project-center-detail-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-center-detail-shell:not([hidden]) { animation: none; }
+}
