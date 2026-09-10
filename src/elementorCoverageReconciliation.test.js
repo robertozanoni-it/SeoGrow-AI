@@ -106,8 +106,21 @@ test("errori, coda residua e truncation falliscono chiusi", () => {
   }).status, "truncated");
 });
 
-test("più di 30 URL non può diventare coverage completa Elementor", () => {
-  const large = Array.from({ length: 31 }, (_, index) => `https://example.com/p-${index}/`);
+test("fino a 75 URL possono ottenere coverage completa Elementor", () => {
+  const supported = Array.from({ length: 75 }, (_, index) => `https://example.com/p-${index}/`);
+  const result = reconcileElementorCoverage({
+    siteUrl,
+    sitemapUrls: supported,
+    crawledUrls: supported,
+    discoveredUrls: supported,
+    queueDrained: true,
+    sitemapReconciled: true,
+  });
+  assert.equal(result.verified, true);
+});
+
+test("più di 75 URL non può diventare coverage completa Elementor", () => {
+  const large = Array.from({ length: 76 }, (_, index) => `https://example.com/p-${index}/`);
   const result = reconcileElementorCoverage({
     siteUrl,
     sitemapUrls: large,
