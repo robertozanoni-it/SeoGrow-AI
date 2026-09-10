@@ -13,6 +13,7 @@ import App from './App';
 import GuidedUxLayer from './GuidedUxLayer';
 import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
+import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
 import ProblemResolutionPage from './ProblemResolutionPage';
@@ -59,6 +60,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <GuidedUxLayer />
       <WizardCongruenceLayer />
       <CardWorkspaceLayer />
+      <ProjectSelectionGuard />
       <ProblemsNavBridge />
       <ProblemsWorkspace />
       <ProblemResolutionPage />
