@@ -45,7 +45,7 @@ body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] s
 }
 
 body[data-seogrow-ui-mode] .sidebar .guided-nav-label {
-  color: #8395aa !important;
+  color: #62768f !important;
   opacity: 1 !important;
 }
 
@@ -58,7 +58,7 @@ body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong {
 }
 
 body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
-  color: #73869d !important;
+  color: #62768f !important;
 }
 
 body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle svg {
