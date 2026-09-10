@@ -1,7 +1,7 @@
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v3";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v4";
 
 const normalizeUrl = (value) => {
   try {
@@ -81,7 +81,7 @@ const toReviewItem = (issue, reason) => ({
 
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
-  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 2) return data;
+  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 3) return data;
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {
@@ -142,9 +142,9 @@ const normalizeSiteAnalysis = (data) => {
   data.rawIssueCount = rawIssues.length;
   data.issues = confirmed;
   data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {
-    const key = `${item?.type || ""}|${item?.label || ""}|${normalizeUrl(item?.targetUrl || item?.url || "")}`;
+    const key = `${item?.type || ""}|${item?.label || ""}|${normalizeUrl(item?.sourceUrl || item?.url || item?.targetUrl || "")}`;
     return rows.findIndex((candidate) =>
-      `${candidate?.type || ""}|${candidate?.label || ""}|${normalizeUrl(candidate?.targetUrl || candidate?.url || "")}` === key,
+      `${candidate?.type || ""}|${candidate?.label || ""}|${normalizeUrl(candidate?.sourceUrl || candidate?.url || candidate?.targetUrl || "")}` === key,
     ) === index;
   });
 
