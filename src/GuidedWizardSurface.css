@@ -24,3 +24,9 @@ body[data-seogrow-ui-mode] .guided-step-card {
 body[data-seogrow-ui-mode] .guided-step-card.active {
   box-shadow: 0 0 0 2px rgba(18, 104, 243, 0.18) !important;
 }
+
+/* The page H1 and its named guided path are the only section headings before
+   operational cards. Remove the redundant “X · card operative” layer. */
+body[data-seogrow-ui-mode] .card-workspace-title {
+  display: none !important;
+}
