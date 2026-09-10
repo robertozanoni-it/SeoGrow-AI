@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ExternalLink, FileSearch, ShieldCheck, WandSparkles } from "lucide-react";
 import { buildUnifiedProblems } from "./problemsModel.js";
 import { normalizeAnalysisHistory } from "./platform.js";
+import { listCorrections } from "./remediationStore.js";
 import { normalizeClientId, normalizeHttpUrl, safeHttpHref } from "./reliabilityModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
@@ -37,7 +38,11 @@ const readJson = (key, fallback) => {
 };
 
 const normalizedUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
-const issueUrl = (issue, audit, client) => issue?.sourceUrl || issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
+const issueSourceUrl = (issue, audit, client) => {
+  const type = String(issue?.type || "").toLowerCase();
+  const brokenLink = /broken-(?:external-)?link/.test(type);
+  return issue?.sourceUrl || issue?.url || (!brokenLink ? issue?.targetUrl : "") || audit?.url || client?.url || "";
+};
 const auditTimestamp = (audit) => audit?.analyzedAt || audit?.startedAt || "";
 
 const matchesFocus = (problem, focus) => {
@@ -46,7 +51,7 @@ const matchesFocus = (problem, focus) => {
   return titleMatches && normalizedUrl(problem.sourceUrl) === normalizedUrl(focus.sourceUrl);
 };
 
-const findAuditFocus = ({ clientId, client, focus, pageHistory, siteHistory }) => {
+const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHistory }) => {
   if (!clientId || !client || !focus) return null;
   const pages = Array.isArray(pageHistory?.[clientId])
     ? pageHistory[clientId]
@@ -58,14 +63,18 @@ const findAuditFocus = ({ clientId, client, focus, pageHistory, siteHistory }) =
     ...pages.map((item) => ({ auditType: "page", item })),
     ...sites.map((item) => ({ auditType: "site", item })),
   ].toSorted((a, b) => Date.parse(auditTimestamp(b.item) || 0) - Date.parse(auditTimestamp(a.item) || 0));
+  const wantedType = String(problem?.issueType || "").trim().toLowerCase();
+  const wantedUrl = normalizedUrl(problem?.sourceUrl || focus.sourceUrl);
+  const wantedTitle = String(problem?.title || focus.title || "").trim().toLowerCase();
 
   for (const entry of candidates) {
     const issues = Array.isArray(entry.item?.issues) ? entry.item.issues : [];
     const issueIndex = issues.findIndex((issue) => {
+      const type = String(issue?.type || "").trim().toLowerCase();
       const title = String(issue?.label || issue?.title || issue?.type || "").trim().toLowerCase();
-      const titleMatches = !focus.title || title === String(focus.title).trim().toLowerCase();
-      const urlMatches = normalizedUrl(issueUrl(issue, entry.item, client)) === normalizedUrl(focus.sourceUrl);
-      return titleMatches && urlMatches;
+      const typeMatches = wantedType ? type === wantedType : title === wantedTitle;
+      const urlMatches = normalizedUrl(issueSourceUrl(issue, entry.item, client)) === wantedUrl;
+      return typeMatches && urlMatches;
     });
     if (issueIndex >= 0) {
       return {
@@ -101,6 +110,11 @@ function RemediationFocusDispatcher({ focus }) {
 export default function AutomaticProposalPage() {
   const [host, setHost] = useState(null);
   const [revision, setRevision] = useState(0);
+  const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [], error: "" });
+
+  const focus = readAutomaticProposalFocus();
+  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus);
+  const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -110,6 +124,8 @@ export default function AutomaticProposalPage() {
     window.addEventListener("seogrow-storage-ok", refresh);
     window.addEventListener("seogrow-automatic-proposal-open", refresh);
     window.addEventListener("seogrow-automatic-proposal-close", refresh);
+    window.addEventListener("seogrow-remediation-history", refresh);
+    window.addEventListener("seogrow-remediation-applied", refresh);
     return () => {
       window.removeEventListener("hashchange", refresh);
       window.removeEventListener("popstate", refresh);
@@ -117,11 +133,10 @@ export default function AutomaticProposalPage() {
       window.removeEventListener("seogrow-storage-ok", refresh);
       window.removeEventListener("seogrow-automatic-proposal-open", refresh);
       window.removeEventListener("seogrow-automatic-proposal-close", refresh);
+      window.removeEventListener("seogrow-remediation-history", refresh);
+      window.removeEventListener("seogrow-remediation-applied", refresh);
     };
   }, []);
-
-  const focus = readAutomaticProposalFocus();
-  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -162,23 +177,37 @@ export default function AutomaticProposalPage() {
     return () => { delete document.body.dataset.seogrowAutomaticProposal; };
   }, [active]);
 
+  useEffect(() => {
+    if (!active || !selectedClientId) return undefined;
+    let cancelled = false;
+    listCorrections({ clientId: selectedClientId })
+      .then((rows) => {
+        if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows, error: "" });
+      })
+      .catch((error) => {
+        if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows: [], error: error.message || String(error) });
+      });
+    return () => { cancelled = true; };
+  }, [active, selectedClientId, revision]);
+
   if (!active || !host?.isConnected) return null;
 
   const clients = readJson(CLIENTS_KEY, []);
-  const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
   const client = clients.find((item) => normalizeClientId(item?.id) === selectedClientId) || null;
   const tasks = readJson(TASKS_KEY, []);
   const pageHistory = readJson(PAGE_HISTORY_KEY, {});
   const siteHistory = readJson(SITE_HISTORY_KEY, {});
-  const model = client ? buildUnifiedProblems({
+  const correctionsReady = correctionSnapshot.clientId === selectedClientId;
+  const corrections = correctionsReady ? correctionSnapshot.rows : [];
+  const model = client && correctionsReady ? buildUnifiedProblems({
     clientId: client.id,
     siteHistory: siteHistory[client.id] || siteHistory[String(client.id)] || [],
     pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [],
     tasks,
-    corrections: [],
+    corrections,
   }) : { rows: [] };
   const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
-  const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, pageHistory, siteHistory });
+  const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, problem, pageHistory, siteHistory });
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
 
   const closeAndGo = (page) => {
@@ -193,7 +222,7 @@ export default function AutomaticProposalPage() {
 
   const content = (
     <div className="automatic-proposal-page" data-revision={revision}>
-      <RemediationFocusDispatcher focus={auditFocus} />
+      {auditFocus && problem?.correctability === "automatic" && <RemediationFocusDispatcher focus={auditFocus} />}
       <header className="automatic-proposal-header">
         <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
@@ -205,7 +234,18 @@ export default function AutomaticProposalPage() {
         <button type="button" className="secondary" onClick={() => closeAndGo(PROPOSAL_ROUTE_PAGE)}>Apri elenco Correzioni</button>
       </header>
 
-      {problem ? (
+      {!correctionsReady ? (
+        <section className="automatic-proposal-warning" role="status">
+          <h2>Caricamento dello stato reale</h2>
+          <p>SeoGrow sta leggendo audit, task e storico correzioni prima di preparare una nuova proposta.</p>
+        </section>
+      ) : correctionSnapshot.error ? (
+        <section className="automatic-proposal-warning" role="alert">
+          <h2>Storico correzioni non leggibile</h2>
+          <p>{correctionSnapshot.error}. Nessuna nuova proposta viene preparata finché lo stato precedente non è verificabile.</p>
+          <button type="button" className="secondary" onClick={() => setRevision((value) => value + 1)}>Riprova</button>
+        </section>
+      ) : problem ? (
         <>
           <section className="automatic-proposal-summary" aria-label="Riepilogo del problema">
             <div><small>Problema</small><strong>{problem.title}</strong></div>
@@ -230,7 +270,7 @@ export default function AutomaticProposalPage() {
             </article>
             <article>
               <span>3</span>
-              <div><h2>Proposta automatica</h2><p>Prepara l’anteprima qui sotto. SeoGrow mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong> prima dell’approvazione.</p></div>
+              <div><h2>Proposta automatica</h2><p>SeoGrow prepara l’anteprima soltanto se lo stato corrente è ancora <strong>Automatica</strong>. Prima dell’approvazione mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong>.</p></div>
             </article>
           </section>
 
@@ -245,7 +285,19 @@ export default function AutomaticProposalPage() {
                 <p>Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica.</p>
               </div>
             </div>
-            {auditFocus ? (
+            {problem.correctability !== "automatic" ? (
+              <div className="automatic-proposal-warning" role="alert">
+                <strong>La correzione automatica non è più autorizzata.</strong>
+                <p>I dati correnti classificano questo caso come {label(problem.correctability, labels.correctability)}. SeoGrow non forza una proposta automatica su uno stato cambiato.</p>
+                <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
+              </div>
+            ) : problem.problemState === "resolved" ? (
+              <div className="automatic-proposal-warning" role="status">
+                <strong>Problema già verificato come risolto.</strong>
+                <p>Lo storico correzioni conferma la risoluzione. Esegui un nuovo audit se vuoi controllare che non sia ricomparso.</p>
+                <button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button>
+              </div>
+            ) : auditFocus ? (
               <div className="proposal-remediation-slot" />
             ) : (
               <div className="automatic-proposal-warning" role="alert">
