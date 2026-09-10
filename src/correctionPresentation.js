@@ -42,6 +42,21 @@ export function correctionPresentation(item) {
     next: 'Premi “Configura OpenAI” oppure riavvia la preview: SeoGrow prova a riutilizzare in memoria la configurazione della installazione principale senza copiarne la chiave.',
   };
   if (item.status === 'generation_error') return { title: 'Generazione proposta non completata', explanation: item.reason || 'La connessione WordPress è disponibile, ma il motore di generazione non ha prodotto una proposta valida.', next: 'Controlla la causa indicata e riprova la preparazione.' };
+  if (item.status === 'stale') return {
+    title: 'Anteprima scaduta — prepara di nuovo',
+    explanation: item.reason || 'Il progetto, l’audit o il contenuto WordPress sono cambiati dopo la preparazione. SeoGrow ha invalidato la proposta per evitare una sovrascrittura.',
+    next: 'Prepara nuovamente questo problema e confronta il nuovo Prima/Dopo prima di applicarlo.',
+  };
+  if (item.status === 'error' && /ATOMIC_WRITE_UNAVAILABLE|confronto e aggiornamento atomici non garantiti|singola riga postmeta|postmeta/i.test(String(item.reason || ''))) return {
+    title: 'Applicazione bloccata dal Connector WordPress',
+    explanation: item.reason || 'La proposta è stata preparata, ma il Connector non può garantire una scrittura atomica e reversibile per questo campo.',
+    next: 'Aggiorna o reinstalla SeoGrow Connector, prepara di nuovo l’anteprima e riprova. Se il blocco resta, il campo non espone una singola riga postmeta verificabile e la modifica resta manuale.',
+  };
+  if (item.status === 'error') return {
+    title: 'Applicazione non completata',
+    explanation: item.reason || 'La proposta era stata preparata, ma WordPress non ha confermato la scrittura. SeoGrow non considera il problema risolto.',
+    next: 'Controlla la causa, prepara una nuova anteprima e applica soltanto dopo aver verificato nuovamente il Prima/Dopo.',
+  };
   return { title: 'Proposta non disponibile', explanation: item.reason || 'La preparazione non è stata completata. Nessuna modifica è stata applicata da questa preparazione.', next: 'Consulta la causa indicata e riprova dopo averla risolta.' };
 }
 export function readableCorrectionFields(item) {
