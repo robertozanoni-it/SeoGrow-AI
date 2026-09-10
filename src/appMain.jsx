@@ -13,6 +13,7 @@ import GuidedUxLayer from './GuidedUxLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
+import ProblemResolutionPage from './ProblemResolutionPage';
 import AuditWorkspace from './AuditWorkspace';
 import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
@@ -56,6 +57,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <CardWorkspaceLayer />
       <ProblemsNavBridge />
       <ProblemsWorkspace />
+      <ProblemResolutionPage />
       <AuditWorkspace />
       <RemediationRuntime />
       <CorrectionsWorkspace />
