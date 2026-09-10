@@ -9,6 +9,8 @@ import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
 import './RemediationFocusReplay';
+import './PageStartHierarchy';
+import './ExternalLinkDestinationUx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -31,6 +33,8 @@ import './CardWorkspaceVisibilityFix.css';
 import './ProjectCenterCardFlow.css';
 import './ReadableTypographyAndSidebar.css';
 import './GuidedWizardSurface.css';
+import './ExternalLinkDestinationUx.css';
+import './SidebarContrastFinal.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
