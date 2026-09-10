@@ -4,6 +4,7 @@ import './remediationIntegrity';
 import './writeRecovery';
 import './locationEvents';
 import './seoResponseIntegrity';
+import './taskClientIdIntegrity';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
