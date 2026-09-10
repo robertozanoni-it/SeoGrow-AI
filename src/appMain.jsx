@@ -6,6 +6,7 @@ import './locationEvents';
 import './seoResponseIntegrity';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
+import './AutomaticProposalNavigation';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -15,6 +16,7 @@ import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
 import ProblemResolutionPage from './ProblemResolutionPage';
+import AutomaticProposalPage from './AutomaticProposalPage';
 import AuditWorkspace from './AuditWorkspace';
 import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
@@ -60,6 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProblemsNavBridge />
       <ProblemsWorkspace />
       <ProblemResolutionPage />
+      <AutomaticProposalPage />
       <AuditWorkspace />
       <RemediationRuntime />
       <CorrectionsWorkspace />
