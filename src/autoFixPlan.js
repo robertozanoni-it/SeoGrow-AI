@@ -3,11 +3,17 @@ import { normalizeClientId } from './reliabilityModel.js';
 
 export const AUTO_FIX_LIMIT = 10;
 
+const issuePageUrl = (issue = {}, auditUrl = '', siteUrl = '') => {
+  const type = String(issue.type || '').toLowerCase();
+  const brokenLink = /broken-(?:external-)?link/.test(type);
+  return issue.sourceUrl || issue.url || (!brokenLink ? issue.targetUrl : '') || auditUrl || siteUrl || '';
+};
+
 export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
   const text = `${issue.type || ''} ${issue.label || ''} ${issue.detail || ''}`.toLowerCase();
   const manual = reason => ({ level: 'manual', reason });
   try {
-    const target = new URL(issue.targetUrl || issue.url || auditUrl || siteUrl);
+    const target = new URL(issuePageUrl(issue, auditUrl, siteUrl));
     if (isLegalPage(target.href)) return manual("Pagina privacy/GDPR esclusa dalle correzioni SEO.");
     const site = new URL(siteUrl);
     if (!['http:', 'https:'].includes(target.protocol) || target.origin !== site.origin || target.username || target.password) return manual('Destinazione esterna o non valida: verifica manuale.');
@@ -21,7 +27,9 @@ export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
 
 export function buildAutoFixPlan({ clientId, siteUrl, auditType, audit, tasks = [], clients = [] }) {
   const issues = Array.isArray(audit?.issues) ? audit.issues : [];
-  const entries = issues.map((issue, index) => ({ index, issue, ...classifyAutoFix(issue || {}, siteUrl, audit?.url) })).filter(entry => !isLegalPage(entry.issue?.url || entry.issue?.targetUrl || audit?.url || siteUrl));
+  const entries = issues
+    .map((issue, index) => ({ index, issue, ...classifyAutoFix(issue || {}, siteUrl, audit?.url) }))
+    .filter(entry => !isLegalPage(issuePageUrl(entry.issue, audit?.url, siteUrl)));
   const ids = new Set(clients.map(c => normalizeClientId(c.id)));
   const projectTasks = tasks.filter(t => normalizeClientId(t.sourceClientId) === normalizeClientId(clientId));
   const counts = new Map();
