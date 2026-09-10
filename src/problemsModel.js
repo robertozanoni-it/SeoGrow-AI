@@ -1,3 +1,4 @@
+import { isLegalPage } from "./legalPageScope.js";
 import {
   correctionEvent,
   deriveProblemState,
@@ -13,16 +14,28 @@ import {
 const timestamp = (value) => Date.parse(value || 0) || 0;
 
 const pageKindFromUrl = (value) => {
+  if (isLegalPage(value)) return "gdpr";
   try {
     const segments = new URL(value).pathname.toLowerCase().split("/").filter(Boolean);
     const first = segments[0] || "";
     if (/^(?:category|categoria|tag|author|autore|date)$/.test(first) || (first === "page" && /^\d+$/.test(segments[1] || ""))) return "archive";
     if (/^(?:contatti?|contact|contacts)$/.test(first)) return "utility";
-    if (/^(?:privacy(?:-policy)?|cookie(?:-policy)?|gdpr|termini(?:-e-condizioni)?|terms(?:-and-conditions)?|legal)$/.test(first)) return "gdpr";
     return "content";
   } catch {
     return "unknown";
   }
+};
+
+const issueSourceUrl = (issue, auditUrl = "") => {
+  const type = String(issue?.type || "").toLowerCase();
+  const brokenLink = /broken-(?:external-)?link/.test(type);
+  return issue?.sourceUrl || issue?.url || (!brokenLink ? issue?.targetUrl : "") || auditUrl || "";
+};
+
+const issueBrokenTarget = (issue) => {
+  const type = String(issue?.type || "").toLowerCase();
+  if (!/broken-(?:external-)?link/.test(type)) return "";
+  return normalizeHttpUrl(issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "", { stripSlash: false });
 };
 
 const severity = (value) => {
@@ -81,6 +94,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   title: issue?.label || issue?.type || record.issueLabel || record.issueType || "Problema SEO",
   issueType: issue?.type || record.issueType || "",
   sourceUrl,
+  targetUrls: new Set(),
   detail: issue?.detail || "",
   severity: severity(issue?.severity || record.severity),
   priority: "unknown",
@@ -94,6 +108,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   technicalError: false,
   auditScopes: new Set(),
   quality: null,
+  latestAuditAt: "",
 });
 
 const attachAlias = (groups, aliasMap, group, aliases) => {
@@ -151,20 +166,29 @@ export function buildUnifiedProblems({
   for (const { scope, item } of audits) {
     const at = item?.analyzedAt || item?.startedAt || "";
     for (const issue of Array.isArray(item?.issues) ? item.issues : []) {
-      const sourceUrl = issue?.targetUrl || issue?.url || item?.url || "";
+      const sourceUrl = issueSourceUrl(issue, item?.url || "");
+      if (isLegalPage(sourceUrl)) continue;
       const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
       const group = findOrCreate(groups, aliasMap, record, issue, sourceUrl);
+      const brokenTarget = issueBrokenTarget(issue);
+      if (brokenTarget) group.targetUrls.add(brokenTarget);
       const intentional = issue?.intentional === true;
       group.events.push({ kind: intentional ? "audit_intentional" : "audit_detected", at, source: "audit", scope });
       group.auditScopes.add(scope);
-      if (!group.detail || timestamp(at) >= timestamp(group.latestAuditAt)) group.detail = issue?.detail || group.detail;
-      if (severity(issue?.severity) !== "unknown") group.severity = severity(issue?.severity);
-      group.latestAuditAt = timestamp(at) >= timestamp(group.latestAuditAt) ? at : group.latestAuditAt;
+      const newestAudit = !group.latestAuditAt || timestamp(at) >= timestamp(group.latestAuditAt);
+      if (newestAudit) {
+        group.title = issue?.label || issue?.type || group.title;
+        group.detail = issue?.detail || group.detail;
+        const currentSeverity = severity(issue?.severity);
+        if (currentSeverity !== "unknown") group.severity = currentSeverity;
+        group.latestAuditAt = at || group.latestAuditAt;
+      }
+      const targetDetail = brokenTarget ? ` · Destinazione: ${brokenTarget}` : "";
       addSource(group, {
         label: scope === "site" ? "Audit sito" : "Audit pagina",
         kind: "audit",
         at,
-        detail: issue?.detail || issue?.label || "Rilevazione audit",
+        detail: `${issue?.detail || issue?.label || "Rilevazione audit"}${targetDetail}`,
         nature: "observed",
       });
     }
@@ -177,12 +201,17 @@ export function buildUnifiedProblems({
       continue;
     }
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
-    const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl };
+    if (isLegalPage(sourceUrl)) continue;
+    const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
     if (!group.detail) group.detail = task?.detail || task?.notes || "";
+    if (/broken-(?:external-)?link/.test(String(task?.kind || "").toLowerCase())) {
+      const target = normalizeHttpUrl(task?.targetUrl || "", { stripSlash: false });
+      if (target && target !== normalizeHttpUrl(sourceUrl, { stripSlash: false })) group.targetUrls.add(target);
+    }
     addSource(group, {
       label: "Task SeoGrow",
       kind: "task",
@@ -195,6 +224,7 @@ export function buildUnifiedProblems({
   for (const correction of Array.isArray(corrections) ? corrections : []) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
     const sourceUrl = correction?.sourceUrl || "";
+    if (isLegalPage(sourceUrl)) continue;
     const record = {
       ...correction,
       issueType: correction?.issueType,
@@ -237,6 +267,7 @@ export function buildUnifiedProblems({
       title: group.title,
       issueType: group.issueType,
       sourceUrl: group.sourceUrl,
+      targetUrls: [...group.targetUrls],
       detail: group.detail || "Dettaglio non disponibile.",
       severity: group.severity,
       priority: group.priority,
