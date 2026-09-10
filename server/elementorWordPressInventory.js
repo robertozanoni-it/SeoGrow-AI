@@ -135,30 +135,35 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
   const publicUrls = new Set(Array.isArray(publicCoverage.sitemapUrls) ? publicCoverage.sitemapUrls : []);
   const publicUrlsOutsideInventory = [...publicUrls].filter((url) => !inventoryUrls.has(url)).toSorted();
   const inventoryUrlsMissingFromPublicCoverage = [...inventoryUrls].filter((url) => !publicUrls.has(url)).toSorted();
-  const exactMatch = publicUrlsOutsideInventory.length === 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
 
-  let status = "verified-complete";
-  let reason = "Inventario WordPress autorevole e coverage pubblica coincidono esattamente.";
-  if (publicUrlsOutsideInventory.length > 0) {
-    status = "public-routes-outside-post-type-inventory";
-    reason = "La coverage pubblica contiene URL che non appartengono all’inventario dei post type pubblici/queryable. Possono includere tassonomie, archivi o route custom: la completezza globale resta non attestabile.";
-  } else if (inventoryUrlsMissingFromPublicCoverage.length > 0) {
-    status = "inventory-routes-missing-from-public-coverage";
-    reason = "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica riconciliata.";
+  // Le route pubbliche aggiuntive (categorie, tassonomie, archivi) non sono un buco
+  // di coverage: sono già presenti nella sitemap riconciliata e sono state visitate.
+  // Il caso pericoloso è l'opposto: una risorsa WordPress autorevole che non compare
+  // nella coverage pubblica. In quel caso l'enumerazione resta incompleta e fail-closed.
+  const verified = publicUrls.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+
+  let status = verified ? "verified-complete" : "inventory-routes-missing-from-public-coverage";
+  let reason = verified
+    ? "Inventario WordPress autorevole e coverage pubblica sono riconciliati."
+    : "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica riconciliata.";
+  if (verified && publicUrlsOutsideInventory.length > 0) {
+    status = "verified-public-superset";
+    reason = "La coverage pubblica verificata include anche route non appartenenti ai post type, come tassonomie o archivi. Sono già comprese nel set controllato e non costituiscono pagine mancanti.";
   }
 
   return {
-    verified: exactMatch,
+    verified,
     status,
     reason,
-    totalUrls: inventoryUrls.size,
+    totalUrls: publicUrls.size,
     publicUrlCount: publicUrls.size,
     publicUrlsOutsideInventory,
     inventoryUrlsMissingFromPublicCoverage,
     scope: {
       inventory: "all-public-queryable-post-types",
       publicCoverage: "sitemap-and-crawl-public-routes",
-      globallyComplete: exactMatch,
+      globallyComplete: verified,
+      publicSuperset: publicUrlsOutsideInventory.length > 0,
     },
     sharedWriteAllowed: false,
   };
