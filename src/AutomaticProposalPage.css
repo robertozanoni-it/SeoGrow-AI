@@ -1,5 +1,29 @@
-body[data-seogrow-automatic-proposal="true"] .workspace main > *:not(.automatic-proposal-page) {
+body[data-seogrow-automatic-proposal="true"] .workspace > main {
   display: none !important;
+}
+
+.automatic-proposal-root-host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+}
+
+body[data-seogrow-automatic-proposal="true"] .automatic-proposal-root-host {
+  display: block !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 .automatic-proposal-page {
