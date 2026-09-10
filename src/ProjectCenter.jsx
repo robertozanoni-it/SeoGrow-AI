@@ -310,7 +310,7 @@ export default function ProjectCenter({
                 <h3>{area.title}</h3>
                 <p>{area.summary}</p>
                 <span className="project-center-card-foot">
-                  <span className={`project-center-card-status ${area.positive ? "ok" : ""}`}>{area.status}</span>
+                  <span className={`project-center-card-status ${area.positive ? "ok" : ""}`}>{area.positive && <CheckCircle2 />}{area.status}</span>
                   <span className="project-center-card-open">Apri <ChevronRight /></span>
                 </span>
               </button>
