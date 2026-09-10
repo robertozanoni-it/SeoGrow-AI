@@ -1,7 +1,8 @@
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v4";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v5";
+const SCORE_POLICY_VERSION = 2;
 
 const normalizeUrl = (value) => {
   try {
@@ -21,17 +22,21 @@ const robotsExclusion = (failure) =>
     String(failure?.reason || failure?.error || ""),
   );
 
+const severityPenalty = (value) => {
+  const severity = String(value || "").trim().toLowerCase();
+  if (["alta", "high", "critical", "critica", "error"].includes(severity)) return 5;
+  if (["media", "medium", "warning", "warn"].includes(severity)) return 2;
+  return 1;
+};
+
 const scoreFromVerifiedEvidence = (data, issues, failedPages) => {
   const pages = Math.max(1, Number(data.pagesChecked || data.pages?.length || 1));
   const penalty = issues.reduce(
-    (sum, issue) => sum + (issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1),
+    (sum, issue) => sum + severityPenalty(issue?.severity),
     0,
   );
   const strongest = issues.reduce(
-    (maximum, issue) => Math.max(
-      maximum,
-      issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1,
-    ),
+    (maximum, issue) => Math.max(maximum, severityPenalty(issue?.severity)),
     0,
   );
   const normalizedPenalty = Math.round(
@@ -81,14 +86,23 @@ const toReviewItem = (issue, reason) => ({
 
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
-  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived" && data.legalScopeVersion === 3) return data;
+  const currentPolicy =
+    data.evidencePolicy === "confirmed-issues-only" &&
+    data.scoreSource === "seogrow-derived" &&
+    data.legalScopeVersion === 4 &&
+    data.scorePolicyVersion === SCORE_POLICY_VERSION;
+  if (currentPolicy) return data;
+
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {
-    if (data.legalPages.length) {
-      data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues, data.pagesFailed);
-      data.summary = data.issues.reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
-    }
+    data.pagesFailed = Array.isArray(data.failures)
+      ? data.failures.filter((failure) => !robotsExclusion(failure)).length
+      : Math.max(0, Number(data.pagesFailed || 0));
+    data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues || [], data.pagesFailed);
+    data.summary = (data.issues || []).reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
+    data.legalScopeVersion = 4;
+    data.scorePolicyVersion = SCORE_POLICY_VERSION;
     return data;
   }
 
@@ -160,6 +174,7 @@ const normalizeSiteAnalysis = (data) => {
   data.rawScore = Number.isFinite(Number(data.score)) ? Number(data.score) : null;
   data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues, operationalFailures.length);
   data.scoreSource = "seogrow-derived";
+  data.scorePolicyVersion = SCORE_POLICY_VERSION;
   data.scoreLabel = "Indice di salute tecnica SeoGrow";
   data.scoreMethodology = "Indice interno derivato dai problemi confermati e dai fallimenti del crawl; non è un voto Google.";
   data.evidencePolicy = "confirmed-issues-only";
