@@ -10,15 +10,16 @@ test("il navigatore del wizard è caricato dall'app", () => {
   assert.match(navigation, /document\.addEventListener\("click", handleWizardClick\)/);
 });
 
-test("Panoramica apre le destinazioni operative reali", () => {
+test("Panoramica apre soltanto pagine operative reali", () => {
   assert.match(navigation, /Panoramica:[\s\S]*page: "Centro progetto"/);
   assert.match(navigation, /Panoramica:[\s\S]*page: "Problemi"/);
   assert.match(navigation, /Panoramica:[\s\S]*page: "Opportunità"/);
   assert.match(navigation, /Panoramica:[\s\S]*page: "Correzioni"/);
-  assert.match(navigation, /Panoramica:[\s\S]*selector: "\.guided-next-actions"/);
+  assert.match(navigation, /Panoramica:[\s\S]*page: "Task"/);
+  assert.doesNotMatch(navigation, /selector:/);
 });
 
-test("i wizard delle pagine operative aprono dettagli, strumenti o pagine collegate", () => {
+test("i wizard delle pagine operative usano solo destinazioni page", () => {
   for (const page of [
     "Clienti",
     "Centro progetto",
@@ -38,12 +39,14 @@ test("i wizard delle pagine operative aprono dettagli, strumenti o pagine colleg
   ]) {
     assert.match(navigation, new RegExp(page.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
-  assert.match(navigation, /openFirstCardDetail/);
-  assert.match(navigation, /openProjectCard/);
-  assert.match(navigation, /runWizardStepAction/);
+  assert.match(navigation, /WIZARD_DESTINATION_PAGES/);
+  assert.match(navigation, /navigatePage\(action\.page\)/);
+  assert.doesNotMatch(navigation, /openFirstCardDetail/);
+  assert.doesNotMatch(navigation, /openProjectCard/);
+  assert.doesNotMatch(navigation, /scrollToSelector/);
 });
 
-test("anche Indietro e Successivo eseguono l'azione dello step raggiunto", () => {
+test("anche Indietro e Successivo eseguono la pagina dello step raggiunto", () => {
   assert.match(navigation, /guided-wizard-footer button/);
   assert.match(navigation, /Successivo/);
   assert.match(navigation, /runWizardStepAction\(currentPage\(\), next\)/);
