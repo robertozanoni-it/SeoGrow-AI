@@ -1,8 +1,8 @@
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v6";
-const SCORE_POLICY_VERSION = 3;
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v7";
+const SCORE_POLICY_VERSION = 4;
 
 const normalizeUrl = (value) => {
   try {
@@ -27,7 +27,7 @@ const normalizedSeverity = (value) => {
   if (["alta", "high", "critical", "critica", "error"].includes(severity)) return "alta";
   if (["media", "medium", "warning", "warn"].includes(severity)) return "media";
   if (["bassa", "low", "info", "opportunity", "opportunita", "opportunità"].includes(severity)) return "bassa";
-  return severity || "bassa";
+  return severity || "unknown";
 };
 
 const normalizedIssue = (issue) => {
