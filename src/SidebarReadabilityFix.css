@@ -1,0 +1,83 @@
+/* Final sidebar layer: loaded after legacy/responsive CSS so the guided navigation
+   stays readable without altering fallback navigation behavior. */
+body[data-seogrow-ui-mode] .sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #dce6f1 !important;
+  color: #0b2342 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+  opacity: 1 !important;
+  color: #4e6885 !important;
+  -webkit-text-fill-color: currentColor;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+  opacity: 1 !important;
+  color: inherit !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+  opacity: 1 !important;
+  color: #6f8fb2 !important;
+  stroke: currentColor !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button:hover {
+  background: #f1f7fe !important;
+  color: #1d568f !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button:hover svg {
+  color: #3978b9 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] {
+  background: #1f5489 !important;
+  color: #ffffff !important;
+  box-shadow: inset 4px 0 #1672f3;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg {
+  color: #ffffff !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label {
+  color: #8395aa !important;
+  opacity: 1 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+  color: #355575 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong {
+  color: #183b61 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
+  color: #73869d !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle svg {
+  color: #4e7195 !important;
+}
+
+/* GuidedNav already owns these entries. Legacy bridge buttons remain available
+   only to the fallback navigation and must not create duplicates here. */
+body[data-seogrow-ui-mode] .guided-nav .problems-nav-bridge-button,
+body[data-seogrow-ui-mode] .guided-nav .corrections-nav-button {
+  display: none !important;
+}
+
+@media (max-width: 1024px) {
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    color: #55799f !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg {
+    color: #ffffff !important;
+  }
+}
