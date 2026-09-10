@@ -372,7 +372,7 @@ const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store 
 const buildTaskCards = (tasks, client) => clientTasks(tasks, client)
   .map((item, index) => card({
     id: `task-${item.id || index}`,
-    date: firstDate(item.updatedAt, item.createdAt, item.due),
+    date: firstDate(item.updatedAt, item.createdAt, item.completedAt, item.due),
     title: item.title || "Task SEO",
     subtitle: `${item.status || "Da fare"} · priorità ${item.priority || "—"}`,
     kind: "task",
