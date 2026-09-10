@@ -6,7 +6,12 @@ import { normalizeAnalysisHistory } from "./platform.js";
 import { normalizeClientId, normalizeHttpUrl, safeHttpHref } from "./reliabilityModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
-import { PROPOSAL_FOCUS_KEY, PROPOSAL_PAGE } from "./AutomaticProposalNavigation.js";
+import {
+  PROPOSAL_PAGE,
+  PROPOSAL_ROUTE_PAGE,
+  clearAutomaticProposalFocus,
+  readAutomaticProposalFocus,
+} from "./AutomaticProposalNavigation.js";
 import "./AutomaticProposalPage.css";
 
 const CLIENTS_KEY = "seogrow-clients";
@@ -28,15 +33,6 @@ const readJson = (key, fallback) => {
     return JSON.parse(localStorage.getItem(key)) ?? fallback;
   } catch {
     return fallback;
-  }
-};
-
-const readFocus = () => {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(PROPOSAL_FOCUS_KEY) || "null");
-    return value && typeof value === "object" ? value : null;
-  } catch {
-    return null;
   }
 };
 
@@ -96,36 +92,42 @@ function RemediationFocusDispatcher({ focus }) {
     if (!serialized) return undefined;
     const timer = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent("seogrow-remediation-open", { detail: JSON.parse(serialized) }));
-    }, 180);
+    }, 220);
     return () => window.clearTimeout(timer);
   }, [serialized]);
   return null;
 }
 
 export default function AutomaticProposalPage() {
-  const [active, setActive] = useState(currentPage() === PROPOSAL_PAGE);
   const [host, setHost] = useState(null);
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    const refresh = () => {
-      setActive(currentPage() === PROPOSAL_PAGE);
-      setRevision((value) => value + 1);
-    };
+    const refresh = () => setRevision((value) => value + 1);
     window.addEventListener("hashchange", refresh);
     window.addEventListener("popstate", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-storage-ok", refresh);
+    window.addEventListener("seogrow-automatic-proposal-open", refresh);
+    window.addEventListener("seogrow-automatic-proposal-close", refresh);
     return () => {
       window.removeEventListener("hashchange", refresh);
       window.removeEventListener("popstate", refresh);
       window.removeEventListener("seogrow-locationchange", refresh);
       window.removeEventListener("seogrow-storage-ok", refresh);
+      window.removeEventListener("seogrow-automatic-proposal-open", refresh);
+      window.removeEventListener("seogrow-automatic-proposal-close", refresh);
     };
   }, []);
 
+  const focus = readAutomaticProposalFocus();
+  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus);
+
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active) {
+      setHost(null);
+      return undefined;
+    }
     let cancelled = false;
     let frame = 0;
     let attempts = 0;
@@ -156,7 +158,6 @@ export default function AutomaticProposalPage() {
 
   if (!active || !host) return null;
 
-  const focus = readFocus();
   const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
   const client = clients.find((item) => normalizeClientId(item?.id) === selectedClientId) || null;
@@ -174,17 +175,28 @@ export default function AutomaticProposalPage() {
   const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, pageHistory, siteHistory });
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
 
+  const closeAndGo = (page) => {
+    clearAutomaticProposalFocus();
+    window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
+    if (page === PROPOSAL_ROUTE_PAGE) {
+      setRevision((value) => value + 1);
+      return;
+    }
+    navigatePage(page);
+  };
+
   const content = (
     <div className="automatic-proposal-page" data-revision={revision}>
       <RemediationFocusDispatcher focus={auditFocus} />
       <header className="automatic-proposal-header">
-        <button type="button" className="secondary" onClick={() => navigatePage("Problemi")}><ArrowLeft /> Torna ai problemi</button>
+        <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
           <span className="automatic-proposal-kicker"><WandSparkles /> Correzione automatica</span>
-          <h1>Proposta correzione</h1>
+          <h1>{PROPOSAL_PAGE}</h1>
           <p>{problem?.title || focus?.title || "Problema SEO"}</p>
           <small>{problem?.sourceUrl || focus?.sourceUrl || "URL non disponibile"}</small>
         </div>
+        <button type="button" className="secondary" onClick={() => closeAndGo(PROPOSAL_ROUTE_PAGE)}>Apri elenco Correzioni</button>
       </header>
 
       {problem ? (
@@ -212,7 +224,7 @@ export default function AutomaticProposalPage() {
             </article>
             <article>
               <span>3</span>
-              <div><h2>Proposta automatica</h2><p>Prepara l’anteprima qui sotto. SeoGrow mostrerà sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong> prima di permettere l’approvazione.</p></div>
+              <div><h2>Proposta automatica</h2><p>Prepara l’anteprima qui sotto. SeoGrow mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong> prima dell’approvazione.</p></div>
             </article>
           </section>
 
@@ -233,7 +245,7 @@ export default function AutomaticProposalPage() {
               <div className="automatic-proposal-warning" role="alert">
                 <strong>Audit sorgente non individuato con certezza.</strong>
                 <p>Il problema resta visibile, ma SeoGrow non apre una proposta automatica su un audit diverso da quello che ha generato l’evidenza.</p>
-                <button type="button" className="secondary" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>
+                <button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button>
               </div>
             )}
           </section>
@@ -242,7 +254,7 @@ export default function AutomaticProposalPage() {
         <section className="automatic-proposal-warning" role="alert">
           <h2>Problema non più disponibile</h2>
           <p>Il problema selezionato non coincide più con i dati correnti del progetto. Torna a Problemi e selezionalo di nuovo.</p>
-          <button type="button" className="secondary" onClick={() => navigatePage("Problemi")}>Torna ai problemi</button>
+          <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
         </section>
       )}
     </div>
