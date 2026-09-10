@@ -1,6 +1,7 @@
 import { budgetedOpenAiFetch } from "./openAiBudget.js";
 import { countVisibleWords, shortContentTarget } from "./wordpressContentTarget.js";
 import { validateSeoSuggestion } from "../src/editorialQuality.js";
+import { deterministicDuplicateTitle } from "./deterministicSeoTitle.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressPatchV2Hook");
 const RATE = new Map();
@@ -163,6 +164,25 @@ async function aiValueWithQuality(kind, issue, page) {
   return { value, quality };
 }
 
+const canUseDuplicateTitleFallback = (error) => {
+  if (!process.env.OPENAI_API_KEY) return true;
+  if (error?.code === "EDITORIAL_REVIEW_REQUIRED") return true;
+  const message = String(error?.message || "");
+  return /non ha restituito (?:una patch|JSON)|schema della patch.*non è valido|non ha completato integralmente/i.test(message);
+};
+
+const duplicateTitleFallback = (page, issue) => {
+  const value = deterministicDuplicateTitle(page, issue);
+  if (!value) return null;
+  const quality = validateSeoSuggestion("title", value, page);
+  if (!quality.publishable) return null;
+  return {
+    changes: { title: value },
+    deterministic: true,
+    quality: { ...quality, deterministic: true, source: "url-slug" },
+  };
+};
+
 async function generatePatch(body) {
   const kind = remediationKind(body?.topic);
   if (!kind) throw new Error("Tipo di remediation AI non riconosciuto.");
@@ -177,7 +197,21 @@ async function generatePatch(body) {
     return { changes: { content: next }, deterministic: true, quality: { publishable: true, deterministic: true } };
   }
 
-  let generated = await aiValueWithQuality(kind, issue, page);
+  if (kind === "title" && !process.env.OPENAI_API_KEY) {
+    const fallback = duplicateTitleFallback(page, issue);
+    if (fallback) return fallback;
+  }
+
+  let generated;
+  try {
+    generated = await aiValueWithQuality(kind, issue, page);
+  } catch (error) {
+    if (kind === "title" && canUseDuplicateTitleFallback(error)) {
+      const fallback = duplicateTitleFallback(page, issue);
+      if (fallback) return fallback;
+    }
+    throw error;
+  }
   let value = generated.value;
   let quality = generated.quality;
 
