@@ -1,0 +1,17 @@
+.saved-correction-details { margin: 20px 0; padding: clamp(18px, 2vw, 30px); border: 1px solid #b9cbd9; border-radius: 18px; background: #fff; color: #19344b; min-width: 0; }
+.saved-correction-details h2, .saved-correction-details h3, .saved-correction-details h4 { margin: 0 0 12px; line-height: 1.35; }
+.saved-correction-details p { margin: 10px 0; line-height: 1.65; overflow-wrap: anywhere; }
+.saved-correction-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.saved-correction-status { padding: 8px 14px; background: #e7edf3; border-radius: 10px; }
+.saved-correction-url { display: inline-flex; gap: 8px; align-items: flex-start; max-width: 100%; overflow-wrap: anywhere; text-decoration: underline; }
+.saved-correction-url svg, .saved-correction-actions svg { flex-shrink: 0; width: 20px; height: 20px; }
+.saved-correction-field { margin-top: 24px; min-width: 0; }
+.saved-correction-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.saved-correction-diff > section { padding: 20px; border: 1px solid #c8dbea; background: #edf5fc; border-radius: 12px; min-width: 0; }
+.saved-correction-diff > section:nth-child(2) { background: #edf8f2; border-color: #bfdccc; }
+.saved-correction-details pre { margin: 0; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font: inherit; line-height: 1.65; max-height: none; background: transparent; color: inherit; }
+.saved-correction-verification { margin-top: 24px; padding-top: 22px; border-top: 1px solid #cad5df; }
+.saved-correction-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.saved-correction-actions > * { display: inline-flex; gap: 8px; align-items: center; justify-content: center; min-height: 48px; white-space: normal; }
+.saved-correction-help { padding-top: 18px; border-top: 1px solid #dde5ec; color: #4d6377; }
+@media (max-width: 760px) { .saved-correction-diff { grid-template-columns: 1fr; } .saved-correction-actions > * { width: 100%; } }
