@@ -8,6 +8,7 @@ import {
 
 const ROUTE = "/api/wordpress/elementor-public-coverage";
 const MAX_SITEMAPS = 10;
+const COVERAGE_CONCURRENCY = 3;
 
 const sameSiteUrl = (value, siteUrl) => normalizeCoverageUrl(value, siteUrl);
 
@@ -99,17 +100,24 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
   const discoveredUrls = new Set(candidateUrls);
   const failures = [...sitemap.failures];
 
-  for (const url of candidateUrls) {
-    try {
-      const html = await fetchText(url, { maxBytes: 8 * 1024 * 1024, timeout: 15_000 });
-      crawledUrls.push(url);
-      for (const discovered of extractInternalLinks(html, url, normalizedSite)) {
-        discoveredUrls.add(discovered);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(COVERAGE_CONCURRENCY, candidateUrls.length) }, async () => {
+      while (cursor < candidateUrls.length) {
+        const url = candidateUrls[cursor];
+        cursor += 1;
+        try {
+          const html = await fetchText(url, { maxBytes: 8 * 1024 * 1024, timeout: 15_000 });
+          crawledUrls.push(url);
+          for (const discovered of extractInternalLinks(html, url, normalizedSite)) {
+            discoveredUrls.add(discovered);
+          }
+        } catch (error) {
+          failures.push({ url, reason: error?.message || "Pagina non ispezionabile" });
+        }
       }
-    } catch (error) {
-      failures.push({ url, reason: error?.message || "Pagina non ispezionabile" });
-    }
-  }
+    }),
+  );
 
   const reconciliation = reconcileElementorCoverage({
     siteUrl: normalizedSite,
