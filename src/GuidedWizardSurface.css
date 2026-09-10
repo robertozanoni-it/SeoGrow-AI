@@ -1,10 +1,10 @@
 /* Distinguish the full guided-workflow section from the rest of each page.
    Cards keep their blue/mint alternation; the outer wizard surface uses a
-   deliberately stronger neutral grey for clearer visual separation. */
+   stronger neutral grey for clearer visual separation. */
 body[data-seogrow-ui-mode] .guided-page-wizard {
-  background: #e7ebef !important;
-  border-color: #c4ced8 !important;
-  box-shadow: 0 9px 26px rgba(20, 42, 68, 0.055) !important;
+  background: #d7dde3 !important;
+  border-color: #b4bec8 !important;
+  box-shadow: 0 10px 28px rgba(20, 42, 68, 0.065) !important;
 }
 
 body[data-seogrow-ui-mode] .guided-wizard-head,
@@ -14,7 +14,7 @@ body[data-seogrow-ui-mode] .guided-wizard-cards {
 }
 
 body[data-seogrow-ui-mode] .guided-wizard-footer {
-  border-top-color: #cdd5dd !important;
+  border-top-color: #c0c8d0 !important;
 }
 
 body[data-seogrow-ui-mode] .guided-step-card {
@@ -22,5 +22,5 @@ body[data-seogrow-ui-mode] .guided-step-card {
 }
 
 body[data-seogrow-ui-mode] .guided-step-card.active {
-  box-shadow: 0 0 0 2px rgba(18, 104, 243, 0.16) !important;
+  box-shadow: 0 0 0 2px rgba(18, 104, 243, 0.18) !important;
 }
