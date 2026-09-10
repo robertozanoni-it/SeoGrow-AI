@@ -1,8 +1,8 @@
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v5";
-const SCORE_POLICY_VERSION = 2;
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v6";
+const SCORE_POLICY_VERSION = 3;
 
 const normalizeUrl = (value) => {
   try {
@@ -22,10 +22,30 @@ const robotsExclusion = (failure) =>
     String(failure?.reason || failure?.error || ""),
   );
 
-const severityPenalty = (value) => {
+const normalizedSeverity = (value) => {
   const severity = String(value || "").trim().toLowerCase();
-  if (["alta", "high", "critical", "critica", "error"].includes(severity)) return 5;
-  if (["media", "medium", "warning", "warn"].includes(severity)) return 2;
+  if (["alta", "high", "critical", "critica", "error"].includes(severity)) return "alta";
+  if (["media", "medium", "warning", "warn"].includes(severity)) return "media";
+  if (["bassa", "low", "info", "opportunity", "opportunita", "opportunità"].includes(severity)) return "bassa";
+  return severity || "bassa";
+};
+
+const normalizedIssue = (issue) => {
+  if (!issue || typeof issue !== "object" || Array.isArray(issue)) return issue;
+  const type = String(issue.type || "").toLowerCase();
+  const brokenLink = /broken-(?:external-)?link/.test(type);
+  const pageUrl = issue.url || issue.sourceUrl || (!brokenLink ? issue.targetUrl : "") || "";
+  return {
+    ...issue,
+    severity: normalizedSeverity(issue.severity),
+    ...(pageUrl && !issue.url ? { url: pageUrl } : {}),
+  };
+};
+
+const severityPenalty = (value) => {
+  const severity = normalizedSeverity(value);
+  if (severity === "alta") return 5;
+  if (severity === "media") return 2;
   return 1;
 };
 
@@ -96,6 +116,8 @@ const normalizeSiteAnalysis = (data) => {
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {
+    data.issues = (Array.isArray(data.issues) ? data.issues : []).map(normalizedIssue);
+    data.reviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map(normalizedIssue);
     data.pagesFailed = Array.isArray(data.failures)
       ? data.failures.filter((failure) => !robotsExclusion(failure)).length
       : Math.max(0, Number(data.pagesFailed || 0));
@@ -135,7 +157,7 @@ const normalizeSiteAnalysis = (data) => {
   data.pagesFailed = operationalFailures.length;
   data.crawlExclusions = exclusions;
 
-  const rawIssues = Array.isArray(data.issues) ? data.issues : [];
+  const rawIssues = (Array.isArray(data.issues) ? data.issues : []).map(normalizedIssue);
   const filtered = rawIssues.filter((issue) => {
     if (issueLooksTransientLink(issue)) return false;
     const target = normalizeUrl(issue?.targetUrl || "");
@@ -152,7 +174,7 @@ const normalizeSiteAnalysis = (data) => {
     else confirmed.push({ ...issue, diagnosisState: issue?.diagnosisState || "confirmed" });
   }
 
-  const previousReviewItems = Array.isArray(data.reviewItems) ? data.reviewItems : [];
+  const previousReviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map(normalizedIssue);
   data.rawIssueCount = rawIssues.length;
   data.issues = confirmed;
   data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {
