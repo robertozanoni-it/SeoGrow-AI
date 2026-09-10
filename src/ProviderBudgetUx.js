@@ -18,48 +18,22 @@ export function providerBudgetHealth(status = {}, config = {}) {
   const committed = spent + reserved;
 
   if (!configured) return {
-    tone: "missing",
-    label: "Credenziali mancanti",
-    detail: "Configura il provider prima di usare funzioni a pagamento.",
-    spent,
-    reserved,
-    budget: validBudget ? budget : null,
-    remaining: validBudget && budget > 0 ? Math.max(0, budget - committed) : null,
-    percent: 0,
-    explicit,
+    tone: "missing", label: "Credenziali mancanti", detail: "Configura il provider prima di usare funzioni a pagamento.",
+    spent, reserved, budget: validBudget ? budget : null, remaining: validBudget && budget > 0 ? Math.max(0, budget - committed) : null, percent: 0, explicit,
   };
   if (!validBudget) return {
-    tone: "danger",
-    label: "Budget non valido",
-    detail: "Correggi il limite mensile nel file .env.",
-    spent,
-    reserved,
-    budget: null,
-    remaining: null,
-    percent: 0,
-    explicit,
+    tone: "danger", label: "Budget non valido", detail: "Correggi il limite mensile nel file .env.",
+    spent, reserved, budget: null, remaining: null, percent: 0, explicit,
   };
   if (!explicit) return {
-    tone: "missing",
-    label: "Budget non impostato nel .env",
+    tone: "missing", label: "Budget non impostato nel .env",
     detail: `SeoGrow sta usando il limite di sicurezza predefinito ${money(budget)}. Imposta esplicitamente il budget mensile.`,
-    spent,
-    reserved,
-    budget,
-    remaining: budget > 0 ? Math.max(0, budget - committed) : null,
-    percent: budget > 0 ? Math.min(100, committed / budget * 100) : 0,
-    explicit,
+    spent, reserved, budget, remaining: budget > 0 ? Math.max(0, budget - committed) : null,
+    percent: budget > 0 ? Math.min(100, committed / budget * 100) : 0, explicit,
   };
   if (budget === 0) return {
-    tone: "warning",
-    label: "Nessun tetto mensile",
-    detail: "Il budget è impostato a 0: il blocco mensile per costo è disattivato.",
-    spent,
-    reserved,
-    budget,
-    remaining: null,
-    percent: 0,
-    explicit,
+    tone: "warning", label: "Nessun tetto mensile", detail: "Il budget è impostato a 0: il blocco mensile per costo è disattivato.",
+    spent, reserved, budget, remaining: null, percent: 0, explicit,
   };
   const remaining = Math.max(0, budget - committed);
   const percent = Math.min(100, committed / budget * 100);
@@ -83,6 +57,11 @@ const line = (label, value) => {
 
 const renderBudget = (panel, name, health) => {
   let root = panel.querySelector(`.provider-budget-status[data-provider="${name}"]`);
+  const fingerprint = JSON.stringify([
+    health.tone, health.label, health.detail, health.spent, health.reserved,
+    health.budget, health.remaining, Math.round(Number(health.percent || 0) * 100) / 100,
+  ]);
+  if (root?.dataset.fingerprint === fingerprint) return false;
   if (!root) {
     root = document.createElement("section");
     root.className = "provider-budget-status";
@@ -92,6 +71,7 @@ const renderBudget = (panel, name, health) => {
     if (note) note.insertAdjacentElement("afterend", root);
     else panel.appendChild(root);
   }
+  root.dataset.fingerprint = fingerprint;
   root.className = `provider-budget-status ${health.tone}`;
   root.replaceChildren();
 
@@ -119,6 +99,7 @@ const renderBudget = (panel, name, health) => {
   const copy = document.createElement("p");
   copy.textContent = health.detail;
   root.append(head, metrics, progress, copy);
+  return true;
 };
 
 const loadJson = async (path) => {
@@ -142,14 +123,8 @@ export async function refreshProviderBudgets() {
         renderBudget(panel, name, providerBudgetHealth(status, config[provider.configKey]));
       } catch (error) {
         renderBudget(panel, name, {
-          tone: "danger",
-          label: "Controllo budget non disponibile",
-          detail: error.message || String(error),
-          spent: 0,
-          reserved: 0,
-          budget: null,
-          remaining: null,
-          percent: 0,
+          tone: "danger", label: "Controllo budget non disponibile", detail: error.message || String(error),
+          spent: 0, reserved: 0, budget: null, remaining: null, percent: 0,
         });
       }
     }));
@@ -158,14 +133,8 @@ export async function refreshProviderBudgets() {
     for (const [name, panel] of Object.entries(panels)) {
       if (!panel) continue;
       renderBudget(panel, name, {
-        tone: "danger",
-        label: "Configurazione budget non leggibile",
-        detail: error.message || String(error),
-        spent: 0,
-        reserved: 0,
-        budget: null,
-        remaining: null,
-        percent: 0,
+        tone: "danger", label: "Configurazione budget non leggibile", detail: error.message || String(error),
+        spent: 0, reserved: 0, budget: null, remaining: null, percent: 0,
       });
     }
     return false;
