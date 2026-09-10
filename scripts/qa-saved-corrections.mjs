@@ -107,6 +107,8 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     } finally {
       await evaluate("(async()=>{const m=await import('/src/AutomaticProposalNavigation.js');m.clearAutomaticProposalFocus();window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-close'))})()");
       await write('seogrow-selected-client-v1',clientId);
+      await evaluate(`(()=>{const e=document.querySelector('.client-select select');if(e&&String(e.value)!==${JSON.stringify(String(clientId))}){e.value=${JSON.stringify(String(clientId))};e.dispatchEvent(new Event('change',{bubbles:true}))}})()`);
+      await waitFor(`document.querySelector('.client-select select')?.value===${JSON.stringify(String(clientId))}`,'Restore selected client UI after isolation check');
       await write(siteKey,sites); await write(pageKey,pages); await write(profileKey,profiles);
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(oldRecords)})})()`);
       await revisit('Centro progetto');
