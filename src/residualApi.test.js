@@ -9,8 +9,20 @@ function setWindow(t, value) {
  t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
 }
 
+function setLocalStorage(t) {
+ const previous = globalThis.localStorage;
+ const values = new Map();
+ globalThis.localStorage = {
+   getItem: key => values.get(String(key)) ?? null,
+   setItem: (key, value) => values.set(String(key), String(value)),
+   removeItem: key => values.delete(String(key)),
+ };
+ t.after(() => { if (previous === undefined) delete globalThis.localStorage; else globalThis.localStorage = previous; });
+}
+
 test('numeric permalink is inspected instead of assumed to be pagination', async t => {
  let calls = 0;
+ setLocalStorage(t);
  workspaceStorage.setItem('seogrow-selected-client-v1', JSON.stringify(1));
  t.after(() => workspaceStorage.removeItem('seogrow-selected-client-v1'));
  setWindow(t, { location: { href: 'http://localhost/' }, setTimeout, clearTimeout, fetch: async () => { calls++; return Response.json({ ok: true }); } });
