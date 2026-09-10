@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { apiFetch } from './api.js';
+import { apiFetch, apiTimeoutMs } from './api.js';
 import { workspaceStorage } from './workspaceDatabase.js';
 
 function setWindow(t, value) {
@@ -34,4 +34,10 @@ test('explicit cancellation does not trigger an extra GET attempt', async t => {
  setWindow(t, { location: { href: 'http://localhost/' }, setTimeout, clearTimeout, fetch: async () => { calls++; controller.abort(); throw new DOMException('cancelled', 'AbortError'); } });
  await assert.rejects(apiFetch('/api/health', { signal: controller.signal }), /annullata/);
  assert.equal(calls, 1);
+});
+
+test('Elementor coverage has a dedicated long timeout without changing normal requests', () => {
+ assert.equal(apiTimeoutMs('/api/wordpress/elementor-coverage-attest'), 420_000);
+ assert.equal(apiTimeoutMs('/api/site-analysis'), 210_000);
+ assert.equal(apiTimeoutMs('/api/health'), 120_000);
 });
