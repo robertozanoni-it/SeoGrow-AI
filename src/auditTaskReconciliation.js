@@ -22,6 +22,18 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
     const reappeared = previous.status === 'Completato';
     next[index] = {
       ...previous,
+      // Keep user-owned workflow fields (id, notes, due, current status) but
+      // refresh every audit-owned field from the latest evidence. Otherwise a
+      // task can display stale severity/title/URL while the Problems view is
+      // already showing the new audit.
+      title: task.title,
+      client: task.client,
+      sourceClientId: task.sourceClientId,
+      priority: task.priority,
+      kind: task.kind,
+      targetUrl: task.targetUrl,
+      sourceUrl: task.sourceUrl,
+      linkLabel: task.linkLabel,
       detail: task.detail,
       lastObservedAt: observedAt,
       ...(reappeared ? {
