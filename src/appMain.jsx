@@ -12,6 +12,7 @@ import './RemediationFocusReplay';
 import './PageStartHierarchy';
 import './ExternalLinkDestinationUx';
 import './ProviderBudgetUx';
+import './ProposalBeforeAfterLinks';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
