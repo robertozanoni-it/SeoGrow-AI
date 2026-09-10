@@ -130,6 +130,14 @@ export const withExplicitWordPressSiteUrl = (path, init) => {
   }
 };
 
+export const apiTimeoutMs = (input) => {
+  const value = String(input || "");
+  if (value.includes("/api/dataforseo/")) return 960_000;
+  if (value.includes("/api/wordpress/elementor-coverage-attest")) return 420_000;
+  if (value.includes("/api/site-analysis")) return 210_000;
+  return 120_000;
+};
+
 export async function apiFetch(input, init = {}) {
   const method = String(init.method || "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
@@ -150,11 +158,7 @@ export async function apiFetch(input, init = {}) {
   try {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const controller = new AbortController();
-      const timeoutMs = inputText.includes("/api/dataforseo/")
-        ? 960_000
-        : inputText.includes("/api/site-analysis")
-          ? 210_000
-          : 120_000;
+      const timeoutMs = apiTimeoutMs(inputText);
       const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
       const signals = [controller.signal];
       if (preparedInit.signal) signals.push(preparedInit.signal);
