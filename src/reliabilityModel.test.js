@@ -18,6 +18,26 @@ test("Completato non equivale a Verificato e Non verificato non contiene Verific
   assert.equal(exactProblemStatus("Verificato"), "verified");
 });
 
+test("gli stati di correzione mantengono preparazione, approvazione e applicazione distinti", () => {
+  assert.equal(exactProblemStatus("Pronto"), "prepared");
+  assert.equal(exactProblemStatus("Approvato"), "approved");
+  assert.equal(exactProblemStatus("Esito incerto"), "needs_verification");
+
+  const approved = correctionEvent({
+    status: "Approvato",
+    preparedAt: "2026-09-05T09:00:00Z",
+    approvedAt: "2026-09-05T09:30:00Z",
+  });
+  assert.equal(approved.kind, "correction_approved");
+  assert.equal(approved.at, "2026-09-05T09:30:00Z");
+
+  const uncertain = correctionEvent({
+    status: "Esito incerto",
+    appliedAt: "2026-09-05T10:00:00Z",
+  });
+  assert.equal(uncertain.kind, "correction_applied");
+});
+
 test("una task completata non risolve il problema SEO", () => {
   const state = deriveProblemState([
     { kind: "audit_detected", at: "2026-09-05T09:00:00Z" },
