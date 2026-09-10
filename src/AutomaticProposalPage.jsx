@@ -124,10 +124,7 @@ export default function AutomaticProposalPage() {
   const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus);
 
   useEffect(() => {
-    if (!active) {
-      setHost(null);
-      return undefined;
-    }
+    if (!active) return undefined;
     let cancelled = false;
     let frame = 0;
     let attempts = 0;
