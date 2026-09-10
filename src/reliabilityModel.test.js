@@ -4,6 +4,7 @@ import {
   correctionEvent,
   deriveProblemState,
   exactProblemStatus,
+  issueCorrectability,
   issueIdentity,
   latestAudit,
   normalizeClientId,
@@ -107,4 +108,10 @@ test("l'ultimo audit dipende dalla data e non dall'ordine array", () => {
   ];
   assert.equal(latestAudit(entries).type, "page");
   assert.equal(latestAudit(entries, { scope: "site" }).item.analyzedAt, "2026-09-05T09:00:00Z");
+});
+
+test("una pagina GDPR non è mai classificata come correzione automatica SEO", () => {
+  const issue = { type: "title", label: "Title mancante", detail: "Title da correggere" };
+  assert.equal(issueCorrectability(issue, { pageKind: "gdpr" }), "not_supported");
+  assert.equal(issueCorrectability(issue, { pageKind: "content" }), "automatic");
 });
