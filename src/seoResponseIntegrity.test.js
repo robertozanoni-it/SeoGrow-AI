@@ -28,7 +28,7 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.equal(result.pagesFailed, 0);
   assert.equal(result.crawlExclusions.length, 1);
   assert.equal(result.legalScopeVersion, 4);
-  assert.equal(result.scorePolicyVersion, 2);
+  assert.equal(result.scorePolicyVersion, 3);
 });
 
 test("canonical differente e noindex restano segnali da confermare e non penalizzano lo score", () => {
@@ -61,12 +61,29 @@ test("canonical rotta 404 rimane problema confermato", () => {
   assert.equal(result.reviewItems.length, 0);
 });
 
-test("severity inglesi e italiane producono la stessa penalità", () => {
+test("severity inglesi e italiane convergono prima di score e task derivati", () => {
   const italian = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "alta", label: "Title mancante" }] });
   const english = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "high", label: "Missing title" }] });
   const critical = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "critical", label: "Missing title" }] });
   assert.equal(english.score, italian.score);
   assert.equal(critical.score, italian.score);
+  assert.equal(english.issues[0].severity, "alta");
+  assert.equal(critical.issues[0].severity, "alta");
+});
+
+test("sourceUrl diventa fallback della pagina del problema senza confondere il target di un link rotto", () => {
+  const content = normalizeSiteAnalysis({
+    pagesChecked: 1,
+    issues: [{ type: "title", severity: "media", label: "Title corto", sourceUrl: "https://example.com/pagina/" }],
+  });
+  assert.equal(content.issues[0].url, "https://example.com/pagina/");
+
+  const broken = normalizeSiteAnalysis({
+    pagesChecked: 1,
+    brokenLinks: [{ url: "https://example.com/manca", status: 404, sources: [] }],
+    issues: [{ type: "broken-link", severity: "alta", label: "Link rotto", targetUrl: "https://example.com/manca", detail: "HTTP 404" }],
+  });
+  assert.equal(broken.issues[0].url, undefined);
 });
 
 test("fallimenti e link provenienti solo da pagine legali non contaminano lo score SEO", () => {
@@ -149,10 +166,12 @@ test("uno storico già normalizzato viene ricalcolato con scope legale e score c
   });
 
   assert.equal(result.legalScopeVersion, 4);
-  assert.equal(result.scorePolicyVersion, 2);
+  assert.equal(result.scorePolicyVersion, 3);
   assert.equal(result.pagesChecked, 1);
   assert.equal(result.pagesFailed, 0);
   assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
+  assert.equal(result.issues[0].severity, "alta");
+  assert.equal(result.issues[0].url, "https://example.com/articolo/");
   assert.equal(result.legalPages[0]?.url, "https://example.com/privacy-policy/");
   assert.equal(result.summary["broken-link"], 1);
   assert.equal(result.score, 95);
