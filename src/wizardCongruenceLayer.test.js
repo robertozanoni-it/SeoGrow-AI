@@ -16,14 +16,22 @@ test("ogni card rende esplicita la pagina di destinazione", () => {
   assert.match(layer, /Stai eseguendo/);
 });
 
+test("ogni percorso guidato prende il nome della pagina corrente", () => {
+  assert.match(layer, /Percorso guidato \$\{page\}/);
+  assert.match(layer, /guided-page-wizard \.guided-wizard-head h2/);
+});
+
 test("la pagina aperta riceve il contesto dello step selezionato", () => {
   assert.match(layer, /context\.label/);
   assert.match(layer, /context\.detail/);
   assert.match(layer, /context\.destinationPage/);
   assert.match(layerCss, /project-center-card-hub-head/);
-  assert.match(layerCss, /card-workspace-title/);
   assert.match(main, /WizardCongruenceLayer/);
   assert.match(main, /<WizardCongruenceLayer \/>/);
+});
+
+test("le intestazioni tecniche card operative sono eliminate dalla gerarchia visuale", () => {
+  assert.match(wizardCss, /\.card-workspace-title\s*\{\s*display:\s*none\s*!important/);
 });
 
 test("le destinazioni più ambigue sono allineate al modulo che esegue l'azione", () => {
@@ -37,7 +45,7 @@ test("le destinazioni più ambigue sono allineate al modulo che esegue l'azione"
   assert.equal(wizardStepAction("Impostazioni", 3).page, "Impostazioni");
 });
 
-test("il fondo del percorso guidato usa un grigio sensibilmente più marcato", () => {
-  assert.match(wizardCss, /background:\s*#e7ebef\s*!important/);
-  assert.match(wizardCss, /border-color:\s*#c4ced8\s*!important/);
+test("il fondo del percorso guidato usa il grigio marcato approvato", () => {
+  assert.match(wizardCss, /background:\s*#d7dde3\s*!important/);
+  assert.match(wizardCss, /border-color:\s*#b4bec8\s*!important/);
 });
