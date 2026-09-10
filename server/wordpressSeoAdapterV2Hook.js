@@ -3,6 +3,7 @@ import {
   assertPublishableSeoSuggestion,
   validateSeoSuggestion,
 } from "../src/editorialQuality.js";
+import { deterministicDuplicateTitle } from "./deterministicSeoTitle.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressSeoAdapterV2Hook");
 const RATE = new Map();
@@ -141,16 +142,43 @@ async function requestValue(kind, issue, context, retry, qualityFeedback = "") {
   return parseStructuredValue(collectOutputText(data));
 }
 
-async function generateValue(kind, issue, page) {
-  if (!process.env.OPENAI_API_KEY)
-    throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
+const deterministicSeoTitleFallback = (page, issue) => {
+  const value = deterministicDuplicateTitle(page, issue);
+  if (!value) return null;
+  const quality = validateSeoSuggestion("seo_title", value, page);
+  if (!quality.publishable) return null;
+  return { value, quality: { ...quality, deterministic: true, source: "url-slug" }, deterministicFallback: true };
+};
 
+const canUseDuplicateTitleFallback = (error) => {
+  if (!process.env.OPENAI_API_KEY) return true;
+  if (error?.code === "EDITORIAL_REVIEW_REQUIRED") return true;
+  const message = String(error?.message || "");
+  return /non ha restituito (?:il valore SEO|un valore SEO strutturato)|risposta OpenAI non valida|non ha completato integralmente/i.test(message);
+};
+
+async function generateValue(kind, issue, page) {
   const context = {
     title: stripHtml(page?.title).slice(0, 500),
     excerpt: stripHtml(page?.excerpt).slice(0, 1200),
     content: stripHtml(page?.content).slice(0, 6000),
     url: String(page?.url || "").slice(0, 800),
   };
+
+  if (!process.env.OPENAI_API_KEY) {
+    if (kind === "seo_title") {
+      const fallback = deterministicSeoTitleFallback(page, issue);
+      if (fallback) return fallback;
+    }
+    if (kind === "meta_description") {
+      const fallback = deterministicMetaDescription(page);
+      if (fallback) {
+        const quality = assertPublishableSeoSuggestion(kind, fallback, page);
+        return { value: fallback, quality, deterministicFallback: true };
+      }
+    }
+    throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
+  }
 
   let lastError;
   let qualityFeedback = "";
@@ -171,6 +199,11 @@ async function generateValue(kind, issue, page) {
       lastError = error;
       if (error?.quality?.errors?.length) qualityFeedback = error.quality.errors.join(" ");
     }
+  }
+
+  if (kind === "seo_title" && canUseDuplicateTitleFallback(lastError)) {
+    const fallback = deterministicSeoTitleFallback(page, issue);
+    if (fallback) return fallback;
   }
 
   if (kind === "meta_description") {
