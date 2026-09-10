@@ -8,6 +8,7 @@ import './taskClientIdIntegrity';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
+import './RemediationFocusReplay';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
