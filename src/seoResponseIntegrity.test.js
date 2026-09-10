@@ -27,7 +27,8 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.deepEqual(result.issues.map((item) => item.label), ["Link interno interrotto (404)"]);
   assert.equal(result.pagesFailed, 0);
   assert.equal(result.crawlExclusions.length, 1);
-  assert.equal(result.legalScopeVersion, 3);
+  assert.equal(result.legalScopeVersion, 4);
+  assert.equal(result.scorePolicyVersion, 2);
 });
 
 test("canonical differente e noindex restano segnali da confermare e non penalizzano lo score", () => {
@@ -58,6 +59,39 @@ test("canonical rotta 404 rimane problema confermato", () => {
   });
   assert.equal(result.issues.length, 1);
   assert.equal(result.reviewItems.length, 0);
+});
+
+test("severity inglesi e italiane producono la stessa penalità", () => {
+  const italian = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "alta", label: "Title mancante" }] });
+  const english = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "high", label: "Missing title" }] });
+  const critical = normalizeSiteAnalysis({ pagesChecked: 5, issues: [{ type: "title", severity: "critical", label: "Missing title" }] });
+  assert.equal(english.score, italian.score);
+  assert.equal(critical.score, italian.score);
+});
+
+test("fallimenti e link provenienti solo da pagine legali non contaminano lo score SEO", () => {
+  const result = normalizeSiteAnalysis({
+    pagesChecked: 2,
+    pages: [
+      { url: "https://example.com/privacy-policy/" },
+      { url: "https://example.com/articolo/" },
+    ],
+    failures: [
+      { url: "https://example.com/privacy-policy/", reason: "Timeout" },
+    ],
+    brokenLinks: [
+      { url: "https://example.com/manca", status: 404, sources: ["https://example.com/privacy-policy/"] },
+    ],
+    issues: [
+      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/privacy-policy/", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
+    ],
+  });
+  assert.equal(result.pagesChecked, 1);
+  assert.equal(result.pagesFailed, 0);
+  assert.equal(result.failures.length, 0);
+  assert.equal(result.brokenLinks.length, 0);
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.score, 100);
 });
 
 test("la normalizzazione site-analysis è idempotente", () => {
@@ -92,11 +126,12 @@ test("la risposta site-analysis viene normalizzata senza monkey-patch globale", 
   assert.equal(data.reviewItems.length, 1);
 });
 
-test("uno storico già normalizzato v2 viene ricalcolato con lo scope legale v3", () => {
+test("uno storico già normalizzato viene ricalcolato con scope legale e score correnti", () => {
   const result = normalizeSiteAnalysis({
     evidencePolicy: "confirmed-issues-only",
     scoreSource: "seogrow-derived",
-    legalScopeVersion: 2,
+    legalScopeVersion: 3,
+    scorePolicyVersion: 1,
     score: 91,
     pagesChecked: 2,
     pages: [
@@ -104,17 +139,21 @@ test("uno storico già normalizzato v2 viene ricalcolato con lo scope legale v3"
       { url: "https://example.com/articolo/" },
     ],
     legalPages: [],
-    pagesFailed: 0,
+    failures: [{ url: "https://example.com/privacy-policy/", reason: "Timeout" }],
+    pagesFailed: 1,
     issues: [
       { type: "title", severity: "alta", label: "Title mancante", sourceUrl: "https://example.com/privacy-policy/" },
-      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/articolo/", targetUrl: "https://example.com/privacy-policy/", detail: "HTTP 404" },
+      { type: "broken-link", severity: "high", label: "Link interno interrotto (404)", sourceUrl: "https://example.com/articolo/", targetUrl: "https://example.com/privacy-policy/", detail: "HTTP 404" },
     ],
     reviewItems: [],
   });
 
-  assert.equal(result.legalScopeVersion, 3);
+  assert.equal(result.legalScopeVersion, 4);
+  assert.equal(result.scorePolicyVersion, 2);
   assert.equal(result.pagesChecked, 1);
+  assert.equal(result.pagesFailed, 0);
   assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
   assert.equal(result.legalPages[0]?.url, "https://example.com/privacy-policy/");
   assert.equal(result.summary["broken-link"], 1);
+  assert.equal(result.score, 95);
 });
