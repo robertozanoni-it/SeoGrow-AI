@@ -84,7 +84,13 @@ const interceptAutomaticClick = (event) => {
   openAutomaticProposal(row);
 };
 
+const clearFocusOutsideProposalRoute = () => {
+  if (currentPage() !== PROPOSAL_ROUTE_PAGE && readAutomaticProposalFocus()) clearAutomaticProposalFocus();
+};
+
 if (typeof document !== "undefined") {
   // Capture phase: intercetta "Automatica" prima del click legacy sulla riga.
   document.addEventListener("click", interceptAutomaticClick, true);
+  window.addEventListener("hashchange", clearFocusOutsideProposalRoute);
+  window.addEventListener("seogrow-locationchange", clearFocusOutsideProposalRoute);
 }
