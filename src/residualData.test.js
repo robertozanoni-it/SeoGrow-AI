@@ -25,10 +25,18 @@ test('audit task reconciliation preserves work, isolates clients and reopens reg
  const previous = { ...generated[0], id: 'analysis-old', title: 'Title mancante', status: 'In corso', notes: 'work', due: '2026-10-01' };
  const other = { ...previous, id: 'other', sourceClientId: 2 };
  const retained = reconcileAuditTasks([previous, other], generated, 1, '2026-09-06');
- assert.equal(retained.length, 2); assert.equal(retained[0].status, 'In corso'); assert.equal(retained[0].notes, 'work'); assert.equal(retained[0].id, 'analysis-old'); assert.deepEqual(retained[1], other);
+ assert.equal(retained.length, 2); assert.equal(retained[0].status, 'In corso'); assert.equal(retained[0].notes, 'work'); assert.equal(retained[0].id, 'analysis-old'); assert.equal(retained[0].sourceUrl, url); assert.equal(retained[0].targetUrl, ''); assert.equal(retained[0].linkLabel, 'Apri pagina'); assert.deepEqual(retained[1], other);
  const reopened = reconcileAuditTasks([{ ...previous, status: 'Completato' }], generated, 1, '2026-09-06');
  assert.equal(reopened.length, 1); assert.equal(reopened[0].status, 'Da fare'); assert.equal(reopened[0].regression, true);
  assert.deepEqual(reconcileAuditTasks([previous], [], 1, '2026-09-06'), [previous]);
+});
+test('broken-link task keeps source page separate from broken destination', () => {
+ const sourceUrl = 'https://example.com/articolo/';
+ const targetUrl = 'https://example.com/manca/';
+ const [task] = reconcileAuditTasks([], [{ id: 'broken', sourceClientId: 1, kind: 'broken-link', title: 'Link interno interrotto', sourceUrl, targetUrl, detail: 'HTTP 404' }], 1, '2026-09-06');
+ assert.equal(task.sourceUrl, sourceUrl);
+ assert.equal(task.targetUrl, targetUrl);
+ assert.equal(task.linkLabel, 'Apri destinazione');
 });
 const backup = corrections => ({ schemaVersion: 4, clients: [{ id: 1, name: 'Fixture', url: 'https://example.com/' }], tasks: [], gscData: {}, corrections });
 const file = data => ({ size: 100, text: async () => JSON.stringify(data) });
