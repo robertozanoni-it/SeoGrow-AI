@@ -15,6 +15,24 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
   assert.match(layer, /\["Correzioni", CheckCircle2\]/);
 });
 
+test("ogni pagina può esporre un wizard numerato e spiegazioni finali", () => {
+  assert.match(layer, /const PAGE_GUIDES =/);
+  assert.match(layer, /function PageWizard/);
+  assert.match(layer, /guided-step-number/);
+  assert.match(layer, /Passaggio <strong>/);
+  assert.match(layer, /Successivo/);
+  assert.match(layer, /function PageHelp/);
+  assert.match(layer, /Come usare questa pagina/);
+  assert.match(css, /\.guided-page-wizard/);
+  assert.match(css, /\.guided-page-help-host/);
+});
+
+test("la modalità semplice riduce densità senza rimuovere la logica delle pagine", () => {
+  assert.match(css, /body\[data-seogrow-ui-mode="simple"\] \.workspace main/);
+  assert.match(css, /body\[data-seogrow-ui-mode="simple"\] \.panel/);
+  assert.doesNotMatch(layer, /innerHTML\s*=/);
+});
+
 test("la navigazione Correzioni entra nell'overlay prima del fallback dell'App core", () => {
   assert.match(navigation, /if \(page === "Correzioni"\)/);
   assert.match(navigation, /window\.__seogrowCorrectionsMode = true/);
