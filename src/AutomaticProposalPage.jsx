@@ -128,22 +128,31 @@ export default function AutomaticProposalPage() {
     let cancelled = false;
     let frame = 0;
     let attempts = 0;
+    let mountedHost = null;
+
     const install = () => {
       if (cancelled) return;
-      const main = document.querySelector(".app main");
-      if (!main) {
+      const workspace = document.querySelector(".workspace");
+      if (!workspace) {
         if (attempts < 120) {
           attempts += 1;
           frame = window.requestAnimationFrame(install);
         }
         return;
       }
-      setHost(main);
+
+      mountedHost = document.createElement("div");
+      mountedHost.className = "automatic-proposal-root-host";
+      mountedHost.setAttribute("data-seogrow-dedicated-page", "proposal");
+      workspace.appendChild(mountedHost);
+      setHost(mountedHost);
     };
+
     frame = window.requestAnimationFrame(install);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
+      mountedHost?.remove();
     };
   }, [active]);
 
@@ -153,7 +162,7 @@ export default function AutomaticProposalPage() {
     return () => { delete document.body.dataset.seogrowAutomaticProposal; };
   }, [active]);
 
-  if (!active || !host) return null;
+  if (!active || !host?.isConnected) return null;
 
   const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
