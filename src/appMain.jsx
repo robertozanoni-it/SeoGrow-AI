@@ -5,6 +5,7 @@ import './writeRecovery';
 import './locationEvents';
 import './seoResponseIntegrity';
 import './uiIntegrityFixes';
+import './WizardStepNavigation';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
