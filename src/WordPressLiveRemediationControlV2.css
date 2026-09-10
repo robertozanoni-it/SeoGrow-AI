@@ -45,11 +45,23 @@
   width: fit-content;
 }
 
+.wp-live-guidance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.wp-live-guidance-actions button {
+  min-height: 42px;
+}
+
 .wp-live-preview-row.quality_error,
 .wp-live-preview-row.context_error,
 .wp-live-preview-row.ownership_error,
 .wp-live-preview-row.auth_error,
 .wp-live-preview-row.timeout_error,
+.wp-live-preview-row.generation_error,
 .wp-live-preview-row.adapter_error,
 .wp-live-preview-row.error,
 .wp-live-preview-row.stale {
@@ -73,7 +85,9 @@
     grid-template-columns: 1fr;
   }
 
-  .wp-live-apply-one {
+  .wp-live-apply-one,
+  .wp-live-guidance-actions,
+  .wp-live-guidance-actions button {
     width: 100%;
   }
 }
