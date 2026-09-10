@@ -10,6 +10,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import GuidedUxLayer from './GuidedUxLayer';
+import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
@@ -54,6 +55,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <GuidedUxLayer />
+      <WizardCongruenceLayer />
       <CardWorkspaceLayer />
       <ProblemsNavBridge />
       <ProblemsWorkspace />
