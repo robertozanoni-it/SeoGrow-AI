@@ -11,6 +11,7 @@ import './AutomaticProposalNavigation';
 import './RemediationFocusReplay';
 import './PageStartHierarchy';
 import './ExternalLinkDestinationUx';
+import './ProviderBudgetUx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
