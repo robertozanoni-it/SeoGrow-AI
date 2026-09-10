@@ -81,46 +81,22 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
         $post = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $id), ARRAY_A);
         if (!$post || $post['post_type'] !== $post_type) { throw new RuntimeException('identity'); }
 
-        // Lock the complete post_id metadata range. Under InnoDB + REPEATABLE READ
-        // this protects existing rows and the insertion gap for this post while
-        // SeoGrow verifies/creates the one allowed SEO metadata row.
+        // Lock all metadata rows for the post before selecting the SEO key. A
+        // single existing row is required so apply and rollback can restore the
+        // exact same storage shape; missing or duplicate rows remain fail-closed.
         $rows = $wpdb->get_results($wpdb->prepare("SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d FOR UPDATE", $id), ARRAY_A);
         if (!is_array($rows)) { throw new RuntimeException('storage'); }
         $matches = array_values(array_filter($rows, static function ($row) use ($key) {
             return isset($row['meta_key']) && (string) $row['meta_key'] === $key;
         }));
-        if (count($matches) > 1) { throw new RuntimeException('ambiguous_meta'); }
-
-        $inserted = false;
-        if (count($matches) === 0) {
-            if ($before_value !== '') { throw new RuntimeException('stale'); }
-            if ($after_value === '') { throw new RuntimeException('no_change_absent'); }
-            $affected = $wpdb->query($wpdb->prepare(
-                "INSERT INTO {$wpdb->postmeta} (post_id, meta_key, meta_value) VALUES (%d, %s, %s)",
-                $id,
-                $key,
-                $after_value
-            ));
-            if ($affected === false || (int) $affected !== 1) { throw new RuntimeException('db_failure'); }
-            $created = $wpdb->get_results($wpdb->prepare(
-                "SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s FOR UPDATE",
-                $id,
-                $key
-            ), ARRAY_A);
-            if (!is_array($created) || count($created) !== 1 || !seogrow_connector_atomic_exact_equal((string) $created[0]['meta_value'], $after_value)) {
-                throw new RuntimeException('result');
-            }
-            $meta = $created[0];
-            $inserted = true;
-        } else {
-            $meta = $matches[0];
-            if (!seogrow_connector_atomic_exact_equal((string) $meta['meta_value'], $before_value)) {
-                throw new RuntimeException('stale');
-            }
+        if (count($matches) !== 1) { throw new RuntimeException('ambiguous_meta'); }
+        $meta = $matches[0];
+        if (!seogrow_connector_atomic_exact_equal((string) $meta['meta_value'], $before_value)) {
+            throw new RuntimeException('stale');
         }
 
-        $no_write_required = !$inserted && seogrow_connector_atomic_exact_equal($before_value, $after_value);
-        if (!$no_write_required && !$inserted) {
+        $no_write_required = seogrow_connector_atomic_exact_equal($before_value, $after_value);
+        if (!$no_write_required) {
             $affected = $wpdb->query($wpdb->prepare(
                 "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_id = %d AND post_id = %d AND meta_key = %s AND BINARY meta_value = BINARY %s",
                 $after_value,
@@ -159,7 +135,6 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
             'operation' => (string) $request->get_param('operation'),
             'resource' => $resource,
             'noWriteRequired' => $no_write_required,
-            'createdMetaRow' => $inserted,
             'entity' => $entity,
             'scope' => 'single-seo-postmeta-cas-v1',
             'requiresFrontendVerification' => true,
@@ -175,10 +150,7 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
             return new WP_Error('STALE_CONFLICT', 'Il meta SEO è cambiato dopo l’anteprima. Nessuna sovrascrittura eseguita.', array('status' => 409));
         }
         if ($error->getMessage() === 'ambiguous_meta') {
-            return new WP_Error('ATOMIC_WRITE_UNAVAILABLE', 'Scrittura meta SEO bloccata: esistono più righe postmeta per lo stesso campo. Nessuna modifica applicata.', array('status' => 409));
-        }
-        if ($error->getMessage() === 'no_change_absent') {
-            return new WP_Error('ATOMIC_WRITE_UNAVAILABLE', 'Il meta SEO non esiste e la proposta non introduce alcun valore. Nessuna modifica necessaria.', array('status' => 409));
+            return new WP_Error('ATOMIC_WRITE_UNAVAILABLE', 'Scrittura meta SEO bloccata: il campo deve avere una singola riga postmeta verificabile per garantire apply e rollback esatti. Nessuna modifica applicata.', array('status' => 409));
         }
         if ($error->getMessage() === 'identity') {
             return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'La risorsa WordPress è cambiata prima della scrittura.', array('status' => 409));
