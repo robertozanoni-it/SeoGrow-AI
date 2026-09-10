@@ -19,114 +19,133 @@ export const WIZARD_STEP_COUNTS = Object.freeze({
   Storico: 3,
 });
 
-const STEP_ACTIONS = {
+export const WIZARD_DESTINATION_PAGES = Object.freeze([
+  "Panoramica",
+  "Clienti",
+  "Centro progetto",
+  "Storico",
+  "Problemi",
+  "Audit SEO",
+  "Posizionamenti",
+  "Link interni",
+  "Opportunità",
+  "Correzioni",
+  "Task",
+  "Piano editoriale",
+  "SEO Agent",
+  "GEO AI",
+  "Integrazioni",
+  "Impostazioni",
+]);
+
+// Regola UX: ogni card wizard apre sempre una PAGINA reale di SeoGrow AI.
+// Nessuna card apre più sezioni, pannelli, dettagli interni o scroll target.
+const STEP_ACTIONS = Object.freeze({
   Panoramica: [
-    { page: "Centro progetto" },
-    { page: "Problemi" },
-    { page: "Opportunità" },
-    { page: "Correzioni" },
-    { selector: ".guided-next-actions" },
+    { page: "Centro progetto" },      // Stato progetto
+    { page: "Problemi" },            // Priorità
+    { page: "Opportunità" },         // Opportunità
+    { page: "Correzioni" },          // Correzioni
+    { page: "Task" },                // Prossima azione
   ],
   Clienti: [
-    { selector: ".card-workspace" },
-    { detail: true },
-    { page: "Integrazioni" },
-    { page: "Centro progetto" },
+    { page: "Clienti" },             // Seleziona cliente
+    { page: "Panoramica" },          // Controlla dati
+    { page: "Integrazioni" },        // Collega strumenti
+    { page: "Centro progetto" },     // Apri progetto
   ],
   "Centro progetto": [
-    { projectCard: "Preparazione del progetto" },
-    { projectCard: "Preparazione del progetto" },
-    { projectCard: "Preparazione del progetto" },
-    { projectCard: "Analizza e correggi" },
-    { projectCard: "Analizza e correggi" },
-    { projectCard: "Condivisione dei risultati" },
+    { page: "Centro progetto" },     // Obiettivo
+    { page: "Integrazioni" },        // Dati SEO
+    { page: "Integrazioni" },        // WordPress
+    { page: "Problemi" },            // Audit e problemi
+    { page: "Correzioni" },          // Correzioni
+    { page: "Storico" },             // Report / risultati
   ],
   Problemi: [
-    { tools: true, selector: ".problems-workspace-root" },
-    { tools: true, selector: ".problems-workspace-root" },
-    { tools: true, selector: ".problems-workspace-root" },
-    { tools: true, selector: ".problems-workspace-root" },
+    { page: "Problemi" },            // Visualizza
+    { page: "Problemi" },            // Seleziona
+    { page: "Problemi" },            // Valuta
+    { page: "Correzioni" },          // Risolvi
   ],
   "Audit SEO": [
-    { tools: true, selector: ".audit-workspace-root" },
-    { tools: true, selector: ".audit-workspace-root" },
-    { tools: true, selector: ".audit-workspace-root" },
-    { detail: true },
-    { page: "Problemi" },
+    { page: "Audit SEO" },           // Perimetro
+    { page: "Audit SEO" },           // URL
+    { page: "Audit SEO" },           // Avvia
+    { page: "Storico" },             // Risultati
+    { page: "Correzioni" },          // Correggi
   ],
   Posizionamenti: [
-    { tools: true, selector: ".ranking-form" },
-    { tools: true, selector: ".ranking-form" },
-    { detail: true },
-    { page: "Opportunità" },
+    { page: "Integrazioni" },        // Dati
+    { page: "Posizionamenti" },      // Filtra
+    { page: "Posizionamenti" },      // Andamento
+    { page: "Opportunità" },         // Opportunità
   ],
   "Link interni": [
-    { tools: true },
-    { detail: true },
-    { page: "Task" },
-    { tools: true },
+    { page: "Link interni" },        // Analizza
+    { page: "Link interni" },        // Seleziona
+    { page: "Task" },                // Crea task
+    { page: "Audit SEO" },           // Verifica
   ],
   Opportunità: [
-    { tools: true },
-    { detail: true },
-    { tools: true },
-    { page: "Task" },
+    { page: "Opportunità" },         // Filtra
+    { page: "Opportunità" },         // Valuta
+    { page: "Task" },                // Decidi
+    { page: "Task" },                // Crea task
   ],
   Correzioni: [
-    { page: "Problemi" },
-    { tools: true, selector: ".corrections-workspace-root" },
-    { tools: true, selector: ".corrections-workspace-root" },
-    { tools: true, selector: ".corrections-workspace-root" },
-    { tools: true, selector: ".corrections-workspace-root" },
+    { page: "Problemi" },            // Problema
+    { page: "Correzioni" },          // Proposta
+    { page: "Correzioni" },          // Approvazione
+    { page: "Correzioni" },          // Applica
+    { page: "Audit SEO" },           // Verifica
   ],
   Task: [
-    { tools: true, selector: ".task-filters" },
-    { detail: true },
-    { tools: true },
-    { tools: true },
-    { tools: true },
+    { page: "Task" },                // Filtra
+    { page: "Task" },                // Apri
+    { page: "Centro progetto" },     // Esegui
+    { page: "Audit SEO" },           // Verifica
+    { page: "Task" },                // Chiudi
   ],
   "Piano editoriale": [
-    { tools: true },
-    { tools: true },
-    { tools: true },
-    { tools: true },
-    { tools: true },
+    { page: "Piano editoriale" },    // Tema
+    { page: "Opportunità" },         // Priorità
+    { page: "Piano editoriale" },    // Brief
+    { page: "SEO Agent" },           // Produci
+    { page: "Posizionamenti" },      // Misura
   ],
   "SEO Agent": [
-    { tools: true, selector: "#seo-agent-goal" },
-    { tools: true, selector: "#seo-agent-goal" },
-    { tools: true },
-    { tools: true },
-    { detail: true },
+    { page: "SEO Agent" },           // Obiettivo
+    { page: "SEO Agent" },           // Modalità
+    { page: "SEO Agent" },           // Piano
+    { page: "SEO Agent" },           // Approva
+    { page: "Storico" },             // Verifica
   ],
   "GEO AI": [
-    { tools: true },
-    { tools: true },
-    { detail: true },
-    { tools: true },
-    { tools: true },
+    { page: "GEO AI" },              // Contesto
+    { page: "GEO AI" },              // Analizza
+    { page: "GEO AI" },              // Priorità
+    { page: "SEO Agent" },           // Migliora
+    { page: "GEO AI" },              // Verifica
   ],
   Integrazioni: [
-    { selector: ".card-workspace" },
-    { tools: true },
-    { tools: true },
-    { tools: true },
+    { page: "Integrazioni" },        // Scegli
+    { page: "Integrazioni" },        // Configura
+    { page: "Integrazioni" },        // Verifica
+    { page: "Panoramica" },          // Salva / ritorno al progetto
   ],
   Impostazioni: [
-    { selector: ".card-workspace" },
-    { tools: true },
-    { tools: true },
-    { tools: true },
+    { page: "Impostazioni" },        // Sezione
+    { page: "Impostazioni" },        // Modifica
+    { page: "Impostazioni" },        // Controlla
+    { page: "Panoramica" },          // Salva / ritorno al lavoro
   ],
   Storico: [
-    { selector: ".card-workspace" },
-    { detail: true },
-    { detail: true },
+    { page: "Storico" },             // Filtra
+    { page: "Storico" },             // Apri
+    { page: "Panoramica" },          // Confronta / torna al quadro generale
   ],
-};
-
-const FALLBACK_ACTION = Object.freeze({ fallback: true });
+});
 
 const hasDom = () => typeof window !== "undefined" && typeof document !== "undefined";
 
@@ -139,103 +158,29 @@ const currentPage = () => {
   }
 };
 
-const afterFrame = (callback) => {
-  if (!hasDom()) return;
-  window.requestAnimationFrame(() => window.requestAnimationFrame(callback));
+export const hasExplicitWizardStepAction = (page, index) => Boolean(STEP_ACTIONS[page]?.[index]?.page);
+
+export const wizardStepAction = (page, index) => {
+  const explicit = STEP_ACTIONS[page]?.[index];
+  if (explicit?.page) return explicit;
+  return { page: WIZARD_DESTINATION_PAGES.includes(page) ? page : "Panoramica" };
 };
-
-const scrollToSelector = (selector) => {
-  if (!hasDom() || !selector) return false;
-  const element = document.querySelector(selector);
-  if (!element) return false;
-  element.scrollIntoView({ behavior: "smooth", block: "start" });
-  return true;
-};
-
-const openProjectCard = (label, fallbackIndex = 0) => {
-  if (!hasDom()) return false;
-  const cards = [...document.querySelectorAll(".project-center-section-card")];
-  const button = cards.find((item) => String(item.textContent || "").includes(label)) || cards[fallbackIndex];
-  if (!button) return false;
-  button.click();
-  return true;
-};
-
-const openFirstCardDetail = (openTools = false, selector = "") => {
-  if (!hasDom()) return false;
-  const workspace = document.querySelector(".card-workspace");
-  if (!workspace) {
-    return scrollToSelector(selector);
-  }
-
-  const finish = () => {
-    if (openTools) {
-      const manage = [...document.querySelectorAll(".card-horizontal-actions button")]
-        .find((button) => /Apri strumenti operativi/i.test(button.textContent || ""));
-      if (manage) manage.click();
-      afterFrame(() => {
-        if (!scrollToSelector(selector)) {
-          document.querySelector('[data-seogrow-card-original="true"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-      return;
-    }
-    if (!scrollToSelector(selector)) workspace.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  if (workspace.classList.contains("is-hub")) {
-    const firstCard = workspace.querySelector(".card-record");
-    if (!firstCard) return false;
-    firstCard.click();
-    afterFrame(finish);
-    return true;
-  }
-
-  finish();
-  return true;
-};
-
-const runFallbackAction = (index = 0) => {
-  if (!hasDom()) return false;
-
-  if (openFirstCardDetail(false)) return true;
-
-  const projectCards = [...document.querySelectorAll(".project-center-section-card")];
-  if (projectCards.length) {
-    const target = projectCards[Math.min(index, projectCards.length - 1)];
-    target.click();
-    return true;
-  }
-
-  const original = document.querySelector('[data-seogrow-card-original="true"]');
-  if (original) {
-    original.scrollIntoView({ behavior: "smooth", block: "start" });
-    return true;
-  }
-
-  return scrollToSelector(".guided-page-help") || scrollToSelector(".guided-page-wizard");
-};
-
-export const hasExplicitWizardStepAction = (page, index) => Boolean(STEP_ACTIONS[page]?.[index]);
-
-export const wizardStepAction = (page, index) => STEP_ACTIONS[page]?.[index] || FALLBACK_ACTION;
 
 export const wizardActionCoverageComplete = () => Object.entries(WIZARD_STEP_COUNTS).every(
-  ([page, count]) => STEP_ACTIONS[page]?.length === count && STEP_ACTIONS[page].every(Boolean),
+  ([page, count]) =>
+    STEP_ACTIONS[page]?.length === count &&
+    STEP_ACTIONS[page].every((action) =>
+      action &&
+      typeof action.page === "string" &&
+      WIZARD_DESTINATION_PAGES.includes(action.page) &&
+      Object.keys(action).length === 1,
+    ),
 );
 
 export const runWizardStepAction = (page, index) => {
   const action = wizardStepAction(page, index);
-
-  if (action.page) {
-    navigatePage(action.page);
-    return true;
-  }
-  if (action.projectCard) return openProjectCard(action.projectCard, index);
-  if (action.tools) return openFirstCardDetail(true, action.selector || "");
-  if (action.detail) return openFirstCardDetail(false, action.selector || "");
-  if (action.selector) return scrollToSelector(action.selector);
-  return runFallbackAction(index);
+  navigatePage(action.page);
+  return true;
 };
 
 const stepIndexFromCard = (card) => {
