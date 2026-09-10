@@ -18,26 +18,34 @@
   height: 11px;
 }
 
-/* Keep workflow areas visually distinct without leaving the approved blue/mint system. */
-body[data-seogrow-page="centro-progetto"] .project-center-area-setup .project-setup {
+/* Keep workflow areas visually distinct without depending on route timing.
+   The selectors are scoped to the Project Center detail surfaces and retain
+   only the approved blue/mint family. */
+.project-center-area-setup .project-setup {
   background: #f4f9ff !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-fix .auto-fix-panel {
+
+.project-center-area-fix .auto-fix-panel {
   background: #ffffff !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-fix .workflow-source {
+
+.project-center-area-fix .workflow-source {
   background: #eaf5ff !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-fix .workflow-selection {
+
+.project-center-area-fix .workflow-selection {
   background: #f0fbf8 !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-fix .workflow-verify {
+
+.project-center-area-fix .workflow-verify {
   background: #e5f7f1 !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-monitoring .project-monitoring {
+
+.project-center-area-monitoring .project-monitoring {
   background: #f6fbff !important;
 }
-body[data-seogrow-page="centro-progetto"] .project-center-area-report .project-report {
+
+.project-center-area-report .project-report {
   background: #eff9f5 !important;
 }
 
