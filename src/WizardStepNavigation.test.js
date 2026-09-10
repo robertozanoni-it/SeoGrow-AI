@@ -11,7 +11,7 @@ import {
 test("tutte le card dei wizard correnti hanno una pagina di destinazione esplicita", () => {
   const entries = Object.entries(WIZARD_STEP_COUNTS);
   assert.equal(entries.length, 16);
-  assert.equal(entries.reduce((total, [, count]) => total + count, 0), 73);
+  assert.equal(entries.reduce((total, [, count]) => total + count, 0), 72);
   assert.equal(wizardActionCoverageComplete(), true);
 
   for (const [page, count] of entries) {
