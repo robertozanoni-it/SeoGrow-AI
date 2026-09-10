@@ -21,6 +21,7 @@ import './reflowNavigationFix.css';
 import './SidebarReadabilityFix.css';
 import './CardWorkspaceVisibilityFix.css';
 import './ProjectCenterCardFlow.css';
+import './ReadableTypographyAndSidebar.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
