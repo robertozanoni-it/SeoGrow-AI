@@ -7,6 +7,8 @@ import { listCorrections } from "./remediationStore.js";
 import { normalizeClientId, normalizeHttpUrl, safeHttpHref } from "./reliabilityModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
+import { latestCorrectionForFocus } from "./correctionReceipt.js";
+import SavedCorrectionDetails from "./SavedCorrectionDetails.jsx";
 import {
   PROPOSAL_PAGE,
   PROPOSAL_ROUTE_PAGE,
@@ -113,8 +115,9 @@ export default function AutomaticProposalPage() {
   const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [], error: "" });
 
   const focus = readAutomaticProposalFocus();
-  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus);
-  const selectedClientId = normalizeClientId(focus?.clientId || readJson(SELECTED_CLIENT_KEY, null));
+  const selectedClientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
+  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus) &&
+    selectedClientId !== null && normalizeClientId(focus.clientId) === selectedClientId;
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -207,6 +210,12 @@ export default function AutomaticProposalPage() {
     corrections,
   }) : { rows: [] };
   const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
+  const latestCorrection = client ? latestCorrectionForFocus(corrections, {
+    clientId: selectedClientId,
+    sourceUrl: problem?.sourceUrl || focus.sourceUrl,
+    issueType: problem?.issueType,
+    title: problem?.title || focus.title,
+  }) : null;
   const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, problem, pageHistory, siteHistory });
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
 
@@ -233,6 +242,10 @@ export default function AutomaticProposalPage() {
         </div>
         <button type="button" className="secondary" onClick={() => closeAndGo(PROPOSAL_ROUTE_PAGE)}>Apri elenco Correzioni</button>
       </header>
+
+      {latestCorrection && !correctionSnapshot.error && (
+        <SavedCorrectionDetails key={`${selectedClientId}:${latestCorrection.id}`} correctionId={latestCorrection.id} clientId={selectedClientId} onNavigate={closeAndGo} />
+      )}
 
       {!correctionsReady ? (
         <section className="automatic-proposal-warning" role="status">
@@ -282,7 +295,7 @@ export default function AutomaticProposalPage() {
               <div>
                 <small>Proposta e approvazione</small>
                 <h2>Prepara la correzione del problema selezionato</h2>
-                <p>Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica.</p>
+                <p>{latestCorrection ? "Una correzione è già registrata: consulta il Prima/Dopo e usa Riverifica qui sopra prima di preparare un altro intervento." : "Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica."}</p>
               </div>
             </div>
             {problem.correctability !== "automatic" ? (
@@ -308,6 +321,11 @@ export default function AutomaticProposalPage() {
             )}
           </section>
         </>
+      ) : latestCorrection ? (
+        <section className="automatic-proposal-warning" role="status">
+          <h2>Confronto storico disponibile</h2>
+          <p>Il problema non è più nell’elenco corrente. Il Prima/Dopo della correzione rimane disponibile sopra; la sua assenza dall’elenco non prova da sola la risoluzione.</p>
+        </section>
       ) : (
         <section className="automatic-proposal-warning" role="alert">
           <h2>Problema non più disponibile</h2>
