@@ -30,3 +30,25 @@ body[data-seogrow-ui-mode] .guided-step-card.active {
 body[data-seogrow-ui-mode] .card-workspace-title {
   display: none !important;
 }
+
+/* Dedicated proposal pages are rendered inside the same main element used by
+   the Correzioni card workspace. The card-first compatibility layer may mark
+   newly mounted siblings as original content and move them off-screen. When a
+   proposal is active it must always win over hub/detail hiding rules. */
+html body[data-seogrow-automatic-proposal="true"][data-seogrow-ui-mode="simple"] .workspace main > .automatic-proposal-page,
+html body[data-seogrow-automatic-proposal="true"][data-seogrow-ui-mode="simple"] .workspace main > .automatic-proposal-page[data-seogrow-card-original="true"] {
+  display: block !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: min(1540px, 100%) !important;
+  max-width: 1540px !important;
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 1 !important;
+}
