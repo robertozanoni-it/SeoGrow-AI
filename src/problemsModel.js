@@ -111,6 +111,8 @@ const createGroup = (record, issue, sourceUrl) => ({
   auditScopes: new Set(),
   quality: null,
   latestAuditAt: "",
+  auditClearedAt: "",
+  auditClearedScope: "",
 });
 
 const attachAlias = (groups, aliasMap, group, aliases) => {
@@ -142,6 +144,68 @@ const addSource = (group, source) => {
     at: source.at || "",
     nature: source.nature || "observed",
   });
+};
+
+const locallyClearableAuditTypes = new Set([
+  "h1",
+  "title",
+  "description",
+  "meta_description",
+  "canonical",
+  "canonical-invalid",
+  "canonical-external",
+  "canonical-different",
+  "image",
+  "metadata-tags",
+]);
+
+const comparableUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
+
+const auditObservedUrl = (scope, item, sourceUrl) => {
+  const wanted = comparableUrl(sourceUrl);
+  if (!wanted) return false;
+  if (scope === "page") return comparableUrl(item?.url) === wanted;
+  if (scope !== "site") return false;
+  return (Array.isArray(item?.pages) ? item.pages : []).some((page) =>
+    comparableUrl(page?.url) === wanted && page?.ok !== false,
+  );
+};
+
+const auditStillContainsGroup = (group, item) =>
+  (Array.isArray(item?.issues) ? item.issues : []).some((issue) => {
+    const sourceUrl = issueSourceUrl(issue, item?.url || "");
+    const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
+    return identityCandidates(record).some((alias) => group.aliases.has(alias));
+  });
+
+const reconcileAuditClearance = (groups, audits) => {
+  for (const group of groups.values()) {
+    const issueType = String(group.issueType || "").trim().toLowerCase();
+    if (!group.latestAuditAt || !locallyClearableAuditTypes.has(issueType)) continue;
+    const clearingAudit = audits
+      .filter(({ scope, item }) => {
+        const at = item?.analyzedAt || item?.startedAt || "";
+        return timestamp(at) > timestamp(group.latestAuditAt) &&
+          auditObservedUrl(scope, item, group.sourceUrl) &&
+          !auditStillContainsGroup(group, item);
+      })
+      .toSorted((a, b) =>
+        timestamp(b.item?.analyzedAt || b.item?.startedAt) -
+        timestamp(a.item?.analyzedAt || a.item?.startedAt),
+      )[0];
+    if (!clearingAudit) continue;
+    const at = clearingAudit.item?.analyzedAt || clearingAudit.item?.startedAt || "";
+    group.auditClearedAt = at;
+    group.auditClearedScope = clearingAudit.scope;
+    group.auditScopes.add(clearingAudit.scope);
+    addSource(group, {
+      label: clearingAudit.scope === "site" ? "Audit sito" : "Audit pagina",
+      kind: "audit-clearance",
+      at,
+      detail: "La stessa URL è stata ricontrollata da un audit più recente e questo problema non è più stato rilevato.",
+      nature: "verified",
+    });
+  }
 };
 
 export function buildUnifiedProblems({
@@ -195,6 +259,8 @@ export function buildUnifiedProblems({
       });
     }
   }
+
+  reconcileAuditClearance(groups, audits);
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
     if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
@@ -253,8 +319,16 @@ export function buildUnifiedProblems({
 
   const rows = [...groups.values()].map((group) => {
     const state = deriveProblemState(group.events);
+    const clearanceAt = group.auditClearedAt || "";
+    const clearanceTime = timestamp(clearanceAt);
+    const invalidatedAfterClearance = clearanceTime > 0 && group.events.some((event) =>
+      timestamp(event?.at) > clearanceTime && ["audit_detected", "correction_applied", "rollback"].includes(event?.kind),
+    );
+    const clearedByNewerAudit = clearanceTime > timestamp(group.latestAuditAt) && !invalidatedAfterClearance;
+    const problemState = clearedByNewerAudit ? "resolved" : state.problemState;
+    const verifiedAt = clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
-    const observedAt = state.lastAuditAt || latestSource?.at || "";
+    const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;
     const confidence = issueConfidence(
       { type: group.issueType, label: group.title, detail: group.detail },
@@ -273,7 +347,7 @@ export function buildUnifiedProblems({
       detail: group.detail || "Dettaglio non disponibile.",
       severity: group.severity,
       priority: group.priority,
-      problemState: state.problemState,
+      problemState,
       interventionState: state.interventionState,
       correctability: issueCorrectability(
         { type: group.issueType, label: group.title, detail: group.detail },
@@ -281,9 +355,9 @@ export function buildUnifiedProblems({
       ),
       confidence,
       observedAt,
-      verifiedAt: state.verifiedAt,
+      verifiedAt,
       stale: !Number.isFinite(ageMs) || ageMs > 7 * 24 * 60 * 60_000,
-      regression: state.problemState === "reappeared",
+      regression: problemState === "reappeared",
       ownershipBlocked: group.ownershipBlocked,
       technicalError: group.technicalError,
       fields: group.fields,
@@ -293,6 +367,7 @@ export function buildUnifiedProblems({
       auditScopes: [...group.auditScopes],
       quality: group.quality,
       pageKind: group.pageKind,
+      resolvedByAudit: clearedByNewerAudit,
     };
   }).toSorted((a, b) => {
     const stateWeight = { reappeared: 0, open: 1, needs_verification: 2, intentional: 3, resolved: 4 };
