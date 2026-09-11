@@ -1,3 +1,4 @@
+import { publicHeadMetadata, decodePublicEntities } from "./publicHeadMetadata.js";
 import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
 import dns from "node:dns/promises";
 import net from "node:net";
@@ -35,16 +36,6 @@ function firstMatch(value, pattern) {
   return String(value || "").match(pattern)?.[1]?.replace(/\s+/g, " ").trim() || "";
 }
 
-function metaContent(html, name) {
-  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return firstMatch(
-    html,
-    new RegExp(`<meta[^>]+name=["']${escaped}["'][^>]+content=["']([^"']*)["']`, "i"),
-  ) || firstMatch(
-    html,
-    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${escaped}["']`, "i"),
-  );
-}
 
 function canonicalHref(html) {
   return firstMatch(html, /<link[^>]+rel=["'][^"']*canonical[^"']*["'][^>]+href=["']([^"']+)["']/i) ||
@@ -63,19 +54,7 @@ export function canonicalCount(html) {
   }).length;
 }
 
-function decodeEntity(entity) {
-  const body = String(entity || "").slice(1, -1);
-  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…" };
-  if (/^#x/i.test(body)) {
-    const code = Number.parseInt(body.slice(2), 16);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
-  }
-  if (body.startsWith("#")) {
-    const code = Number.parseInt(body.slice(1), 10);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
-  }
-  return named[body.toLowerCase()] ?? " ";
-}
+const decodeEntity = decodePublicEntities;
 
 const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
 const inertMarkupPattern = /<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi;
@@ -237,16 +216,13 @@ function visibleH1Count(html) {
 }
 
 function signals(page) {
-  const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const metaDescription = metaContent(page.html, "description");
+  const { title, titleCount, metaDescription, metaDescriptionCount, robots, googlebot } = publicHeadMetadata(page.html);
   const conservativeMarkup = stripAlwaysHiddenMarkup(page.html);
   const h1 = visibleH1Count(conservativeMarkup);
   const text = visibleText(conservativeMarkup);
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const kind = pageKind(new URL(page.url).pathname);
   const minimumWords = kind === "utility" ? 60 : kind === "archive" ? 80 : kind === "gdpr" ? 0 : 180;
-  const robots = metaContent(page.html, "robots");
-  const googlebot = metaContent(page.html, "googlebot");
   const directives = `${robots},${googlebot},${page.xRobotsTag}`;
   const noindex = /(?:^|[,;\s])noindex(?:$|[,;\s])/i.test(directives);
   const canonical = canonicalHref(page.html);
@@ -255,7 +231,9 @@ function signals(page) {
   const elementorDocuments = elementorRenderedDocuments(page.html);
   return {
     title,
+    titleCount,
     metaDescription,
+    metaDescriptionCount,
     h1,
     text,
     words,
@@ -285,7 +263,9 @@ async function inspect(url) {
     contentType: page.contentType,
     isHtml: page.isHtml,
     title: result.title,
+    titleCount: result.titleCount,
     metaDescription: result.metaDescription,
+    metaDescriptionCount: result.metaDescriptionCount,
     h1: result.h1,
     words: result.words,
     pageKind: result.pageKind,

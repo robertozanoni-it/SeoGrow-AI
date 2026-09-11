@@ -87,6 +87,7 @@ export function annotateExternalLinkDestinations() {
   let changed = 0;
   const counters = new Map();
   for (const row of document.querySelectorAll(".problem-row")) {
+    if (row.dataset.problemNavigation === "direct") continue; // React renders this row’s exact destination.
     const main = row.querySelector(".problem-main");
     const label = main?.querySelector("strong")?.textContent?.trim() || "";
     if (!/link esterno/i.test(label)) continue;

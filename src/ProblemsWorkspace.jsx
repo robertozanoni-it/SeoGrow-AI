@@ -1,3 +1,4 @@
+import { filterProblemRows } from "./problemFilters.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -312,6 +313,7 @@ export default function ProblemsWorkspace() {
   const [correctionsState, setCorrectionsState] = useState({ loading: false, error: "" });
   const [filters, setFilters] = useState({
     state: "active",
+    severity: "",
     query: "",
     type: "",
     source: "",
@@ -432,24 +434,7 @@ export default function ProblemsWorkspace() {
   const adapterOptions = [...new Set(rows.flatMap((row) => row.adapters).filter(Boolean))].toSorted();
   const sourceOptions = [...new Set(rows.flatMap((row) => row.sources.map((source) => source.kind)).filter(Boolean))].toSorted();
 
-  const filtered = rows.filter((row) => {
-    if (filters.state === "active" && ["resolved", "intentional"].includes(row.problemState)) return false;
-    if (filters.state === "resolved" && row.problemState !== "resolved") return false;
-    if (filters.state === "reappeared" && row.problemState !== "reappeared") return false;
-    if (filters.query) {
-      const haystack = `${row.title} ${row.sourceUrl} ${row.detail}`.toLowerCase();
-      if (!haystack.includes(filters.query.toLowerCase())) return false;
-    }
-    if (filters.type && row.issueType !== filters.type) return false;
-    if (filters.adapter && !row.adapters.includes(filters.adapter)) return false;
-    if (filters.source && !row.sources.some((source) => source.kind === filters.source)) return false;
-    if (filters.correctability && row.correctability !== filters.correctability) return false;
-    if (filters.special === "ownership" && !row.ownershipBlocked) return false;
-    if (filters.special === "regression" && !row.regression) return false;
-    if (filters.special === "stale" && !row.stale) return false;
-    if (filters.special === "error" && !row.technicalError) return false;
-    return true;
-  });
+  const filtered = filterProblemRows(rows, filters);
 
   const counts = {
     active: rows.filter((row) => !["resolved", "intentional"].includes(row.problemState)).length,
@@ -482,7 +467,7 @@ export default function ProblemsWorkspace() {
       </div>
 
       <section className="problems-coverage" aria-label="Copertura audit">
-        <div><small>Ultimo crawl sito</small><strong>{model.coverage?.siteAuditAt ? formatDate(model.coverage.siteAuditAt) : "Non disponibile"}</strong><span>{model.coverage?.sitePages || 0} pagine</span></div>
+        <div><small>Ultimo crawl sito</small><strong>{model.coverage?.siteAuditAt ? formatDate(model.coverage.siteAuditAt) : "Non disponibile"}</strong><span>{model.coverage?.sitePages ?? "—"} pagine</span></div>
         <div><small>Audit pagina conservati</small><strong>{model.coverage?.pageAudits || 0}</strong><span>non sostituiscono il crawl sito</span></div>
         <div><small>Storico correzioni</small><strong>{correctionsState.loading ? "…" : corrections.length}</strong><span>fonte: IndexedDB</span></div>
       </section>
@@ -495,11 +480,11 @@ export default function ProblemsWorkspace() {
       )}
 
       <section className="problems-overview" aria-label="Filtri rapidi">
-        <button aria-pressed={filters.state === "active"} className={filters.state === "active" ? "active" : ""} onClick={() => setFilters((value) => ({ ...value, state: "active" }))}><strong>{counts.active}</strong><span>Attivi</span></button>
-        <button onClick={() => setFilters((value) => ({ ...value, state: "active", special: "" }))}><strong>{counts.high}</strong><span>Alta gravità</span></button>
-        <button aria-pressed={filters.state === "reappeared"} className="critical" onClick={() => setFilters((value) => ({ ...value, state: "reappeared" }))}><strong>{counts.reappeared}</strong><span>Ricomparsi</span></button>
-        <button aria-pressed={filters.state === "resolved"} className="verified" onClick={() => setFilters((value) => ({ ...value, state: "resolved" }))}><strong>{counts.resolved}</strong><span>Risolti</span></button>
-        <button aria-pressed={filters.state === "all"} onClick={() => setFilters((value) => ({ ...value, state: "all", special: "" }))}><strong>{rows.length}</strong><span>Tutti</span></button>
+        <button aria-pressed={filters.state === "active" && !filters.severity} className={filters.state === "active" && !filters.severity ? "active" : ""} onClick={() => setFilters((value) => ({ ...value, state: "active", severity: "" }))}><strong>{counts.active}</strong><span>Attivi</span></button>
+        <button aria-pressed={filters.severity === "high"} onClick={() => setFilters((value) => ({ ...value, state: "active", severity: "high", special: "" }))}><strong>{counts.high}</strong><span>Alta gravità</span></button>
+        <button aria-pressed={filters.state === "reappeared"} className="critical" onClick={() => setFilters((value) => ({ ...value, state: "reappeared", severity: "" }))}><strong>{counts.reappeared}</strong><span>Ricomparsi</span></button>
+        <button aria-pressed={filters.state === "resolved"} className="verified" onClick={() => setFilters((value) => ({ ...value, state: "resolved", severity: "" }))}><strong>{counts.resolved}</strong><span>Risolti</span></button>
+        <button aria-pressed={filters.state === "all"} onClick={() => setFilters((value) => ({ ...value, state: "all", severity: "", special: "" }))}><strong>{rows.length}</strong><span>Tutti</span></button>
       </section>
 
       <section className="panel problems-filters" aria-label="Filtri avanzati">
@@ -516,18 +501,19 @@ export default function ProblemsWorkspace() {
         <span className="problems-source-note"><ShieldCheck /> Score e proposte AI non sono prove: apri il dettaglio per vedere fonte e data.</span>
       </div>
 
-      <section className={`problems-list ${view}`} aria-live="polite">
-        {filtered.length ? filtered.map((problem) => {
+      <section className={`problems-list card-record-grid native-problem-cards ${view}`} aria-live="polite">
+        {filtered.length ? filtered.map((problem, index) => {
           const href = safeHttpHref(problem.sourceUrl);
           return (
-            <button type="button" className="problem-row" data-problem-navigation="direct" key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
+            <button type="button" className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
+              <span className="card-record-date">{problem.observedAt ? formatDate(problem.observedAt) : "Data non disponibile"}</span>
               <span className={`problem-severity ${problem.severity}`}>{labelMap.severity[problem.severity]}</span>
-              <span className="problem-main"><strong>{problem.title}</strong><small>{href || "URL non disponibile"}</small>{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
+              <span className="problem-main"><strong>{problem.title}</strong><small>{href || "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: {target}</small>)}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
               <span className="problem-source"><FileSearch /> {problem.sources[0]?.label || "Fonte non disponibile"}<small>{freshnessLabel(problem.observedAt)}</small></span>
               <span className={`problem-state ${problem.problemState}`}>{labelMap.problem[problem.problemState] || problem.problemState}</span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
-              <ChevronRight className="problem-chevron" />
+              <span className="card-record-open">{problem.correctability === "automatic" ? "Apri proposta" : "Apri risoluzione"} <ChevronRight /></span>
             </button>
           );
         }) : (

@@ -335,3 +335,6 @@ body[data-seogrow-problem-resolution="true"] .workspace > .problem-resolution-ro
     grid-template-columns: 1fr;
   }
 }
+
+.problem-resolution-targets { display: grid; gap: 10px; margin: 16px 0; }
+.problem-resolution-targets a { overflow-wrap: anywhere; }

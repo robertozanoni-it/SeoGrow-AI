@@ -7,13 +7,13 @@ const fields = {
   "meta._yoast_wpseo_metadesc": { publicField: "metaDescription", label: "meta description" },
 };
 const normalizedText = (value) => value.normalize("NFC").replace(/\s+/g, " ").trim();
-const samePage = (left, right) => {
+const samePage = (left, right, provenSameResource = false) => {
   try {
     const normalize = (value) => {
       const url = new URL(value);
       if (!["https:", "http:"].includes(url.protocol)) throw new Error("URL non valida");
       url.hash = "";
-      url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+      if (provenSameResource) url.pathname = url.pathname.replace(/\/+$/, "") || "/";
       return url.href;
     };
     return normalize(left) === normalize(right);
@@ -36,12 +36,13 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
   if (response?.ok !== true || response.isHtml !== true || Number(response.status) < 200 || Number(response.status) >= 300 || !Number.isFinite(Number(response.status))) {
     throw new Error("Il controllo non ha restituito una pagina HTML verificabile.");
   }
-  if (!samePage(response.url, record.finalUrl || record.sourceUrl)) {
-    throw new Error("La pagina pubblica controllata non coincide con la pagina della correzione.");
-  }
   const expectedId = Number(record.entityId || record.wordpressId);
   const observedId = Number(response.wordpressDocumentId);
+  const sameResource = Number.isSafeInteger(expectedId) && expectedId > 0 && expectedId === observedId;
+  if (!samePage(response.url, record.finalUrl || record.sourceUrl, sameResource)) throw new Error("La pagina pubblica controllata non coincide con la pagina della correzione; nessun alias presunto.");
   if (expectedId > 0 && observedId > 0 && expectedId !== observedId) throw new Error("La pagina pubblica appartiene a una diversa risorsa WordPress.");
+  const countKey = target.publicField === "title" ? "titleCount" : "metaDescriptionCount";
+  if (response[countKey] !== 1) throw new Error(`${target.label}: il controllo deve rilevare esattamente un tag nel codice HTML pubblico. Conteggio: ${response[countKey] ?? "non disponibile"}. Nessuna conferma presunta.`);
   const observed = response[target.publicField];
   if (typeof observed !== "string") throw new Error("Il controllo non ha restituito il valore del meta SEO; nessuna conferma presunta.");
   const exactMatch = normalizedText(observed) === normalizedText(target.expected);

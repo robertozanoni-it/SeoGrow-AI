@@ -1,3 +1,4 @@
+import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ExternalLink, FileSearch, ShieldCheck, WandSparkles } from "lucide-react";
@@ -47,13 +48,7 @@ const issueSourceUrl = (issue, audit, client) => {
 };
 const auditTimestamp = (audit) => audit?.analyzedAt || audit?.startedAt || "";
 
-const matchesFocus = (problem, focus) => {
-  if (!problem || !focus) return false;
-  const titleMatches = focus.issueType
-    ? String(problem.issueType || "").toLowerCase() === String(focus.issueType).toLowerCase()
-    : String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
-  return titleMatches && normalizedUrl(problem.sourceUrl) === normalizedUrl(focus.sourceUrl);
-};
+const matchesFocus = matchesProblemFocus;
 
 const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHistory }) => {
   if (!clientId || !client || !focus) return null;

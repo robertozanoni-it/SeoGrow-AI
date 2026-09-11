@@ -89,7 +89,7 @@ test("client cards resolve their exact client and never fall back to the first p
 
 test("a metadata check preserves snapshots and clears an old SEO verification timestamp", () => {
   const record = {id: "history", clientId: 1, sourceUrl: "https://example.com/a/", entityId: 2, status: "Verificato", verifiedAt: "2026-09-01T00:00:00Z", after: {"meta.rank_math_description": "Nuovo testo."}};
-  const patch = metadataVerificationPatch(record, {ok: true, isHtml: true, status: 200, url: record.sourceUrl, wordpressDocumentId: 2, metaDescription: "Nuovo testo."});
+  const patch = metadataVerificationPatch(record, {ok: true, isHtml: true, titleCount: 1, metaDescriptionCount: 1, status: 200, url: record.sourceUrl, wordpressDocumentId: 2, metaDescription: "Nuovo testo."});
   assert.equal(patch.status, "Da verificare");
   assert.equal(patch.verifiedAt, "");
   assert.equal(patch.after, undefined);

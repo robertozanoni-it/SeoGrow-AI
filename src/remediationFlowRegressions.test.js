@@ -72,7 +72,7 @@ test('data-driven problem navigation preserves full URL and cannot switch the cu
 
 test('Rank Math title casing is reported separately; different content and description mismatches still fail', () => {
   const record={id:'a',clientId:12,sourceUrl:'https://example.com/yoga/',entityId:42,fields:['meta.rank_math_title'],after:{'meta.rank_math_title':'Yoga e alimentazione a Cinisello Balsamo'}};
-  const response={ok:true,isHtml:true,status:200,url:record.sourceUrl,wordpressDocumentId:42,title:'Yoga E Alimentazione A Cinisello Balsamo'};
+  const response={ok:true,isHtml:true,titleCount:1,metaDescriptionCount:1,status:200,url:record.sourceUrl,wordpressDocumentId:42,title:'Yoga E Alimentazione A Cinisello Balsamo'};
   const patch=metadataVerificationPatch(record,response);
   assert.equal(patch.frontendConfirmed,true);assert.equal(patch.titleCaseOnlyMatch,true);assert.equal(patch.status,'Da verificare');
   assert.equal(metadataVerificationPatch(record,{...response,title:'Yoga per dimagrire'}).frontendConfirmed,false);

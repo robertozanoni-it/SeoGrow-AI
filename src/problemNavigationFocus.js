@@ -11,6 +11,7 @@ export function problemNavigationFocus(problem, clientId, currentClientId, opene
 }
 export function matchesProblemFocus(problem, focus) {
   if (!problem || !focus) return false;
+  if (focus.issueKey && problem.key !== focus.issueKey) return false;
   const urlKey = value => { try { const u = new URL(value); u.hash = ""; return u.href; } catch { return ""; } };
   const wanted = urlKey(focus.sourceUrl);
   if (!wanted || urlKey(problem.sourceUrl) !== wanted) return false;

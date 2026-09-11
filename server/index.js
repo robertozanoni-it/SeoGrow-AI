@@ -1,3 +1,4 @@
+import { publicHeadMetadata } from "./publicHeadMetadata.js";
 import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
 import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
 import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
@@ -541,16 +542,9 @@ async function fetchStatusWithRetry(url, attempts = 2, signal) {
 }
 
 function pageSignals(html, url, status, responseMs, depth, headers) {
-  const title = firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const description =
-    firstMatch(
-      html,
-      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i,
-    ) ||
-    firstMatch(
-      html,
-      /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i,
-    );
+  const metadata = publicHeadMetadata(html);
+  const title = metadata.title;
+  const description = metadata.metaDescription;
   const canonicalRaw =
     firstMatch(
       html,
@@ -604,7 +598,9 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
     wordpressDocumentId: wordpressDocumentId(html),
     canonicalCount: canonicalCount(html),
     title,
-    titleLength: title.length,
+    titleLength: seoCharacterCount(title),
+    titleCount: metadata.titleCount,
+    metaDescriptionCount: metadata.metaDescriptionCount,
     description,
     descriptionLength: seoCharacterCount(description),
     canonical,
@@ -634,6 +630,7 @@ function technicalIssues(
   const push = (type, severity, label, page, detail = "") =>
     issues.push({ type, severity, label, url: page.url, detail });
   for (const page of pages) {
+    if (page.titleCount > 1 || page.metaDescriptionCount > 1) push("metadata-tags", "alta", "Tag SEO duplicati nella pagina", page, `${page.titleCount} title e ${page.metaDescriptionCount} meta description nel codice HTML: verifica plugin e template prima di modificare il testo.`);
     if (!page.title) push("title", "alta", "Title mancante", page);
     else if (page.titleLength < 20 || page.titleLength > 70)
       push("title", "media", `Title di ${page.titleLength} caratteri`, page);
@@ -1038,16 +1035,11 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
     if (!response.ok)
       throw new Error(`Il sito ha risposto con ${response.status}`);
     const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
-    const title = firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const description =
-      firstMatch(
-        html,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i,
-      ) ||
-      firstMatch(
-        html,
-        /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i,
-      );
+    const contentType = response.headers.get("content-type") || "";
+    if (!/(?:text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("La risorsa non è una pagina HTML: nessun punteggio SEO è stato calcolato.");
+    const metadata = publicHeadMetadata(html);
+    const title = metadata.title;
+    const description = metadata.metaDescription;
     const canonical =
       firstMatch(
         html,
@@ -1061,6 +1053,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
     const images = count(html, /<img\b[^>]*>/gi);
     const missingAlt = count(html, /<img\b(?![^>]*\balt=)[^>]*>/gi);
     const issues = [];
+    if (metadata.titleCount > 1 || metadata.metaDescriptionCount > 1) issues.push({type:"metadata-tags",severity:"alta",label:"Tag SEO duplicati nella pagina",detail:`${metadata.titleCount} title e ${metadata.metaDescriptionCount} meta description nel codice HTML.`});
     if (!title) issues.push({ severity: "alta", label: "Title mancante" });
     else if (title.length < 20 || title.length > 70)
       issues.push({
@@ -1072,7 +1065,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
     else if (seoCharacterCount(description) < 70 || seoCharacterCount(description) > SEO_TEXT_LIMITS.meta_description)
       issues.push({
         severity: "media",
-        label: `Meta description di ${description.length} caratteri`,
+        label: `Meta description di ${seoCharacterCount(description)} caratteri`,
       });
     if (h1 !== 1) issues.push({ severity: "alta", label: `${h1} H1 rilevati` });
     if (!canonical)
@@ -1102,7 +1095,9 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
       fetchedAt: new Date().toISOString(),
       score,
       title,
-      titleLength: title.length,
+      titleLength: seoCharacterCount(title),
+    titleCount: metadata.titleCount,
+    metaDescriptionCount: metadata.metaDescriptionCount,
       description,
       descriptionLength: seoCharacterCount(description),
       canonical,

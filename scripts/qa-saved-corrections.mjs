@@ -15,7 +15,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     const after = 'Descrizione aggiornata approvata: testo completo con accenti, è, perché e un collegamento preciso alla pagina.';
     const issue = { type:'duplicate-description', label:'Meta description duplicata', severity:'alta', url:targetUrl, sourceUrl:targetUrl, detail:'Descrizione duplicata nella fixture controllata.' };
     const audit = { url:client.url, analyzedAt:'2026-09-10T08:00:00.000Z', score:80, issues:[issue] };
-    const publicResponse = { ok:true, url:targetUrl, status:200, isHtml:true, title:'Pagina test', metaDescription:after, wordpressDocumentId:123, h1:1, words:300 };
+    const publicResponse = { ok:true, url:targetUrl, status:200, isHtml:true, titleCount:1, metaDescriptionCount:1, title:'Pagina test', metaDescription:after, wordpressDocumentId:123, h1:1, words:300 };
     const receipt = '.automatic-proposal-page .saved-correction-details[data-correction-id]';
     const snapshotValues = scope => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(scope)});return [...(r?.querySelectorAll('.saved-correction-field .saved-correction-diff pre')||[])].map(n=>n.textContent)})()`);
     const visibleClick = async selector => {

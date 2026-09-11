@@ -377,3 +377,22 @@
   .problem-next-step { bottom: -16px; margin: 14px -16px -16px; padding: 12px 16px 16px; grid-template-columns: 1fr; }
   .problem-next-step > span { grid-column: 1; }
 }
+
+/* One React-owned card list: filtering, identity and clicks use the same rows. */
+.problems-list.native-problem-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px; border: 0; overflow: visible; background: transparent;
+}
+.problems-list.native-problem-cards .problem-card {
+  display: flex; flex-direction: column; align-items: flex-start; min-width: 0;
+  padding: 20px; border: 1px solid #d6e5f1; border-radius: 18px; gap: 10px;
+}
+.problems-list.native-problem-cards .problem-card.blue { background: #eef6ff; }
+.problems-list.native-problem-cards .problem-card.mint { background: #eefaf6; }
+.problem-card .problem-main, .problem-card .problem-source { width: 100%; min-width: 0; }
+.problem-card .problem-main strong { font-size: 18px; }
+.problem-card .problem-main small, .problem-card .problem-main p { white-space: normal; overflow-wrap: anywhere; }
+.problem-card .problem-severity { max-width: 100%; white-space: normal; }
+.problem-card .card-record-open { margin-top: auto; }
+.problem-card .card-record-date { font-size: 14px; color: #5c748f; }
+.problem-card:focus-visible { outline: 3px solid #1768df; outline-offset: 3px; }

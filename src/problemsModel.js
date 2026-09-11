@@ -1,3 +1,4 @@
+import { observedPageCount } from "./observedAuditData.js";
 import { isLegalPage } from "./legalPageScope.js";
 import {
   correctionEvent,
@@ -8,6 +9,7 @@ import {
   latestAudit,
   normalizeClientId,
   normalizeHttpUrl,
+  safeHttpHref,
   taskEvent,
 } from "./reliabilityModel.js";
 
@@ -35,7 +37,7 @@ const issueSourceUrl = (issue, auditUrl = "") => {
 const issueBrokenTarget = (issue) => {
   const type = String(issue?.type || "").toLowerCase();
   if (!/broken-(?:external-)?link/.test(type)) return "";
-  return normalizeHttpUrl(issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "", { stripSlash: false });
+  return safeHttpHref(issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "");
 };
 
 const severity = (value) => {
@@ -209,7 +211,7 @@ export function buildUnifiedProblems({
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
     if (!group.detail) group.detail = task?.detail || task?.notes || "";
     if (/broken-(?:external-)?link/.test(String(task?.kind || "").toLowerCase())) {
-      const target = normalizeHttpUrl(task?.targetUrl || "", { stripSlash: false });
+      const target = safeHttpHref(task?.targetUrl || "");
       if (target && target !== normalizeHttpUrl(sourceUrl, { stripSlash: false })) group.targetUrls.add(target);
     }
     addSource(group, {
@@ -305,7 +307,7 @@ export function buildUnifiedProblems({
     warnings: [...new Set(warnings)],
     coverage: {
       siteAuditAt: site?.analyzedAt || site?.startedAt || "",
-      sitePages: Number(site?.pagesChecked || site?.pages?.length || 0),
+      sitePages: site ? observedPageCount(site) : null,
       pageAudits: pageAudits.length,
     },
   };

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { buildUnifiedProblems } from "./problemsModel.js";
-import { issueCorrectability } from "./reliabilityModel.js";
+import { issueCorrectability, issueIdentity } from "./reliabilityModel.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { navigatePage } from "./navigationUx.js";
 import { opportunityGroups } from "./platform.js";
@@ -23,7 +23,7 @@ import "./CardWorkspaceLayer.css";
 
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
-const CARD_EXCLUDED_PAGES = new Set(["Centro progetto"]);
+const CARD_EXCLUDED_PAGES = new Set(["Centro progetto", "Problemi"]);
 
 const readJson = (key, fallback) => {
   try {
@@ -250,7 +250,7 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
     subtitle: item.url || "Crawl del progetto",
     kind: "audit",
     clientId,
-    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
+    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), key: issueIdentity({issueType: issue.type, issueLabel: issue.label, sourceUrl: remediationSourceUrl(issue, item), issue}), correctability: issueCorrectability(issue) })),
     url: item.url,
     fields: [
       field("Punteggio", item.score != null ? `${item.score}/100` : "—"),
@@ -277,7 +277,7 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
     subtitle: item.url || "Pagina analizzata",
     kind: "audit",
     clientId,
-    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
+    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), key: issueIdentity({issueType: issue.type, issueLabel: issue.label, sourceUrl: remediationSourceUrl(issue, item), issue}), correctability: issueCorrectability(issue) })),
     url: item.url,
     fields: [
       field("Punteggio", item.score != null ? `${item.score}/100` : "—"),

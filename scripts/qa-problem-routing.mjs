@@ -13,14 +13,15 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const issue={type:'duplicate-title',label:'Title duplicato',severity:'alta',sourceUrl:url,url,detail:'Title duplicato sulla pagina '+url};
     const description={...issue,type:'duplicate-description',label:'Meta description duplicata'};
     const manual={...issue,type:'url-alias',label:'Due URL dello stesso contenuto WordPress',detail:'Verifica la canonical prima di decidere il redirect; non cambiare il testo condiviso.'};
-    const audit={url:client.url,analyzedAt:'2026-09-11T00:00:00Z',score:80,issues:[issue,description,manual]};
+    const externalIssues=['https://www.external.example/first-link','https://www.external.example/second-link'].map(targetUrl=>({...issue,type:'broken-external-link',label:'Link esterno interrotto',severity:'media',targetUrl,detail:'Collegamento non raggiungibile'}));
+    const audit={url:client.url,analyzedAt:'2026-09-11T00:00:00Z',score:80,issues:[issue,description,manual,...externalIssues]};
     const oldTitle='Yoga a Cinisello Balsamo: guida iniziale';
     const newTitle='Yoga a Cinisello Balsamo: pratica consapevole';
     const oldDescription='Testo precedente della pagina.';
-    const publicState={ok:true,isHtml:true,status:200,url,wordpressDocumentId:42,title:oldTitle,titleMatchesExpected:true,metaDescription:oldDescription,h1:1,words:400};
+    const publicState={ok:true,isHtml:true,titleCount:1,metaDescriptionCount:1,status:200,url,wordpressDocumentId:42,title:oldTitle,titleMatchesExpected:true,metaDescription:oldDescription,h1:1,words:400};
     const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
     const click = async selector => {
-      await waitFor(`document.querySelector(${JSON.stringify(selector)})`,selector);
+      await waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return !e.disabled&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0})()`,selector+' actionable');
       const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({behavior:'instant',block:'center'});const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(e.disabled||s.display==='none'||s.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Not visible: '+${JSON.stringify(selector)});const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);if(hit!==e&&!e.contains(hit))throw new Error('Covered control: '+${JSON.stringify(selector)});return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
       await command('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
       await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
@@ -31,6 +32,9 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await write(profileKey,{...profiles,[clientId]:{url:client.url,username:'qa-routing'}});
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals.filter(r=>Number(r.clientId)!==Number(clientId)))})})()`);
       await revisit('Problemi');
+      await button('Alta gravità','.problems-overview');
+      await waitFor("document.querySelectorAll('.native-problem-cards .problem-card').length===3",'High-severity filter affects the actual card list');
+      await button('Tutti','.problems-overview');
       await click('.card-record[data-issue-type="duplicate-title"]');
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Problem card opens specific proposal, not list');
       assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
@@ -62,6 +66,11 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('soltanto maiuscole')`,'Capitalization is explicit, not false failure');
       await evaluate(`document.querySelector(${JSON.stringify(receipt)}).scrollIntoView({behavior:'instant',block:'start'})`);
       await screenshot('title-proposal-verified');
+      await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:2});
+      await button('Riverifica',receipt);
+      await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('esattamente un tag')`,'Duplicate title tags cannot verify a correction');
+      await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:1});
+
       // Real browser download, not a single-file static package assumption.
       await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
       try {
@@ -89,6 +98,12 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(await evaluate("(()=>{const e=document.querySelector('.problem-resolution-content section');const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&!!e.textContent.trim()})()"),true,'Nested diagnostic sections are visible and contain real problem data');
       await screenshot('manual-problem-resolution');
       await button('Torna ai problemi','.problem-resolution-root');
+      await click('.native-problem-cards [data-problem-key*="second-link"]');
+      await waitFor("document.querySelector('.problem-resolution-targets a')?.href==='https://www.external.example/second-link'",'Second external-link card opens its own exact destination');
+      assert.equal(await evaluate("[...document.querySelectorAll('.problem-resolution-targets a')].some(a=>a.href.includes('first-link'))"),false,'Never substitute the first problem on the same source page');
+      await screenshot('external-problem-specific');
+      await button('Apri Correzioni','.problem-resolution-actions');
+      await waitFor("document.body.dataset.seogrowProblemResolution!=='true' && document.querySelector('.app main .page-title h1')?.textContent.includes('Correzioni')",'Manual resolution exits to actual correction history');
       await revisit('Audit SEO');await click('.card-record[data-audit-card="true"]');
       await click('.card-horizontal-detail .audit-problem-open');
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Individual audit issue opens same specific proposal');

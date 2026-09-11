@@ -122,6 +122,12 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     .filter((item) => sameProblemCorrection(problem, item))
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
 
+  const openCorrectionHistory = () => {
+    try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* The route still remains read-only. */ }
+    window.dispatchEvent(new CustomEvent("seogrow-problem-resolution-open"));
+    navigatePage("Correzioni");
+  };
+
   const openIntervention = () => {
     const request = {
       clientId: client.id,
@@ -203,6 +209,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
             <div>
               <h2>Che cosa è stato rilevato</h2>
               <p>{problem.detail}</p>
+              {(problem.targetUrls || []).length > 0 && <div className="problem-resolution-targets"><strong>Link interessati</strong>{problem.targetUrls.map(target => safeHttpHref(target) ? <a key={target} href={safeHttpHref(target)} target="_blank" rel="noopener noreferrer">{target}</a> : null)}</div>}
               <dl className="problem-resolution-facts">
                 <div><dt>Tipo</dt><dd>{problem.issueType || "Non classificato"}</dd></div>
                 <div><dt>Gravità tecnica</dt><dd>{labelMap.severity[problem.severity]}</dd></div>
@@ -288,7 +295,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
           )}
 
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
-          <button className="secondary" type="button" onClick={() => navigatePage("Correzioni")}><CheckCircle2 /> Apri Correzioni</button>
+          <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>
 
           {message && <p className="problem-resolution-message" role="status">{message}</p>}
         </aside>

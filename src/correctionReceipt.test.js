@@ -13,7 +13,7 @@ const record = {
   before: { "meta.rank_math_description": "Prima completa" },
   after: { "meta.rank_math_description": "Dopo completo" },
 };
-const frontend = { ok: true, isHtml: true, status: 200, url: sourceUrl, wordpressDocumentId: 42, metaDescription: "Dopo completo" };
+const frontend = { ok: true, isHtml: true, titleCount: 1, metaDescriptionCount: 1, status: 200, url: sourceUrl, wordpressDocumentId: 42, metaDescription: "Dopo completo" };
 
 test("receipt preserves full UTF-8 snapshots across every historical status", () => {
   const long = "Testo integrale con è, apostrofi e accenti. ".repeat(250);

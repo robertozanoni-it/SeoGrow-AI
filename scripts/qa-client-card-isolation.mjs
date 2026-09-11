@@ -13,8 +13,8 @@ export async function runClientCardIsolationFlow({evaluate,waitFor,clickSidebar,
       await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
     };
     const hierarchy = async page => {
-      await waitFor(`(()=>{const main=document.querySelector('.app main');const title=main?.querySelector('.page-title');const wizard=main?.querySelector('.guided-page-wizard-host');const cards=main?.querySelector('.card-workspace-host');return main?.dataset.page===${JSON.stringify(page)}&&title?.querySelector('h1')?.textContent.startsWith(${JSON.stringify(page)})&&wizard?.textContent.includes('Percorso guidato')&&cards?.textContent.trim()&&(title.compareDocumentPosition(wizard)&Node.DOCUMENT_POSITION_FOLLOWING)&&(wizard.compareDocumentPosition(cards)&Node.DOCUMENT_POSITION_FOLLOWING)})()`, 'Page title, its wizard and its cards in order: '+page);
-      assert.equal(await evaluate("document.querySelectorAll('.app main .card-workspace-host').length"),1,'Exactly one current card workspace');
+      await waitFor(`(()=>{const main=document.querySelector('.app main');const title=main?.querySelector('.page-title');const wizard=main?.querySelector('.guided-page-wizard-host');const cards=main?.querySelector('.native-problem-cards,.card-workspace-host');return main?.dataset.page===${JSON.stringify(page)}&&title?.querySelector('h1')?.textContent.startsWith(${JSON.stringify(page)})&&wizard?.textContent.includes('Percorso guidato')&&cards?.textContent.trim()&&(title.compareDocumentPosition(wizard)&Node.DOCUMENT_POSITION_FOLLOWING)&&(wizard.compareDocumentPosition(cards)&Node.DOCUMENT_POSITION_FOLLOWING)})()`, 'Page title, its wizard and its cards in order: '+page);
+      assert.equal(await evaluate("document.querySelectorAll('.app main .native-problem-cards,.app main .card-workspace-host').length"),1,'Exactly one current card workspace');
       assert.equal(await evaluate("Boolean(document.querySelector('vite-error-overlay'))"),false);
     };
     try {

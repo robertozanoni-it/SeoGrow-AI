@@ -29,7 +29,14 @@ export const normalizeHttpUrl = (value, { stripTracking = true, stripSlash = fal
   }
 };
 
-export const safeHttpHref = (value) => normalizeHttpUrl(value, { stripTracking: false }) || "";
+export const safeHttpHref = (value) => {
+  try {
+    const url = new URL(String(value || "").trim());
+    // Navigation must preserve the observed host/path/query, not turn a www or
+    // signed external URL into another resource. Identity normalization is separate.
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : "";
+  } catch { return ""; }
+};
 
 const normalizedIssueFamily = (record = {}) => {
   const issue = record.issue || {};
@@ -46,10 +53,11 @@ const brokenTarget = (record = {}) => {
   const issue = record.issue || record;
   const type = normalizedIssueFamily(record);
   if (!/broken-(?:external-)?link|link.*(?:404|410|interrott|raggiung)/i.test(type)) return "";
-  return normalizeHttpUrl(
-    issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || record.targetUrl || "",
-    { stripSlash: false },
-  );
+  const href = safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || record.targetUrl || "");
+  if (!href) return "";
+  const url = new URL(href);
+  url.hash = "";
+  return url.href;
 };
 
 export function resourceIdentity(record = {}) {
