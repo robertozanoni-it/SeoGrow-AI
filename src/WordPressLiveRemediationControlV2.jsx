@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
+import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor } from "./brokenLinkRemediation.js";
 import {
   attachElementorImpactEvidence,
   elementorOwnershipDetail,
@@ -302,6 +303,58 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
     const error = new Error(contextDecision.reason);
     error.code = contextDecision.code;
     throw error;
+  }
+
+  if (kind === "external_link") {
+    const brokenUrl = brokenExternalTarget(issue);
+    if (!brokenUrl) {
+      const error = new Error("Il problema non contiene una destinazione esterna 404 valida da correggere.");
+      error.code = "BROKEN_LINK_TARGET_MISSING";
+      throw error;
+    }
+
+    const elementorRaw = pluginMeta(entity)._elementor_data;
+    const elementor = prepareElementorBrokenExternalLink(elementorRaw, brokenUrl);
+    if (elementor.state === "invalid") {
+      throw ownershipUndetermined("external_link", "_elementor_data non è leggibile in modo strutturato: il link non viene modificato.");
+    }
+    if (elementor.state === "valid" && elementor.count > 1) {
+      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${elementor.count} volte nel documento Elementor. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+    }
+    if (elementor.state === "valid" && elementor.count === 1) {
+      return {
+        adapter: "Elementor link cleanup",
+        changes: { meta: { _elementor_data: elementor.serialized } },
+        quality: null,
+        linkCleanup: {
+          targetUrl: brokenUrl,
+          action: "unlink-preserve-text",
+          anchorText: elementor.anchors[0] || "",
+        },
+      };
+    }
+    if (elementor.state === "valid") {
+      throw ownershipUndetermined("external_link", "La pagina usa Elementor ma la destinazione 404 non è presente nel documento locale. Potrebbe provenire da un template condiviso; il fallback su post_content è bloccato.");
+    }
+
+    const coreContent = entity?.content?.raw || "";
+    const core = removeExactAnchor(coreContent, brokenUrl);
+    if (core.count > 1) {
+      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${core.count} volte in post_content. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+    }
+    if (core.count === 1) {
+      return {
+        adapter: "WordPress core link cleanup",
+        changes: { content: core.value },
+        quality: null,
+        linkCleanup: {
+          targetUrl: brokenUrl,
+          action: "unlink-preserve-text",
+          anchorText: core.anchors[0] || "",
+        },
+      };
+    }
+    throw ownershipUndetermined("external_link", "La destinazione 404 non compare in una sorgente WordPress locale modificabile. Nessun collegamento viene rimosso automaticamente.");
   }
 
   if (["content", "h1"].includes(kind)) {
@@ -780,7 +833,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
-            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
+            {item.plan?.linkCleanup ? <section className="correction-readable"><h4>Collegamento esterno 404</h4><p><strong>Testo mantenuto:</strong> {item.plan.linkCleanup.anchorText || "testo del collegamento"}</p><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{item.plan.linkCleanup.targetUrl}</pre></section><section><strong>Dopo la modifica</strong><pre>Collegamento rimosso; il testo resta visibile.</pre></section></div></section> : readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
             <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>
           </>}
