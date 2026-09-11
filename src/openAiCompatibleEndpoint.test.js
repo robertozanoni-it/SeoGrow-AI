@@ -42,6 +42,19 @@ test("OpenRouter aggiunge il namespace openai solo ai modelli senza provider", (
   );
 });
 
+test("OmniRoute locale è consentito solo sul loopback canonico porta 20128", () => {
+  for (const base of ["http://localhost:20128/v1", "http://127.0.0.1:20128/v1"]) {
+    const env = { OPENAI_BASE_URL: base };
+    assert.equal(openAiCompatibleProvider(env), "omniroute");
+    assert.equal(openAiCompatibleBaseUrl(env), base);
+    assert.equal(
+      rewriteOpenAiApiUrl("https://api.openai.com/v1/responses", env),
+      `${base}/responses`,
+    );
+    assert.equal(openAiCompatibleModel("openai/gpt-5.6-sol", env), "openai/gpt-5.6-sol");
+  }
+});
+
 test("la chiave non può essere instradata verso host arbitrari", () => {
   assert.throws(
     () => openAiCompatibleBaseUrl({ OPENAI_BASE_URL: "https://evil.example/v1" }),
@@ -54,6 +67,14 @@ test("la chiave non può essere instradata verso host arbitrari", () => {
   assert.throws(
     () => openAiCompatibleBaseUrl({ OPENAI_BASE_URL: "https://openrouter.ai/altro" }),
     /deve essere esattamente/,
+  );
+  assert.throws(
+    () => openAiCompatibleBaseUrl({ OPENAI_BASE_URL: "http://localhost:20129/v1" }),
+    /porta 20128|esattamente/,
+  );
+  assert.throws(
+    () => openAiCompatibleBaseUrl({ OPENAI_BASE_URL: "http://192.168.1.20:20128/v1" }),
+    /non è autorizzato/,
   );
 });
 
