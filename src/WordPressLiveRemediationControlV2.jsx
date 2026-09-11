@@ -73,6 +73,17 @@ const selectAudit = (clientId, requested) => {
 const issueUrl = remediationSourceUrl;
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
 const classifyIssue = remediationIssueKind;
+const contentCandidatePreview = (value, max = 260) => {
+  const text = String(value || "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+};
 
 const isNonEditableWordPressUrl = (value) => {
   try {
@@ -126,6 +137,12 @@ const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement)
 const preparationFailure = (error) => {
   const message = error instanceof Error ? error.message : "Preparazione correzione non riuscita.";
   const code = String(error?.code || "");
+  if (code === "CONTENT_WIDGET_SELECTION_REQUIRED") return {
+    status: "selection_required",
+    category: "selection",
+    reason: message,
+    contentCandidates: Array.isArray(error?.contentCandidates) ? error.contentCandidates : [],
+  };
   if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
   if (/CANONICAL_|INDEX_INTENT/.test(code)) return { status: "context_error", category: "context", reason: message };
   if (code === "OWNERSHIP_UNDETERMINED" || /ownership/i.test(message)) return { status: "ownership_error", category: "ownership", reason: message };
@@ -258,15 +275,31 @@ async function generateSeoValue(kind, issue, entity, targetUrl) {
   return { value: String(data.value).trim(), quality: data.quality || null };
 }
 
-async function chooseVerifiedElementorContentWidget(targetUrl, state) {
+async function chooseVerifiedElementorContentWidget(targetUrl, state, selectedWidgetId = "") {
   if (state.widgets.length > 8) throw ownershipUndetermined("content", "La pagina contiene più di 8 text-editor Elementor candidati; serve selezione assistita prima di modificare.");
   const probes = await Promise.all(state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })));
   const selected = chooseElementorContentCandidate(state.widgets, probes);
-  if (!selected.candidate) throw ownershipUndetermined("content", selected.reason);
-  return selected.candidate;
+  const explicitId = String(selectedWidgetId || "").trim();
+  if (explicitId) {
+    const explicit = (selected.candidates || []).find((candidate) => candidate.id === explicitId);
+    if (!explicit) throw ownershipUndetermined("content", "Il blocco Elementor scelto non è più verificato nel frontend corrente. Riapri la selezione e scegli un candidato ancora valido.");
+    return explicit;
+  }
+  if (selected.candidate) return selected.candidate;
+  if ((selected.candidates || []).length > 1) {
+    const error = new Error(selected.reason);
+    error.code = "CONTENT_WIDGET_SELECTION_REQUIRED";
+    error.contentCandidates = selected.candidates.map((candidate) => ({
+      id: candidate.id,
+      words: candidate.words,
+      preview: contentCandidatePreview(candidate.value),
+    }));
+    throw error;
+  }
+  throw ownershipUndetermined("content", selected.reason);
 }
 
-async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
+async function elementorPlan(kind, issue, entity, targetUrl, state, frontend, options = {}) {
   if (!state?.parsed || !state.widgets.length) return null;
   if (kind === "h1") {
     const headings = state.widgets.map((candidate) => candidate.item);
@@ -285,18 +318,27 @@ async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
     return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: null };
   }
   if (kind === "content") {
-    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state);
+    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, options.contentWidgetId);
     const previous = selected.item.settings.editor;
     const measurement = contentMeasurement(frontend, previous);
     const generated = await generateCorePatch("content", issue, entity, targetUrl, previous, measurement);
     if (typeof generated.changes?.content !== "string" || !generated.changes.content.trim() || generated.changes.content === previous) return null;
     selected.item.settings.editor = generated.changes.content;
-    return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: generated.quality };
+    return {
+      adapter: "Elementor single text-editor",
+      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
+      quality: generated.quality,
+      contentWidget: {
+        id: selected.id,
+        beforeWords: selected.words,
+        beforePreview: contentCandidatePreview(previous),
+      },
+    };
   }
   return null;
 }
 
-async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
+async function buildPlan(kind, issue, inspected, targetUrl, frontendContext, options = {}) {
   const entity = inspected.entity || {};
   const contextDecision = remediationContextDecision(issue, frontendContext || {}, targetUrl);
   if (!contextDecision.allowed) {
@@ -364,7 +406,7 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
     const elementorState = inspectEditableElementor(kind, entity);
     if (elementorState.state === "invalid") throw ownershipUndetermined(kind, "_elementor_data è presente ma non è strutturato in modo valido e sicuro.");
     if (elementorState.state === "valid" && elementorState.widgets.length > 0) {
-      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend);
+      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend, options);
       if (elementor) return elementor;
       throw ownershipUndetermined(kind, "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica senza ambiguità. Il fallback su post_content è bloccato.");
     }
@@ -585,7 +627,9 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           if (impactEvidence) attachElementorImpactEvidence(inspected.entity, impactEvidence);
         }
         assertCurrentSelection();
-        const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext);
+        const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext, {
+          contentWidgetId: String(explicitItem?.contentWidgetId || ""),
+        });
         assertCurrentSelection();
         if (plan.changes) assertSeoPatchLengths(plan.changes);
         const contextSnapshot = {
@@ -826,6 +870,17 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             </div>
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
+          {item.status === "selection_required" && <section className="content-widget-picker" aria-label="Seleziona il blocco Elementor da ampliare">
+            <h4>Scegli il blocco da ampliare</h4>
+            <p>SeoGrow ha verificato più blocchi testuali locali nel frontend. Scegli esplicitamente quello corretto: nessuna modifica viene preparata finché non fai questa scelta.</p>
+            <div className="content-widget-picker-grid">
+              {(item.contentCandidates || []).map((candidate, candidateIndex) => <article className="content-widget-choice" key={candidate.id}>
+                <div><strong>Blocco {candidateIndex + 1}</strong><span>{candidate.words} parole · widget #{candidate.id}</span></div>
+                <p>{candidate.preview || "Anteprima testuale non disponibile."}</p>
+                <button type="button" className="secondary" disabled={running || Boolean(applyingId)} onClick={() => prepare(false, { ...item, contentWidgetId: candidate.id })}><Wrench />Amplia questo blocco</button>
+              </article>)}
+            </div>
+          </section>}
           {(h1OwnershipBlocked(item) || openAiConfigurationMissing(item)) && <div className="wp-live-guidance-actions">
             {h1OwnershipBlocked(item) && <button data-seogrow-live="1" type="button" className="primary" disabled={running || Boolean(applyingId)} onClick={() => verifyH1Coverage(item)}><Eye />{running ? "Verifica in corso…" : "Verifica origine H1"}</button>}
             {openAiConfigurationMissing(item) && <button type="button" className="primary" onClick={() => navigatePage("Integrazioni")}><Wrench />Configura OpenAI</button>}
@@ -833,6 +888,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
+            {item.plan?.contentWidget && <section className="content-widget-selected"><strong>Blocco Elementor selezionato:</strong> widget #{item.plan.contentWidget.id} · {item.plan.contentWidget.beforeWords} parole</section>}
             {item.plan?.linkCleanup ? <section className="correction-readable"><h4>Collegamento esterno 404</h4><p><strong>Testo mantenuto:</strong> {item.plan.linkCleanup.anchorText || "testo del collegamento"}</p><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{item.plan.linkCleanup.targetUrl}</pre></section><section><strong>Dopo la modifica</strong><pre>Collegamento rimosso; il testo resta visibile.</pre></section></div></section> : readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
             <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>
