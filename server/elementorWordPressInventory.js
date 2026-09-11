@@ -1,5 +1,6 @@
 const MAX_AUTHORITATIVE_RESOURCES = 2000;
 const ALLOWED_STATUSES = new Set(["publish"]);
+const NON_PUBLIC_FRONTEND_POST_TYPES = new Set(["elementor_library", "e-floating-buttons", "attachment"]);
 
 const normalizedHost = (hostname) => String(hostname || "").toLowerCase().replace(/^www\./, "");
 
@@ -16,6 +17,16 @@ function normalizePublicUrl(value, siteUrl) {
   }
 }
 
+function comparisonKey(value, siteUrl) {
+  const normalized = normalizePublicUrl(value, siteUrl);
+  if (!normalized) return "";
+  const url = new URL(normalized);
+  if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/, "");
+  url.hostname = normalizedHost(url.hostname);
+  url.searchParams.sort();
+  return `${url.origin}${url.pathname}${url.search}`;
+}
+
 function safePositiveInt(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : null;
@@ -29,6 +40,11 @@ function normalizeResource(item, siteUrl) {
   const url = normalizePublicUrl(item.url, siteUrl);
   if (!id || !postType || !ALLOWED_STATUSES.has(status) || !url) return null;
   return { id, postType, status, url };
+}
+
+export function coverageRelevantInventoryResources(inventory) {
+  return (Array.isArray(inventory?.resources) ? inventory.resources : [])
+    .filter((item) => item && !NON_PUBLIC_FRONTEND_POST_TYPES.has(String(item.postType || "").toLowerCase()));
 }
 
 export function validateAuthoritativeWordPressInventory(payload, { siteUrl, maxResources = MAX_AUTHORITATIVE_RESOURCES } = {}) {
@@ -131,7 +147,9 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
     };
   }
 
-  const inventoryUrls = new Set((inventory.resources || []).map((item) => item.url));
+  const siteUrl = publicCoverage?.siteUrl || inventory?.resources?.[0]?.url || "";
+  const relevantResources = coverageRelevantInventoryResources(inventory);
+  const inventoryByKey = new Map(relevantResources.map((item) => [comparisonKey(item.url, siteUrl), item.url]));
   const coverageSource = Array.isArray(publicCoverage.coverageUrls) && publicCoverage.coverageUrls.length
     ? publicCoverage.coverageUrls
     : Array.isArray(publicCoverage.crawledUrls) && publicCoverage.crawledUrls.length
@@ -139,31 +157,40 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
       : Array.isArray(publicCoverage.sitemapUrls)
         ? publicCoverage.sitemapUrls
         : [];
-  const publicUrls = new Set(coverageSource);
-  const publicUrlsOutsideInventory = [...publicUrls].filter((url) => !inventoryUrls.has(url)).toSorted();
-  const inventoryUrlsMissingFromPublicCoverage = [...inventoryUrls].filter((url) => !publicUrls.has(url)).toSorted();
+  const publicByKey = new Map(coverageSource.map((url) => [comparisonKey(url, siteUrl), url]));
 
-  const verified = publicUrls.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+  const publicUrlsOutsideInventory = [...publicByKey.entries()]
+    .filter(([key]) => key && !inventoryByKey.has(key))
+    .map(([, url]) => url)
+    .toSorted();
+  const inventoryUrlsMissingFromPublicCoverage = [...inventoryByKey.entries()]
+    .filter(([key]) => key && !publicByKey.has(key))
+    .map(([, url]) => url)
+    .toSorted();
+
+  const verified = publicByKey.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
 
   let status = verified ? "verified-complete" : "inventory-routes-missing-from-public-coverage";
   let reason = verified
-    ? "Inventario WordPress autorevole e coverage pubblica ispezionata sono riconciliati."
-    : "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica ispezionata.";
+    ? "Inventario WordPress rilevante per il frontend e coverage pubblica ispezionata sono riconciliati."
+    : "Una o più risorse WordPress pubblicate rilevanti per il frontend non compaiono nella coverage pubblica ispezionata.";
   if (verified && publicUrlsOutsideInventory.length > 0) {
     status = "verified-public-superset";
-    reason = "La coverage pubblica verificata include anche route non appartenenti ai post type o pagine HTML aggiuntive scoperte dal crawl. Sono già comprese nel set controllato e non costituiscono pagine mancanti.";
+    reason = "La coverage pubblica verificata include anche route non appartenenti ai contenuti WordPress frontend o pagine HTML aggiuntive scoperte dal crawl. Sono già comprese nel set controllato.";
   }
 
   return {
     verified,
     status,
     reason,
-    totalUrls: publicUrls.size,
-    publicUrlCount: publicUrls.size,
+    totalUrls: publicByKey.size,
+    publicUrlCount: publicByKey.size,
     publicUrlsOutsideInventory,
     inventoryUrlsMissingFromPublicCoverage,
+    excludedInventoryPostTypes: [...NON_PUBLIC_FRONTEND_POST_TYPES].toSorted(),
+    relevantInventoryResources: relevantResources.length,
     scope: {
-      inventory: "all-public-queryable-post-types",
+      inventory: "public-frontend-content-resources",
       publicCoverage: "sitemap-and-recursive-html-crawl-public-routes",
       globallyComplete: verified,
       publicSuperset: publicUrlsOutsideInventory.length > 0,
