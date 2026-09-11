@@ -67,9 +67,12 @@ export function reconcileElementorCoverage({
 
   const overLimit = sitemap.size > limit || crawled.size > limit || discovered.size > limit;
   const everySitemapUrlCrawled = sitemap.size > 0 && [...sitemap].every((url) => crawled.has(url));
-  const noExtraCrawledUrls = [...crawled].every((url) => sitemap.has(url));
-  const noUndeclaredDiscoveries = [...discovered].every((url) => sitemap.has(url));
-  const totalsMatch = sitemap.size === crawled.size;
+  const everyDiscoveredUrlCrawled = discovered.size > 0 && [...discovered].every((url) => crawled.has(url));
+  const everyCrawledUrlDiscovered = [...crawled].every((url) => discovered.has(url));
+  const extraDiscoveredUrls = [...discovered].filter((url) => !sitemap.has(url)).toSorted();
+  const noUndeclaredDiscoveries = extraDiscoveredUrls.length === 0;
+  const noExtraCrawledUrls = everyCrawledUrlDiscovered;
+  const totalsMatch = discovered.size === crawled.size;
 
   const verified =
     sitemapReconciled === true &&
@@ -78,8 +81,8 @@ export function reconcileElementorCoverage({
     !overLimit &&
     failureCount === 0 &&
     everySitemapUrlCrawled &&
-    noExtraCrawledUrls &&
-    noUndeclaredDiscoveries &&
+    everyDiscoveredUrlCrawled &&
+    everyCrawledUrlDiscovered &&
     totalsMatch;
 
   let status = "incomplete";
@@ -96,15 +99,17 @@ export function reconcileElementorCoverage({
   } else if (queueDrained !== true) {
     status = "queue-not-drained";
     reason = "La coda del crawl contiene ancora URL da verificare.";
-  } else if (!noUndeclaredDiscoveries) {
-    status = "undocumented-discovery";
-    reason = "Il crawl ha scoperto URL interne non presenti nel set sitemap attestato.";
-  } else if (!everySitemapUrlCrawled || !noExtraCrawledUrls || !totalsMatch) {
+  } else if (!everyDiscoveredUrlCrawled) {
+    status = "uninspected-discovery";
+    reason = "Il crawl ha scoperto pagine HTML interne che non sono ancora state ispezionate.";
+  } else if (!everySitemapUrlCrawled || !everyCrawledUrlDiscovered || !totalsMatch) {
     status = "set-mismatch";
-    reason = "Sitemap e pagine effettivamente ispezionate non coincidono esattamente.";
+    reason = "Le pagine pubbliche dichiarate, scoperte e ispezionate non coincidono.";
   } else if (verified) {
     status = "verified-complete";
-    reason = "Sitemap e crawl sono riconciliati: tutte le URL attestate sono state ispezionate, la coda è esaurita e non esistono scoperte extra o errori.";
+    reason = extraDiscoveredUrls.length
+      ? `Sitemap e crawl ricorsivo sono riconciliati: ${extraDiscoveredUrls.length} pagine HTML interne aggiuntive sono state scoperte e ispezionate oltre alla sitemap.`
+      : "Sitemap e crawl sono riconciliati: tutte le URL attestate sono state ispezionate, la coda è esaurita e non esistono errori.";
   }
 
   return {
@@ -112,18 +117,23 @@ export function reconcileElementorCoverage({
     complete: verified,
     status,
     reason,
-    totalUrls: sitemap.size,
+    totalUrls: discovered.size,
+    sitemapUrlCount: sitemap.size,
     discoveredUrls: discovered.size,
     inspectedUrls: crawled.size,
     failedUrls: failureCount,
     queueDrained: queueDrained === true,
     sitemapReconciled: sitemapReconciled === true,
     truncated: truncated === true || overLimit,
-    discoveryMethod: verified ? "crawl+sitemap-reconciled" : "unverified",
+    discoveryMethod: verified ? "recursive-html-crawl+sitemap-reconciled" : "unverified",
     everySitemapUrlCrawled,
+    everyDiscoveredUrlCrawled,
+    everyCrawledUrlDiscovered,
     noExtraCrawledUrls,
     noUndeclaredDiscoveries,
     totalsMatch,
+    coverageExpandedBeyondSitemap: extraDiscoveredUrls.length > 0,
+    extraDiscoveredUrls,
   };
 }
 
