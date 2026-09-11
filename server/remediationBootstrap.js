@@ -1,5 +1,9 @@
 import { hydrateLocalProviderEnv } from "./providerEnv.js";
-import { openAiCompatibleProvider, rewriteOpenAiApiUrl } from "./openAiCompatibleEndpoint.js";
+import {
+  openAiCompatibleProvider,
+  rewriteOpenAiApiUrl,
+  rewriteOpenAiCompatibleRequestBody,
+} from "./openAiCompatibleEndpoint.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 
@@ -28,10 +32,16 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
   const guardedFetch = async (input, options = {}) => {
     const originalUrl = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
     let url = String(originalUrl || "");
-    try { url = rewriteOpenAiApiUrl(url); }
-    catch (error) { throw new Error(`Configurazione provider AI non valida: ${error.message || error}`); }
+    let routedOptions = options;
+    try {
+      url = rewriteOpenAiApiUrl(url);
+      const rewrittenBody = rewriteOpenAiCompatibleRequestBody(options?.body);
+      if (rewrittenBody !== options?.body) routedOptions = { ...options, body: rewrittenBody };
+    } catch (error) {
+      throw new Error(`Configurazione provider AI non valida: ${error.message || error}`);
+    }
 
-    const headers = requestHeaders(input, options);
+    const headers = requestHeaders(input, routedOptions);
     const userAgent = headers.get("user-agent") || "";
     const authorization = headers.get("authorization") || "";
     const isHttps = /^https:\/\//i.test(url);
@@ -43,8 +53,8 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
       ? (typeof Request !== "undefined" && input instanceof Request ? new Request(url, input) : url)
       : input;
 
-    if (needsPinning) return pinnedHttpsFetch(url, options);
-    return nativeFetch(routedInput, options);
+    if (needsPinning) return pinnedHttpsFetch(url, routedOptions);
+    return nativeFetch(routedInput, routedOptions);
   };
   guardedFetch.__seogrowPinnedRemediation = true;
   globalThis.fetch = guardedFetch;
