@@ -1,3 +1,5 @@
+import { coverageIdentityUrl, verifiedCoverageRedirects } from "./elementorCoverageRedirects.js";
+
 const MAX_AUTHORITATIVE_RESOURCES = 2000;
 const ALLOWED_STATUSES = new Set(["publish"]);
 const NON_PUBLIC_FRONTEND_POST_TYPES = new Set(["elementor_library", "e-floating-buttons", "attachment"]);
@@ -18,13 +20,7 @@ function normalizePublicUrl(value, siteUrl) {
 }
 
 function comparisonKey(value, siteUrl) {
-  const normalized = normalizePublicUrl(value, siteUrl);
-  if (!normalized) return "";
-  const url = new URL(normalized);
-  if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/, "");
-  url.hostname = normalizedHost(url.hostname);
-  url.searchParams.sort();
-  return `${url.origin}${url.pathname}${url.search}`;
+  return coverageIdentityUrl(value, siteUrl);
 }
 
 function safePositiveInt(value) {
@@ -140,7 +136,11 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
     return {
       verified: false,
       status: "evidence-incomplete",
-      reason: "Servono sia inventario WordPress autorevole sia coverage pubblica riconciliata.",
+      reason: inventory?.verified !== true
+        ? `Inventario WordPress non verificato: ${inventory?.reason || "evidenza assente"}`
+        : `Coverage pubblica non verificata: ${publicCoverage?.reconciliation?.reason || publicCoverage?.note || "evidenza assente"}${
+          (publicCoverage?.failures || []).slice(0, 3).map((failure) => ` ${failure.url}: ${failure.reason}`).join("")
+        }`,
       publicUrlsOutsideInventory: [],
       inventoryUrlsMissingFromPublicCoverage: [],
       sharedWriteAllowed: false,
@@ -150,30 +150,45 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
   const siteUrl = publicCoverage?.siteUrl || inventory?.resources?.[0]?.url || "";
   const relevantResources = coverageRelevantInventoryResources(inventory);
   const inventoryByKey = new Map(relevantResources.map((item) => [comparisonKey(item.url, siteUrl), item.url]));
-  const coverageSource = Array.isArray(publicCoverage.coverageUrls) && publicCoverage.coverageUrls.length
+  const coverageSource = Array.isArray(publicCoverage.coverageUrls)
     ? publicCoverage.coverageUrls
-    : Array.isArray(publicCoverage.crawledUrls) && publicCoverage.crawledUrls.length
+    : Array.isArray(publicCoverage.crawledUrls)
       ? publicCoverage.crawledUrls
       : Array.isArray(publicCoverage.sitemapUrls)
         ? publicCoverage.sitemapUrls
         : [];
   const publicByKey = new Map(coverageSource.map((url) => [comparisonKey(url, siteUrl), url]));
 
+  const aliases = verifiedCoverageRedirects(publicCoverage, siteUrl);
+  const inventoryRedirectsVerified = [];
+  const resolvedInventoryKeys = new Set(inventoryByKey.keys());
+  for (const [key] of inventoryByKey) {
+    if (publicByKey.has(key)) continue;
+    const alias = aliases.get(key);
+    if (!alias || !publicByKey.has(alias.finalUrl)) continue;
+    resolvedInventoryKeys.add(alias.finalUrl);
+    inventoryRedirectsVerified.push(alias);
+  }
   const publicUrlsOutsideInventory = [...publicByKey.entries()]
-    .filter(([key]) => key && !inventoryByKey.has(key))
+    .filter(([key]) => key && !resolvedInventoryKeys.has(key))
     .map(([, url]) => url)
     .toSorted();
   const inventoryUrlsMissingFromPublicCoverage = [...inventoryByKey.entries()]
-    .filter(([key]) => key && !publicByKey.has(key))
+    .filter(([key]) => key && !publicByKey.has(key) && !inventoryRedirectsVerified.some((alias) => alias.requestedUrl === key))
     .map(([, url]) => url)
     .toSorted();
 
-  const verified = publicByKey.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+  const invalidUrlEvidence = inventoryByKey.has("") || publicByKey.has("");
+  const verified = !invalidUrlEvidence && publicByKey.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
 
   let status = verified ? "verified-complete" : "inventory-routes-missing-from-public-coverage";
   let reason = verified
     ? "Inventario WordPress rilevante per il frontend e coverage pubblica ispezionata sono riconciliati."
-    : "Una o più risorse WordPress pubblicate rilevanti per il frontend non compaiono nella coverage pubblica ispezionata.";
+    : `URL WordPress senza pagina HTML ispezionata o redirect verificato (${inventoryUrlsMissingFromPublicCoverage.length}): ${inventoryUrlsMissingFromPublicCoverage.slice(0, 5).join(", ")}`;
+  if (invalidUrlEvidence) {
+    status = "invalid-coverage-url";
+    reason = "Inventario o coverage contengono URL non valide per il sito: attestazione bloccata.";
+  }
   if (verified && publicUrlsOutsideInventory.length > 0) {
     status = "verified-public-superset";
     reason = "La coverage pubblica verificata include anche route non appartenenti ai contenuti WordPress frontend o pagine HTML aggiuntive scoperte dal crawl. Sono già comprese nel set controllato.";
@@ -187,6 +202,7 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
     publicUrlCount: publicByKey.size,
     publicUrlsOutsideInventory,
     inventoryUrlsMissingFromPublicCoverage,
+    inventoryRedirectsVerified,
     excludedInventoryPostTypes: [...NON_PUBLIC_FRONTEND_POST_TYPES].toSorted(),
     relevantInventoryResources: relevantResources.length,
     scope: {

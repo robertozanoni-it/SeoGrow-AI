@@ -1,3 +1,4 @@
+import { coverageIdentityUrl } from "./elementorCoverageRedirects.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import {
   ELEMENTOR_RECONCILIATION_MAX_URLS,
@@ -36,9 +37,11 @@ async function fetchText(input, {
   timeout = 15_000,
   maxRedirects = MAX_REDIRECTS,
 } = {}) {
-  let current = sameSiteUrl(input, siteUrl);
+  let current = coverageIdentityUrl(input, siteUrl);
   if (!current) throw new Error(`URL HTTPS same-site non valida: ${input}`);
 
+  const redirects = [];
+  const seen = new Set([current]);
   for (let hop = 0; hop <= maxRedirects; hop += 1) {
     const response = await pinnedHttpsFetch(current, {
       timeout,
@@ -53,8 +56,12 @@ async function fetchText(input, {
       const location = response.headers.get("location");
       await response.body?.cancel?.();
       if (!location) throw new Error(`HTTP ${response.status} senza Location per ${current}`);
-      const redirected = sameSiteUrl(new URL(location, current).href, siteUrl);
+      const redirected = coverageIdentityUrl(new URL(location, current).href, siteUrl);
       if (!redirected) throw new Error(`Redirect fuori dal sito non consentito per ${current}`);
+      if (seen.has(redirected)) throw new Error(`Ciclo redirect per ${input}`);
+      if (hop >= maxRedirects) throw new Error(`Troppi redirect per ${input}`);
+      seen.add(redirected);
+      redirects.push({ fromUrl: current, toUrl: redirected, status: response.status });
       current = redirected;
       continue;
     }
@@ -63,6 +70,8 @@ async function fetchText(input, {
     return {
       text: await response.text(),
       finalUrl: current,
+      status: response.status,
+      redirects,
       contentType: String(response.headers.get("content-type") || "").toLowerCase(),
     };
   }
@@ -168,6 +177,7 @@ export async function inspectElementorPublicCoverage({
   const discoveredUrls = new Set(queue);
   const crawledUrls = new Set();
   const ignoredNonHtmlUrls = new Set();
+  const redirectEvidence = [];
   const failures = [...sitemap.failures];
   let traversalTruncated = initialSeeds.length > ELEMENTOR_RECONCILIATION_MAX_URLS;
   let cursor = 0;
@@ -213,6 +223,20 @@ export async function inspectElementorPublicCoverage({
         scheduled.add(finalUrl);
       }
       crawledUrls.add(finalUrl);
+      if (finalUrl !== requestedUrl && result.status === 200 &&
+          ["text/html", "application/xhtml+xml"].includes(result.contentType.split(";")[0].trim())) {
+        redirectEvidence.push({
+          source: "seogrow-public-crawl",
+          readOnly: true,
+          verified: true,
+          requestedUrl,
+          finalUrl,
+          finalStatus: result.status,
+          contentType: result.contentType,
+          chain: result.redirects,
+          inspectedAt: new Date().toISOString(),
+        });
+      }
 
       for (const discovered of extractInternalLinks(result.text, finalUrl, normalizedSite)) {
         schedule(discovered);
@@ -254,6 +278,7 @@ export async function inspectElementorPublicCoverage({
     coverageUrls,
     crawledUrls: coverageUrls,
     discoveredUrls: publicDiscoveredUrls,
+    redirects: redirectEvidence.toSorted((a, b) => a.requestedUrl.localeCompare(b.requestedUrl)),
     ignoredAssetUrls: [...ignoredAssetUrls].toSorted(),
     ignoredNonHtmlUrls: [...ignoredNonHtmlUrls].toSorted(),
     failures,
