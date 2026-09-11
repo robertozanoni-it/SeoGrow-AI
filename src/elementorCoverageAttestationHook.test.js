@@ -28,7 +28,7 @@ test("registro provenance viene scritto solo dopo riconciliazione verificata", (
   const register = source.indexOf("registerElementorCoverageAttestation({");
   assert.ok(guard >= 0 && register > guard);
   assert.match(source, /provenanceId = `elementor-coverage:\$\{randomUUID\(\)\}`/);
-  assert.match(source, /method: "recursive-html-crawl\+sitemap\+wordpress-inventory-seeded-reconciled"/);
+  assert.match(source, /method: "recursive-html-crawl\+sitemap\+frontend-wordpress-inventory-reconciled"/);
   assert.match(source, /queueExhausted: publicProof\.queueDrained === true/);
   assert.match(source, /candidateUrls = \[\.\.\.new Set\(publicCoverage\.coverageUrls \|\| \[\]\)\]/);
   assert.match(source, /candidateUrls\.length !== reconciliation\.totalUrls/);
