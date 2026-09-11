@@ -26,12 +26,18 @@ IFS= read -r OPENROUTER_KEY
 if [[ -n "$TTY_STATE" ]]; then stty "$TTY_STATE" 2>/dev/null || true; fi
 print ""
 
+# Elimina solo spazi bianchi accidentali all'inizio/fine senza mai stampare la chiave.
+OPENROUTER_KEY="${OPENROUTER_KEY#${OPENROUTER_KEY%%[![:space:]]*}}"
+OPENROUTER_KEY="${OPENROUTER_KEY%${OPENROUTER_KEY##*[![:space:]]}}"
+
 if [[ -z "$OPENROUTER_KEY" ]]; then
   print "Chiave vuota: nessuna modifica eseguita."
   exit 1
 fi
 if [[ "$OPENROUTER_KEY" != sk-or-* ]]; then
-  print "Avviso: la chiave non inizia con sk-or-. Verifica che sia davvero una chiave OpenRouter."
+  print "ERRORE: il valore inserito non ha il formato di una chiave OpenRouter (deve iniziare con sk-or-)."
+  print "Nessuna modifica eseguita. Copia il valore segreto completo dalla pagina API Keys di OpenRouter e riprova."
+  exit 1
 fi
 
 read "MODEL?Modello OpenAI su OpenRouter [gpt-5-mini]: "
