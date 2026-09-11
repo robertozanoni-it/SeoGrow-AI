@@ -132,23 +132,26 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
   }
 
   const inventoryUrls = new Set((inventory.resources || []).map((item) => item.url));
-  const publicUrls = new Set(Array.isArray(publicCoverage.sitemapUrls) ? publicCoverage.sitemapUrls : []);
+  const coverageSource = Array.isArray(publicCoverage.coverageUrls) && publicCoverage.coverageUrls.length
+    ? publicCoverage.coverageUrls
+    : Array.isArray(publicCoverage.crawledUrls) && publicCoverage.crawledUrls.length
+      ? publicCoverage.crawledUrls
+      : Array.isArray(publicCoverage.sitemapUrls)
+        ? publicCoverage.sitemapUrls
+        : [];
+  const publicUrls = new Set(coverageSource);
   const publicUrlsOutsideInventory = [...publicUrls].filter((url) => !inventoryUrls.has(url)).toSorted();
   const inventoryUrlsMissingFromPublicCoverage = [...inventoryUrls].filter((url) => !publicUrls.has(url)).toSorted();
 
-  // Le route pubbliche aggiuntive (categorie, tassonomie, archivi) non sono un buco
-  // di coverage: sono già presenti nella sitemap riconciliata e sono state visitate.
-  // Il caso pericoloso è l'opposto: una risorsa WordPress autorevole che non compare
-  // nella coverage pubblica. In quel caso l'enumerazione resta incompleta e fail-closed.
   const verified = publicUrls.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
 
   let status = verified ? "verified-complete" : "inventory-routes-missing-from-public-coverage";
   let reason = verified
-    ? "Inventario WordPress autorevole e coverage pubblica sono riconciliati."
-    : "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica riconciliata.";
+    ? "Inventario WordPress autorevole e coverage pubblica ispezionata sono riconciliati."
+    : "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica ispezionata.";
   if (verified && publicUrlsOutsideInventory.length > 0) {
     status = "verified-public-superset";
-    reason = "La coverage pubblica verificata include anche route non appartenenti ai post type, come tassonomie o archivi. Sono già comprese nel set controllato e non costituiscono pagine mancanti.";
+    reason = "La coverage pubblica verificata include anche route non appartenenti ai post type o pagine HTML aggiuntive scoperte dal crawl. Sono già comprese nel set controllato e non costituiscono pagine mancanti.";
   }
 
   return {
@@ -161,7 +164,7 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
     inventoryUrlsMissingFromPublicCoverage,
     scope: {
       inventory: "all-public-queryable-post-types",
-      publicCoverage: "sitemap-and-crawl-public-routes",
+      publicCoverage: "sitemap-and-recursive-html-crawl-public-routes",
       globallyComplete: verified,
       publicSuperset: publicUrlsOutsideInventory.length > 0,
     },
