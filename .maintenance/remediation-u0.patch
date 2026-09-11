@@ -1,0 +1,912 @@
+diff --git a/scripts/qa-auto-fix.mjs b/scripts/qa-auto-fix.mjs
+index 4d967fc..e2f2ff3 100644
+--- a/scripts/qa-auto-fix.mjs
++++ b/scripts/qa-auto-fix.mjs
+@@ -0,0 +1 @@
++import { runProblemRoutingFlow } from './qa-problem-routing.mjs';
+@@ -97,0 +99 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
++  await runProblemRoutingFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
+diff --git a/scripts/qa-problem-routing.mjs b/scripts/qa-problem-routing.mjs
+new file mode 100644
+index 0000000..9c8fa07
+--- /dev/null
++++ b/scripts/qa-problem-routing.mjs
+@@ -0,0 +1,114 @@
++import assert from 'node:assert/strict';
++import JSZip from 'jszip';
++
++export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,read,revisit,mock,resetRequests,screenshot,command}) {
++  await record('PROBLEM-CARD-PROPOSAL-LIMITS-TITLE', async () => {
++    const clientId=await read('seogrow-selected-client-v1');
++    const clients=await read('seogrow-clients');
++    const client=clients.find(c=>Number(c.id)===Number(clientId));
++    const siteKey='seogrow-analyses-v2',pageKey='seogrow-page-audit-history-v2',profileKey='seogrow-wordpress-profiles-v1';
++    const sites=await read(siteKey),pages=await read(pageKey),profiles=await read(profileKey);
++    const originals=await evaluate("(async()=>{const m=await import('/src/remediationStore.js');return m.listCorrections({includeOrphans:true})})()");
++    const url=new URL('content-h1-wordpress-routing/',client.url).href;
++    const issue={type:'duplicate-title',label:'Title duplicato',severity:'alta',sourceUrl:url,url,detail:'Title duplicato sulla pagina '+url};
++    const description={...issue,type:'duplicate-description',label:'Meta description duplicata'};
++    const manual={...issue,type:'url-alias',label:'Due URL dello stesso contenuto WordPress',detail:'Verifica la canonical prima di decidere il redirect; non cambiare il testo condiviso.'};
++    const audit={url:client.url,analyzedAt:'2026-09-11T00:00:00Z',score:80,issues:[issue,description,manual]};
++    const oldTitle='Yoga a Cinisello Balsamo: guida iniziale';
++    const newTitle='Yoga a Cinisello Balsamo: pratica consapevole';
++    const oldDescription='Testo precedente della pagina.';
++    const publicState={ok:true,isHtml:true,status:200,url,wordpressDocumentId:42,title:oldTitle,titleMatchesExpected:true,metaDescription:oldDescription,h1:1,words:400};
++    const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
++    const click = async selector => {
++      await waitFor(`document.querySelector(${JSON.stringify(selector)})`,selector);
++      const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({behavior:'instant',block:'center'});const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(e.disabled||s.display==='none'||s.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Not visible: '+${JSON.stringify(selector)});const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);if(hit!==e&&!e.contains(hit))throw new Error('Covered control: '+${JSON.stringify(selector)});return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
++      await command('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
++      await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
++    };
++    const scope='.proposal-remediation-slot';
++    try {
++      await write(siteKey,{...sites,[clientId]:[audit]});await write(pageKey,{...pages,[clientId]:[]});
++      await write(profileKey,{...profiles,[clientId]:{url:client.url,username:'qa-routing'}});
++      await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals.filter(r=>Number(r.clientId)!==Number(clientId)))})})()`);
++      await revisit('Problemi');
++      await click('.card-record[data-issue-type="duplicate-title"]');
++      await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Problem card opens specific proposal, not list');
++      assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
++      assert.equal(await evaluate("Boolean(document.querySelector('.problem-drawer-scrim'))"),false);
++      await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Actual WordPress controls');
++      for(const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-routing','Password applicativa':'qa-only'})) await set(scope+' .audit-unified-credentials',label,value);
++      await mock('/api/wordpress/connection-check',{user:{name:'QA'},connector:{version:'1.3.5'}});
++      await button('Collega WordPress',scope);
++      await waitFor("document.querySelector('.proposal-remediation-slot .wordpress-connection-control')?.textContent.includes('WordPress collegato')",'Connection ready');
++      await mock('/api/wordpress/inspect-fast',{siteUrl:client.url,resource:'posts',entity:{id:42,status:'publish',link:url,title:{raw:oldTitle},content:{raw:'Yoga e pratica consapevole nel centro.'},meta:{rank_math_title:oldTitle,rank_math_description:oldDescription}}});
++      await mock('/api/frontend/inspect',publicState);
++      await mock('/api/wordpress/verify-frontend',publicState);
++      await mock('/api/wordpress/generate-seo-value-v2',{value:newTitle,publishable:true});
++      await mock('/api/wordpress/live-preview',{approvalToken:'qa-routing-title',adapter:'Rank Math',resource:'posts',id:42,targetUrl:url,changed:['meta.rank_math_title'],previewBefore:{meta:{rank_math_title:oldTitle}},previewAfter:{meta:{rank_math_title:newTitle}}});
++      await mock('/api/wordpress/live-apply',{ok:true,adapter:'Rank Math',resource:'posts',id:42,sourceUrl:url,changed:['meta.rank_math_title'],before:{meta:{rank_math_title:oldTitle}},after:{meta:{rank_math_title:newTitle}}});
++      await resetRequests();await button('Prepara solo questo problema',scope);
++      await waitFor("document.querySelector('.proposal-remediation-slot .wp-live-apply-one')",'Title preview');
++      const requests=await evaluate('window.__qaFormRequests');
++      assert.equal(requests.find(r=>r.path==='/api/wordpress/generate-seo-value-v2').body.kind,'seo_title');
++      assert.deepEqual(requests.find(r=>r.path==='/api/wordpress/live-preview').body.changes,{meta:{rank_math_title:newTitle}},'SEO provider selected even when public title equals post_title');
++      assert.equal(requests.some(r=>r.path==='/api/wordpress/generate-patch-v2'),false,'No unrelated core/content patch');
++      await evaluate('window.confirm=()=>true');
++      await click(scope+' .wp-live-apply-one');
++      const receipt='.automatic-proposal-page .saved-correction-details[data-correction-id]';
++      await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes(${JSON.stringify(newTitle)})`,'Persistent title receipt');
++      await waitFor(`!document.querySelector(${JSON.stringify(receipt+' .primary')})?.disabled`,'Receipt verification enabled');
++      await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle.toUpperCase()});
++      await button('Riverifica',receipt);
++      await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('soltanto maiuscole')`,'Capitalization is explicit, not false failure');
++      await evaluate(`document.querySelector(${JSON.stringify(receipt)}).scrollIntoView({behavior:'instant',block:'start'})`);
++      await screenshot('title-proposal-verified');
++      // Real browser download, not a single-file static package assumption.
++      await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
++      try {
++        await button('Scarica SeoGrow Connector',scope);
++        await waitFor('window.__qaConnectorBlob','Complete Connector download');
++        const bytes=await evaluate('(async()=>Array.from(new Uint8Array(await window.__qaConnectorBlob.arrayBuffer())))()');
++        const zip=await JSZip.loadAsync(Uint8Array.from(bytes));
++        for(const file of ['seogrow-connector.php','seogrow-connector-core.inc','atomic-write.php','elementor-text-write.php','build-manifest.json']) assert.ok(zip.file('seogrow-connector/'+file),file);
++      } finally {
++        await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
++      }
++      await button('Torna ai problemi','.automatic-proposal-header');
++      await click('.card-record[data-issue-type="duplicate-description"]');
++      await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Description proposal controls');
++      for(const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-routing','Password applicativa':'qa-only'})) await set(scope+' .audit-unified-credentials',label,value);
++      await mock('/api/wordpress/generate-seo-value-v2',{value:'x'.repeat(161),publishable:true});
++      await resetRequests();await button('Prepara solo questo problema',scope);
++      await waitFor("document.querySelector('.proposal-remediation-slot .correction-explanation')?.textContent.includes('160')",'Oversized description blocked in UI even with a faulty server response');
++      assert.equal(await evaluate("Boolean(document.querySelector('.proposal-remediation-slot .wp-live-apply-one'))"),false);
++      assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-preview|live-apply/.test(r.path))"),false);
++      await button('Torna ai problemi','.automatic-proposal-header');
++      await click('.card-record[data-issue-type="url-alias"]');
++      await waitFor("document.body.dataset.seogrowProblemResolution==='true' && document.querySelector('.problem-resolution-heading h1')?.textContent.includes('Due URL')",'Manual diagnosis opens its specific full page');
++      assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-root-host')).display"),'block');
++      assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-content section')).display"),'flex','Nested diagnostic sections are not hidden');
++      await screenshot('manual-problem-resolution');
++      await button('Torna ai problemi','.problem-resolution-root');
++      await revisit('Audit SEO');await click('.card-record[data-audit-card="true"]');
++      await click('.card-horizontal-detail .audit-problem-open');
++      await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Individual audit issue opens same specific proposal');
++      assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
++      for(const width of [1440,390]) {
++        await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
++        await evaluate("document.querySelector('.automatic-proposal-header').scrollIntoView({behavior:'instant',block:'start'})");
++        await waitFor('document.documentElement.scrollWidth<=innerWidth+1','Proposal navigation responsive');
++        await screenshot('problem-routing-'+width);
++      }
++    } catch(error) {
++      await screenshot('problem-routing-failure').catch(()=>{});
++      console.error('ROUTING_DIAGNOSTIC '+JSON.stringify(await evaluate("({url:location.href,body:document.body.innerText.slice(-7000),requests:(window.__qaFormRequests||[]).map(r=>r.path)})").catch(()=>null)));
++      throw error;
++    } finally {
++      await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
++      await evaluate("(async()=>{const n=await import('/src/AutomaticProposalNavigation.js');n.clearAutomaticProposalFocus();sessionStorage.removeItem(n.RESOLUTION_FOCUS_KEY);window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-close'));window.dispatchEvent(new CustomEvent('seogrow-problem-resolution-open'))})()");
++      await write(siteKey,sites);await write(pageKey,pages);await write(profileKey,profiles);
++      await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals)})})()`);
++      await revisit('Centro progetto');
++    }
++  });
++}
+diff --git a/scripts/qa-runner.mjs b/scripts/qa-runner.mjs
+index afe8e60..fd5153e 100644
+--- a/scripts/qa-runner.mjs
++++ b/scripts/qa-runner.mjs
+@@ -17,6 +16,0 @@ const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-pa
+-// Temporary diagnostic bundle: only tracked source and the exact installed
+-// dependencies. Never include dotenv, local runtime files, HOME or credentials.
+-if (process.env.GITHUB_ACTIONS === "true" && process.platform === "linux") {
+-  execFileSync("git", ["archive", "--format=tar", "--output=" + path.join(output, "tracked-source.tar"), "HEAD"], { cwd: root, timeout: 30000 });
+-  execFileSync("tar", ["-czf", path.join(output, "qa-dependencies.tar.gz"), "node_modules"], { cwd: root, timeout: 60000 });
+-}
+diff --git a/server/index.js b/server/index.js
+index 7175692..751e52f 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -0,0 +1,4 @@
++import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
++import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
++import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
++import { canonicalCount } from "./frontendVerificationHook.js";
+@@ -597,0 +602,4 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
++    ok: status >= 200 && status < 300,
++    isHtml: true,
++    wordpressDocumentId: wordpressDocumentId(html),
++    canonicalCount: canonicalCount(html),
+@@ -601 +609 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
+-    descriptionLength: description.length,
++    descriptionLength: seoCharacterCount(description),
+@@ -634 +642 @@ function technicalIssues(
+-    else if (page.descriptionLength < 70 || page.descriptionLength > 180)
++    else if (page.descriptionLength < 70 || page.descriptionLength > SEO_TEXT_LIMITS.meta_description)
+@@ -701,0 +710 @@ function technicalIssues(
++  const aliasSeen = new Set();
+@@ -703,14 +712,10 @@ function technicalIssues(
+-    const groups = new Map();
+-    for (const page of pages)
+-      if (page[field])
+-        groups.set(page[field], [...(groups.get(page[field]) || []), page]);
+-    for (const group of groups.values())
+-      if (group.length > 1)
+-        for (const page of group)
+-          push(
+-            type,
+-            "alta",
+-            label,
+-            page,
+-            group.map((item) => item.url).join(" | "),
+-          );
++    const result = metadataDuplicateGroups(pages, field);
++    for (const group of result.duplicates) for (const page of group)
++      push(type, "alta", label, page, group.map(item => item.url).join(" | "));
++    for (const alias of result.aliases) {
++      if (aliasSeen.has(alias.sourceUrl)) continue;
++      aliasSeen.add(alias.sourceUrl);
++      issues.push({ type: "url-alias", severity: "bassa", label: "Due URL dello stesso contenuto WordPress", sourceUrl: alias.sourceUrl, url: alias.sourceUrl,
++        detail: `Le due URL hanno lo stesso ID WordPress e una sola canonical coerente (${alias.canonicalUrl}). Cambiare title o meta description modifica entrambe: verifica i link interni e l'eventuale redirect, non generare testi diversi per la stessa risorsa.`,
++        canonicalUrl: alias.canonicalUrl, wordpressDocumentId: alias.wordpressDocumentId, diagnosisState: "needs-confirmation" });
++    }
+@@ -1063 +1068 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
+-    else if (description.length < 70 || description.length > 180)
++    else if (seoCharacterCount(description) < 70 || seoCharacterCount(description) > SEO_TEXT_LIMITS.meta_description)
+@@ -1098 +1103 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
+-      descriptionLength: description.length,
++      descriptionLength: seoCharacterCount(description),
+diff --git a/server/wordpressLiveApprovalHook.js b/server/wordpressLiveApprovalHook.js
+index 6401d82..9297af0 100644
+--- a/server/wordpressLiveApprovalHook.js
++++ b/server/wordpressLiveApprovalHook.js
+@@ -0,0 +1 @@
++import { assertSeoPatchLengths } from "../src/seoTextPolicy.js";
+@@ -211,0 +213,2 @@ function registerRoutes(app) {
++      const cleanPatch = isolatedQa === true ? null : allowedChanges(changes);
++      if (cleanPatch) assertSeoPatchLengths(cleanPatch);
+@@ -217 +220 @@ function registerRoutes(app) {
+-      const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : allowedChanges(changes);
++      const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : cleanPatch;
+@@ -261 +264 @@ function registerRoutes(app) {
+-      return res.status(400).json({ error: error instanceof Error ? error.message : "Anteprima remediation non riuscita." });
++      return res.status(error.status || 400).json({ error: error instanceof Error ? error.message : "Anteprima remediation non riuscita.", code: error.code || "PREVIEW_FAILED" });
+@@ -281,0 +285 @@ function registerRoutes(app) {
++      else assertSeoPatchLengths(approval.changes);
+diff --git a/server/wordpressSeoAdapterV2Hook.js b/server/wordpressSeoAdapterV2Hook.js
+index 4e5e319..c3a630a 100644
+--- a/server/wordpressSeoAdapterV2Hook.js
++++ b/server/wordpressSeoAdapterV2Hook.js
+@@ -0,0 +1 @@
++import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
+@@ -37 +38 @@ function instruction(kind, issue, retry = false, qualityFeedback = "") {
+-    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa. Punta a 135-160 caratteri quando possibile.${retryNote}${feedback}`;
++    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa. Usa 135-${SEO_TEXT_LIMITS.meta_description} caratteri. Il massimo di ${SEO_TEXT_LIMITS.meta_description}, inclusi spazi e punteggiatura, è OBBLIGATORIO: conta i caratteri, riscrivi se lo superi, non troncare parole o frasi.${retryNote}${feedback}`;
+@@ -80,2 +81,3 @@ export function deterministicMetaDescription(page) {
+-  if (source.length <= 160) return source.replace(/[\s,;:.-]+$/g, "") + (/[.!?…]$/.test(source) ? "" : ".");
+-  const prefix = source.slice(0, 157);
++  const complete = source.replace(/[\s,;:.-]+$/g, "") + (/[!?…]$/.test(source) ? "" : ".");
++  if (seoCharacterCount(complete) <= SEO_TEXT_LIMITS.meta_description) return complete;
++  const prefix = Array.from(source.normalize("NFC")).slice(0, SEO_TEXT_LIMITS.meta_description - 1).join("");
+diff --git a/server/wordpressTaxonomyHook.js b/server/wordpressTaxonomyHook.js
+index 48e8a16..d640255 100644
+--- a/server/wordpressTaxonomyHook.js
++++ b/server/wordpressTaxonomyHook.js
+@@ -0,0 +1 @@
++import { assertSeoTextLength } from "../src/seoTextPolicy.js";
+@@ -141,0 +143 @@ export function validateTaxonomyChange({ field, value, targetUrl, intent = {}, m
++  if (mode !== "rollback" && ["title", "meta_description"].includes(field)) assertSeoTextLength(field, value);
+diff --git a/src/AutoFixPanel.css b/src/AutoFixPanel.css
+index 5ecc1c7..fc30900 100644
+--- a/src/AutoFixPanel.css
++++ b/src/AutoFixPanel.css
+@@ -64,0 +65,3 @@
++
++.auto-fix-problem-open { background: transparent; border: 0; padding: 0; color: #1459ac; text-align: left; white-space: normal; font: inherit; cursor: pointer; }
++.auto-fix-problem-open:focus-visible { outline: 3px solid #1769e0; outline-offset: 4px; }
+diff --git a/src/AutoFixPanel.jsx b/src/AutoFixPanel.jsx
+index 21528a9..8782e6c 100644
+--- a/src/AutoFixPanel.jsx
++++ b/src/AutoFixPanel.jsx
+@@ -0,0 +1,2 @@
++import { openProblemResolution } from './AutomaticProposalNavigation.js';
++import { remediationSourceUrl } from './remediationIssueKind.js';
+@@ -58 +60 @@ export default function AutoFixPanel({ client, onNavigate }) {
+-      <details open={!batch}><summary>{batch ? "Problemi selezionati: " + selected.length + " — mostra elenco" : "Scegli i problemi da esaminare"}</summary><div className="auto-fix-list">{plan.entries.map(entry => <label className={`auto-fix-item ${entry.level === 'approval' ? 'candidate' : 'manual'}`} key={entry.index}>
++      <details open={!batch}><summary>{batch ? "Problemi selezionati: " + selected.length + " — mostra elenco" : "Scegli i problemi da esaminare"}</summary><div className="auto-fix-list">{plan.entries.map(entry => <div className={`auto-fix-item ${entry.level === 'approval' ? 'candidate' : 'manual'}`} key={entry.index}>
+@@ -60,2 +62,2 @@ export default function AutoFixPanel({ client, onNavigate }) {
+-        <span><strong>{entry.issue?.label || entry.issue?.type || 'Problema SEO'}</strong><small>{entry.level === 'approval' ? 'Da preparare' : 'Intervento manuale'} · {entry.reason}</small><small>{entry.issue?.targetUrl || entry.issue?.url || plan.siteUrl}</small>{entry.issue?.detail && <small><b>Problema rilevato:</b> {entry.issue.detail}</small>}<small><b>Cosa fare:</b> {entry.level === 'approval' ? 'seleziona il problema; nel passaggio 4 potrai leggere la proposta e decidere se applicarla.' : 'apri Audit SEO, controlla il dettaglio e intervieni sulla pagina o nelle impostazioni indicate. Poi esegui un nuovo audit.'}</small></span>
+-      </label>)}</div></details>
++        <span><button type="button" className="auto-fix-problem-open" disabled={busy} onClick={() => openProblemResolution({ ...entry.issue, title: entry.issue?.label || entry.issue?.type || 'Problema SEO', issueType: entry.issue?.type, sourceUrl: remediationSourceUrl(entry.issue, null, client), correctability: entry.level === 'approval' ? 'automatic' : 'manual' }, client.id, 'project-problem')}><strong>{entry.issue?.label || entry.issue?.type || 'Problema SEO'}</strong> · Apri risoluzione</button><small>{entry.level === 'approval' ? 'Da preparare' : 'Intervento manuale'} · {entry.reason}</small><small>{remediationSourceUrl(entry.issue, null, client)}</small>{entry.issue?.detail && <small><b>Problema rilevato:</b> {entry.issue.detail}</small>}<small><b>Cosa fare:</b> {entry.level === 'approval' ? 'seleziona il problema; nel passaggio 4 potrai leggere la proposta e decidere se applicarla.' : 'apri Audit SEO, controlla il dettaglio e intervieni sulla pagina o nelle impostazioni indicate. Poi esegui un nuovo audit.'}</small></span>
++      </div>)}</div></details>
+diff --git a/src/AutomaticProposalNavigation.js b/src/AutomaticProposalNavigation.js
+index 194f6e9..cc2b527 100644
+--- a/src/AutomaticProposalNavigation.js
++++ b/src/AutomaticProposalNavigation.js
+@@ -1,0 +2 @@ import { navigatePage } from "./navigationUx.js";
++import { problemNavigationFocus } from "./problemNavigationFocus.js";
+@@ -9,2 +10,2 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
+-const MAX_FOCUS_AGE = 15 * 60_000;
+-const VALID_OPEN_SOURCES = new Set(["automatic-badge", "problem-row"]);
++export const RESOLUTION_FOCUS_KEY = "seogrow-problem-resolution-v1";
++const VALID_OPEN_SOURCES = new Set(["automatic-badge", "problem-row", "problem-card", "audit-row", "project-problem"]);
+@@ -48 +49,3 @@ export const readAutomaticProposalFocus = () => {
+-    if (Date.now() - Number(focus.createdAt || 0) > MAX_FOCUS_AGE) return null;
++    // Keep the comparison accessible for the entire browser session. Preview
++    // expiry and stale-state checks are enforced separately before every write.
++    if (normalizeClientId(focus.clientId) !== selectedClientId()) return null;
+@@ -63 +66 @@ export const clearAutomaticProposalFocus = () => {
+-export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
++export const openProblemResolution = (problem, clientId, openedFrom = "problem-card") => {
+@@ -65,3 +68,10 @@ export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
+-  const focus = proposalFocusFromProblemRow(row, openedFrom);
+-  if (!focus) return false;
+-  sessionStorage.setItem(PROPOSAL_FOCUS_KEY, JSON.stringify(focus));
++  const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
++  if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
++  const automatic = focus.correctability === "automatic";
++  try {
++    sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
++    sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
++  } catch {
++    window.alert("Impossibile conservare il problema selezionato. Abilita lo storage della sessione e riprova; nessuna modifica applicata.");
++    return false;
++  }
+@@ -69,3 +79 @@ export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
+-  window.setTimeout(() => {
+-    window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-open", { detail: focus }));
+-  }, 0);
++  window.dispatchEvent(new CustomEvent(automatic ? "seogrow-automatic-proposal-open" : "seogrow-problem-resolution-open", { detail: focus }));
+@@ -74,0 +83,5 @@ export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
++export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
++  const focus = proposalFocusFromProblemRow(row, openedFrom);
++  return focus ? openProblemResolution(focus, focus.clientId, openedFrom) : false;
++};
++
+@@ -78 +91 @@ const interceptAutomaticClick = (event) => {
+-  if (!row || !row.querySelector(".problem-correctability.automatic")) return;
++  if (!row || row.dataset.problemNavigation === "direct" || event.target.closest?.("a") || !row.querySelector(".problem-correctability.automatic")) return;
+@@ -79,0 +93,2 @@ const interceptAutomaticClick = (event) => {
++  const openedFrom = event.target.closest?.(".problem-correctability.automatic") ? "automatic-badge" : "problem-row";
++  if (!openAutomaticProposal(row, openedFrom)) return;
+@@ -83,2 +97,0 @@ const interceptAutomaticClick = (event) => {
+-  const openedFrom = event.target.closest?.(".problem-correctability.automatic") ? "automatic-badge" : "problem-row";
+-  openAutomaticProposal(row, openedFrom);
+@@ -88 +101,4 @@ const clearFocusOutsideProposalRoute = () => {
+-  if (currentPage() !== PROPOSAL_ROUTE_PAGE && readAutomaticProposalFocus()) clearAutomaticProposalFocus();
++  if (currentPage() !== PROPOSAL_ROUTE_PAGE) {
++    clearAutomaticProposalFocus();
++    try { sessionStorage.removeItem(RESOLUTION_FOCUS_KEY); } catch { /* Read-only navigation still works. */ }
++  }
+diff --git a/src/AutomaticProposalPage.jsx b/src/AutomaticProposalPage.jsx
+index 7fd04c5..9307595 100644
+--- a/src/AutomaticProposalPage.jsx
++++ b/src/AutomaticProposalPage.jsx
+@@ -52 +52,3 @@ const matchesFocus = (problem, focus) => {
+-  const titleMatches = String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
++  const titleMatches = focus.issueType
++    ? String(problem.issueType || "").toLowerCase() === String(focus.issueType).toLowerCase()
++    : String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
+diff --git a/src/CardWorkspaceLayer.css b/src/CardWorkspaceLayer.css
+index 4244e6a..7de50be 100644
+--- a/src/CardWorkspaceLayer.css
++++ b/src/CardWorkspaceLayer.css
+@@ -561,0 +562,3 @@ body[data-seogrow-ui-mode="simple"][data-seogrow-card-page="Posizionamenti"] .ra
++
++.audit-problem-open { background: transparent; border: 0; padding: 0; color: #1459ac; text-align: left; text-decoration: underline; white-space: normal; overflow-wrap: anywhere; font: inherit; font-weight: 700; cursor: pointer; }
++.audit-problem-open:focus-visible { outline: 3px solid #1769e0; outline-offset: 4px; }
+diff --git a/src/CardWorkspaceLayer.jsx b/src/CardWorkspaceLayer.jsx
+index 78bd7de..0e0b6a9 100644
+--- a/src/CardWorkspaceLayer.jsx
++++ b/src/CardWorkspaceLayer.jsx
+@@ -10,0 +11,4 @@ import {
++import { openProblemResolution } from "./AutomaticProposalNavigation.js";
++import { buildUnifiedProblems } from "./problemsModel.js";
++import { issueCorrectability } from "./reliabilityModel.js";
++import { remediationSourceUrl } from "./remediationIssueKind.js";
+@@ -109,0 +114,2 @@ const card = ({
++  problem = null,
++  issueRows = [],
+@@ -123,0 +130,2 @@ const card = ({
++  problem,
++  issueRows,
+@@ -241,0 +250,2 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
++    clientId,
++    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
+@@ -266,0 +277,2 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
++    clientId,
++    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
+@@ -334,14 +346,11 @@ const buildRankingCards = (clientId, store) => {
+-const buildProblemCards = (auditCards) => auditCards.flatMap((audit) =>
+-  audit.rows.map((row, index) => card({
+-    id: `problem-${audit.id}-${index}`,
+-    date: audit.date,
+-    title: row[0],
+-    subtitle: row[2],
+-    kind: "problem",
+-    url: row[2],
+-    fields: [field("Gravità", row[1]), field("Pagina", row[2]), field("Fonte", audit.title)],
+-    solutions: ["Apri gli strumenti per vedere evidenza e correggibilità.", "Prepara una proposta solo se supportata.", "Dopo l’applicazione, riverifica il problema."],
+-    actionPage: "Correzioni",
+-    actionLabel: "Apri correzioni",
+-  })),
+-).slice(0, 120);
++const buildProblemCards = (clientId, stores) => buildUnifiedProblems({
++  clientId,
++  siteHistory: arrayForClient(stores.analyses, clientId),
++  pageHistory: arrayForClient(stores.pageAudits, clientId),
++  tasks: stores.tasks,
++  corrections: stores.corrections,
++}).rows.map(problem => card({
++  id: `problem-${problem.key}`, date: problem.observedAt, title: problem.title,
++  subtitle: problem.sourceUrl, kind: "problem", url: problem.sourceUrl, clientId, problem,
++  fields: [field("Gravità", problem.severity), field("Pagina", problem.sourceUrl)],
++}));
+@@ -597 +606 @@ function buildCards(page, client, stores) {
+-      const problems = buildProblemCards(audits);
++      const problems = buildProblemCards(clientId, stores);
+@@ -673,0 +683,3 @@ function DatedCard({ item, index, onOpen }) {
++      data-problem-key={item.problem?.key || undefined}
++      data-issue-type={item.problem?.issueType || undefined}
++      data-audit-card={item.kind === "audit" ? "true" : undefined}
+@@ -679 +691 @@ function DatedCard({ item, index, onOpen }) {
+-      <span className="card-record-open">Apri <ChevronRight /></span>
++      <span className="card-record-open">{item.kind === "problem" ? item.problem?.correctability === "automatic" ? "Apri proposta" : "Apri risoluzione" : "Apri"} <ChevronRight /></span>
+@@ -717,0 +730 @@ function HorizontalDetail({ item, page, managing, onBack, onManage }) {
++                if (item.kind === "audit" && valueIndex === 0 && item.issueRows[rowIndex]) return <button className="audit-problem-open" type="button" key={`${rowIndex}-${valueIndex}`} onClick={() => openProblemResolution(item.issueRows[rowIndex], item.clientId, "audit-row")}>{value} · Apri risoluzione</button>;
+@@ -872 +885 @@ export default function CardWorkspaceLayer() {
+-    if (page !== "Correzioni" || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
++    if (!["Correzioni", "Problemi", "Audit SEO", "Storico", "Panoramica"].includes(page) || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
+@@ -888,0 +902,5 @@ export default function CardWorkspaceLayer() {
++    const item = items.find(entry => entry.id === id);
++    if (item?.kind === "problem") {
++      if (!openProblemResolution(item.problem, selectedClientId, "problem-card")) window.alert("Problema non disponibile per il cliente selezionato. Ricarica i dati e riprova.");
++      return;
++    }
+diff --git a/src/ProblemResolutionPage.css b/src/ProblemResolutionPage.css
+index fada3ad..aa29d81 100644
+--- a/src/ProblemResolutionPage.css
++++ b/src/ProblemResolutionPage.css
+@@ -1,3 +1,3 @@
+-body[data-seogrow-problem-resolution="true"] .workspace main > *:not(.problem-resolution-root) {
+-  display: none !important;
+-}
++body[data-seogrow-problem-resolution="true"] .workspace > main { display: none !important; }
++.problem-resolution-root-host { display: none; }
++body[data-seogrow-problem-resolution="true"] .workspace > .problem-resolution-root-host { display: block; min-width: 0; }
+diff --git a/src/ProblemResolutionPage.jsx b/src/ProblemResolutionPage.jsx
+index 4dc1835..051c97b 100644
+--- a/src/ProblemResolutionPage.jsx
++++ b/src/ProblemResolutionPage.jsx
+@@ -0,0 +1,2 @@
++import { matchesProblemFocus } from "./problemNavigationFocus.js";
++import { openProblemResolution, RESOLUTION_FOCUS_KEY, PROPOSAL_ROUTE_PAGE } from "./AutomaticProposalNavigation.js";
+@@ -25,2 +27,2 @@ import "./ProblemResolutionPage.css";
+-const PAGE = "Risoluzione problema";
+-const FOCUS_KEY = "seogrow-problem-resolution-v1";
++const PAGE = PROPOSAL_ROUTE_PAGE;
++const FOCUS_KEY = RESOLUTION_FOCUS_KEY;
+@@ -113,7 +115 @@ const sameProblemCorrection = (problem, correction) => {
+-const matchesFocus = (problem, focus) => {
+-  if (!problem || !focus) return false;
+-  const sameTitle = String(problem.title || "").trim() === String(focus.title || "").trim();
+-  const problemUrl = normalizeHttpUrl(problem.sourceUrl || "", { stripSlash: false });
+-  const focusUrl = normalizeHttpUrl(focus.sourceUrl || "", { stripSlash: false });
+-  return sameTitle && Boolean(problemUrl && focusUrl && problemUrl === focusUrl);
+-};
++const matchesFocus = matchesProblemFocus;
+@@ -127 +123 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
+-    .toSorted((a, b) => Date.parse(b.verifiedAt || b.appliedAt || 0) - Date.parse(a.verifiedAt || a.appliedAt || 0))[0] || null;
++    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
+@@ -151,2 +147,3 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
+-      const result = await recheckCorrectionById(latestCorrection.id);
+-      setMessage(result?.needsAudit
++      const result = await recheckCorrectionById(latestCorrection.id, { clientId: client.id });
++      if (result?.error) throw result.error;
++      setMessage(result?.record?.verificationNote || (result?.needsAudit
+@@ -154 +151 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
+-        : "Riverifica completata. Lo stato è stato aggiornato con la nuova evidenza.");
++        : "Riverifica completata. Lo stato è stato aggiornato con la nuova evidenza."));
+@@ -304 +301,2 @@ export default function ProblemResolutionPage() {
+-  const [active, setActive] = useState(currentPage() === PAGE);
++  const isActive = () => currentPage() === PAGE && Boolean(readFocus()) && normalizeClientId(readFocus()?.clientId) === normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
++  const [active, setActive] = useState(isActive);
+@@ -312,0 +311 @@ export default function ProblemResolutionPage() {
++    let mountedHost = null;
+@@ -314,2 +313,6 @@ export default function ProblemResolutionPage() {
+-      const target = document.querySelector(".app main");
+-      if (target) {
++      const workspace = document.querySelector(".workspace");
++      if (workspace) {
++        const target = document.createElement("div");
++        target.className = "problem-resolution-root-host";
++        workspace.appendChild(target);
++        mountedHost = target;
+@@ -323 +326 @@ export default function ProblemResolutionPage() {
+-    return () => window.cancelAnimationFrame(frame);
++    return () => { window.cancelAnimationFrame(frame); mountedHost?.remove(); };
+@@ -328 +331 @@ export default function ProblemResolutionPage() {
+-      setActive(currentPage() === PAGE);
++      setActive(currentPage() === PAGE && Boolean(readFocus()) && normalizeClientId(readFocus()?.clientId) === normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)));
+@@ -330,0 +334,2 @@ export default function ProblemResolutionPage() {
++    window.addEventListener("seogrow-problem-resolution-open", refresh);
++    window.addEventListener("seogrow-automatic-proposal-open", refresh);
+@@ -336,0 +342,2 @@ export default function ProblemResolutionPage() {
++      window.removeEventListener("seogrow-problem-resolution-open", refresh);
++      window.removeEventListener("seogrow-automatic-proposal-open", refresh);
+@@ -349 +356 @@ export default function ProblemResolutionPage() {
+-      if (!row) return;
++      if (!row || row.dataset.problemNavigation === "direct" || event.target.closest?.("a")) return;
+@@ -354 +361 @@ export default function ProblemResolutionPage() {
+-      sessionStorage.setItem(FOCUS_KEY, JSON.stringify({ title, sourceUrl, clientId: selectedClientId }));
++      if (!openProblemResolution({ title, sourceUrl, correctability: "manual" }, selectedClientId, "problem-row")) return;
+@@ -358 +365 @@ export default function ProblemResolutionPage() {
+-      navigatePage(PAGE);
++      // The data-driven destination is already open; never open an intermediate list.
+@@ -406 +413 @@ export default function ProblemResolutionPage() {
+-  const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
++  const problem = normalizeClientId(focus?.clientId) === selectedClientId ? model.rows.find((row) => matchesFocus(row, focus)) || null : null;
+diff --git a/src/ProblemResolutionPage.test.js b/src/ProblemResolutionPage.test.js
+index 566d931..655a52b 100644
+--- a/src/ProblemResolutionPage.test.js
++++ b/src/ProblemResolutionPage.test.js
+@@ -10 +10 @@ test("il click su un problema apre una pagina dedicata invece del drawer", () =>
+-  assert.match(page, /const PAGE = "Risoluzione problema"/);
++  assert.match(page, /const PAGE = PROPOSAL_ROUTE_PAGE/);
+@@ -13 +13 @@ test("il click su un problema apre una pagina dedicata invece del drawer", () =>
+-  assert.match(page, /navigatePage\(PAGE\)/);
++  assert.match(page, /openProblemResolution/);
+@@ -35 +35 @@ test("il bootstrap monta la nuova pagina e il CSS nasconde il vecchio contenuto
+-  assert.match(css, /main > \*:not\(\.problem-resolution-root\)/);
++  assert.match(css, /\.workspace > main/);
+diff --git a/src/ProblemsWorkspace.jsx b/src/ProblemsWorkspace.jsx
+index 38563cb..ec11165 100644
+--- a/src/ProblemsWorkspace.jsx
++++ b/src/ProblemsWorkspace.jsx
+@@ -0,0 +1 @@
++import { openProblemResolution } from "./AutomaticProposalNavigation.js";
+@@ -522 +523 @@ export default function ProblemsWorkspace() {
+-            <button className="problem-row" key={problem.key} onClick={() => setSelectedKey(problem.key)}>
++            <button type="button" className="problem-row" data-problem-navigation="direct" key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
+diff --git a/src/RemediationHost.jsx b/src/RemediationHost.jsx
+index 1180039..76054a1 100644
+--- a/src/RemediationHost.jsx
++++ b/src/RemediationHost.jsx
+@@ -0,0 +1 @@
++import { remediationSourceUrl } from "./remediationIssueKind.js";
+@@ -51 +52 @@ const selectAudit = (clientId, requested) => {
+-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
++const issueUrl = remediationSourceUrl;
+diff --git a/src/SavedCorrectionDetails.jsx b/src/SavedCorrectionDetails.jsx
+index 4d3ab50..88060c1 100644
+--- a/src/SavedCorrectionDetails.jsx
++++ b/src/SavedCorrectionDetails.jsx
+@@ -0,0 +1 @@
++import { SEO_TEXT_LIMITS, seoCharacterCount, seoFieldKind } from "./seoTextPolicy.js";
+@@ -135,0 +137 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
++          {seoFieldKind(field.field) && field.afterAvailable && <p className="seo-character-counter">Dopo salvato: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong>{seoCharacterCount(field.after) > SEO_TEXT_LIMITS[seoFieldKind(field.field)] ? " — supera il limite editoriale attuale; lo storico non viene modificato." : " — spazi e punteggiatura inclusi."}</p>}
+diff --git a/src/WordPressConnectorControl.jsx b/src/WordPressConnectorControl.jsx
+index 0f1597a..0391c32 100644
+--- a/src/WordPressConnectorControl.jsx
++++ b/src/WordPressConnectorControl.jsx
+@@ -4 +4,2 @@ import { Download, PlugZap } from "lucide-react";
+-import connectorPhp from "../wordpress-plugin/seogrow-connector/seogrow-connector.php?raw";
++import { buildConnectorArchive } from "./connectorPackage.js";
++const connectorModules = import.meta.glob("../wordpress-plugin/seogrow-connector/*.{php,inc}", { query: "?raw", import: "default" });
+@@ -36,4 +37,2 @@ export default function WordPressConnectorControl() {
+-      const { default: JSZip } = await import("jszip");
+-      const zip = new JSZip();
+-      zip.file("seogrow-connector/seogrow-connector.php", connectorPhp);
+-      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
++      const { bytes, version, fileCount } = await buildConnectorArchive(connectorModules);
++      const blob = new Blob([bytes], { type: "application/zip" });
+@@ -43 +42 @@ export default function WordPressConnectorControl() {
+-      anchor.download = "seogrow-connector.zip";
++      anchor.download = `seogrow-connector-${version}-completo.zip`;
+@@ -48 +47 @@ export default function WordPressConnectorControl() {
+-      setMessage("Connector pronto. Installalo e attivalo una sola volta in WordPress, poi ricarica SeoGrow e riconnetti WordPress.");
++      setMessage(`Connector ${version} pronto: ${fileCount} moduli verificati, scrittura atomica inclusa. Installa lo ZIP completo soltanto se il Connector manca o deve essere aggiornato, poi riconnetti WordPress.`);
+@@ -60 +59 @@ export default function WordPressConnectorControl() {
+-        <strong>SeoGrow Connector</strong>
++        <strong>SeoGrow Connector — informazioni sul collegamento</strong>
+@@ -62 +61 @@ export default function WordPressConnectorControl() {
+-          Elementor, Rank Math e Yoast normalmente non espongono tutti i loro campi protetti nella REST API. Il Connector abilita esclusivamente i campi necessari a SeoGrow per l’utente WordPress autenticato.
++          Questo riquadro non segnala un errore. Il Connector abilita i campi Elementor e SEO e i controlli di scrittura atomica. Lo stato della connessione è nel pulsante “Collega WordPress”; eventuali impedimenti sono indicati nella singola proposta. Il download contiene tutti i moduli necessari, non soltanto il file principale.
+@@ -68 +67 @@ export default function WordPressConnectorControl() {
+-      {message && <p className="integration-result wp-connector-message">{message}</p>}
++      {message && <p role="status" className="integration-result wp-connector-message">{message}</p>}
+diff --git a/src/WordPressLiveRemediationControlV2.jsx b/src/WordPressLiveRemediationControlV2.jsx
+index 308547b..d51abd4 100644
+--- a/src/WordPressLiveRemediationControlV2.jsx
++++ b/src/WordPressLiveRemediationControlV2.jsx
+@@ -0,0 +1,2 @@
++import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKind.js";
++import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
+@@ -67 +69 @@ const selectAudit = (clientId, requested) => {
+-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
++const issueUrl = remediationSourceUrl;
+@@ -69,11 +71 @@ const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue
+-const classifyIssue = (issue) => {
+-  const text = issueText(issue);
+-  if (/meta description/.test(text)) return "meta_description";
+-  if (/canonical/.test(text)) return "canonical";
+-  if (/noindex|indexability/.test(text)) return "noindex";
+-  if (/h1/.test(text)) return "h1";
+-  if (/excerpt|estratto/.test(text)) return "excerpt";
+-  if (/contenuto|content|testo|parole|word|brev/.test(text)) return "content";
+-  if (/title|titolo/.test(text)) return "title";
+-  return "";
+-};
++const classifyIssue = remediationIssueKind;
+@@ -133 +125 @@ const preparationFailure = (error) => {
+-  if (/EDITORIAL_REVIEW_REQUIRED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
++  if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
+@@ -334,0 +327,5 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
++    const seoPlugin = metaKey(entity, "title");
++    if (seoPlugin) {
++      const generated = await generateSeoValue("seo_title", issue, entity, targetUrl);
++      return { adapter: seoPlugin[1], changes: { meta: { [seoPlugin[0]]: generated.value } }, quality: generated.quality };
++    }
+@@ -513,0 +511 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
++        if (plan.changes) assertSeoPatchLengths(plan.changes);
+@@ -614,0 +613 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
++      assertSeoPatchLengths(item.plan?.changes || {});
+@@ -753 +752 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
+-            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
++            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
+diff --git a/src/autoFixPlan.js b/src/autoFixPlan.js
+index 7f681f1..4e4a313 100644
+--- a/src/autoFixPlan.js
++++ b/src/autoFixPlan.js
+@@ -14,0 +15 @@ export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
++  if (issue.type === 'url-alias') return manual('Stessa risorsa WordPress: verifica URL canonica, collegamenti e redirect, non il testo condiviso.');
+diff --git a/src/connectorPackage.js b/src/connectorPackage.js
+new file mode 100644
+index 0000000..35bca24
+--- /dev/null
++++ b/src/connectorPackage.js
+@@ -0,0 +1,33 @@
++// Shared by the browser download and its ZIP integrity regression tests.
++export async function buildConnectorArchive(modules) {
++  const sources = {};
++  for (const [path, load] of Object.entries(modules)) {
++    const name = path.split("/").at(-1);
++    if (!/^[a-z0-9-]+\.(?:php|inc)$/i.test(name) || sources[name] !== undefined) throw new Error("Nome modulo Connector non valido o duplicato.");
++    sources[name] = typeof load === "function" ? await load() : load;
++    if (typeof sources[name] !== "string" || !sources[name].trim()) throw new Error(`Modulo Connector vuoto: ${name}`);
++  }
++  const main = sources["seogrow-connector.php"] || "";
++  const version = main.match(/Version:\s*([\d.]+)/)?.[1];
++  if (!version) throw new Error("Versione del Connector non disponibile.");
++  for (const source of Object.values(sources)) {
++    for (const match of source.matchAll(/require_once\s+__DIR__\s*\.\s*['"]\/([^'"]+)['"]/g)) {
++      if (!sources[match[1]]) throw new Error(`Pacchetto incompleto: manca ${match[1]}. Nessuno ZIP è stato scaricato.`);
++    }
++  }
++  const { default: JSZip } = await import("jszip");
++  const zip = new JSZip();
++  const manifest = { version, files: {} };
++  for (const name of Object.keys(sources).sort()) {
++    zip.file(`seogrow-connector/${name}`, sources[name]);
++    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sources[name]));
++    manifest.files[name] = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
++  }
++  zip.file("seogrow-connector/build-manifest.json", JSON.stringify(manifest, null, 2));
++  const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
++  const check = await JSZip.loadAsync(bytes);
++  for (const [name, source] of Object.entries(sources)) {
++    if (await check.file(`seogrow-connector/${name}`)?.async("string") !== source) throw new Error(`ZIP non integro: ${name}`);
++  }
++  return { bytes, version, fileCount: Object.keys(sources).length };
++}
+diff --git a/src/editorialQuality.js b/src/editorialQuality.js
+index f3e365b..7a45c39 100644
+--- a/src/editorialQuality.js
++++ b/src/editorialQuality.js
+@@ -0,0 +1,2 @@
++import { SEO_TEXT_LIMITS, seoCharacterCount } from "./seoTextPolicy.js";
++
+@@ -55 +57 @@ export function validateSeoSuggestion(kind, value, page = {}) {
+-  const length = text.length;
++  const length = seoCharacterCount(String(value ?? "").trim());
+@@ -59 +61 @@ export function validateSeoSuggestion(kind, value, page = {}) {
+-  if (suspiciousRawExcerpt(text)) errors.push("Il testo contiene un estratto grezzo, markup o un segnale di troncamento.");
++  if (suspiciousRawExcerpt(value)) errors.push("Il testo contiene un estratto grezzo, markup o un segnale di troncamento.");
+@@ -73 +75 @@ export function validateSeoSuggestion(kind, value, page = {}) {
+-    if (length > 175) errors.push("La meta description supera 175 caratteri.");
++    if (length > SEO_TEXT_LIMITS.meta_description) errors.push(`La meta description supera ${SEO_TEXT_LIMITS.meta_description} caratteri, inclusi spazi e punteggiatura.`);
+diff --git a/src/metadataCorrectionVerification.js b/src/metadataCorrectionVerification.js
+index a96918a..30cbe46 100644
+--- a/src/metadataCorrectionVerification.js
++++ b/src/metadataCorrectionVerification.js
+@@ -47 +47,3 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
+-  const matches = normalizedText(observed) === normalizedText(target.expected);
++  const exactMatch = normalizedText(observed) === normalizedText(target.expected);
++  const caseOnlyMatch = !exactMatch && target.publicField === "title" && normalizedText(observed).toLocaleLowerCase("it") === normalizedText(target.expected).toLocaleLowerCase("it");
++  const matches = exactMatch || caseOnlyMatch;
+@@ -50,0 +53 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
++    titleCaseOnlyMatch: caseOnlyMatch,
+@@ -54 +57 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
+-      ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress. Per confermare la risoluzione SEO, inclusa l’assenza di duplicati, esegui un nuovo audit delle pagine coinvolte.`
++      ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} Per confermare la risoluzione SEO, inclusa l’assenza di duplicati, esegui un nuovo audit delle pagine coinvolte.`
+diff --git a/src/metadataDuplicateGroups.js b/src/metadataDuplicateGroups.js
+new file mode 100644
+index 0000000..7f42d06
+--- /dev/null
++++ b/src/metadataDuplicateGroups.js
+@@ -0,0 +1,27 @@
++import { confirmedSlashAlias } from "./taskUrlEvidence.js";
++
++export function metadataDuplicateGroups(pages, field) {
++  const groups = new Map();
++  for (const page of pages) {
++    if (!page?.[field]) continue;
++    const key = String(page[field]).normalize("NFC").replace(/\s+/g, " ").trim();
++    const normalized = field === "title" ? key.toLocaleLowerCase("it") : key;
++    if (!groups.has(normalized)) groups.set(normalized, []);
++    groups.get(normalized).push(page);
++  }
++  const duplicates = [], aliases = [];
++  for (const group of groups.values()) {
++    const aliasUrls = new Set();
++    for (const page of group) {
++      if (page.url?.endsWith("/")) continue;
++      const counterpart = group.find(other => other.url === `${page.url}/`);
++      if (counterpart && confirmedSlashAlias([page.url, counterpart.url], [page, counterpart])) {
++        aliases.push({ sourceUrl: page.url, canonicalUrl: counterpart.url, wordpressDocumentId: page.wordpressDocumentId });
++        aliasUrls.add(page.url);
++      }
++    }
++    const independent = group.filter(page => !aliasUrls.has(page.url));
++    if (independent.length > 1) duplicates.push(independent);
++  }
++  return { duplicates, aliases };
++}
+diff --git a/src/problemNavigationFocus.js b/src/problemNavigationFocus.js
+new file mode 100644
+index 0000000..a6c9e72
+--- /dev/null
++++ b/src/problemNavigationFocus.js
+@@ -0,0 +1,20 @@
++import { normalizeClientId, safeHttpHref } from "./reliabilityModel.js";
++
++// Navigation context is never an approval: each destination resolves fresh data.
++export function problemNavigationFocus(problem, clientId, currentClientId, openedFrom = "problem-card") {
++  const scope = normalizeClientId(clientId);
++  const sourceUrl = safeHttpHref(problem?.sourceUrl || problem?.url);
++  const title = String(problem?.title || problem?.label || "").trim();
++  if (!scope || scope !== normalizeClientId(currentClientId) || !sourceUrl || !title) return null;
++  return { clientId: scope, sourceUrl, title, issueType: String(problem.issueType || problem.type || ""),
++    issueKey: problem.key || "", correctability: problem.correctability || "manual", openedFrom, createdAt: Date.now() };
++}
++export function matchesProblemFocus(problem, focus) {
++  if (!problem || !focus) return false;
++  const urlKey = value => { try { const u = new URL(value); u.hash = ""; return u.href; } catch { return ""; } };
++  const wanted = urlKey(focus.sourceUrl);
++  if (!wanted || urlKey(problem.sourceUrl) !== wanted) return false;
++  return focus.issueType
++    ? String(problem.issueType || "").toLowerCase() === String(focus.issueType).toLowerCase()
++    : String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
++}
+diff --git a/src/reliabilityModel.js b/src/reliabilityModel.js
+index bf5c7ba..4bead88 100644
+--- a/src/reliabilityModel.js
++++ b/src/reliabilityModel.js
+@@ -0,0 +1 @@
++import { remediationIssueKind } from "./remediationIssueKind.js";
+@@ -213 +214 @@ export function issueCorrectability(issue = {}, { pageKind = "", ownershipBlocke
+-  const text = issueText(issue);
++  const text = `${issue.type || ""} ${issue.label || ""}`.toLowerCase();
+@@ -219 +220 @@ export function issueCorrectability(issue = {}, { pageKind = "", ownershipBlocke
+-  if (/meta description|title|titolo|h1|excerpt|estratto|contenuto|content|parole|word|brev/.test(text)) return "automatic";
++  if (remediationIssueKind(issue)) return "automatic";
+diff --git a/src/remediationFlowRegressions.test.js b/src/remediationFlowRegressions.test.js
+new file mode 100644
+index 0000000..d874291
+--- /dev/null
++++ b/src/remediationFlowRegressions.test.js
+@@ -0,0 +1,100 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { readFile, readdir } from 'node:fs/promises';
++import JSZip from 'jszip';
++import { assertSeoPatchLengths, assertSeoTextLength, seoCharacterCount } from './seoTextPolicy.js';
++import { validateSeoSuggestion } from './editorialQuality.js';
++import { deterministicMetaDescription } from '../server/wordpressSeoAdapterV2Hook.js';
++import { registerRoutes } from '../server/wordpressLiveApprovalHook.js';
++import { validateTaxonomyChange } from '../server/wordpressTaxonomyHook.js';
++import { remediationIssueKind, remediationSourceUrl } from './remediationIssueKind.js';
++import { problemNavigationFocus, matchesProblemFocus } from './problemNavigationFocus.js';
++import { metadataVerificationPatch } from './metadataCorrectionVerification.js';
++import { metadataDuplicateGroups } from './metadataDuplicateGroups.js';
++import { buildConnectorArchive } from './connectorPackage.js';
++
++const sentence = 'Scopri come integrare lo yoga in una routine equilibrata con posizioni, consigli pratici e indicazioni utili per iniziare in modo graduale e consapevole.';
++
++test('meta description 160-character policy counts punctuation, spaces, NFC and code points', () => {
++  assert.equal(seoCharacterCount('e\u0301 🧘.'), 4);
++  for (const size of [159, 160]) assert.doesNotThrow(() => assertSeoTextLength('meta_description', 'x'.repeat(size)));
++  for (const size of [161, 175, 180]) {
++    assert.throws(() => assertSeoTextLength('meta_description', 'x'.repeat(size)), e => e.code === 'SEO_TEXT_LIMIT_EXCEEDED' && e.maxCharacters === 160);
++    assert.equal(validateSeoSuggestion('meta_description', sentence + 'x'.repeat(size-sentence.length)).publishable, false);
++  }
++  for (const key of ['rank_math_description','_yoast_wpseo_metadesc']) assert.throws(() => assertSeoPatchLengths({meta:{[key]:'x'.repeat(161)}}), /160/);
++  assert.doesNotThrow(() => assertSeoPatchLengths({content: 'x'.repeat(1000)}));
++});
++
++test('adding final punctuation never turns a 160-character deterministic fallback into 161', () => {
++  for (const size of [159,160,161,170,240]) {
++    const value = deterministicMetaDescription({content:('Parole naturali per la descrizione completa della pagina yoga. ').repeat(8).slice(0,size)});
++    assert.ok(value && seoCharacterCount(value) <= 160, value);
++    assert.match(value, /[.!?…]$/);
++  }
++  assert.equal(validateSeoSuggestion('meta_description','<b>'+sentence+'</b>').publishable,false,'markup is not erased before validating raw text');
++});
++
++test('server rejects oversized SEO metadata before requesting WordPress or granting approval', async () => {
++  const handlers = new Map();
++  registerRoutes({post:(path,fn)=>handlers.set(path,fn)}, {readTransport:()=>{throw new Error('Must not read WordPress');},atomicTransport:()=>{throw new Error('Must not write WordPress');}});
++  const res = {statusCode:200,status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};
++  await handlers.get('/api/wordpress/live-preview')({ip:'policy-test',body:{siteUrl:'https://example.com',username:'qa',applicationPassword:'qa',resource:'posts',id:1,changes:{meta:{rank_math_description:'x'.repeat(161)}}}},res);
++  assert.equal(res.statusCode,422);
++  assert.equal(res.body.code,'SEO_TEXT_LIMIT_EXCEEDED');
++  assert.equal(res.body.approvalToken,undefined);
++});
++
++test('taxonomy apply respects cap while a historical rollback preserves its exact long snapshot', () => {
++  const request = {field:'meta_description',value:'x'.repeat(170),targetUrl:'https://example.com/category/yoga/'};
++  assert.throws(()=>validateTaxonomyChange(request), /160/);
++  assert.equal(validateTaxonomyChange({...request,mode:'rollback'}),request.value);
++});
++
++test('issue type wins over incidental H1, content, WordPress or description in evidence URL', () => {
++  assert.equal(remediationIssueKind({type:'duplicate-title', label:'Title duplicato', detail:'https://example.com/content-h1-meta-description-wordpress/'}),'title');
++  assert.equal(remediationIssueKind({type:'duplicate-description',label:'Metadescription duplicata'}),'meta_description');
++  assert.equal(remediationIssueKind({type:'url-alias',label:'Due URL dello stesso contenuto WordPress'}),'');
++  assert.equal(remediationSourceUrl({type:'broken-external-link',sourceUrl:'https://example.com/source',url:'https://else.example',targetUrl:'https://broken.example'}), 'https://example.com/source');
++  assert.equal(remediationSourceUrl({type:'broken-link',targetUrl:'https://broken.example'},{url:'https://example.com/source'}),'https://example.com/source');
++});
++
++test('data-driven problem navigation preserves full URL and cannot switch the current project', () => {
++  const sourceUrl = 'https://example.com/'+'word-'.repeat(70);
++  const problem = {sourceUrl,title:'Title duplicato',issueType:'duplicate-title',correctability:'automatic'};
++  const focus = problemNavigationFocus(problem,12,12,'problem-card');
++  assert.equal(focus.sourceUrl,sourceUrl);
++  assert.equal(matchesProblemFocus({...problem,title:'Titolo duplicato'},focus),true);
++  assert.equal(matchesProblemFocus({...problem,issueType:'duplicate-description'},focus),false);
++  assert.equal(problemNavigationFocus(problem,12,13),null);
++  assert.equal(problemNavigationFocus({...problem,sourceUrl:'javascript:alert(1)'},12,12),null);
++});
++
++test('Rank Math title casing is reported separately; different content and description mismatches still fail', () => {
++  const record={id:'a',clientId:12,sourceUrl:'https://example.com/yoga/',entityId:42,fields:['meta.rank_math_title'],after:{'meta.rank_math_title':'Yoga e alimentazione a Cinisello Balsamo'}};
++  const response={ok:true,isHtml:true,status:200,url:record.sourceUrl,wordpressDocumentId:42,title:'Yoga E Alimentazione A Cinisello Balsamo'};
++  const patch=metadataVerificationPatch(record,response);
++  assert.equal(patch.frontendConfirmed,true);assert.equal(patch.titleCaseOnlyMatch,true);assert.equal(patch.status,'Da verificare');
++  assert.equal(metadataVerificationPatch(record,{...response,title:'Yoga per dimagrire'}).frontendConfirmed,false);
++  assert.equal('after' in patch,false);
++});
++
++test('only a proven same-resource slash pair is excluded from independently editable duplicates', () => {
++  const make=(url,extra={})=>({url,title:'Yoga',description:'Yoga quotidiano',ok:true,status:200,isHtml:true,canonicalCount:1,canonical:'https://example.com/yoga/',wordpressDocumentId:42,...extra});
++  const pair=[make('https://example.com/yoga'),make('https://example.com/yoga/')];
++  assert.equal(metadataDuplicateGroups(pair,'title').duplicates.length,0);
++  assert.equal(metadataDuplicateGroups(pair,'description').aliases.length,1);
++  for (const change of [{wordpressDocumentId:99},{canonicalCount:2},{canonical:'https://example.com/other/'}]) assert.equal(metadataDuplicateGroups([pair[0],{...pair[1],...change}],'title').duplicates.length,1);
++  assert.equal(metadataDuplicateGroups([...pair,make('https://example.com/other/',{wordpressDocumentId:77,canonical:'https://example.com/other/'})],'title').duplicates[0].length,2);
++});
++
++test('browser Connector package contains every required module with complete snapshots', async () => {
++  const dir = new URL('../wordpress-plugin/seogrow-connector/',import.meta.url);
++  const files={};
++  for(const name of (await readdir(dir)).filter(name=>/\.(php|inc)$/.test(name))) files[name]=await readFile(new URL(name,dir),'utf8');
++  const result=await buildConnectorArchive(files); const zip=await JSZip.loadAsync(result.bytes);
++  assert.equal(result.fileCount,Object.keys(files).length);
++  assert.ok(result.fileCount>=14);
++  assert.equal(await zip.file('seogrow-connector/atomic-write.php').async('string'),files['atomic-write.php']);
++  await assert.rejects(buildConnectorArchive({'seogrow-connector.php':files['seogrow-connector.php']}),/Pacchetto incompleto/);
++});
+diff --git a/src/remediationIssueKind.js b/src/remediationIssueKind.js
+new file mode 100644
+index 0000000..1b65061
+--- /dev/null
++++ b/src/remediationIssueKind.js
+@@ -0,0 +1,20 @@
++export function remediationIssueKind(issue = {}) {
++  const type = String(issue.type || issue.issueType || "").trim().toLowerCase();
++  const exact = { title: "title", "duplicate-title": "title", seo_title: "title", description: "meta_description", "duplicate-description": "meta_description", "meta-description": "meta_description", meta_description: "meta_description", "meta description": "meta_description", h1: "h1", thin: "content", content: "content", excerpt: "excerpt", canonical: "canonical", indexability: "noindex", noindex: "noindex" };
++  if (exact[type]) return exact[type];
++  if (["url-alias", "broken-link", "broken-external-link"].includes(type)) return "";
++  const label = String(issue.label || issue.title || "").toLowerCase();
++  if (/meta\s*description|metadescription/.test(label)) return "meta_description";
++  if (/title|titolo/.test(label)) return "title";
++  if (/canonical/.test(label)) return "canonical";
++  if (/noindex|indexability/.test(label)) return "noindex";
++  if (/\bh1\b/.test(label)) return "h1";
++  if (/excerpt|estratto/.test(label)) return "excerpt";
++  if (/contenuto|content|testo|parole|word|brev/.test(label)) return "content";
++  return "";
++}
++export function remediationSourceUrl(issue, audit, client) {
++  const type = String(issue?.type || issue?.issueType || "").toLowerCase();
++  const brokenLink = /broken-(?:external-)?link/.test(type);
++  return issue?.sourceUrl || issue?.url || (!brokenLink ? issue?.targetUrl : "") || audit?.url || client?.url || "";
++}
+diff --git a/src/seoResponseIntegrity.js b/src/seoResponseIntegrity.js
+index 1ca58ff..dd364b2 100644
+--- a/src/seoResponseIntegrity.js
++++ b/src/seoResponseIntegrity.js
+@@ -50 +50 @@ const normalizedIssue = (issue, fallbackUrl = "") => {
+-  const pageUrl = issue.url || issue.sourceUrl || (!brokenLink ? issue.targetUrl || fallbackUrl : "") || "";
++  const pageUrl = issue.sourceUrl || issue.url || (!brokenLink ? issue.targetUrl || fallbackUrl : "") || "";
+@@ -103 +103,2 @@ const reviewOnlyReason = (issue) => {
+-  const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
++  const text = `${issue?.type || ""} ${issue?.label || ""}`.toLowerCase();
++  if (issue?.type === "url-alias") return "Queste URL rappresentano la stessa risorsa WordPress: non richiedono title o description diversi. Verifica collegamenti, canonical e intento prima di un eventuale redirect.";
+diff --git a/src/seoTextPolicy.js b/src/seoTextPolicy.js
+new file mode 100644
+index 0000000..ff51367
+--- /dev/null
++++ b/src/seoTextPolicy.js
+@@ -0,0 +1,27 @@
++// Editorial limits of SeoGrow, not fixed limits imposed by Google.
++export const SEO_TEXT_LIMITS = Object.freeze({ seo_title: 70, title: 70, meta_description: 160, description: 160 });
++export const seoCharacterCount = (value) => Array.from(String(value ?? "").normalize("NFC")).length;
++export const seoFieldKind = (field) => ({
++  "meta.rank_math_title": "seo_title", "meta._yoast_wpseo_title": "seo_title",
++  "meta.rank_math_description": "meta_description", "meta._yoast_wpseo_metadesc": "meta_description",
++  meta_description: "meta_description",
++})[field] || "";
++export function assertSeoTextLength(kind, value) {
++  const max = SEO_TEXT_LIMITS[kind];
++  if (!max) return;
++  const count = seoCharacterCount(value);
++  if (typeof value !== "string" || count > max) {
++    const error = new Error(`${kind === "meta_description" || kind === "description" ? "La meta description" : "Il title SEO"} contiene ${count} caratteri: il limite SeoGrow è ${max}, inclusi spazi e punteggiatura. Rigenera un testo più breve prima di approvare.`);
++    error.code = "SEO_TEXT_LIMIT_EXCEEDED";
++    error.status = 422;
++    error.characters = count;
++    error.maxCharacters = max;
++    throw error;
++  }
++}
++export function assertSeoPatchLengths(changes = {}) {
++  for (const [key, value] of Object.entries(changes.meta || {})) {
++    const kind = seoFieldKind(`meta.${key}`);
++    if (kind) assertSeoTextLength(kind, value);
++  }
++}
