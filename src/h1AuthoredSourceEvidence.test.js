@@ -69,6 +69,23 @@ test("scanner H1 Elementor conta heading e markup HTML senza inventare ownership
   assert.equal(result.dynamicH1Unknown, false);
 });
 
+test("scanner H1 ignora markup inerte e H1 serializzati dentro JSON-LD", () => {
+  const data = JSON.stringify([
+    {
+      id: "real-content",
+      widgetType: "text-editor",
+      settings: {
+        editor: '<h1>Yoga in Gravidanza</h1><p>Testo visibile</p><script type="application/ld+json">{"articleBody":"<h1>Yoga in Gravidanza</h1><p>Duplicato solo nello schema</p>"}</script><template><h1>Template inerte</h1></template><noscript><h1>Fallback</h1></noscript><style>.x{content:"<h1>finto</h1>"}</style>',
+      },
+      elements: [],
+    },
+  ]);
+  const result = inspectElementorAuthoredH1(data);
+  assert.equal(result.complete, true);
+  assert.equal(result.h1Count, 1);
+  assert.equal(result.dynamicH1Unknown, false);
+});
+
 test("scanner H1 resta fail-closed quando un campo capace di produrre H1 è dinamico", () => {
   const data = JSON.stringify([
     {
