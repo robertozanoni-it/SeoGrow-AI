@@ -9,8 +9,23 @@ print "SeoGrow — configurazione OpenRouter"
 print "La chiave non verrà mostrata e non finirà nella cronologia del Terminale."
 print ""
 
-read -rs "OPENROUTER_KEY?Incolla la chiave OpenRouter: "
+# Disattiva esplicitamente l'echo del terminale durante l'inserimento della chiave.
+# Il trap ripristina sempre lo stato del terminale anche in caso di Ctrl+C/errore.
+TTY_STATE="$(stty -g 2>/dev/null || true)"
+restore_tty() {
+  if [[ -n "${TTY_STATE:-}" ]]; then
+    stty "$TTY_STATE" 2>/dev/null || true
+  fi
+  unset OPENROUTER_KEY 2>/dev/null || true
+}
+trap restore_tty EXIT INT TERM
+
+print -n "Incolla la chiave OpenRouter: "
+if [[ -n "$TTY_STATE" ]]; then stty -echo; fi
+IFS= read -r OPENROUTER_KEY
+if [[ -n "$TTY_STATE" ]]; then stty "$TTY_STATE" 2>/dev/null || true; fi
 print ""
+
 if [[ -z "$OPENROUTER_KEY" ]]; then
   print "Chiave vuota: nessuna modifica eseguita."
   exit 1
@@ -58,6 +73,9 @@ fs.writeFileSync(file, `${lines.filter((line, index, all) => !(index === all.len
 NODE
 
 unset OPENROUTER_KEY
+trap - EXIT INT TERM
+restore_tty
+
 print ""
 print "Configurazione salvata in .env"
 print "Provider: OpenRouter"
