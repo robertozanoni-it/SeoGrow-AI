@@ -234,10 +234,7 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
     siteUrl: normalizedSite,
     sitemapFiles: sitemap.sitemapFiles,
     declaredSitemapUrls,
-    effectiveSitemapUrls: effectiveSitemap,
-    // Compatibilità con l'attestazione esistente: sitemapUrls espone il set pubblico
-    // completo già ispezionato; declaredSitemapUrls conserva il contenuto reale della sitemap.
-    sitemapUrls: coverageUrls,
+    sitemapUrls: effectiveSitemap,
     coverageUrls,
     crawledUrls: coverageUrls,
     discoveredUrls: publicDiscoveredUrls,
