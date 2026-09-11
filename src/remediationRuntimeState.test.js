@@ -8,7 +8,7 @@ const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", i
 const integrity = await readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8");
 
 test("la chiusura dei problemi è responsabilità del runtime nativo, non di patch DOM legacy", () => {
-  assert.match(host, /record\.status === "Verificato"/);
+  assert.match(host, /verifiedForAudit\(record, selectedAuditAt\)/);
   assert.match(host, /verifiedKeys\.has\(entry\.key\)/);
   assert.match(integrity, /removeVerifiedTask\(after\)/);
   assert.doesNotMatch(main, /AuditUnifiedRemediation|legacyRemediationGuard|remediationCompletionUxPatch|remediationUiOrderPatch|remediationReportUx/);

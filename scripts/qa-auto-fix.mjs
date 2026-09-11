@@ -1,3 +1,4 @@
+import { runVerificationIntegrity } from './qa-verification-integrity.mjs';
 import { runClientCardIsolationFlow } from "./qa-client-card-isolation.mjs";
 import { runProblemRoutingFlow } from './qa-problem-routing.mjs';
 import assert from 'node:assert/strict';
@@ -98,5 +99,6 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
   });
   await runSavedCorrectionFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
   await runProblemRoutingFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
+  await runVerificationIntegrity({ evaluate, waitFor, record, read, mock });
   await runClientCardIsolationFlow({ evaluate, waitFor, clickSidebar, record, button, read, revisit, screenshot, command });
 }

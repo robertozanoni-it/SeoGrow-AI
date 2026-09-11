@@ -1,3 +1,4 @@
+import { assertPublicObservation, contentVerificationEvidence, verificationErrorPatch } from "./remediationEvidence.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { normalizeClientId } from "./reliabilityModel.js";
 import { apiFetch } from "./api";
@@ -32,6 +33,9 @@ const syncTaskWithVerification = (before, after) => {
 };
 
 async function updateAndSync(record, patch) {
+  if (currentClientId() !== normalizeClientId(record.clientId)) {
+    throw Object.assign(new Error("Progetto cambiato durante la verifica: risultato non applicato."), { code: "VERIFICATION_SCOPE_CHANGED" });
+  }
   const updated = await updateCorrection(record.id, patch, { expectedRecord: record });
   syncTaskWithVerification(record, updated);
   return updated;
@@ -46,11 +50,7 @@ async function retainVerificationError(record, error, prefix) {
     return { changed: false, record, error };
   }
   try {
-    const updated = await updateCorrection(record.id, {
-      verificationNote: `${prefix}: ${error.message}. Lo stato precedente è stato mantenuto.`,
-      lastVerificationErrorAt: new Date().toISOString(),
-      lastVerificationAttemptAt: new Date().toISOString(),
-    }, { expectedRecord: record });
+    const updated = await updateAndSync(record, verificationErrorPatch(record, error, prefix));
     return { changed: Boolean(updated), record: updated || record, error };
   } catch (conflict) { return { changed: false, record, error: conflict }; }
 }
@@ -88,7 +88,7 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
     if (!response.ok) throw new Error(data.error || "Verifica tassonomia non riuscita.");
 
     const needsAudit = requiresDuplicateAudit(record);
-    const verified = data.verified === true && !needsAudit;
+    const verified = data.ok === true && data.verified === true && data.storedMatch === true && data.publicMatch === true && !needsAudit;
     const note = needsAudit && data.verified === true
       ? `${data.reason || "Il valore pubblico coincide con quello applicato."} Il problema originale riguarda però un duplicato: serve un nuovo crawl/audit prima di dichiararlo risolto.`
       : data.reason || (verified ? "Valore tassonomia verificato nel frontend pubblico." : "La correzione tassonomia resta da verificare.");
@@ -140,14 +140,22 @@ async function performRecheckCorrection(record, credentials = {}) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica frontend non riuscita");
+    assertPublicObservation(record, data);
 
     if (metadataTarget) {
       const updated = await updateAndSync(record, metadataVerificationPatch(record, data));
       return { changed: true, record: updated, needsAudit: true };
     }
 
+    const coreTitleMatch = () => {
+      if (data.titleCount !== 1 || typeof data.title !== "string" || typeof record.after?.title !== "string") {
+        throw new Error("La verifica richiede esattamente un title pubblico e il valore applicato nello snapshot.");
+      }
+      const normalize = value => value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("it");
+      return normalize(data.title) === normalize(record.after.title);
+    };
     if (DUPLICATE_TITLE.test(text)) {
-      const failedFrontend = data.titleMatchesExpected !== true;
+      const failedFrontend = !coreTitleMatch();
       const patch = failedFrontend
         ? {
             status: "Da verificare",
@@ -163,6 +171,7 @@ async function performRecheckCorrection(record, credentials = {}) {
           };
       const updated = await updateAndSync(record, {
         ...patch,
+        verifiedAt: "",
         lastVerificationAttemptAt: new Date().toISOString(),
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
@@ -170,11 +179,7 @@ async function performRecheckCorrection(record, credentials = {}) {
     }
 
     if (SHORT_CONTENT.test(text)) {
-      const thresholdReached = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
-      const modifiedContentVisible = data.contentProbeVisible === true;
-      const qualityAccepted = record.editorialQuality?.publishable !== false;
-      const visibilitySafe = data.verificationSafe !== false && data.requiresBrowserVerification !== true;
-      const fixed = thresholdReached && modifiedContentVisible && qualityAccepted && visibilitySafe;
+      const { thresholdReached, modifiedContentVisible, visibilitySafe, fixed } = contentVerificationEvidence(record, data);
       const updated = await updateAndSync(record, {
         status: fixed ? "Verificato" : "Da verificare",
         frontendConfirmed: fixed,
@@ -209,6 +214,7 @@ async function performRecheckCorrection(record, credentials = {}) {
         status: "Da verificare",
         frontendConfirmed: false,
         frontendFailure: !h1CountCorrect || needsBrowserVerification,
+        verifiedAt: "",
         lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: needsBrowserVerification
           ? "Il markup contiene regole responsive/dinamiche: il conteggio H1 statico non basta. Esegui una verifica browser e poi un nuovo audit della pagina."
@@ -228,12 +234,12 @@ async function performRecheckCorrection(record, credentials = {}) {
     }
 
     if ((record.fields || []).includes("title")) {
-      const matches = data.titleMatchesExpected === true;
+      const matches = coreTitleMatch();
       const updated = await updateAndSync(record, {
         status: "Da verificare",
         frontendConfirmed: matches,
         frontendFailure: !matches,
-        verifiedAt: matches ? record.verifiedAt || "" : "",
+        verifiedAt: "",
         lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: matches
           ? "Il <title> pubblico coincide con il valore applicato. Se il problema originale era un duplicato o dipendeva dal sito intero, serve comunque un nuovo crawl per confermarne la risoluzione."

@@ -23,7 +23,7 @@ test("risposta persa mantiene snapshot precedente e stato incerto", async () => 
 
 test("fallimento persistenza dopo risposta non perde snapshot pre-scrittura", async () => {
   let saved;
-  await assert.rejects(applyJournaledCorrection(record, async () => ({}), async row => {
+  await assert.rejects(applyJournaledCorrection(record, async () => ({ before: record.before, after: record.after }), async row => {
     if (saved) throw new Error("quota");
     saved = row;
     return row;
@@ -34,7 +34,7 @@ test("fallimento persistenza dopo risposta non perde snapshot pre-scrittura", as
 
 test("risposta confermata aggiorna stesso record senza dichiarare SEO verificata", async () => {
   const saved = [];
-  const result = await applyJournaledCorrection(record, async () => ({ adapter: "WordPress" }), async row => { saved.push(row); return row; });
+  const result = await applyJournaledCorrection(record, async () => ({ adapter: "WordPress", before: record.before, after: record.after }), async row => { saved.push(row); return row; });
   assert.equal(saved.length, 2);
   assert.equal(result.id, saved[0].id);
   assert.equal(result.status, "Da verificare");

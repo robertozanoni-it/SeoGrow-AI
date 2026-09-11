@@ -89,7 +89,10 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await mock('/api/wordpress/generate-seo-value-v2',{value:'x'.repeat(161),publishable:true});
       await resetRequests();await button('Prepara solo questo problema',scope);
       await waitFor("document.querySelector('.proposal-remediation-slot .correction-explanation')?.textContent.includes('160')",'Oversized description blocked in UI even with a faulty server response');
+      assert.equal(await evaluate("window.__qaFormRequests.find(r=>r.path==='/api/wordpress/generate-seo-value-v2')?.body.kind"),'meta_description','The action must match the description card, never the previous title');
+      assert.equal(await evaluate("document.querySelector('.proposal-remediation-slot .audit-issue-select select')?.selectedOptions[0]?.textContent.includes('Meta description')"),true);
       assert.equal(await evaluate("Boolean(document.querySelector('.proposal-remediation-slot .wp-live-apply-one'))"),false);
+      await screenshot('description-routing-correct-field');
       assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-preview|live-apply/.test(r.path))"),false);
       await button('Torna ai problemi','.automatic-proposal-header');
       await click('.card-record[data-issue-type="url-alias"]');

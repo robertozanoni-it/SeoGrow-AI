@@ -5,6 +5,7 @@ const stripDiacritics = (value) =>
     .replace(/[\u0300-\u036f]/g, "");
 
 export const normalizeClientId = (value) => {
+  if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 };

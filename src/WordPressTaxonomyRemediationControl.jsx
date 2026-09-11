@@ -372,7 +372,8 @@ export default function WordPressTaxonomyRemediationControl() {
         });
         const data = await response.json();
         if (!response.ok) throw Object.assign(new Error(data.error || "Applicazione tassonomia non riuscita."), { code: data.code });
-        return {};
+        if (data.ok !== true) throw new Error("La risposta non conferma la scrittura della tassonomia.");
+        return { before: { [field]: data.before }, after: { [field]: data.after } };
       });
       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
       setAppliedRecordId(record.id);

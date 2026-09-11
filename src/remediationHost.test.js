@@ -26,7 +26,7 @@ test("l'host nativo espone solo il contratto DOM necessario al live flow V2", ()
   assert.match(host, /audit-unified-credentials/);
   assert.match(host, /audit-issue-select/);
   assert.match(live, /document\.querySelector\("\.audit-unified-remediation"\)/);
-  assert.match(live, /document\.querySelector\("\.audit-unified-credentials"\)/);
+  assert.match(live, /target\?\.closest\("\.remediation-host"\)\?\.querySelector\("\.audit-unified-credentials"\)/);
 });
 
 test("l'host non introduce nuovi monkey-patch fetch o MutationObserver globali", () => {
@@ -58,7 +58,7 @@ test("cambiare problema nell'host aggiorna anche l'identità richiesta dal live 
 
 test("i problemi verificati sono derivati dai dati e disabilitati nel selettore", () => {
   assert.match(host, /listCorrections\(\{ clientId \}\)/);
-  assert.match(host, /record\.status === "Verificato"/);
+  assert.match(host, /verifiedForAudit\(record, selectedAuditAt\)/);
   assert.match(host, /disabled=\{verifiedKeys\.has\(entry\.key\)\}/);
   assert.match(host, /activeEntries\.length/);
 });

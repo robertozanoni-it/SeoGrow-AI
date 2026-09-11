@@ -1,3 +1,6 @@
+import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
+import { selectFocusedRemediation, proposalSelectionKey, correctionIssueKeys } from "./remediationSelection.js";
+import { verifiedForAudit } from "./remediationEvidence.js";
 import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKind.js";
 import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
 import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
@@ -80,8 +83,8 @@ const isNonEditableWordPressUrl = (value) => {
   } catch { return true; }
 };
 
-const readCredentials = () => {
-  const root = document.querySelector(".audit-unified-credentials");
+const readCredentials = (target) => {
+  const root = target?.closest(".remediation-host")?.querySelector(".audit-unified-credentials");
   const inputs = [...(root?.querySelectorAll("input") || [])];
   return {
     url: inputs.find((input) => input.autocomplete === "url")?.value?.trim() || "",
@@ -433,18 +436,26 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     const clients = readJson(CLIENTS_KEY, []);
     const clientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
     const client = clients.find((item) => normalizeClientId(item?.id) === clientId) || null;
-    const audit = client ? selectAudit(clientId, batchPlan || requestedAudit) : null;
+    const proposalMode = Boolean(target?.closest(".proposal-remediation-slot"));
+    const focus = proposalMode ? readAutomaticProposalFocus() : null;
+    const selection = proposalMode ? selectFocusedRemediation(candidates(clientId), focus, clientId, client) : null;
+    const audit = proposalMode ? selection?.audit : client ? selectAudit(clientId, batchPlan || requestedAudit) : null;
     const issues = Array.isArray(audit?.item?.issues) ? audit.item.issues : [];
     const corrections = clientId ? await listCorrections({ clientId }) : [];
-    const verifiedKeys = new Set(corrections.filter((record) => record.status === "Verificato").flatMap((record) => [record.issueKey, record.legacyIssueKey].filter(Boolean)));
-    const permitted = batchPlan ? selectedAutoFixIssues(batchPlan, batchPlan.indexes, { clientId, audit: audit?.item }) : issues;
+    if (clientId !== normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)) || !target.isConnected ||
+        (proposalMode && proposalSelectionKey(readAutomaticProposalFocus()) !== selection?.focusKey)) {
+      throw new Error("Il progetto o il problema è cambiato: riapri la proposta corretta.");
+    }
+    const verifiedKeys = new Set(corrections.filter((record) => verifiedForAudit(record, auditTimestamp(audit))).flatMap(correctionIssueKeys));
+    const permitted = proposalMode ? [issues[selection?.issueIndex]].filter(Boolean) : batchPlan ? selectedAutoFixIssues(batchPlan, batchPlan.indexes, { clientId, audit: audit?.item }) : issues;
+    const uncertainKeys = new Set(corrections.filter(record => record.status === "Esito incerto").flatMap(correctionIssueKeys));
     const activeIssues = issues.filter((issue) => !verifiedKeys.has(stableIssueKey({
       issue,
       issueType: issue?.type || "audit",
       issueLabel: issue?.label || "",
       sourceUrl: issueUrl(issue, audit?.item, client),
     })));
-    return { clientId, client, audit, issues, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
+    return { clientId, client, audit, issues, proposalMode, selection, uncertainKeys, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
   };
 
   const prepare = async (all, explicitItem = null) => {
@@ -453,7 +464,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     onBusyChange?.(true);
     setRunning(true);
     try {
-    const credentials = readCredentials();
+    const credentials = readCredentials(target);
     if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
       setMessage("Connetti WordPress inserendo URL, utente e password applicativa prima di preparare le correzioni.");
       return;
@@ -469,8 +480,9 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       issueLabel: issue?.label || "",
       sourceUrl: explicitUrl || issueUrl(issue, context.audit.item, context.client),
     });
-    const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
-    const requestedIndex = requestedAudit && normalizeClientId(requestedAudit.clientId) === context.clientId ? Number(requestedAudit.issueIndex || 0) : domIndex;
+    const domValue = target.closest(".remediation-host")?.querySelector(".audit-issue-select select")?.value;
+    const domIndex = domValue === undefined ? -1 : Number(domValue);
+    const requestedIndex = context.proposalMode ? context.selection.issueIndex : domIndex;
     let selected;
     if (explicitItem?.issue) {
       const wanted = issueKey(explicitItem.issue, explicitItem.targetUrl || "");
@@ -484,6 +496,11 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       return;
     }
 
+    if (selected.some(issue => context.uncertainKeys.has(issueKey(issue)))) {
+      setResults([]);
+      setMessage("Scrittura precedente con esito incerto. Controlla lo stato WordPress e lo storico prima di preparare o inviare una nuova modifica.");
+      return;
+    }
     setRunning(true);
     setResults([]);
     const next = [];
@@ -492,6 +509,13 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
       setMessage(`Esaminati ${index}/${selected.length} · in elaborazione: ${currentIssue?.label || "problema SEO"}…`);
       try {
+        const assertCurrentSelection = () => {
+          if (!target.isConnected || context.clientId !== normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)) ||
+              (context.proposalMode && proposalSelectionKey(readAutomaticProposalFocus()) !== context.selection.focusKey)) {
+            throw new Error("Progetto o problema cambiato durante la preparazione: nessuna anteprima riutilizzabile.");
+          }
+        };
+        assertCurrentSelection();
         const kind = classifyIssue(currentIssue);
         if (!kind) throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
         const [inspected, frontendContext] = await Promise.all([
@@ -507,7 +531,9 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           const impactEvidence = await inspectElementorImpactEvidence(inspected.entity, credentials, candidateUrls);
           if (impactEvidence) attachElementorImpactEvidence(inspected.entity, impactEvidence);
         }
+        assertCurrentSelection();
         const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext);
+        assertCurrentSelection();
         if (plan.changes) assertSeoPatchLengths(plan.changes);
         const contextSnapshot = {
           clientId: context.clientId,
@@ -515,6 +541,8 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           siteUrl: credentials.url,
           auditType: context.audit.type,
           analyzedAt: auditTimestamp(context.audit),
+          focusKey: context.selection?.focusKey || "",
+          auditFingerprint: JSON.stringify(context.audit.item),
         };
         const identity = previewIdentity({ issue: currentIssue, inspected, targetUrl, frontend: frontendContext });
         if (plan.alreadyResolved) {
@@ -543,6 +571,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           error.code = data.code || "PREVIEW_FAILED";
           throw error;
         }
+        assertCurrentSelection();
         next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data, contextSnapshot, inspected, frontendContext, ...identity });
       } catch (error) {
         next.push({ ...preparationFailure(error), issue: currentIssue, targetUrl, quality: error?.quality || null });
@@ -569,7 +598,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     setRunning(true);
     let rerun = false;
     try {
-      const credentials = readCredentials();
+      const credentials = readCredentials(target);
       if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
         setMessage("Collega WordPress prima di verificare l'origine degli H1.");
         return;
@@ -603,7 +632,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     busyRef.current = true;
     onBusyChange?.(true);
     try {
-    const credentials = readCredentials();
+    const credentials = readCredentials(target);
     if (!credentials.username || !credentials.applicationPassword) {
       setMessage("La password applicativa non è disponibile. Reinseriscila prima dell'approvazione.");
       return;
@@ -620,7 +649,9 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     catch (error) { setResults([]); setMessage(error.message); return; }
     const stale = normalizeClientId(item.contextSnapshot?.clientId) !== liveContext.clientId ||
       item.contextSnapshot?.auditType !== liveContext.audit?.type ||
-      String(item.contextSnapshot?.analyzedAt || "") !== String(auditTimestamp(liveContext.audit) || "");
+      String(item.contextSnapshot?.analyzedAt || "") !== String(auditTimestamp(liveContext.audit) || "") ||
+      (item.contextSnapshot?.focusKey || "") !== (liveContext.selection?.focusKey || "") ||
+      item.contextSnapshot?.auditFingerprint !== JSON.stringify(liveContext.audit?.item);
     if (stale) {
       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "stale", reason: "Audit o progetto cambiati dopo l'anteprima." } : entry));
       setMessage("Progetto o audit sono cambiati dopo la preparazione. L'anteprima selezionata è stata invalidata.");
@@ -690,7 +721,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           body: JSON.stringify({ approvalToken: item.data.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
         });
         const applied = await response.json();
-        if (!response.ok) {
+        if (!response.ok || applied.ok !== true) {
           const error = new Error(applied.error || "Applicazione live non riuscita.");
           error.code = applied.code || "APPLY_FAILED";
           throw error;

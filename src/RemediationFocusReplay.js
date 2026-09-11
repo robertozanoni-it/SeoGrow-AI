@@ -12,8 +12,12 @@ const remediationReady = () =>
 const replayWhenMounted = (detail) => {
   let frame = 0;
   let attempts = 0;
+  const readFocus = () => {
+    try { return window.sessionStorage.getItem("seogrow-problem-proposal-v1"); } catch { return null; }
+  };
+  const focusAtStart = readFocus();
   const check = () => {
-    if (!isAutomaticProposalActive()) return;
+    if (!isAutomaticProposalActive() || readFocus() !== focusAtStart) return;
     if (remediationReady()) {
       window.dispatchEvent(new CustomEvent("seogrow-remediation-open", {
         detail: { ...detail, [REPLAY_MARK]: true },
@@ -27,15 +31,21 @@ const replayWhenMounted = (detail) => {
   return () => window.cancelAnimationFrame(frame);
 };
 
+let cancelPending = null;
+const cancelReplay = () => { cancelPending?.(); cancelPending = null; };
 const onRemediationFocus = (event) => {
   const detail = event?.detail;
   if (!detail || detail[REPLAY_MARK] || !isAutomaticProposalActive()) return;
-  replayWhenMounted(detail);
+  cancelReplay();
+  cancelPending = replayWhenMounted(detail);
 };
 
 if (typeof window !== "undefined" && !window.__seogrowRemediationFocusReplayInstalled) {
   window.__seogrowRemediationFocusReplayInstalled = true;
   window.addEventListener("seogrow-remediation-open", onRemediationFocus);
+  for (const event of ["hashchange", "seogrow-locationchange", "seogrow-automatic-proposal-open", "seogrow-automatic-proposal-close"]) {
+    window.addEventListener(event, cancelReplay);
+  }
 }
 
 export { remediationReady, replayWhenMounted };

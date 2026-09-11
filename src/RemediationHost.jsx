@@ -1,3 +1,6 @@
+import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
+import { selectFocusedRemediation, correctionIssueKeys } from "./remediationSelection.js";
+import { verifiedForAudit } from "./remediationEvidence.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { getWordPressSession } from "./wordpressSession.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -85,7 +88,10 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
   const platform = platformChoice.clientId === clientId && platformChoice.value
     ? platformChoice.value
     : inferredPlatform;
-  const selectedAudit = clientId ? selectAudit(clientId, requestedAudit) : null;
+  const proposalMode = slotSelector === ".proposal-remediation-slot";
+  const focusSelection = proposalMode ? selectFocusedRemediation(candidates(clientId), readAutomaticProposalFocus(), clientId, client) : null;
+  const selectedAudit = proposalMode ? focusSelection?.audit : clientId ? selectAudit(clientId, requestedAudit) : null;
+  const selectedAuditAt = auditTimestamp(selectedAudit);
   const issues = Array.isArray(selectedAudit?.item?.issues) ? selectedAudit.item.issues : [];
 
   const issueKeyAt = (issue, index) => stableIssueKey({
@@ -97,7 +103,7 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
   });
 
   const issueEntries = issues.map((issue, index) => ({ issue, index, key: issueKeyAt(issue, index) }))
-    .filter(entry => !initialAudit || initialAudit.indexes.includes(entry.index));
+    .filter(entry => (!proposalMode || entry.index === focusSelection?.issueIndex) && (!initialAudit || initialAudit.indexes.includes(entry.index)));
   const activeEntries = issueEntries.filter((entry) => !verifiedKeys.has(entry.key));
   const selectedCandidate = issueEntries.find((entry) => entry.index === selectedIndex) || null;
   const selectedEntry = selectedCandidate && !verifiedKeys.has(selectedCandidate.key)
@@ -146,14 +152,14 @@ export default function RemediationHost({ initialAudit = null, slotSelector = ""
       if (cancelled) return;
       setVerifiedKeys(new Set(
         records
-          .filter((record) => record.status === "Verificato")
-          .flatMap((record) => [record.issueKey, record.legacyIssueKey, stableIssueKey(record)].filter(Boolean)),
+          .filter((record) => verifiedForAudit(record, selectedAuditAt))
+          .flatMap(correctionIssueKeys),
       ));
     }).catch(() => {
       if (!cancelled) setVerifiedKeys(new Set());
     });
     return () => { cancelled = true; };
-  }, [clientId, revision]);
+  }, [clientId, revision, selectedAuditAt]);
 
   useEffect(() => {
     const open = (event) => {
