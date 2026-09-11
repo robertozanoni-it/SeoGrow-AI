@@ -11,13 +11,13 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v5
-      - name: Archive tracked source only
+      - name: Archive patched tracked source only
         run: |
           git archive --format=tar --output="$RUNNER_TEMP/seogrow-source.tar" HEAD
           git rev-parse HEAD > "$RUNNER_TEMP/seogrow-source-sha.txt"
       - uses: actions/upload-artifact@v6
         with:
-          name: seogrow-source-cycle
+          name: seogrow-source-current
           path: |
             ${{ runner.temp }}/seogrow-source.tar
             ${{ runner.temp }}/seogrow-source-sha.txt
