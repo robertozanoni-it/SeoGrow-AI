@@ -222,7 +222,7 @@ const issueText = (issue = {}) =>
 export function issueCorrectability(issue = {}, { pageKind = "", ownershipBlocked = false } = {}) {
   const text = `${issue.type || ""} ${issue.label || ""}`.toLowerCase();
   if (ownershipBlocked) return "manual";
-  if (/broken-external-link|link esterno/.test(text)) return "manual";
+  if (/broken-external-link|link esterno/.test(text)) return "assisted";
   if (/broken-link|link interno/.test(text)) return "assisted";
   if (["archive", "taxonomy", "gdpr"].includes(String(pageKind).toLowerCase())) return "not_supported";
   if (/canonical|noindex/.test(text)) return "assisted";
