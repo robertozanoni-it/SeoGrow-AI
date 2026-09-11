@@ -56,6 +56,80 @@
   min-height: 42px;
 }
 
+.content-widget-picker {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #bfd8f4;
+  border-radius: 14px;
+  background: #f6faff;
+}
+
+.content-widget-picker > h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #102743;
+}
+
+.content-widget-picker > p {
+  margin: 0 0 14px;
+  color: #54657c;
+  line-height: 1.5;
+}
+
+.content-widget-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.content-widget-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #d7e3f1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.content-widget-choice > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.content-widget-choice strong {
+  color: #112844;
+}
+
+.content-widget-choice span {
+  color: #728198;
+  font-size: 12px;
+}
+
+.content-widget-choice p {
+  margin: 0;
+  color: #34465f;
+  line-height: 1.55;
+}
+
+.content-widget-choice button {
+  margin-top: auto;
+  width: fit-content;
+}
+
+.content-widget-selected {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #cde6d8;
+  border-radius: 10px;
+  background: #f4fbf7;
+  color: #244b35;
+}
+
 .seogrow-broken-link-target-field {
   margin: 14px 0;
   padding: 14px;
@@ -103,6 +177,7 @@
 .wp-live-preview-row.timeout_error,
 .wp-live-preview-row.generation_error,
 .wp-live-preview-row.adapter_error,
+.wp-live-preview-row.selection_required,
 .wp-live-preview-row.error,
 .wp-live-preview-row.stale {
   border-color: #ead9ad;
@@ -127,8 +202,13 @@
 
   .wp-live-apply-one,
   .wp-live-guidance-actions,
-  .wp-live-guidance-actions button {
+  .wp-live-guidance-actions button,
+  .content-widget-choice button {
     width: 100%;
+  }
+
+  .content-widget-picker-grid {
+    grid-template-columns: 1fr;
   }
 
   .seogrow-broken-link-target-row {
