@@ -2,7 +2,7 @@ import { publicHeadMetadata } from "./publicHeadMetadata.js";
 import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
 import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
 import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
-import { canonicalCount } from "./frontendVerificationHook.js";
+import { canonicalCount, stripAlwaysHiddenMarkup, visibleH1Count } from "./frontendVerificationHook.js";
 import { isLegalPage } from "../src/legalPageScope.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
@@ -563,7 +563,7 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
       html,
       /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']robots["']/i,
     );
-  const h1 = count(html, /<h1\b[^>]*>/gi);
+  const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
   const images = count(html, /<img\b[^>]*>/gi);
   const missingAlt = count(html, /<img\b(?![^>]*\balt\s*=)[^>]*>/gi);
   const text = html
@@ -1049,7 +1049,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
         html,
         /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i,
       );
-    const h1 = count(html, /<h1\b[^>]*>/gi);
+    const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
     const images = count(html, /<img\b[^>]*>/gi);
     const missingAlt = count(html, /<img\b(?![^>]*\balt=)[^>]*>/gi);
     const issues = [];
