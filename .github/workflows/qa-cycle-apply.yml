@@ -17,11 +17,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = fcc8daca6575b4f9b2adc98dd723b335119e487c
+          test "$(git rev-parse HEAD^)" = ad0bb56669b2e39b8f5c696a766ed319dbcfc137
           python3 - <<'PY'
           import hashlib, lzma, os, pathlib, shutil, subprocess
           patch = lzma.decompress(pathlib.Path('.maintenance/qa-cycle.patch.xz').read_bytes())
-          assert hashlib.sha256(patch).hexdigest() == '0c49ca62e8477856743fbbc3698186e51bdd814a11d0500d3b19c495b23d6671', 'Patch integrity mismatch'
+          assert hashlib.sha256(patch).hexdigest() == 'd44e7bba872bb79cbac730ecf8b134d0067b5a6b142b7512adbb93f446070143', 'Patch integrity mismatch'
           dest = pathlib.Path(os.environ['RUNNER_TEMP']) / 'verified-cycle.patch'
           dest.write_bytes(patch)
           subprocess.run(['git', 'apply', '--check', '--index', str(dest)], check=True)
@@ -33,10 +33,10 @@ jobs:
           env = dict(os.environ, GIT_INDEX_FILE=str(test_index))
           subprocess.run(['git','update-index','--force-remove','--','.maintenance/qa-cycle.patch.xz','.github/workflows/qa-cycle-apply.yml','.github/workflows/qa-source-capture.yml'], check=True, env=env)
           tree = subprocess.check_output(['git','write-tree'], text=True, env=env).strip()
-          assert tree == 'b1b02da9d9df4d52edc0b2efd508531c7c97c1ea', 'Source tree differs from locally tested files'
+          assert tree == '101d86545c1ce90d9293d2734af4c7e44d945460', 'Source tree differs from locally tested files'
           print('Verified exact source tree:', tree)
           PY
           git config user.name 'SeoGrow QA maintenance'
           git config user.email 'maintenance@users.noreply.github.com'
-          git commit -m 'fix: preserve correction navigation and enforce observed project-scoped data'
+          git commit -m 'fix: use native problem cards and verify exact public metadata and link identity'
           git push origin HEAD:refs/heads/ux/simple-numbered-wizard
