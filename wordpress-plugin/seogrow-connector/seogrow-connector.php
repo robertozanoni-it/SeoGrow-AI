@@ -26,3 +26,4 @@ require_once __DIR__ . '/taxonomy-doctor-convergence.php';
 
 require_once __DIR__ . '/elementor-text-write.php';
 require_once __DIR__ . '/atomic-write.php';
+require_once __DIR__ . '/elementor-link-cleanup-write.php';
