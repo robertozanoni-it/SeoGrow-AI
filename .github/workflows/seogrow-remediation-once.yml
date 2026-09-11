@@ -1,0 +1,48 @@
+name: Apply verified remediation patch (one shot)
+on:
+  push:
+    branches: [ux/simple-numbered-wizard]
+    paths: [.maintenance/remediation-u0.patch]
+permissions:
+  contents: read
+jobs:
+  apply:
+    if: github.repository == 'robertozanoni-it/SeoGrow-AI' && github.ref == 'refs/heads/ux/simple-numbered-wizard'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 3
+      - name: Check base, patch checksum and allowed paths, then fast-forward preview only
+        env:
+          EXPECTED_REPOSITORY: robertozanoni-it/SeoGrow-AI
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, pathlib, subprocess
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          branch = 'ux/simple-numbered-wizard'
+          if os.environ['GITHUB_REPOSITORY'] != os.environ['EXPECTED_REPOSITORY']:
+              raise SystemExit('Unexpected repository')
+          if git('rev-parse', 'HEAD~2') != '35843f83638c0d808ef3cbcbe697648df7ac5604':
+              raise SystemExit('Unexpected base: reconcile concurrent changes before applying')
+          data = pathlib.Path('.maintenance/remediation-u0.patch').read_bytes()
+          if hashlib.sha256(data).hexdigest() != 'a465bd48f76f16234078c4ac7554b3c351c718f89853cb7d37e280c2598243dc':
+              raise SystemExit('Patch checksum mismatch')
+          remote = git('ls-remote', 'origin', 'refs/heads/'+branch).split()[0]
+          if remote != git('rev-parse','HEAD'):
+              raise SystemExit('Preview advanced: no overwrite permitted')
+          subprocess.run(['git','apply','--check','--index','--unidiff-zero','.maintenance/remediation-u0.patch'],check=True)
+          subprocess.run(['git','apply','--index','--unidiff-zero','.maintenance/remediation-u0.patch'],check=True)
+          changed = git('diff','--cached','--name-only').splitlines()
+          if len(changed) != 32 or any(not p.startswith(('src/','server/','scripts/')) or '..' in p.split('/') for p in changed):
+              raise SystemExit('Unexpected changed paths')
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          subprocess.run(['git','-c','user.name=SeoGrow maintenance','-c','user.email=maintenance@users.noreply.github.com','commit','-m','fix: enforce SEO text limits and repair specific problem correction flows'],check=True)
+          subprocess.run(['git','push','origin','HEAD:refs/heads/'+branch],check=True)
+          print('Applied verified patch:',git('rev-parse','HEAD'))
+          PY
