@@ -22,6 +22,12 @@ export function openAiCompatibleProvider(env = process.env) {
   return openAiCompatibleBaseUrl(env).includes("openrouter.ai") ? "openrouter" : "openai";
 }
 
+export function openAiCompatibleModel(model, env = process.env) {
+  const value = String(model || "").trim();
+  if (!value || openAiCompatibleProvider(env) !== "openrouter" || value.includes("/")) return value;
+  return `openai/${value}`;
+}
+
 export function rewriteOpenAiApiUrl(input, env = process.env) {
   const original = String(input || "");
   let url;
@@ -31,4 +37,15 @@ export function rewriteOpenAiApiUrl(input, env = process.env) {
   const base = openAiCompatibleBaseUrl(env);
   const suffix = `${url.pathname.slice(3)}${url.search}`;
   return `${base}${suffix}`;
+}
+
+export function rewriteOpenAiCompatibleRequestBody(body, env = process.env) {
+  if (openAiCompatibleProvider(env) !== "openrouter" || typeof body !== "string" || !body.trim()) return body;
+  let parsed;
+  try { parsed = JSON.parse(body); }
+  catch { return body; }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || typeof parsed.model !== "string") return body;
+  const model = openAiCompatibleModel(parsed.model, env);
+  if (!model || model === parsed.model) return body;
+  return JSON.stringify({ ...parsed, model });
 }
