@@ -1,0 +1,35 @@
+name: Connector Package
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Package SeoGrow Connector
+        run: node scripts/package-connector.mjs
+
+      - name: Upload Connector 1.3.7
+        uses: actions/upload-artifact@v6
+        with:
+          name: seogrow-connector-1.3.7
+          path: artifacts/seogrow-connector-1.3.7.zip
+          if-no-files-found: error
