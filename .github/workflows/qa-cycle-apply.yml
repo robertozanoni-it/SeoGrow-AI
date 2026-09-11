@@ -1,0 +1,42 @@
+name: Apply verified QA cycle
+on:
+  push:
+    branches: [ux/simple-numbered-wizard]
+    paths: [.github/workflows/qa-cycle-apply.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - name: Apply exact source patch with baseline and tree guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = fcc8daca6575b4f9b2adc98dd723b335119e487c
+          python3 - <<'PY'
+          import hashlib, lzma, os, pathlib, shutil, subprocess
+          patch = lzma.decompress(pathlib.Path('.maintenance/qa-cycle.patch.xz').read_bytes())
+          assert hashlib.sha256(patch).hexdigest() == '0c49ca62e8477856743fbbc3698186e51bdd814a11d0500d3b19c495b23d6671', 'Patch integrity mismatch'
+          dest = pathlib.Path(os.environ['RUNNER_TEMP']) / 'verified-cycle.patch'
+          dest.write_bytes(patch)
+          subprocess.run(['git', 'apply', '--check', '--index', str(dest)], check=True)
+          subprocess.run(['git', 'apply', '--index', str(dest)], check=True)
+          paths = subprocess.check_output(['git','diff','--cached','--name-only'], text=True).splitlines()
+          assert paths and all(path.startswith(('src/', 'server/', 'scripts/')) for path in paths), 'Unexpected patch scope'
+          test_index = pathlib.Path(os.environ['RUNNER_TEMP']) / 'verified-cycle.index'
+          shutil.copyfile('.git/index', test_index)
+          env = dict(os.environ, GIT_INDEX_FILE=str(test_index))
+          subprocess.run(['git','update-index','--force-remove','--','.maintenance/qa-cycle.patch.xz','.github/workflows/qa-cycle-apply.yml','.github/workflows/qa-source-capture.yml'], check=True, env=env)
+          tree = subprocess.check_output(['git','write-tree'], text=True, env=env).strip()
+          assert tree == 'b1b02da9d9df4d52edc0b2efd508531c7c97c1ea', 'Source tree differs from locally tested files'
+          print('Verified exact source tree:', tree)
+          PY
+          git config user.name 'SeoGrow QA maintenance'
+          git config user.email 'maintenance@users.noreply.github.com'
+          git commit -m 'fix: preserve correction navigation and enforce observed project-scoped data'
+          git push origin HEAD:refs/heads/ux/simple-numbered-wizard
