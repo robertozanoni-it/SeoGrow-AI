@@ -32,9 +32,10 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await write(profileKey,{...profiles,[clientId]:{url:client.url,username:'qa-routing'}});
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals.filter(r=>Number(r.clientId)!==Number(clientId)))})})()`);
       await revisit('Problemi');
-      await button('Alta gravità','.problems-overview');
+      await waitFor("document.querySelector('.problems-overview button:nth-child(2) span')?.textContent==='Alta gravità'",'High filter rendered with its label');
+      await click('.problems-overview button:nth-child(2)');
       await waitFor("document.querySelectorAll('.native-problem-cards .problem-card').length===3",'High-severity filter affects the actual card list');
-      await button('Tutti','.problems-overview');
+      await click('.problems-overview button:nth-child(5)');
       await click('.card-record[data-issue-type="duplicate-title"]');
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Problem card opens specific proposal, not list');
       assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
@@ -70,7 +71,6 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await button('Riverifica',receipt);
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('esattamente un tag')`,'Duplicate title tags cannot verify a correction');
       await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:1});
-
       // Real browser download, not a single-file static package assumption.
       await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
       try {
