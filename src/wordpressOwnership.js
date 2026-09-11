@@ -161,6 +161,41 @@ const externalSharedReferences = (entity) => {
 
 const localElementorDocumentObserved = (entity) => ownership(entity).elementorLocalDocumentRendered === true;
 
+export function verifiedElementorH1SourceFrontend(entity, frontend) {
+  const evidence = ownership(entity)?.elementorImpactEvidence?.h1SourceEvidence;
+  if (!evidence || evidence.complete !== true || evidence.readOnly !== true || evidence.sharedWriteAllowed !== false) return null;
+  if (evidence.dynamicH1Unknown === true || Number(evidence.totalAuthoredH1) !== 1) return null;
+
+  const targetId = Number(entity?.id);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0 || Number(evidence.targetEntityId) !== targetId) return null;
+  const references = externalSharedReferences(entity);
+  const referenceIds = [];
+  for (const reference of references) {
+    const id = Number(reference?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    if (!referenceIds.includes(id)) referenceIds.push(id);
+  }
+  const expectedIds = new Set([targetId, ...referenceIds]);
+  const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  if (documents.length !== expectedIds.size) return null;
+  const actualIds = new Set();
+  for (const document of documents) {
+    const id = Number(document?.id);
+    if (!Number.isSafeInteger(id) || id <= 0 || !expectedIds.has(id) || document?.complete !== true || document?.dynamicH1Unknown === true) return null;
+    actualIds.add(id);
+  }
+  if (actualIds.size !== expectedIds.size || [...expectedIds].some((id) => !actualIds.has(id))) return null;
+
+  return {
+    ...(frontend && typeof frontend === "object" ? frontend : {}),
+    h1: 1,
+    verificationSafe: true,
+    requiresBrowserVerification: false,
+    h1SourceVerified: true,
+    h1VerificationSource: "elementor-authored-source-read-only",
+  };
+}
+
 export function hasElementorDocument(entity) {
   if (externalSharedReferences(entity).length || localElementorDocumentObserved(entity)) return true;
   const raw = elementorRaw(entity);
@@ -296,12 +331,15 @@ export function assessCoreOwnership(kind, entity, frontend) {
 
   if (hasElementorDocument(entity)) {
     const impact = impactFor(entity, externalSharedReferences(entity));
+    const verifiedH1Frontend = kind === "h1" ? verifiedElementorH1SourceFrontend(entity, frontend) : null;
     return {
       ok: false,
-      frontend,
+      frontend: verifiedH1Frontend || frontend,
       coreWords,
       impact,
-      reason: `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
+      reason: verifiedH1Frontend
+        ? "La sorgente Elementor read-only conferma un solo H1 complessivo tra documento locale e documenti condivisi effettivamente renderizzati; nessuna scrittura è necessaria."
+        : `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
     };
   }
 
