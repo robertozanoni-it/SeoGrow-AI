@@ -137,16 +137,41 @@ export async function attestElementorCoverage({
 
   const base = await safeBase(siteUrl);
   const headers = authHeaders(username, applicationPassword);
-  const publicCoverage = await inspectElementorPublicCoverage({
-    siteUrl: base.href,
-    sitemapUrl,
-  });
 
   const inventoryResponse = await wpFetch(inventoryEndpoint(base), { headers });
   const rawInventory = await readJson(inventoryResponse);
   const inventory = validateAuthoritativeWordPressInventory(rawInventory, {
     siteUrl: base.href,
   });
+
+  if (inventory.verified !== true) {
+    return {
+      ok: true,
+      readOnly: true,
+      verified: false,
+      provenanceId: "",
+      inventory,
+      reconciliation: {
+        verified: false,
+        status: "inventory-unverified",
+        reason: inventory.reason || "Inventario WordPress autorevole non verificato.",
+        publicUrlsOutsideInventory: [],
+        inventoryUrlsMissingFromPublicCoverage: [],
+        sharedWriteAllowed: false,
+      },
+      completeSiteEnumeration: false,
+      affectedPagesEnumerated: false,
+      sharedWriteAllowed: false,
+    };
+  }
+
+  const authoritativeSeedUrls = inventory.resources.map((item) => item.url);
+  const publicCoverage = await inspectElementorPublicCoverage({
+    siteUrl: base.href,
+    sitemapUrl,
+    authoritativeSeedUrls,
+  });
+
   const reconciliation = reconcileAuthoritativeInventoryWithPublicCoverage(
     inventory,
     publicCoverage,
@@ -181,7 +206,7 @@ export async function attestElementorCoverage({
     complete: true,
     verified: true,
     discoveryProof: {
-      method: "recursive-html-crawl+sitemap+wordpress-inventory-reconciled",
+      method: "recursive-html-crawl+sitemap+wordpress-inventory-seeded-reconciled",
       discoveredUrls: publicProof.discoveredUrls,
       inspectedUrls: publicProof.inspectedUrls,
       failedUrls: publicProof.failedUrls,
@@ -205,7 +230,7 @@ export async function attestElementorCoverage({
     completeSiteEnumeration: true,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
-    note: "La coverage completa è attestata dal server sul set pubblico sitemap+crawl HTML ricorsivo riconciliato con l’inventario WordPress. Asset e download non fanno parte del perimetro Elementor; le pagine HTML interne scoperte fuori sitemap restano incluse solo dopo ispezione. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
+    note: "La coverage completa è attestata dal server sul set sitemap+crawl HTML ricorsivo, includendo come seed obbligatori tutte le risorse WordPress pubblicate dell’inventario autorevole. Asset e download sono esclusi dal perimetro Elementor. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
   };
 }
 
