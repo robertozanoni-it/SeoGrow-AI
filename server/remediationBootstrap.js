@@ -1,10 +1,18 @@
 import { hydrateLocalProviderEnv } from "./providerEnv.js";
+import { openAiCompatibleProvider, rewriteOpenAiApiUrl } from "./openAiCompatibleEndpoint.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 
 const providerEnv = hydrateLocalProviderEnv();
 if (providerEnv.imported) {
-  console.log("SeoGrow: configurazione OpenAI locale riutilizzata in memoria dalla installazione principale.");
+  console.log("SeoGrow: configurazione AI locale riutilizzata in memoria dalla installazione principale.");
+}
+if (providerEnv.configured) {
+  try {
+    console.log(`SeoGrow: provider AI attivo ${openAiCompatibleProvider()}.`);
+  } catch (error) {
+    console.warn(`SeoGrow: configurazione provider AI non valida: ${error.message || error}`);
+  }
 }
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -18,16 +26,25 @@ const requestHeaders = (input, options) => {
 
 if (!globalThis.fetch.__seogrowPinnedRemediation) {
   const guardedFetch = async (input, options = {}) => {
-    const url = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
+    const originalUrl = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
+    let url = String(originalUrl || "");
+    try { url = rewriteOpenAiApiUrl(url); }
+    catch (error) { throw new Error(`Configurazione provider AI non valida: ${error.message || error}`); }
+
     const headers = requestHeaders(input, options);
     const userAgent = headers.get("user-agent") || "";
     const authorization = headers.get("authorization") || "";
-    const isHttps = /^https:\/\//i.test(String(url || ""));
+    const isHttps = /^https:\/\//i.test(url);
     const isSeoGrowRemediation = /seoGrowAI\/1\.4-(?:wordpress-remediation|frontend-verification)/i.test(userAgent);
-    const isAuthenticatedWordPressRest = /^Basic\s+/i.test(authorization) && /\/wp-json\//i.test(String(url || ""));
+    const isAuthenticatedWordPressRest = /^Basic\s+/i.test(authorization) && /\/wp-json\//i.test(url);
     const needsPinning = isHttps && (isSeoGrowRemediation || isAuthenticatedWordPressRest);
+
+    const routedInput = url !== originalUrl
+      ? (typeof Request !== "undefined" && input instanceof Request ? new Request(url, input) : url)
+      : input;
+
     if (needsPinning) return pinnedHttpsFetch(url, options);
-    return nativeFetch(input, options);
+    return nativeFetch(routedInput, options);
   };
   guardedFetch.__seogrowPinnedRemediation = true;
   globalThis.fetch = guardedFetch;
@@ -85,7 +102,9 @@ export function registerRemediationRoutes(app) {
         "live-rollback",
         "write-reconciliation-read-only",
         "provider-budget-status",
+        "openai-compatible-provider-routing",
       ],
+      aiProvider: (() => { try { return openAiCompatibleProvider(); } catch { return "invalid"; } })(),
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
       elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
