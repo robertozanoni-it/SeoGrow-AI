@@ -62,3 +62,6 @@
 .wp-live-remediation-v2 .wp-live-apply-one:disabled { opacity: .55; cursor: not-allowed; }
 .wp-live-remediation-v2 .wp-live-apply-one:focus-visible { outline: 3px solid #172b4d; outline-offset: 3px; }
 @media (max-width: 600px) { .wp-live-remediation-v2 .wp-live-apply-one { width: 100%; } }
+
+.auto-fix-problem-open { background: transparent; border: 0; padding: 0; color: #1459ac; text-align: left; white-space: normal; font: inherit; cursor: pointer; }
+.auto-fix-problem-open:focus-visible { outline: 3px solid #1769e0; outline-offset: 4px; }

@@ -1,4 +1,5 @@
 import { navigatePage } from "./navigationUx.js";
+import { problemNavigationFocus } from "./problemNavigationFocus.js";
 import { normalizeClientId } from "./reliabilityModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 
@@ -6,8 +7,8 @@ export const PROPOSAL_PAGE = "Proposta correzione";
 export const PROPOSAL_ROUTE_PAGE = "Correzioni";
 export const PROPOSAL_FOCUS_KEY = "seogrow-problem-proposal-v1";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
-const MAX_FOCUS_AGE = 15 * 60_000;
-const VALID_OPEN_SOURCES = new Set(["automatic-badge", "problem-row"]);
+export const RESOLUTION_FOCUS_KEY = "seogrow-problem-resolution-v1";
+const VALID_OPEN_SOURCES = new Set(["automatic-badge", "problem-row", "problem-card", "audit-row", "project-problem"]);
 
 const currentPage = () => {
   try {
@@ -45,7 +46,9 @@ export const readAutomaticProposalFocus = () => {
   try {
     const focus = JSON.parse(sessionStorage.getItem(PROPOSAL_FOCUS_KEY) || "null");
     if (!focus || !VALID_OPEN_SOURCES.has(focus.openedFrom) || !focus.title || !focus.sourceUrl) return null;
-    if (Date.now() - Number(focus.createdAt || 0) > MAX_FOCUS_AGE) return null;
+    // Keep the comparison accessible for the entire browser session. Preview
+    // expiry and stale-state checks are enforced separately before every write.
+    if (normalizeClientId(focus.clientId) !== selectedClientId()) return null;
     return focus;
   } catch {
     return null;
@@ -60,32 +63,45 @@ export const clearAutomaticProposalFocus = () => {
   }
 };
 
-export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
+export const openProblemResolution = (problem, clientId, openedFrom = "problem-card") => {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
-  const focus = proposalFocusFromProblemRow(row, openedFrom);
-  if (!focus) return false;
-  sessionStorage.setItem(PROPOSAL_FOCUS_KEY, JSON.stringify(focus));
+  const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
+  if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
+  const automatic = focus.correctability === "automatic";
+  try {
+    sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
+    sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
+  } catch {
+    window.alert("Impossibile conservare il problema selezionato. Abilita lo storage della sessione e riprova; nessuna modifica applicata.");
+    return false;
+  }
   navigatePage(PROPOSAL_ROUTE_PAGE);
-  window.setTimeout(() => {
-    window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-open", { detail: focus }));
-  }, 0);
+  window.dispatchEvent(new CustomEvent(automatic ? "seogrow-automatic-proposal-open" : "seogrow-problem-resolution-open", { detail: focus }));
   return true;
+};
+
+export const openAutomaticProposal = (row, openedFrom = "problem-row") => {
+  const focus = proposalFocusFromProblemRow(row, openedFrom);
+  return focus ? openProblemResolution(focus, focus.clientId, openedFrom) : false;
 };
 
 const interceptAutomaticClick = (event) => {
   if (currentPage() !== "Problemi") return;
   const row = event.target.closest?.(".problem-row");
-  if (!row || !row.querySelector(".problem-correctability.automatic")) return;
+  if (!row || row.dataset.problemNavigation === "direct" || event.target.closest?.("a") || !row.querySelector(".problem-correctability.automatic")) return;
 
+  const openedFrom = event.target.closest?.(".problem-correctability.automatic") ? "automatic-badge" : "problem-row";
+  if (!openAutomaticProposal(row, openedFrom)) return;
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  const openedFrom = event.target.closest?.(".problem-correctability.automatic") ? "automatic-badge" : "problem-row";
-  openAutomaticProposal(row, openedFrom);
 };
 
 const clearFocusOutsideProposalRoute = () => {
-  if (currentPage() !== PROPOSAL_ROUTE_PAGE && readAutomaticProposalFocus()) clearAutomaticProposalFocus();
+  if (currentPage() !== PROPOSAL_ROUTE_PAGE) {
+    clearAutomaticProposalFocus();
+    try { sessionStorage.removeItem(RESOLUTION_FOCUS_KEY); } catch { /* Read-only navigation still works. */ }
+  }
 };
 
 if (typeof document !== "undefined") {

@@ -1,3 +1,4 @@
+import { runProblemRoutingFlow } from './qa-problem-routing.mjs';
 import assert from 'node:assert/strict';
 import { runSavedCorrectionFlow } from './qa-saved-corrections.mjs';
 
@@ -95,4 +96,5 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
     }
   });
   await runSavedCorrectionFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
+  await runProblemRoutingFlow({ evaluate, waitFor, record, button, set, read, revisit, mock, resetRequests, screenshot, command });
 }

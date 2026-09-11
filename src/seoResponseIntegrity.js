@@ -47,7 +47,7 @@ const normalizedIssue = (issue, fallbackUrl = "") => {
   if (!issue || typeof issue !== "object" || Array.isArray(issue)) return issue;
   const type = inferredIssueType(issue);
   const brokenLink = /broken-(?:external-)?link/.test(type);
-  const pageUrl = issue.url || issue.sourceUrl || (!brokenLink ? issue.targetUrl || fallbackUrl : "") || "";
+  const pageUrl = issue.sourceUrl || issue.url || (!brokenLink ? issue.targetUrl || fallbackUrl : "") || "";
   return {
     ...issue,
     ...(type ? { type } : {}),
@@ -100,7 +100,8 @@ const issueLooksTransientLink = (issue) => {
 };
 
 const reviewOnlyReason = (issue) => {
-  const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  const text = `${issue?.type || ""} ${issue?.label || ""}`.toLowerCase();
+  if (issue?.type === "url-alias") return "Queste URL rappresentano la stessa risorsa WordPress: non richiedono title o description diversi. Verifica collegamenti, canonical e intento prima di un eventuale redirect.";
   if (/canonical/.test(text)) {
     if (/\b(?:404|410)\b|canonical.*(?:rotta|broken|irraggiungibile)/i.test(text)) return "";
     return "Una canonical differente o non rilevata non è automaticamente un errore. Verificare URL finale, HTML pubblico, sitemap, link interni e intenzione della pagina.";

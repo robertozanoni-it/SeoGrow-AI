@@ -1,3 +1,5 @@
+import { SEO_TEXT_LIMITS, seoCharacterCount } from "./seoTextPolicy.js";
+
 const stripHtml = (value) => String(value || "")
   .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
   .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
@@ -52,11 +54,11 @@ export function validateSeoSuggestion(kind, value, page = {}) {
   const errors = [];
   const warnings = [];
   const normalizedKind = String(kind || "").toLowerCase();
-  const length = text.length;
+  const length = seoCharacterCount(String(value ?? "").trim());
   const tokenCount = words(text).length;
 
   if (!text) errors.push("Il testo è vuoto.");
-  if (suspiciousRawExcerpt(text)) errors.push("Il testo contiene un estratto grezzo, markup o un segnale di troncamento.");
+  if (suspiciousRawExcerpt(value)) errors.push("Il testo contiene un estratto grezzo, markup o un segnale di troncamento.");
   if (danglingEnding(text)) errors.push("La frase termina in modo incompleto o con una parola funzionale sospesa.");
 
   const repeats = repeatedNgrams(text);
@@ -70,7 +72,7 @@ export function validateSeoSuggestion(kind, value, page = {}) {
 
   if (normalizedKind === "meta_description" || normalizedKind === "description") {
     if (length < 110) errors.push("La meta description è troppo corta per il quality gate automatico.");
-    if (length > 175) errors.push("La meta description supera 175 caratteri.");
+    if (length > SEO_TEXT_LIMITS.meta_description) errors.push(`La meta description supera ${SEO_TEXT_LIMITS.meta_description} caratteri, inclusi spazi e punteggiatura.`);
     if (!/[.!?…]$/.test(text)) errors.push("La meta description non termina con una frase completa.");
     if (tokenCount < 14) errors.push("La meta description è troppo povera di contenuto.");
   }

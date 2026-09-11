@@ -8,6 +8,10 @@ import {
   Layers3,
   Settings2,
 } from "lucide-react";
+import { openProblemResolution } from "./AutomaticProposalNavigation.js";
+import { buildUnifiedProblems } from "./problemsModel.js";
+import { issueCorrectability } from "./reliabilityModel.js";
+import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { navigatePage } from "./navigationUx.js";
 import { opportunityGroups } from "./platform.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -107,6 +111,8 @@ const card = ({
   actionLabel = "",
   correctionId = "",
   clientId = null,
+  problem = null,
+  issueRows = [],
 }) => ({
   id,
   date: validDate(date),
@@ -121,6 +127,8 @@ const card = ({
   actionLabel,
   correctionId,
   clientId,
+  problem,
+  issueRows,
 });
 
 const clientTasks = (tasks, client) => tasks.filter((task) =>
@@ -239,6 +247,8 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
     title: "Audit sito completo",
     subtitle: item.url || "Crawl del progetto",
     kind: "audit",
+    clientId,
+    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
     url: item.url,
     fields: [
       field("Punteggio", item.score != null ? `${item.score}/100` : "—"),
@@ -264,6 +274,8 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
     title: "Audit pagina",
     subtitle: item.url || "Pagina analizzata",
     kind: "audit",
+    clientId,
+    issueRows: (item.issues || []).slice(0, 100).map(issue => ({ ...issue, title: issue.label || issue.type, issueType: issue.type, sourceUrl: remediationSourceUrl(issue, item), correctability: issueCorrectability(issue) })),
     url: item.url,
     fields: [
       field("Punteggio", item.score != null ? `${item.score}/100` : "—"),
@@ -331,20 +343,17 @@ const buildRankingCards = (clientId, store) => {
   });
 };
 
-const buildProblemCards = (auditCards) => auditCards.flatMap((audit) =>
-  audit.rows.map((row, index) => card({
-    id: `problem-${audit.id}-${index}`,
-    date: audit.date,
-    title: row[0],
-    subtitle: row[2],
-    kind: "problem",
-    url: row[2],
-    fields: [field("Gravità", row[1]), field("Pagina", row[2]), field("Fonte", audit.title)],
-    solutions: ["Apri gli strumenti per vedere evidenza e correggibilità.", "Prepara una proposta solo se supportata.", "Dopo l’applicazione, riverifica il problema."],
-    actionPage: "Correzioni",
-    actionLabel: "Apri correzioni",
-  })),
-).slice(0, 120);
+const buildProblemCards = (clientId, stores) => buildUnifiedProblems({
+  clientId,
+  siteHistory: arrayForClient(stores.analyses, clientId),
+  pageHistory: arrayForClient(stores.pageAudits, clientId),
+  tasks: stores.tasks,
+  corrections: stores.corrections,
+}).rows.map(problem => card({
+  id: `problem-${problem.key}`, date: problem.observedAt, title: problem.title,
+  subtitle: problem.sourceUrl, kind: "problem", url: problem.sourceUrl, clientId, problem,
+  fields: [field("Gravità", problem.severity), field("Pagina", problem.sourceUrl)],
+}));
 
 const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store : [])
   .filter((item) => Number(item.clientId) === Number(clientId))
@@ -594,7 +603,7 @@ function buildCards(page, client, stores) {
     case "Storico":
       return audits.length ? audits : [starter(page, client)];
     case "Problemi": {
-      const problems = buildProblemCards(audits);
+      const problems = buildProblemCards(clientId, stores);
       return problems.length ? problems : [starter(page, client, audits[0]?.date)];
     }
     case "Correzioni": {
@@ -671,12 +680,15 @@ function DatedCard({ item, index, onOpen }) {
       type="button"
       className={`card-record ${index % 2 ? "mint" : "blue"}`}
       data-correction-id={item.correctionId || undefined}
+      data-problem-key={item.problem?.key || undefined}
+      data-issue-type={item.problem?.issueType || undefined}
+      data-audit-card={item.kind === "audit" ? "true" : undefined}
       onClick={onOpen}
     >
       <span className="card-record-date"><CalendarDays /> {formatDate(item.date)}</span>
       <strong>{item.title}</strong>
       <small>{item.subtitle}</small>
-      <span className="card-record-open">Apri <ChevronRight /></span>
+      <span className="card-record-open">{item.kind === "problem" ? item.problem?.correctability === "automatic" ? "Apri proposta" : "Apri risoluzione" : "Apri"} <ChevronRight /></span>
     </button>
   );
 }
@@ -715,6 +727,7 @@ function HorizontalDetail({ item, page, managing, onBack, onManage }) {
           {item.rows.map((row, rowIndex) => (
             <div className={`card-detail-row ${item.kind}`} key={`${item.id}-row-${rowIndex}`}>
               {row.map((value, valueIndex) => {
+                if (item.kind === "audit" && valueIndex === 0 && item.issueRows[rowIndex]) return <button className="audit-problem-open" type="button" key={`${rowIndex}-${valueIndex}`} onClick={() => openProblemResolution(item.issueRows[rowIndex], item.clientId, "audit-row")}>{value} · Apri risoluzione</button>;
                 const link = valueIndex === row.length - 1 ? safeLink(value) : "";
                 return link
                   ? <a key={`${rowIndex}-${valueIndex}`} href={link} target="_blank" rel="noreferrer">{shortUrl(value)}</a>
@@ -869,7 +882,7 @@ export default function CardWorkspaceLayer() {
   const client = stores.clients.find((item) => Number(item.id) === selectedClientId) || null;
 
   useEffect(() => {
-    if (page !== "Correzioni" || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
+    if (!["Correzioni", "Problemi", "Audit SEO", "Storico", "Panoramica"].includes(page) || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
     let cancelled = false;
     listCorrections({ clientId: selectedClientId }).then((rows) => {
       if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows, error: "" });
@@ -886,6 +899,11 @@ export default function CardWorkspaceLayer() {
   const selected = selectedId ? items.find((item) => item.id === selectedId) || null : null;
 
   const openCard = (id) => {
+    const item = items.find(entry => entry.id === id);
+    if (item?.kind === "problem") {
+      if (!openProblemResolution(item.problem, selectedClientId, "problem-card")) window.alert("Problema non disponibile per il cliente selezionato. Ricarica i dati e riprova.");
+      return;
+    }
     setSelectedId(id);
     setManaging(false);
     window.requestAnimationFrame(() => host?.scrollIntoView({ behavior: "smooth", block: "start" }));

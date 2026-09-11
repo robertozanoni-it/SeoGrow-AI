@@ -1,3 +1,4 @@
+import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { getWordPressSession } from "./wordpressSession.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ const selectAudit = (clientId, requested) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
+const issueUrl = remediationSourceUrl;
 
 const resolveTarget = (slotSelector) => {
   if (slotSelector) return document.querySelector(slotSelector);

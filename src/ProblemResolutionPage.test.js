@@ -7,10 +7,10 @@ const main = readFileSync(new URL("./appMain.jsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("./ProblemResolutionPage.css", import.meta.url), "utf8");
 
 test("il click su un problema apre una pagina dedicata invece del drawer", () => {
-  assert.match(page, /const PAGE = "Risoluzione problema"/);
+  assert.match(page, /const PAGE = PROPOSAL_ROUTE_PAGE/);
   assert.match(page, /document\.addEventListener\("click", interceptProblemRow, true\)/);
   assert.match(page, /event\.stopImmediatePropagation/);
-  assert.match(page, /navigatePage\(PAGE\)/);
+  assert.match(page, /openProblemResolution/);
   assert.match(page, /className="problem-resolution-root"/);
   assert.doesNotMatch(page, /problem-drawer-scrim/);
   assert.doesNotMatch(page, /aria-modal="true"/);
@@ -32,5 +32,5 @@ test("il bootstrap monta la nuova pagina e il CSS nasconde il vecchio contenuto 
   assert.match(main, /import ProblemResolutionPage from ['"]\.\/ProblemResolutionPage['"]/);
   assert.match(main, /<ProblemResolutionPage \/>/);
   assert.match(css, /data-seogrow-problem-resolution="true"/);
-  assert.match(css, /main > \*:not\(\.problem-resolution-root\)/);
+  assert.match(css, /\.workspace > main/);
 });

@@ -1,3 +1,7 @@
+import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
+import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
+import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
+import { canonicalCount } from "./frontendVerificationHook.js";
 import { isLegalPage } from "../src/legalPageScope.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
@@ -595,10 +599,14 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
   return {
     url,
     status,
+    ok: status >= 200 && status < 300,
+    isHtml: true,
+    wordpressDocumentId: wordpressDocumentId(html),
+    canonicalCount: canonicalCount(html),
     title,
     titleLength: title.length,
     description,
-    descriptionLength: description.length,
+    descriptionLength: seoCharacterCount(description),
     canonical,
     canonicalError,
     robots,
@@ -631,7 +639,7 @@ function technicalIssues(
       push("title", "media", `Title di ${page.titleLength} caratteri`, page);
     if (!page.description)
       push("description", "alta", "Meta description mancante", page);
-    else if (page.descriptionLength < 70 || page.descriptionLength > 180)
+    else if (page.descriptionLength < 70 || page.descriptionLength > SEO_TEXT_LIMITS.meta_description)
       push(
         "description",
         "media",
@@ -699,21 +707,18 @@ function technicalIssues(
     if (page.depth > 3)
       push("depth", "media", `Profondità di navigazione ${page.depth}`, page);
   }
+  const aliasSeen = new Set();
   const duplicates = (field, type, label) => {
-    const groups = new Map();
-    for (const page of pages)
-      if (page[field])
-        groups.set(page[field], [...(groups.get(page[field]) || []), page]);
-    for (const group of groups.values())
-      if (group.length > 1)
-        for (const page of group)
-          push(
-            type,
-            "alta",
-            label,
-            page,
-            group.map((item) => item.url).join(" | "),
-          );
+    const result = metadataDuplicateGroups(pages, field);
+    for (const group of result.duplicates) for (const page of group)
+      push(type, "alta", label, page, group.map(item => item.url).join(" | "));
+    for (const alias of result.aliases) {
+      if (aliasSeen.has(alias.sourceUrl)) continue;
+      aliasSeen.add(alias.sourceUrl);
+      issues.push({ type: "url-alias", severity: "bassa", label: "Due URL dello stesso contenuto WordPress", sourceUrl: alias.sourceUrl, url: alias.sourceUrl,
+        detail: `Le due URL hanno lo stesso ID WordPress e una sola canonical coerente (${alias.canonicalUrl}). Cambiare title o meta description modifica entrambe: verifica i link interni e l'eventuale redirect, non generare testi diversi per la stessa risorsa.`,
+        canonicalUrl: alias.canonicalUrl, wordpressDocumentId: alias.wordpressDocumentId, diagnosisState: "needs-confirmation" });
+    }
   };
   duplicates("title", "duplicate-title", "Title duplicato");
   duplicates(
@@ -1060,7 +1065,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
       });
     if (!description)
       issues.push({ severity: "alta", label: "Meta description mancante" });
-    else if (description.length < 70 || description.length > 180)
+    else if (seoCharacterCount(description) < 70 || seoCharacterCount(description) > SEO_TEXT_LIMITS.meta_description)
       issues.push({
         severity: "media",
         label: `Meta description di ${description.length} caratteri`,
@@ -1095,7 +1100,7 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
       title,
       titleLength: title.length,
       description,
-      descriptionLength: description.length,
+      descriptionLength: seoCharacterCount(description),
       canonical,
       h1,
       images,

@@ -1,3 +1,4 @@
+import { SEO_TEXT_LIMITS, seoCharacterCount, seoFieldKind } from "./seoTextPolicy.js";
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { readCorrection } from "./remediationStore.js";
@@ -133,6 +134,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
       {fields.length ? fields.map((field) => (
         <section className="saved-correction-field" key={field.field}>
           <h3>{historyFieldLabel(field.field)}</h3>
+          {seoFieldKind(field.field) && field.afterAvailable && <p className="seo-character-counter">Dopo salvato: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong>{seoCharacterCount(field.after) > SEO_TEXT_LIMITS[seoFieldKind(field.field)] ? " — supera il limite editoriale attuale; lo storico non viene modificato." : " — spazi e punteggiatura inclusi."}</p>}
           <div className="saved-correction-diff">
             <section><h4>Prima — versione precedente</h4><pre>{snapshotText(field.field, field.before, field.beforeAvailable)}</pre></section>
             <section><h4>{receiptAfterLabel(record)}</h4><pre>{snapshotText(field.field, field.after, field.afterAvailable)}</pre></section>

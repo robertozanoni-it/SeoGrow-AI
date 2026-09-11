@@ -49,7 +49,9 @@ const auditTimestamp = (audit) => audit?.analyzedAt || audit?.startedAt || "";
 
 const matchesFocus = (problem, focus) => {
   if (!problem || !focus) return false;
-  const titleMatches = String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
+  const titleMatches = focus.issueType
+    ? String(problem.issueType || "").toLowerCase() === String(focus.issueType).toLowerCase()
+    : String(problem.title || "").trim().toLowerCase() === String(focus.title || "").trim().toLowerCase();
   return titleMatches && normalizedUrl(problem.sourceUrl) === normalizedUrl(focus.sourceUrl);
 };
 

@@ -1,3 +1,5 @@
+import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKind.js";
+import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
 import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { correctionCredentials } from "./correctionCredentials.js";
@@ -64,19 +66,9 @@ const selectAudit = (clientId, requested) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
+const issueUrl = remediationSourceUrl;
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
-const classifyIssue = (issue) => {
-  const text = issueText(issue);
-  if (/meta description/.test(text)) return "meta_description";
-  if (/canonical/.test(text)) return "canonical";
-  if (/noindex|indexability/.test(text)) return "noindex";
-  if (/h1/.test(text)) return "h1";
-  if (/excerpt|estratto/.test(text)) return "excerpt";
-  if (/contenuto|content|testo|parole|word|brev/.test(text)) return "content";
-  if (/title|titolo/.test(text)) return "title";
-  return "";
-};
+const classifyIssue = remediationIssueKind;
 
 const isNonEditableWordPressUrl = (value) => {
   try {
@@ -130,7 +122,7 @@ const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement)
 const preparationFailure = (error) => {
   const message = error instanceof Error ? error.message : "Preparazione correzione non riuscita.";
   const code = String(error?.code || "");
-  if (/EDITORIAL_REVIEW_REQUIRED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
+  if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
   if (/CANONICAL_|INDEX_INTENT/.test(code)) return { status: "context_error", category: "context", reason: message };
   if (code === "OWNERSHIP_UNDETERMINED" || /ownership/i.test(message)) return { status: "ownership_error", category: "ownership", reason: message };
   if (/401|403|credenzial|autentic|password|unauthorized|forbidden/i.test(message)) return { status: "auth_error", category: "authentication", reason: message };
@@ -332,6 +324,11 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
   }
 
   if (kind === "title") {
+    const seoPlugin = metaKey(entity, "title");
+    if (seoPlugin) {
+      const generated = await generateSeoValue("seo_title", issue, entity, targetUrl);
+      return { adapter: seoPlugin[1], changes: { meta: { [seoPlugin[0]]: generated.value } }, quality: generated.quality };
+    }
     const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
     const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
     if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
@@ -511,6 +508,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           if (impactEvidence) attachElementorImpactEvidence(inspected.entity, impactEvidence);
         }
         const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext);
+        if (plan.changes) assertSeoPatchLengths(plan.changes);
         const contextSnapshot = {
           clientId: context.clientId,
           clientName: context.client?.name || "",
@@ -612,6 +610,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     }
     try {
       assertNoPreviewConflicts(previews);
+      assertSeoPatchLengths(item.plan?.changes || {});
     } catch (error) {
       setMessage(error.message);
       return;
@@ -750,7 +749,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
-            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
+            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
             <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>
           </>}

@@ -559,3 +559,6 @@ body[data-seogrow-ui-mode="simple"][data-seogrow-card-page="Posizionamenti"] .ra
     padding: 10px 16px;
   }
 }
+
+.audit-problem-open { background: transparent; border: 0; padding: 0; color: #1459ac; text-align: left; text-decoration: underline; white-space: normal; overflow-wrap: anywhere; font: inherit; font-weight: 700; cursor: pointer; }
+.audit-problem-open:focus-visible { outline: 3px solid #1769e0; outline-offset: 4px; }

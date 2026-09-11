@@ -1,6 +1,6 @@
-body[data-seogrow-problem-resolution="true"] .workspace main > *:not(.problem-resolution-root) {
-  display: none !important;
-}
+body[data-seogrow-problem-resolution="true"] .workspace > main { display: none !important; }
+.problem-resolution-root-host { display: none; }
+body[data-seogrow-problem-resolution="true"] .workspace > .problem-resolution-root-host { display: block; min-width: 0; }
 
 .problem-resolution-root {
   width: min(1500px, 100%);

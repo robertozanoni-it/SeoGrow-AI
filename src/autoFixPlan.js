@@ -12,6 +12,7 @@ const issuePageUrl = (issue = {}, auditUrl = '', siteUrl = '') => {
 export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
   const text = `${issue.type || ''} ${issue.label || ''} ${issue.detail || ''}`.toLowerCase();
   const manual = reason => ({ level: 'manual', reason });
+  if (issue.type === 'url-alias') return manual('Stessa risorsa WordPress: verifica URL canonica, collegamenti e redirect, non il testo condiviso.');
   try {
     const target = new URL(issuePageUrl(issue, auditUrl, siteUrl));
     if (isLegalPage(target.href)) return manual("Pagina privacy/GDPR esclusa dalle correzioni SEO.");

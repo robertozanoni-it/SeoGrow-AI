@@ -1,3 +1,4 @@
+import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -519,7 +520,7 @@ export default function ProblemsWorkspace() {
         {filtered.length ? filtered.map((problem) => {
           const href = safeHttpHref(problem.sourceUrl);
           return (
-            <button className="problem-row" key={problem.key} onClick={() => setSelectedKey(problem.key)}>
+            <button type="button" className="problem-row" data-problem-navigation="direct" key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
               <span className={`problem-severity ${problem.severity}`}>{labelMap.severity[problem.severity]}</span>
               <span className="problem-main"><strong>{problem.title}</strong><small>{href || "URL non disponibile"}</small>{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
               <span className="problem-source"><FileSearch /> {problem.sources[0]?.label || "Fonte non disponibile"}<small>{freshnessLabel(problem.observedAt)}</small></span>

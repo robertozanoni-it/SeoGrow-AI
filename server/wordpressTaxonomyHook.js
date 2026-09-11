@@ -1,3 +1,4 @@
+import { assertSeoTextLength } from "../src/seoTextPolicy.js";
 import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
@@ -139,6 +140,7 @@ export function taxonomyCurrentValue(inspection, field, adapter = taxonomyAdapte
 }
 
 export function validateTaxonomyChange({ field, value, targetUrl, intent = {}, mode = "apply" }) {
+  if (mode !== "rollback" && ["title", "meta_description"].includes(field)) assertSeoTextLength(field, value);
   if (!ALLOWED_FIELDS.has(field)) throw new Error("Campo tassonomia non supportato.");
   const next = normalizeFieldValue(field, value);
   if (["title", "meta_description"].includes(field) && !next)

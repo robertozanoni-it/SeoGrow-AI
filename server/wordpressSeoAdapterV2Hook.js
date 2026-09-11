@@ -1,3 +1,4 @@
+import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
 import { budgetedOpenAiFetch } from "./openAiBudget.js";
 import {
   assertPublishableSeoSuggestion,
@@ -34,7 +35,7 @@ function instruction(kind, issue, retry = false, qualityFeedback = "") {
   if (kind === "seo_title")
     return `Genera un title SEO unico, naturale e specifico per risolvere: ${label}. Mantieni l'intento della pagina, evita clickbait e non inventare fatti. Punta a circa 45-60 caratteri quando possibile.${retryNote}${feedback}`;
   if (kind === "meta_description")
-    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa. Punta a 135-160 caratteri quando possibile.${retryNote}${feedback}`;
+    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa. Usa 135-${SEO_TEXT_LIMITS.meta_description} caratteri. Il massimo di ${SEO_TEXT_LIMITS.meta_description}, inclusi spazi e punteggiatura, è OBBLIGATORIO: conta i caratteri, riscrivi se lo superi, non troncare parole o frasi.${retryNote}${feedback}`;
   throw new Error("Tipo di valore SEO non supportato.");
 }
 
@@ -77,8 +78,9 @@ export function deterministicMetaDescription(page) {
   const body = stripHtml(page?.excerpt) || stripHtml(page?.content);
   const source = `${title ? `${title}. ` : ""}${body}`.replace(/\s+/g, " ").trim();
   if (source.length < 110) return "";
-  if (source.length <= 160) return source.replace(/[\s,;:.-]+$/g, "") + (/[.!?…]$/.test(source) ? "" : ".");
-  const prefix = source.slice(0, 157);
+  const complete = source.replace(/[\s,;:.-]+$/g, "") + (/[!?…]$/.test(source) ? "" : ".");
+  if (seoCharacterCount(complete) <= SEO_TEXT_LIMITS.meta_description) return complete;
+  const prefix = Array.from(source.normalize("NFC")).slice(0, SEO_TEXT_LIMITS.meta_description - 1).join("");
   const boundary = prefix.lastIndexOf(" ");
   const clipped = (boundary >= 120 ? prefix.slice(0, boundary) : prefix).replace(/[\s,;:.-]+$/g, "");
   return `${clipped}.`;

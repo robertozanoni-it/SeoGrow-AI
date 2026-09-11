@@ -1,3 +1,5 @@
+import { matchesProblemFocus } from "./problemNavigationFocus.js";
+import { openProblemResolution, RESOLUTION_FOCUS_KEY, PROPOSAL_ROUTE_PAGE } from "./AutomaticProposalNavigation.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -22,8 +24,8 @@ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
 import "./ProblemResolutionPage.css";
 
-const PAGE = "Risoluzione problema";
-const FOCUS_KEY = "seogrow-problem-resolution-v1";
+const PAGE = PROPOSAL_ROUTE_PAGE;
+const FOCUS_KEY = RESOLUTION_FOCUS_KEY;
 const REMEDIATION_FOCUS_KEY = "seogrow-remediation-focus-v1";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 const CLIENTS_KEY = "seogrow-clients";
@@ -110,13 +112,7 @@ const sameProblemCorrection = (problem, correction) => {
   return Boolean(problemUrl && correctionUrl && problemUrl === correctionUrl);
 };
 
-const matchesFocus = (problem, focus) => {
-  if (!problem || !focus) return false;
-  const sameTitle = String(problem.title || "").trim() === String(focus.title || "").trim();
-  const problemUrl = normalizeHttpUrl(problem.sourceUrl || "", { stripSlash: false });
-  const focusUrl = normalizeHttpUrl(focus.sourceUrl || "", { stripSlash: false });
-  return sameTitle && Boolean(problemUrl && focusUrl && problemUrl === focusUrl);
-};
+const matchesFocus = matchesProblemFocus;
 
 function ResolutionView({ problem, client, corrections, onRefresh }) {
   const [working, setWorking] = useState(false);
@@ -124,7 +120,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   const href = safeHttpHref(problem.sourceUrl);
   const latestCorrection = corrections
     .filter((item) => sameProblemCorrection(problem, item))
-    .toSorted((a, b) => Date.parse(b.verifiedAt || b.appliedAt || 0) - Date.parse(a.verifiedAt || a.appliedAt || 0))[0] || null;
+    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
 
   const openIntervention = () => {
     const request = {
@@ -148,10 +144,11 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     setWorking(true);
     setMessage("Riverifica specifica in corso…");
     try {
-      const result = await recheckCorrectionById(latestCorrection.id);
-      setMessage(result?.needsAudit
+      const result = await recheckCorrectionById(latestCorrection.id, { clientId: client.id });
+      if (result?.error) throw result.error;
+      setMessage(result?.record?.verificationNote || (result?.needsAudit
         ? "Controllo frontend completato. Per confermare la risoluzione SEO serve un nuovo audit."
-        : "Riverifica completata. Lo stato è stato aggiornato con la nuova evidenza.");
+        : "Riverifica completata. Lo stato è stato aggiornato con la nuova evidenza."));
       await onRefresh();
     } catch (error) {
       setMessage(`Riverifica non completata: ${error.message}`);
@@ -301,7 +298,8 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
 }
 
 export default function ProblemResolutionPage() {
-  const [active, setActive] = useState(currentPage() === PAGE);
+  const isActive = () => currentPage() === PAGE && Boolean(readFocus()) && normalizeClientId(readFocus()?.clientId) === normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
+  const [active, setActive] = useState(isActive);
   const [mainTarget, setMainTarget] = useState(null);
   const [revision, setRevision] = useState(0);
   const [corrections, setCorrections] = useState([]);
@@ -310,9 +308,14 @@ export default function ProblemResolutionPage() {
   useEffect(() => {
     let frame = 0;
     let attempts = 0;
+    let mountedHost = null;
     const findMain = () => {
-      const target = document.querySelector(".app main");
-      if (target) {
+      const workspace = document.querySelector(".workspace");
+      if (workspace) {
+        const target = document.createElement("div");
+        target.className = "problem-resolution-root-host";
+        workspace.appendChild(target);
+        mountedHost = target;
         setMainTarget(target);
         return;
       }
@@ -320,20 +323,24 @@ export default function ProblemResolutionPage() {
       if (attempts < 120) frame = window.requestAnimationFrame(findMain);
     };
     frame = window.requestAnimationFrame(findMain);
-    return () => window.cancelAnimationFrame(frame);
+    return () => { window.cancelAnimationFrame(frame); mountedHost?.remove(); };
   }, []);
 
   useEffect(() => {
     const refresh = () => {
-      setActive(currentPage() === PAGE);
+      setActive(currentPage() === PAGE && Boolean(readFocus()) && normalizeClientId(readFocus()?.clientId) === normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)));
       setRevision((value) => value + 1);
     };
+    window.addEventListener("seogrow-problem-resolution-open", refresh);
+    window.addEventListener("seogrow-automatic-proposal-open", refresh);
     window.addEventListener("hashchange", refresh);
     window.addEventListener("popstate", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-storage-ok", refresh);
     window.addEventListener("seogrow-remediation-history", refresh);
     return () => {
+      window.removeEventListener("seogrow-problem-resolution-open", refresh);
+      window.removeEventListener("seogrow-automatic-proposal-open", refresh);
       window.removeEventListener("hashchange", refresh);
       window.removeEventListener("popstate", refresh);
       window.removeEventListener("seogrow-locationchange", refresh);
@@ -346,16 +353,16 @@ export default function ProblemResolutionPage() {
     const interceptProblemRow = (event) => {
       if (currentPage() !== "Problemi") return;
       const row = event.target.closest?.(".problem-row");
-      if (!row) return;
+      if (!row || row.dataset.problemNavigation === "direct" || event.target.closest?.("a")) return;
       const title = row.querySelector(".problem-main strong")?.textContent?.trim() || "";
       const sourceUrl = row.querySelector(".problem-main small")?.textContent?.trim() || "";
       if (!title || !sourceUrl || sourceUrl === "URL non disponibile") return;
       const selectedClientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
-      sessionStorage.setItem(FOCUS_KEY, JSON.stringify({ title, sourceUrl, clientId: selectedClientId }));
+      if (!openProblemResolution({ title, sourceUrl, correctability: "manual" }, selectedClientId, "problem-row")) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      navigatePage(PAGE);
+      // The data-driven destination is already open; never open an intermediate list.
     };
     document.addEventListener("click", interceptProblemRow, true);
     return () => document.removeEventListener("click", interceptProblemRow, true);
@@ -403,7 +410,7 @@ export default function ProblemResolutionPage() {
     tasks,
     corrections,
   }) : { rows: [] };
-  const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
+  const problem = normalizeClientId(focus?.clientId) === selectedClientId ? model.rows.find((row) => matchesFocus(row, focus)) || null : null;
 
   const reloadCorrections = async () => {
     if (!selectedClientId) return;
