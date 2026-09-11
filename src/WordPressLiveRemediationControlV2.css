@@ -56,6 +56,46 @@
   min-height: 42px;
 }
 
+.seogrow-broken-link-target-field {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #f0c9c3;
+  border-radius: 12px;
+  background: #fff7f5;
+}
+
+.seogrow-broken-link-target-field > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #9d332d;
+}
+
+.seogrow-broken-link-target-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.seogrow-broken-link-target-row input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  padding: 9px 11px;
+  background: #fff;
+  color: #17233b;
+  font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.seogrow-broken-link-target-row .secondary {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
 .wp-live-preview-row.quality_error,
 .wp-live-preview-row.context_error,
 .wp-live-preview-row.ownership_error,
@@ -88,6 +128,14 @@
   .wp-live-apply-one,
   .wp-live-guidance-actions,
   .wp-live-guidance-actions button {
+    width: 100%;
+  }
+
+  .seogrow-broken-link-target-row {
+    grid-template-columns: 1fr;
+  }
+
+  .seogrow-broken-link-target-row .secondary {
     width: 100%;
   }
 }
