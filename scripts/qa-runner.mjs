@@ -14,6 +14,12 @@ if (!["smoke", "full", "release"].includes(mode)) throw new Error("Usage: qa-run
 const output = path.join(root, ".qa-runtime", "automation", mode);
 await mkdir(output, { recursive: true });
 const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), dirty: Boolean(execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim()), startedAt: new Date().toISOString(), steps: [], ok: false };
+// Temporary diagnostic bundle: only tracked source and the exact installed
+// dependencies. Never include dotenv, local runtime files, HOME or credentials.
+if (process.env.GITHUB_ACTIONS === "true" && process.platform === "linux") {
+  execFileSync("git", ["archive", "--format=tar", "--output=" + path.join(output, "tracked-source.tar"), "HEAD"], { cwd: root, timeout: 30000 });
+  execFileSync("tar", ["-czf", path.join(output, "qa-dependencies.tar.gz"), "node_modules"], { cwd: root, timeout: 60000 });
+}
 const children = [];
 const runtimes = [];
 let temporary;
