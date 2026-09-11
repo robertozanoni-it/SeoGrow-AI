@@ -8,6 +8,11 @@ export function correctionPresentation(item) {
   if (item.status === 'preview') return { title: 'Proposta pronta da approvare', explanation: withBrokenTarget(item, 'Controlla il testo attuale e quello proposto qui sotto.'), next: 'Se la proposta ti va bene, premi “Applica questa modifica sul sito”.' };
   if (item.status === 'applied') return { title: 'Modifica applicata — da verificare', explanation: withBrokenTarget(item, 'La scrittura è registrata; la risoluzione del problema SEO deve ancora essere verificata.'), next: 'Apri Cronologia e ripristino per verificare il risultato.' };
   if (item.status === 'resolved') return { title: 'Problema già risolto', explanation: withBrokenTarget(item, item.reason), next: 'Non è necessaria una nuova modifica.' };
+  if (item.status === 'selection_required') return {
+    title: 'Scegli il blocco Elementor da ampliare',
+    explanation: item.reason || 'Più blocchi di testo locali sono stati verificati nel frontend. SeoGrow non sceglie arbitrariamente quale modificare.',
+    next: 'Controlla le anteprime qui sotto e premi “Amplia questo blocco” sul contenuto corretto. Solo dopo verrà generata la proposta.',
+  };
   if (item.status === 'ownership_error') {
     const issue = `${item.issue?.type || ''} ${item.issue?.label || ''}`;
     const reason = String(item.reason || '').replace(/^Ownership frontend non determinabile per "[^"]+"\.\s*/, '').replace(/\s*Nessuna modifica è stata autorizzata\.$/, '');
