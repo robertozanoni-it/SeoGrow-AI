@@ -170,4 +170,6 @@ function seogrow_connector_elementor_link_cleanup_pre_dispatch($result, $server,
     $handled = seogrow_connector_elementor_link_cleanup_write($request);
     return $handled === null ? $result : rest_ensure_response($handled);
 }
-add_filter('rest_pre_dispatch', 'seogrow_connector_elementor_link_cleanup_pre_dispatch', 20, 3);
+// Run before the generic single-text writer: a link-only change has a narrower
+// validator and must therefore claim the request first.
+add_filter('rest_pre_dispatch', 'seogrow_connector_elementor_link_cleanup_pre_dispatch', 10, 3);
