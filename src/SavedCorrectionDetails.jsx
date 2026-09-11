@@ -71,7 +71,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
     revealed.current = record.id;
     const frame = window.requestAnimationFrame(() => {
       const node = document.querySelector('.automatic-proposal-page .saved-correction-details');
-      if (node?.dataset.correctionId === record.id) node.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (node?.dataset.correctionId === record.id) node.scrollIntoView({ behavior: "auto", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [record?.id]);
