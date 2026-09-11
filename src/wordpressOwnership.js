@@ -280,11 +280,13 @@ export function inspectEditableElementor(kind, entity) {
       reference,
     ])).values()];
     const finalImpact = impactFor(entity, uniqueSharedReferences);
+    const embeddedOrUnresolvedReferences = uniqueSharedReferences.filter((reference) => reference.type !== "rendered-document");
 
-    // Se il documento dipende da template/widget condivisi effettivamente renderizzati
-    // oppure da riferimenti interni a template/global widget, SeoGrow non può attribuire
-    // con certezza il markup pubblico a un singolo widget locale.
-    if (uniqueSharedReferences.length) {
+    // Header/footer/single esterni già identificati non rendono ambiguo un text-editor
+    // locale: la modifica resta confinata al documento corrente e ogni candidato viene
+    // comunque verificato sul frontend prima della proposta. Riferimenti incorporati
+    // (template/global widget) o ownership generica non risolta restano fail-closed.
+    if (uniqueSharedReferences.length && !(kind === "content" && embeddedOrUnresolvedReferences.length === 0)) {
       return {
         state: "valid",
         parsed: { data },
@@ -295,7 +297,14 @@ export function inspectEditableElementor(kind, entity) {
       };
     }
 
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact: finalImpact };
+    return {
+      state: "valid",
+      parsed: { data },
+      widgets,
+      hasDocument: data.length > 0,
+      sharedReferences: uniqueSharedReferences,
+      impact: finalImpact,
+    };
   } catch {
     return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: impactFor(entity, sharedReferences) };
   }
@@ -375,14 +384,16 @@ export function chooseElementorContentCandidate(candidates, probeResults) {
   if (confirmed.length === 0) {
     return {
       candidate: null,
+      candidates: [],
       reason: "Nessun text-editor Elementor candidato è confermato in modo univoco nel frontend pubblico.",
     };
   }
 
-  if (confirmed.length === 1) return { candidate: confirmed[0], reason: "" };
+  if (confirmed.length === 1) return { candidate: confirmed[0], candidates: confirmed, reason: "" };
 
   return {
     candidate: null,
-    reason: "Più text-editor Elementor risultano confermati nel frontend: la sola lunghezza non è sufficiente per scegliere il widget da modificare.",
+    candidates: confirmed,
+    reason: "Più text-editor Elementor risultano confermati nel frontend: scegli esplicitamente il blocco da ampliare prima di generare la proposta.",
   };
 }
