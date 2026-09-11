@@ -138,7 +138,11 @@ async function readSitemapTree(siteUrl, explicitSitemapUrl = "") {
   };
 }
 
-export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" } = {}) {
+export async function inspectElementorPublicCoverage({
+  siteUrl,
+  sitemapUrl = "",
+  authoritativeSeedUrls = [],
+} = {}) {
   const normalizedSite = sameSiteUrl(siteUrl, siteUrl);
   if (!normalizedSite) throw new Error("siteUrl HTTPS pubblico valido obbligatorio.");
 
@@ -150,13 +154,22 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
   const ignoredAssetUrls = new Set(
     declaredSitemapUrls.filter((url) => !isPotentialHtmlDocumentUrl(url, normalizedSite)),
   );
-  const queue = [...effectiveSitemapUrls].slice(0, ELEMENTOR_RECONCILIATION_MAX_URLS);
+  const authoritativeSeeds = new Set();
+  for (const value of Array.isArray(authoritativeSeedUrls) ? authoritativeSeedUrls : []) {
+    const normalized = sameSiteUrl(value, normalizedSite);
+    if (!normalized) continue;
+    if (isPotentialHtmlDocumentUrl(normalized, normalizedSite)) authoritativeSeeds.add(normalized);
+    else ignoredAssetUrls.add(normalized);
+  }
+
+  const initialSeeds = [...new Set([...effectiveSitemapUrls, ...authoritativeSeeds])];
+  const queue = initialSeeds.slice(0, ELEMENTOR_RECONCILIATION_MAX_URLS);
   const scheduled = new Set(queue);
   const discoveredUrls = new Set(queue);
   const crawledUrls = new Set();
   const ignoredNonHtmlUrls = new Set();
   const failures = [...sitemap.failures];
-  let traversalTruncated = effectiveSitemapUrls.size > ELEMENTOR_RECONCILIATION_MAX_URLS;
+  let traversalTruncated = initialSeeds.length > ELEMENTOR_RECONCILIATION_MAX_URLS;
   let cursor = 0;
 
   const schedule = (value) => {
@@ -195,6 +208,7 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
         const wasSitemapUrl = effectiveSitemapUrls.delete(requestedUrl);
         discoveredUrls.delete(requestedUrl);
         if (wasSitemapUrl) effectiveSitemapUrls.add(finalUrl);
+        if (authoritativeSeeds.delete(requestedUrl)) authoritativeSeeds.add(finalUrl);
         discoveredUrls.add(finalUrl);
         scheduled.add(finalUrl);
       }
@@ -217,6 +231,7 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
   const coverageUrls = [...crawledUrls].toSorted();
   const publicDiscoveredUrls = [...discoveredUrls].toSorted();
   const effectiveSitemap = [...effectiveSitemapUrls].toSorted();
+  const authoritativeCoverageSeeds = [...authoritativeSeeds].toSorted();
   const reconciliation = reconcileElementorCoverage({
     siteUrl: normalizedSite,
     sitemapUrls: effectiveSitemap,
@@ -235,6 +250,7 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
     sitemapFiles: sitemap.sitemapFiles,
     declaredSitemapUrls,
     sitemapUrls: effectiveSitemap,
+    authoritativeSeedUrls: authoritativeCoverageSeeds,
     coverageUrls,
     crawledUrls: coverageUrls,
     discoveredUrls: publicDiscoveredUrls,
@@ -248,7 +264,7 @@ export async function inspectElementorPublicCoverage({ siteUrl, sitemapUrl = "" 
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
     note: reconciliation.verified
-      ? "Coverage pubblica sitemap+crawl HTML ricorsivo riconciliata. Asset/download sono esclusi dal perimetro Elementor; eventuali pagine HTML interne scoperte fuori sitemap sono incluse e ispezionate. Non equivale ancora a inventario WordPress autorevole: completeSiteEnumeration resta false."
+      ? "Coverage pubblica sitemap+crawl HTML ricorsivo riconciliata. Le URL autorevoli dell’inventario WordPress vengono usate come seed read-only e devono essere ispezionate; asset/download sono esclusi dal perimetro Elementor. Non equivale ancora da sola a inventario WordPress autorevole: completeSiteEnumeration resta false."
       : reconciliation.reason,
   };
 }
