@@ -1,9 +1,10 @@
 export function remediationIssueKind(issue = {}) {
   const type = String(issue.type || issue.issueType || "").trim().toLowerCase();
-  const exact = { title: "title", "duplicate-title": "title", seo_title: "title", description: "meta_description", "duplicate-description": "meta_description", "meta-description": "meta_description", meta_description: "meta_description", "meta description": "meta_description", h1: "h1", thin: "content", content: "content", excerpt: "excerpt", canonical: "canonical", indexability: "noindex", noindex: "noindex" };
+  const exact = { title: "title", "duplicate-title": "title", seo_title: "title", description: "meta_description", "duplicate-description": "meta_description", "meta-description": "meta_description", meta_description: "meta_description", "meta description": "meta_description", h1: "h1", thin: "content", content: "content", excerpt: "excerpt", canonical: "canonical", indexability: "noindex", noindex: "noindex", "broken-external-link": "external_link" };
   if (exact[type]) return exact[type];
-  if (["url-alias", "broken-link", "broken-external-link"].includes(type)) return "";
+  if (["url-alias", "broken-link"].includes(type)) return "";
   const label = String(issue.label || issue.title || "").toLowerCase();
+  if (/link\s+esterno.*(?:404|non raggiungibile|interrott)/i.test(label)) return "external_link";
   if (/meta\s*description|metadescription/.test(label)) return "meta_description";
   if (/title|titolo/.test(label)) return "title";
   if (/canonical/.test(label)) return "canonical";
