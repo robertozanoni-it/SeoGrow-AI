@@ -110,7 +110,8 @@ test("Elementor sceglie un widget solo con copertura forte e univoca", () => {
     { contentCoverageStrong: true, contentProbeCount: 3, contentProbeMatches: 3 },
   ]);
   assert.equal(ambiguous.candidate, null);
-  assert.match(ambiguous.reason, /sola lunghezza non è sufficiente/);
+  assert.deepEqual(ambiguous.candidates.map((item) => item.id), ["a", "b"]);
+  assert.match(ambiguous.reason, /scegli esplicitamente/i);
 });
 
 test("il patch engine rifiuta output AI incompleti o semanticamente più corti", () => {
