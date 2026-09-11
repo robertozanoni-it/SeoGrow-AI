@@ -167,7 +167,7 @@ export async function attestElementorCoverage({
     };
   }
 
-  const candidateUrls = [...new Set(publicCoverage.sitemapUrls || [])];
+  const candidateUrls = [...new Set(publicCoverage.coverageUrls || [])];
   if (!candidateUrls.length || candidateUrls.length !== reconciliation.totalUrls) {
     throw new Error("Coverage Elementor riconciliata ma set URL pubblico non coerente con l'attestazione.");
   }
@@ -181,7 +181,7 @@ export async function attestElementorCoverage({
     complete: true,
     verified: true,
     discoveryProof: {
-      method: "crawl+sitemap+wordpress-inventory-reconciled",
+      method: "recursive-html-crawl+sitemap+wordpress-inventory-reconciled",
       discoveredUrls: publicProof.discoveredUrls,
       inspectedUrls: publicProof.inspectedUrls,
       failedUrls: publicProof.failedUrls,
@@ -205,7 +205,7 @@ export async function attestElementorCoverage({
     completeSiteEnumeration: true,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
-    note: "La coverage completa è attestata dal server sul set pubblico sitemap+crawl riconciliato con l’inventario WordPress. Categorie e archivi già inclusi nel crawl restano nel set di impatto. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
+    note: "La coverage completa è attestata dal server sul set pubblico sitemap+crawl HTML ricorsivo riconciliato con l’inventario WordPress. Asset e download non fanno parte del perimetro Elementor; le pagine HTML interne scoperte fuori sitemap restano incluse solo dopo ispezione. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
   };
 }
 
