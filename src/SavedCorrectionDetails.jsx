@@ -32,6 +32,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
   const [passwordEntry, setPasswordEntry] = useState(null);
   const busyRef = useRef(false);
   const mounted = useRef(false);
+  const revealed = useRef("");
 
   useEffect(() => {
     mounted.current = true;
@@ -61,15 +62,26 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
     return () => { cancelled = true; };
   }, [correctionId, identity, scope, revision]);
 
+  const record = snapshot?.identity === identity ? snapshot.record : null;
+  const error = snapshot?.identity === identity ? snapshot.error : "";
+  const currentScope = selectedClient() === scope;
+
+  useEffect(() => {
+    if (!record?.id || revealed.current === record.id || typeof document === "undefined") return undefined;
+    revealed.current = record.id;
+    const frame = window.requestAnimationFrame(() => {
+      const node = document.querySelector('.automatic-proposal-page .saved-correction-details');
+      if (node?.dataset.correctionId === record.id) node.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [record?.id]);
+
   const go = (page) => {
     if (onNavigate) return onNavigate(page);
     clearAutomaticProposalFocus();
     window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
     navigatePage(page);
   };
-  const record = snapshot?.identity === identity ? snapshot.record : null;
-  const error = snapshot?.identity === identity ? snapshot.error : "";
-  const currentScope = selectedClient() === scope;
 
   const verify = async () => {
     if (!currentScope || !canVerifyReceipt(record) || busyRef.current) return;
