@@ -96,6 +96,11 @@ test("inventario autorevole e coverage pubblica coincidente attestano la coverag
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const publicCoverage = {
     publicCoverageReconciled: true,
+    coverageUrls: [
+      "https://example.com/",
+      "https://example.com/a/",
+      "https://example.com/b/",
+    ],
     sitemapUrls: [
       "https://example.com/",
       "https://example.com/a/",
@@ -112,11 +117,31 @@ test("inventario autorevole e coverage pubblica coincidente attestano la coverag
   assert.equal(result.sharedWriteAllowed, false);
 });
 
+test("pagina WordPress fuori sitemap ma scoperta e ispezionata dal crawl resta coperta", () => {
+  const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
+  const result = reconcileAuthoritativeInventoryWithPublicCoverage(inventory, {
+    publicCoverageReconciled: true,
+    coverageUrls: [
+      "https://example.com/",
+      "https://example.com/a/",
+      "https://example.com/b/",
+    ],
+    sitemapUrls: [
+      "https://example.com/",
+      "https://example.com/a/",
+    ],
+  });
+  assert.equal(result.verified, true);
+  assert.equal(result.status, "verified-complete");
+  assert.deepEqual(result.inventoryUrlsMissingFromPublicCoverage, []);
+  assert.equal(result.totalUrls, 3);
+});
+
 test("categorie e archivi già compresi nella coverage verificata sono un superset sicuro", () => {
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const result = reconcileAuthoritativeInventoryWithPublicCoverage(inventory, {
     publicCoverageReconciled: true,
-    sitemapUrls: [
+    coverageUrls: [
       "https://example.com/",
       "https://example.com/a/",
       "https://example.com/b/",
@@ -132,11 +157,11 @@ test("categorie e archivi già compresi nella coverage verificata sono un supers
   assert.equal(result.sharedWriteAllowed, false);
 });
 
-test("una risorsa WordPress assente dalla sitemap resta bloccante", () => {
+test("una risorsa WordPress assente dalla coverage ispezionata resta bloccante", () => {
   const inventory = validateAuthoritativeWordPressInventory(validPayload(), { siteUrl });
   const result = reconcileAuthoritativeInventoryWithPublicCoverage(inventory, {
     publicCoverageReconciled: true,
-    sitemapUrls: ["https://example.com/", "https://example.com/a/"],
+    coverageUrls: ["https://example.com/", "https://example.com/a/"],
   });
   assert.equal(result.verified, false);
   assert.equal(result.status, "inventory-routes-missing-from-public-coverage");
