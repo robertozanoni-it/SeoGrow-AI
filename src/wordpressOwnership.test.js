@@ -24,6 +24,25 @@ test("Elementor può essere identificato da probe completi anche senza copertura
     }],
   );
   assert.equal(result.candidate?.id, "widget-a");
+  assert.equal(result.candidates.length, 1);
+});
+
+test("più text-editor verificati richiedono selezione assistita e vengono restituiti alla UI", () => {
+  const candidates = [
+    { id: "widget-a", item: {}, value: "contenuto a ".repeat(20), words: 40 },
+    { id: "widget-b", item: {}, value: "contenuto b ".repeat(20), words: 40 },
+  ];
+  const probe = {
+    contentProbeVisible: true,
+    contentCoverageStrong: false,
+    contentProbeCount: 3,
+    contentProbeMatches: 3,
+    expectedWords: 40,
+  };
+  const result = chooseElementorContentCandidate(candidates, [probe, probe]);
+  assert.equal(result.candidate, null);
+  assert.deepEqual(result.candidates.map((item) => item.id), ["widget-a", "widget-b"]);
+  assert.match(result.reason, /scegli esplicitamente/i);
 });
 
 test("Theme Builder o popup condivisi bloccano il fallback core quando l'ownership frontend non è ancora risolta", () => {
@@ -47,7 +66,7 @@ test("Theme Builder o popup condivisi bloccano il fallback core quando l'ownersh
   assert.equal(state.impact.displayConditionsResolved, false);
 });
 
-test("documenti Elementor condivisi effettivamente renderizzati bloccano i candidati locali e conservano gli ID", () => {
+test("header e footer renderizzati non sopprimono i text-editor locali del contenuto", () => {
   const entity = {
     meta: {
       _elementor_data: JSON.stringify([
@@ -72,7 +91,8 @@ test("documenti Elementor condivisi effettivamente renderizzati bloccano i candi
   const state = inspectEditableElementor("content", entity);
   assert.equal(state.state, "valid");
   assert.equal(state.hasDocument, true);
-  assert.equal(state.widgets.length, 0);
+  assert.equal(state.widgets.length, 1);
+  assert.equal(state.widgets[0].id, "local-text");
   assert.deepEqual(state.sharedReferences, [
     { type: "rendered-document", templateType: "header", id: "88" },
     { type: "rendered-document", templateType: "footer", id: "91" },
@@ -82,6 +102,32 @@ test("documenti Elementor condivisi effettivamente renderizzati bloccano i candi
   assert.equal(state.impact.sources.every((item) => item.risk === "high"), true);
   assert.equal(state.impact.affectedPagesEnumerated, false);
   assert.equal(state.impact.sharedWriteAllowed, false);
+});
+
+test("header e footer esterni continuano a non autorizzare una modifica H1 locale senza prova dedicata", () => {
+  const entity = {
+    meta: {
+      _elementor_data: JSON.stringify([
+        {
+          id: "local-heading",
+          widgetType: "heading",
+          settings: { title: "Titolo locale", header_size: "h1" },
+          elements: [],
+        },
+      ]),
+    },
+    _seogrowOwnership: {
+      elementorEvidenceStatus: "rendered-shared-documents",
+      elementorLocalDocumentRendered: true,
+      elementorExternalRenderedDocuments: [
+        { id: 88, type: "header" },
+        { id: 91, type: "footer" },
+      ],
+    },
+  };
+  const state = inspectEditableElementor("h1", entity);
+  assert.equal(state.widgets.length, 0);
+  assert.equal(state.sharedReferences.length, 2);
 });
 
 test("riferimenti locali precisi evitano di sostituire l'evidenza con blocchi generici site-wide", () => {
@@ -112,6 +158,7 @@ test("riferimenti locali precisi evitano di sostituire l'evidenza con blocchi ge
   assert.deepEqual(state.sharedReferences, [
     { type: "template", templateType: "reusable", id: "123" },
   ]);
+  assert.equal(state.widgets.length, 0);
   assert.equal(state.impact.status, "source-identified");
   assert.equal(state.impact.sources[0].scope, "reusable-template");
   assert.equal(state.impact.sources[0].title, "CTA condivisa");
