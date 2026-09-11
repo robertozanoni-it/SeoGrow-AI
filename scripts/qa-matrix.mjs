@@ -1,4 +1,7 @@
 export const qaMatrix = [
+  ["SAVED-CORRECTION-RECEIPT", "Persistent before/after and reverify", "P0", "E2E Browser / IndexedDB", "Mocked WordPress and actual saved record", "Apply, reverify, reload, change client", "Full snapshots persist; no repeated writes or cross-client display", "full"],
+  ["PROBLEM-CARD-PROPOSAL-LIMITS-TITLE", "Specific correction routing and length limits", "P0", "E2E Browser", "Controlled title/description/alias cases", "Card, preview, apply, reverify, back, next card, audit issue", "Correct resource and field; 161 characters blocked; complete ZIP", "full"],
+  ["CLIENT-CARD-IDENTITY-PAGE-HIERARCHY", "Client selection and page host continuity", "P0", "E2E Browser / Isolation", "Two separate client identities", "Click each client card then project; repeat page transitions", "Same client in data, topbar and detail; one attached title-first wizard/card hub", "full"],
   ["AUTO-FIX-ASSISTED", "Assisted correction plan", "P0", "E2E Browser", "Synthetic audit and mocked WordPress", "Select, limit, prepare, change audit", "Exact selection, no writes, stale blocked, no task mutation", "full"],
   ["FIELDS-CONTENT-FORMATS", "Content topic and formats", "P1", "E2E Browser / Fields", "Mock generator", "Blank topic, all three formats, save and reload", "Blank blocked, exact format payload, persisted content", "full"],
   ["FIELDS-TASK-INVALID", "Task invalid inputs", "P0", "E2E Browser / Fields", "Saved task", "Empty/blank title, invalid URLs, cancel", "No storage changes", "full"],

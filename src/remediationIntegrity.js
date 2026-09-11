@@ -1,6 +1,8 @@
+import { workspaceStorage } from "./workspaceDatabase.js";
+import { normalizeClientId } from "./reliabilityModel.js";
 import { apiFetch } from "./api";
 import { correctionCredentials } from "./correctionCredentials.js";
-import { metadataVerificationTarget, metadataVerificationPatch } from "./metadataCorrectionVerification.js";
+import { metadataVerificationTarget, metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 import {
   listCorrections,
   readCorrection,
@@ -30,9 +32,27 @@ const syncTaskWithVerification = (before, after) => {
 };
 
 async function updateAndSync(record, patch) {
-  const updated = await updateCorrection(record.id, patch);
+  const updated = await updateCorrection(record.id, patch, { expectedRecord: record });
   syncTaskWithVerification(record, updated);
   return updated;
+}
+
+const currentClientId = () => {
+  try { return normalizeClientId(JSON.parse(workspaceStorage.getItem("seogrow-selected-client-v1") || "null")); }
+  catch { return null; }
+};
+async function retainVerificationError(record, error, prefix) {
+  if (error?.code === "CORRECTION_CHANGED_DURING_VERIFICATION" || currentClientId() !== normalizeClientId(record.clientId)) {
+    return { changed: false, record, error };
+  }
+  try {
+    const updated = await updateCorrection(record.id, {
+      verificationNote: `${prefix}: ${error.message}. Lo stato precedente è stato mantenuto.`,
+      lastVerificationErrorAt: new Date().toISOString(),
+      lastVerificationAttemptAt: new Date().toISOString(),
+    }, { expectedRecord: record });
+    return { changed: Boolean(updated), record: updated || record, error };
+  } catch (conflict) { return { changed: false, record, error: conflict }; }
 }
 
 async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
@@ -67,8 +87,7 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica tassonomia non riuscita.");
 
-    const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
-    const needsAudit = DUPLICATE_TITLE.test(text);
+    const needsAudit = requiresDuplicateAudit(record);
     const verified = data.verified === true && !needsAudit;
     const note = needsAudit && data.verified === true
       ? `${data.reason || "Il valore pubblico coincide con quello applicato."} Il problema originale riguarda però un duplicato: serve un nuovo crawl/audit prima di dichiararlo risolto.`
@@ -77,7 +96,7 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
       status: verified ? "Verificato" : "Da verificare",
       frontendConfirmed: data.publicMatch === true,
       frontendFailure: data.publicMatch !== true || data.storedMatch !== true,
-      verifiedAt: verified ? new Date().toISOString() : record.verifiedAt || "",
+      verifiedAt: verified ? new Date().toISOString() : "",
       lastVerificationAttemptAt: new Date().toISOString(),
       verificationNote: note,
       taxonomyVerification: {
@@ -89,16 +108,12 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
     });
     return { changed: true, record: updated, needsAudit };
   } catch (error) {
-    const updated = await updateCorrection(record.id, {
-      verificationNote: `Riverifica tassonomia non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`,
-      lastVerificationErrorAt: new Date().toISOString(),
-      lastVerificationAttemptAt: new Date().toISOString(),
-    });
-    return { changed: true, record: updated, error };
+    return retainVerificationError(record, error, "Riverifica tassonomia non conclusa");
   }
 }
 
-export async function recheckCorrection(record, credentials = {}) {
+async function performRecheckCorrection(record, credentials = {}) {
+  if (normalizeClientId(record?.clientId) !== currentClientId()) return { changed: false, record, error: new Error("Seleziona il progetto della correzione prima di riverificarla.") };
   if (!record?.sourceUrl || record.status === "Ripristinato") return { changed: false, record };
   if (record.writeConfirmed === false || record.status === "Esito incerto") {
     return { changed: false, record, error: new Error("Esito della scrittura incerto: verifica lo stato salvato in WordPress prima della riverifica SEO o del ripristino.") };
@@ -164,7 +179,7 @@ export async function recheckCorrection(record, credentials = {}) {
         status: fixed ? "Verificato" : "Da verificare",
         frontendConfirmed: fixed,
         frontendFailure: !fixed,
-        verifiedAt: fixed ? new Date().toISOString() : record.verifiedAt || "",
+        verifiedAt: fixed ? new Date().toISOString() : "",
         lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: fixed
           ? `Frontend verificato: il contenuto modificato è visibile e la pagina contiene ${data.words} parole (soglia ${data.minimumWords}).`
@@ -230,13 +245,19 @@ export async function recheckCorrection(record, credentials = {}) {
 
     return { changed: false, record };
   } catch (error) {
-    const updated = await updateCorrection(record.id, {
-      verificationNote: `Verifica frontend non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`,
-      lastVerificationErrorAt: new Date().toISOString(),
-      lastVerificationAttemptAt: new Date().toISOString(),
-    });
-    return { changed: true, record: updated, error };
+    return retainVerificationError(record, error, "Verifica frontend non conclusa");
   }
+}
+
+const verificationRequests = new Map();
+export function recheckCorrection(record, credentials = {}) {
+  const scope = normalizeClientId(record?.clientId);
+  if (!scope || scope !== currentClientId() || !record?.id) return performRecheckCorrection(record, credentials);
+  const key = `${scope}:${record.id}`;
+  if (verificationRequests.has(key)) return verificationRequests.get(key);
+  const pending = performRecheckCorrection(record, credentials).finally(() => verificationRequests.delete(key));
+  verificationRequests.set(key, pending);
+  return pending;
 }
 
 export async function recheckCorrectionById(id, credentials = {}) {
@@ -250,16 +271,20 @@ export async function recheckCorrections({ clientId, limit = 20 } = {}) {
   if (recheckRunning) return { checked: 0, changed: 0, busy: true };
   recheckRunning = true;
   try {
-    const rows = await listCorrections(clientId == null ? {} : { clientId });
+    const scope = normalizeClientId(clientId ?? currentClientId());
+    if (!scope || scope !== currentClientId()) return { checked: 0, changed: 0, busy: false };
+    const rows = await listCorrections({ clientId: scope });
     const pending = rows
       .filter((record) => ["Applicato", "Da verificare"].includes(record.status))
       .slice(0, Math.max(1, Math.min(100, Number(limit) || 20)));
-    let changed = 0;
+    let changed = 0, checked = 0;
     for (const record of pending) {
+      if (currentClientId() !== scope) break;
       const result = await recheckCorrection(record);
+      checked += 1;
       if (result.changed) changed += 1;
     }
-    return { checked: pending.length, changed, busy: false };
+    return { checked, changed, busy: false };
   } finally {
     recheckRunning = false;
   }

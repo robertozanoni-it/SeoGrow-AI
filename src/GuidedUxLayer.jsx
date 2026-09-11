@@ -1,3 +1,4 @@
+import { registerPageHost } from "./PageStartHierarchy.js";
 import { opportunityGroups } from "./platform.js";
 import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -344,49 +345,24 @@ function useUiSnapshot() {
   }, [mode, page]);
 
   useEffect(() => {
-    let cancelled = false;
-    let frame = 0;
-    let attempts = 0;
-    let wizardHost = null;
-    let dashboardHost = null;
-    let helpHost = null;
-
-    const installHosts = () => {
-      if (cancelled || !targets.main) return;
-      const title = targets.main.querySelector(".page-title");
-      if (!title) {
-        if (attempts < 30) {
-          attempts += 1;
-          frame = window.requestAnimationFrame(installHosts);
-        }
-        return;
-      }
-
-      wizardHost = document.createElement("div");
-      wizardHost.className = "guided-page-wizard-host";
-      title.insertAdjacentElement("afterend", wizardHost);
-
-      if (page === "Panoramica") {
-        dashboardHost = document.createElement("div");
-        dashboardHost.className = "guided-next-actions-host";
-        wizardHost.insertAdjacentElement("afterend", dashboardHost);
-      }
-
-      helpHost = document.createElement("div");
-      helpHost.className = "guided-page-help-host";
-      targets.main.appendChild(helpHost);
-      setPageHosts({ wizard: wizardHost, dashboard: dashboardHost, help: helpHost });
-    };
-
-    frame = window.requestAnimationFrame(installHosts);
+    const releases = [];
+    const frame = window.requestAnimationFrame(() => {
+      const make = (className) => {
+        const host = document.createElement("div");
+        host.className = className;
+        releases.push(registerPageHost(page, host));
+        return host;
+      };
+      const wizard = make("guided-page-wizard-host");
+      const dashboard = page === "Panoramica" ? make("guided-next-actions-host") : null;
+      const help = make("guided-page-help-host");
+      setPageHosts({ wizard, dashboard, help });
+    });
     return () => {
-      cancelled = true;
       window.cancelAnimationFrame(frame);
-      wizardHost?.remove();
-      dashboardHost?.remove();
-      helpHost?.remove();
+      for (const release of releases) release();
     };
-  }, [page, targets.main]);
+  }, [page]);
 
   return { page, mode, setMode, targets, pageHosts };
 }

@@ -183,12 +183,16 @@ export async function readCorrection(id) {
   } finally { db.close(); }
 }
 
-export async function updateCorrection(id, patch) {
+export async function updateCorrection(id, patch, { expectedRecord } = {}) {
   const result = await withStore("readwrite", (store, transaction) => {
     const result = { record: null };
     const request = store.get(id);
     request.onsuccess = () => {
       const current = request.result;
+      if (expectedRecord && (!current || JSON.stringify(migrateIdentity(current)) !== JSON.stringify(migrateIdentity(expectedRecord)))) {
+        result.conflict = true;
+        return;
+      }
       if (!current) return;
       const next = migrateIdentity({ ...current, ...patch, id: current.id, clientId: current.clientId, issueKey: current.issueKey });
       try {
@@ -198,6 +202,11 @@ export async function updateCorrection(id, patch) {
     };
     return result;
   });
+  if (result.conflict) {
+    const error = new Error("La correzione è cambiata durante la riverifica. Il risultato precedente non sovrascrive lo stato più recente; riapri il confronto.");
+    error.code = "CORRECTION_CHANGED_DURING_VERIFICATION";
+    throw error;
+  }
   if (result.record) syncIndex(result.record);
   return result.record;
 }

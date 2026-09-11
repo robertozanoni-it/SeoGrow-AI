@@ -49,6 +49,7 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
   const matches = exactMatch || caseOnlyMatch;
   return {
     status: "Da verificare",
+    verifiedAt: "",
     frontendConfirmed: matches,
     titleCaseOnlyMatch: caseOnlyMatch,
     frontendFailure: !matches,
@@ -58,4 +59,9 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
       : `Il valore di ${target.label} sul sito non coincide con quello inviato a WordPress. Controlla cache e impostazioni del plugin SEO; la correzione non è confermata nel frontend.`,
     frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, expected: target.expected, checkedAt: at },
   };
+}
+
+export function requiresDuplicateAudit(record = {}) {
+  const text = `${record.issueType || ""} ${record.issueLabel || ""} ${record.issue?.type || ""} ${record.issue?.label || ""}`;
+  return /duplicate[-_ ](?:title|description)|(?:title|titolo|meta description|descrizione)\s+duplicat/i.test(text);
 }

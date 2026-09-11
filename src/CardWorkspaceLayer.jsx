@@ -1,3 +1,5 @@
+import { selectCardClient } from "./clientCardNavigation.js";
+import { registerPageHost } from "./PageStartHierarchy.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -475,6 +477,7 @@ const buildClientCards = ({ clients, gscStore, analysisStore, rankingStore, task
   ]);
   return card({
     id: `client-${client.id}`,
+    clientId: client.id,
     date: last,
     title: client.name,
     subtitle: shortUrl(client.url),
@@ -680,6 +683,7 @@ function DatedCard({ item, index, onOpen }) {
       type="button"
       className={`card-record ${index % 2 ? "mint" : "blue"}`}
       data-correction-id={item.correctionId || undefined}
+      data-client-id={item.kind === "client" ? item.clientId : undefined}
       data-problem-key={item.problem?.key || undefined}
       data-issue-type={item.problem?.issueType || undefined}
       data-audit-card={item.kind === "audit" ? "true" : undefined}
@@ -799,32 +803,17 @@ export default function CardWorkspaceLayer() {
 
   useEffect(() => {
     if (CARD_EXCLUDED_PAGES.has(page)) return undefined;
-    let cancelled = false;
-    let frame = 0;
-    let attempts = 0;
-    let mountedHost = null;
-    const install = () => {
-      if (cancelled) return;
-      const main = document.querySelector(".app main");
-      const anchor = main?.querySelector(".guided-page-wizard-host") || main?.querySelector(".page-title");
-      if (!main || !anchor) {
-        if (attempts < 80) {
-          attempts += 1;
-          frame = window.requestAnimationFrame(install);
-        }
-        return;
-      }
-      mountedHost = document.createElement("div");
+    let release;
+    const frame = window.requestAnimationFrame(() => {
+      const mountedHost = document.createElement("div");
       mountedHost.className = "card-workspace-host";
-      anchor.insertAdjacentElement("afterend", mountedHost);
+      release = registerPageHost(page, mountedHost);
       document.body.dataset.seogrowCardPage = page;
       setHost(mountedHost);
-    };
-    frame = window.requestAnimationFrame(install);
+    });
     return () => {
-      cancelled = true;
       window.cancelAnimationFrame(frame);
-      mountedHost?.remove();
+      release?.();
       if (document.body.dataset.seogrowCardPage === page) delete document.body.dataset.seogrowCardPage;
     };
   }, [page]);
@@ -898,11 +887,15 @@ export default function CardWorkspaceLayer() {
   }), [page, client, stores, correctionSnapshot, selectedClientId]);
   const selected = selectedId ? items.find((item) => item.id === selectedId) || null : null;
 
-  const openCard = (id) => {
+  const openCard = async (id) => {
     const item = items.find(entry => entry.id === id);
     if (item?.kind === "problem") {
       if (!openProblemResolution(item.problem, selectedClientId, "problem-card")) window.alert("Problema non disponibile per il cliente selezionato. Ricarica i dati e riprova.");
       return;
+    }
+    if (item?.kind === "client") {
+      try { await selectCardClient(item.clientId); }
+      catch (error) { window.alert(error.message); return; }
     }
     setSelectedId(id);
     setManaging(false);
@@ -927,8 +920,9 @@ export default function CardWorkspaceLayer() {
 
   if (!host || CARD_EXCLUDED_PAGES.has(page)) return null;
 
-  const correctionsLoading = page === "Correzioni" && client && correctionSnapshot.clientId !== selectedClientId;
-  const correctionsError = page === "Correzioni" && correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.error : "";
+  const needsCorrections = ["Correzioni", "Problemi", "Audit SEO", "Storico", "Panoramica"].includes(page);
+  const correctionsLoading = needsCorrections && client && correctionSnapshot.clientId !== selectedClientId;
+  const correctionsError = needsCorrections && correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.error : "";
   return createPortal(
     <section className={`card-workspace ${selected ? "is-detail" : "is-hub"}`} aria-label={`Workspace a card ${page}`}>
       {correctionsLoading ? <p role="status">Caricamento dello storico completo delle correzioni…</p> : correctionsError ? (

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const budgetServer = await readFile(new URL("../server/providerBudgetConfigHook.js", import.meta.url), "utf8");
-const budgetUi = await readFile(new URL("./ProviderBudgetUx.js", import.meta.url), "utf8");
+const budgetUi = await readFile(new URL("./ProviderBudgetUx.js", import.meta.url), "utf8") + await readFile(new URL("./providerBudgetModel.js", import.meta.url), "utf8");
 const navigation = await readFile(new URL("./AutomaticProposalNavigation.js", import.meta.url), "utf8");
 const proposalLinks = await readFile(new URL("./ProposalBeforeAfterLinks.js", import.meta.url), "utf8");
 const presentation = await readFile(new URL("./correctionPresentation.js", import.meta.url), "utf8");

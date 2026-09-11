@@ -86,7 +86,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await click('.card-record[data-issue-type="url-alias"]');
       await waitFor("document.body.dataset.seogrowProblemResolution==='true' && document.querySelector('.problem-resolution-heading h1')?.textContent.includes('Due URL')",'Manual diagnosis opens its specific full page');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-root-host')).display"),'block');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-content section')).display"),'flex','Nested diagnostic sections are not hidden');
+      assert.equal(await evaluate("(()=>{const e=document.querySelector('.problem-resolution-content section');const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&!!e.textContent.trim()})()"),true,'Nested diagnostic sections are visible and contain real problem data');
       await screenshot('manual-problem-resolution');
       await button('Torna ai problemi','.problem-resolution-root');
       await revisit('Audit SEO');await click('.card-record[data-audit-card="true"]');

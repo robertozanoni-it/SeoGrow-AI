@@ -8,7 +8,9 @@ const sidebar = await readFile(new URL("./SidebarContrastFinal.css", import.meta
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("titolo pagina precede sempre contesto, wizard e card senza spostare il nodo React del titolo", () => {
-  assert.match(hierarchy, /const title = main\?\.querySelector\("\.page-title"\)/);
+  assert.match(hierarchy, /querySelectorAll\("\.page-title"\).*titleMatches\(node, page\)/);
+  assert.match(hierarchy, /main\.dataset\.page !== page/);
+  assert.match(hierarchy, /export function registerPageHost/);
   assert.match(hierarchy, /"\.wizard-context-host"/);
   assert.match(hierarchy, /"\.guided-page-wizard-host"/);
   assert.match(hierarchy, /"\.card-workspace-host"/);

@@ -1,8 +1,9 @@
+import { observedPageCount } from "./observedAuditData.js";
 import { excludeLegalSeo } from "./legalPageScope.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v8";
-const SCORE_POLICY_VERSION = 4;
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v9";
+const SCORE_POLICY_VERSION = 5;
 const ISSUE_SCHEMA_VERSION = 2;
 
 const normalizeUrl = (value) => {
@@ -65,7 +66,8 @@ const severityPenalty = (value) => {
 };
 
 const scoreFromVerifiedEvidence = (data, issues, failedPages) => {
-  const pages = Math.max(1, Number(data.pagesChecked || data.pages?.length || 1));
+  const pages = observedPageCount(data);
+  if (pages === null || pages === 0) return null;
   const penalty = issues.reduce(
     (sum, issue) => sum + severityPenalty(issue?.severity),
     0,
@@ -101,6 +103,7 @@ const issueLooksTransientLink = (issue) => {
 
 const reviewOnlyReason = (issue) => {
   const text = `${issue?.type || ""} ${issue?.label || ""}`.toLowerCase();
+  if (issue?.type === "metadata-observation-conflict") return "La stessa URL contiene osservazioni discordanti nello stesso insieme di dati. Ripeti l’audit prima di correggere un presunto duplicato.";
   if (issue?.type === "url-alias") return "Queste URL rappresentano la stessa risorsa WordPress: non richiedono title o description diversi. Verifica collegamenti, canonical e intento prima di un eventuale redirect.";
   if (/canonical/.test(text)) {
     if (/\b(?:404|410)\b|canonical.*(?:rotta|broken|irraggiungibile)/i.test(text)) return "";

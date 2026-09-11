@@ -1,4 +1,6 @@
 import { apiFetch } from "./api.js";
+import { budgetMoney as money, providerBudgetHealth } from "./providerBudgetModel.js";
+export { providerBudgetHealth } from "./providerBudgetModel.js";
 import "./ProviderBudgetUx.css";
 
 const PROVIDERS = {
@@ -6,41 +8,7 @@ const PROVIDERS = {
   DataForSEO: { statusPath: "/api/dataforseo/status", configKey: "dataforseo" },
 };
 
-const money = (value, digits = 2) => Number.isFinite(Number(value)) ? `$${Number(value).toFixed(digits)}` : "—";
 
-export function providerBudgetHealth(status = {}, config = {}) {
-  const spent = Math.max(0, Number(status.monthlyCost || 0));
-  const reserved = Math.max(0, Number(status.reservedCost || 0));
-  const budget = Number(status.monthlyBudget);
-  const validBudget = Number.isFinite(budget) && budget >= 0;
-  const explicit = config?.explicit === true;
-  const configured = status?.configured === true;
-  const committed = spent + reserved;
-
-  if (!configured) return {
-    tone: "missing", label: "Credenziali mancanti", detail: "Configura il provider prima di usare funzioni a pagamento.",
-    spent, reserved, budget: validBudget ? budget : null, remaining: validBudget && budget > 0 ? Math.max(0, budget - committed) : null, percent: 0, explicit,
-  };
-  if (!validBudget) return {
-    tone: "danger", label: "Budget non valido", detail: "Correggi il limite mensile nel file .env.",
-    spent, reserved, budget: null, remaining: null, percent: 0, explicit,
-  };
-  if (!explicit) return {
-    tone: "missing", label: "Budget non impostato nel .env",
-    detail: `SeoGrow sta usando il limite di sicurezza predefinito ${money(budget)}. Imposta esplicitamente il budget mensile.`,
-    spent, reserved, budget, remaining: budget > 0 ? Math.max(0, budget - committed) : null,
-    percent: budget > 0 ? Math.min(100, committed / budget * 100) : 0, explicit,
-  };
-  if (budget === 0) return {
-    tone: "warning", label: "Nessun tetto mensile", detail: "Il budget è impostato a 0: il blocco mensile per costo è disattivato.",
-    spent, reserved, budget, remaining: null, percent: 0, explicit,
-  };
-  const remaining = Math.max(0, budget - committed);
-  const percent = Math.min(100, committed / budget * 100);
-  if (remaining <= 0) return { tone: "danger", label: "Budget esaurito", detail: "Le nuove richieste a pagamento vengono bloccate.", spent, reserved, budget, remaining, percent, explicit };
-  if (percent >= 80) return { tone: "warning", label: "Budget quasi esaurito", detail: `Rimane ${money(remaining)} prima del limite mensile.`, spent, reserved, budget, remaining, percent, explicit };
-  return { tone: "ok", label: "Budget disponibile", detail: `Rimangono ${money(remaining)} nel limite mensile.`, spent, reserved, budget, remaining, percent, explicit };
-}
 
 const findPanel = (name) => [...document.querySelectorAll(".panel.integration")]
   .find((panel) => panel.querySelector("h2")?.textContent?.trim() === name) || null;
@@ -98,7 +66,9 @@ const renderBudget = (panel, name, health) => {
   progress.setAttribute("aria-label", `Utilizzo budget ${name}`);
   const copy = document.createElement("p");
   copy.textContent = health.detail;
-  root.append(head, metrics, progress, copy);
+  const scopeNote = document.createElement("small");
+  scopeNote.textContent = "Budget locale di SeoGrow, non saldo o credito residuo dell’account del provider.";
+  root.append(head, metrics, progress, copy, scopeNote);
   return true;
 };
 
@@ -109,36 +79,38 @@ const loadJson = async (path) => {
   return data;
 };
 
-export async function refreshProviderBudgets() {
-  if (typeof document === "undefined") return false;
-  const panels = Object.fromEntries(Object.keys(PROVIDERS).map((name) => [name, findPanel(name)]));
-  if (!Object.values(panels).some(Boolean)) return false;
-  try {
-    const config = await loadJson("/api/provider-budget-config");
-    await Promise.all(Object.entries(PROVIDERS).map(async ([name, provider]) => {
-      const panel = panels[name];
-      if (!panel) return;
-      try {
-        const status = await loadJson(provider.statusPath);
-        renderBudget(panel, name, providerBudgetHealth(status, config[provider.configKey]));
-      } catch (error) {
-        renderBudget(panel, name, {
-          tone: "danger", label: "Controllo budget non disponibile", detail: error.message || String(error),
-          spent: 0, reserved: 0, budget: null, remaining: null, percent: 0,
-        });
-      }
-    }));
-    return true;
-  } catch (error) {
-    for (const [name, panel] of Object.entries(panels)) {
-      if (!panel) continue;
-      renderBudget(panel, name, {
-        tone: "danger", label: "Configurazione budget non leggibile", detail: error.message || String(error),
-        spent: 0, reserved: 0, budget: null, remaining: null, percent: 0,
-      });
-    }
-    return false;
+let inFlight = null;
+let checkedAt = 0;
+const cachedHealth = new Map();
+const unreadable = (label, error) => ({
+  tone: "danger", label, detail: error.message || String(error),
+  spent: null, reserved: null, budget: null, remaining: null, percent: 0,
+});
+const renderCached = () => {
+  for (const [name, health] of cachedHealth) {
+    const panel = findPanel(name);
+    if (panel) renderBudget(panel, name, health);
   }
+};
+export async function refreshProviderBudgets() {
+  if (typeof document === "undefined" || !Object.keys(PROVIDERS).some(findPanel)) return false;
+  if (inFlight) { await inFlight; renderCached(); return true; }
+  if (checkedAt && Date.now() - checkedAt < 25_000) { renderCached(); return true; }
+  inFlight = (async () => {
+    try {
+      const config = await loadJson("/api/provider-budget-config");
+      await Promise.all(Object.entries(PROVIDERS).map(async ([name, provider]) => {
+        try {
+          const status = await loadJson(provider.statusPath);
+          cachedHealth.set(name, providerBudgetHealth(status, config[provider.configKey]));
+        } catch (error) { cachedHealth.set(name, unreadable("Controllo budget non disponibile", error)); }
+      }));
+    } catch (error) {
+      for (const name of Object.keys(PROVIDERS)) cachedHealth.set(name, unreadable("Configurazione budget non leggibile", error));
+    } finally { checkedAt = Date.now(); }
+  })();
+  try { await inFlight; renderCached(); return true; }
+  finally { inFlight = null; }
 }
 
 let frame = 0;

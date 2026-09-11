@@ -712,6 +712,10 @@ function technicalIssues(
     const result = metadataDuplicateGroups(pages, field);
     for (const group of result.duplicates) for (const page of group)
       push(type, "alta", label, page, group.map(item => item.url).join(" | "));
+    for (const url of result.conflicts) {
+      issues.push({ type: "metadata-observation-conflict", severity: "bassa", label: "Osservazioni SEO discordanti", sourceUrl: url, url,
+        detail: `Il campo ${field} della stessa URL ha valori discordanti nell’insieme analizzato. Ripeti il controllo prima di correggere un presunto duplicato.`, diagnosisState: "needs-confirmation" });
+    }
     for (const alias of result.aliases) {
       if (aliasSeen.has(alias.sourceUrl)) continue;
       aliasSeen.add(alias.sourceUrl);
@@ -1210,6 +1214,12 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
           await new Promise((resolve) => setTimeout(resolve, 75));
           continue;
         }
+        if (pages.some(page => page.url === response.url)) {
+          // A redirect can bring two queued URLs to the very same document.
+          // Count and analyse the final URL once, not as two duplicate pages.
+          await response.body?.cancel();
+          continue;
+        }
         const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
         pages.push(
           pageSignals(
@@ -1361,7 +1371,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
         Math.max(0, penalty - strongestPenalty) / Math.sqrt(Math.max(1, pages.length)),
     );
     const failurePenalty = Math.min(40, failures.length * 4 + (pages.length ? 0 : 60));
-    const score = Math.max(0, Math.min(100, 100 - normalizedPenalty - failurePenalty));
+    const score = pages.length ? Math.max(0, Math.min(100, 100 - normalizedPenalty - failurePenalty)) : null;
     const suggestions = [];
     const ignoredTokens = new Set([
       "questo", "questa", "quello", "quella", "anche", "della", "delle",
@@ -2573,13 +2583,12 @@ async function dataForSeoUsage() {
   }
 }
 
-async function assertDataForSeoBudget() {
+async function dataForSeoBudgetStatus() {
   const usage = await dataForSeoUsage();
   const budget = Number(process.env.DATAFORSEO_MONTHLY_BUDGET_USD || 25);
   if (!Number.isFinite(budget) || budget < 0)
     throw new Error("DATAFORSEO_MONTHLY_BUDGET_USD non è valido");
-  if (budget > 0 && usage.cost >= budget)
-    throw new Error(`Budget DataForSEO mensile di $${budget.toFixed(2)} raggiunto`);
+  // Reading an exhausted budget is allowed. Paid reservations still enforce it.
   return { usage, budget };
 }
 
@@ -2661,7 +2670,7 @@ async function dataForSeoCall(endpoint, payload, externalSignal) {
 
 app.get("/api/dataforseo/status", async (_req, res) => {
   try {
-    const { usage, budget } = await assertDataForSeoBudget();
+    const { usage, budget } = await dataForSeoBudgetStatus();
     res.json({
       configured: dataForSeoConfigured(),
       monthlyCost: usage.cost,
