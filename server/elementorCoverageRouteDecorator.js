@@ -9,6 +9,17 @@ const RAW_HTML_H1_KEYS = new Set(["editor", "html", "content", "text"]);
 
 const candidateCount = (body) => Array.isArray(body?.candidateUrls) ? body.candidateUrls.length : 0;
 
+function stripInertMarkupForH1(value) {
+  let output = String(value || "");
+  const inertBlock = /<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  for (let pass = 0; pass < 6; pass += 1) {
+    const next = output.replace(inertBlock, " ");
+    if (next === output) break;
+    output = next;
+  }
+  return output;
+}
+
 export function inspectElementorAuthoredH1(value, { maxNodes = MAX_H1_SOURCE_NODES } = {}) {
   let root;
   if (value === "" || value === null || value === undefined) root = [];
@@ -53,7 +64,8 @@ export function inspectElementorAuthoredH1(value, { maxNodes = MAX_H1_SOURCE_NOD
       for (const key of RAW_HTML_H1_KEYS) {
         const raw = settings[key];
         if (typeof raw !== "string" || !raw) continue;
-        h1Count += (raw.match(/<h1\b[^>]*>/gi) || []).length;
+        const activeMarkup = stripInertMarkupForH1(raw);
+        h1Count += (activeMarkup.match(/<h1\b[^>]*>/gi) || []).length;
       }
     }
 
