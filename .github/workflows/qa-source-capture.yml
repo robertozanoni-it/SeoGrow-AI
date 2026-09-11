@@ -1,0 +1,25 @@
+name: QA source capture
+on:
+  push:
+    branches: [ux/simple-numbered-wizard]
+    paths: [.github/workflows/qa-source-capture.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Archive tracked source only
+        run: |
+          git archive --format=tar --output="$RUNNER_TEMP/seogrow-source.tar" HEAD
+          git rev-parse HEAD > "$RUNNER_TEMP/seogrow-source-sha.txt"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: seogrow-source-cycle
+          path: |
+            ${{ runner.temp }}/seogrow-source.tar
+            ${{ runner.temp }}/seogrow-source-sha.txt
+          retention-days: 1
+          if-no-files-found: error
