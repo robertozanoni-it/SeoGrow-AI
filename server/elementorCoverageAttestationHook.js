@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { basePath, safeBase } from "./wordpressInspectFastHook.js";
 import { inspectElementorPublicCoverage } from "./elementorPublicCoverageHook.js";
 import {
+  coverageRelevantInventoryResources,
   reconcileAuthoritativeInventoryWithPublicCoverage,
   validateAuthoritativeWordPressInventory,
 } from "./elementorWordPressInventory.js";
@@ -165,7 +166,8 @@ export async function attestElementorCoverage({
     };
   }
 
-  const authoritativeSeedUrls = inventory.resources.map((item) => item.url);
+  const relevantInventoryResources = coverageRelevantInventoryResources(inventory);
+  const authoritativeSeedUrls = relevantInventoryResources.map((item) => item.url);
   const publicCoverage = await inspectElementorPublicCoverage({
     siteUrl: base.href,
     sitemapUrl,
@@ -206,7 +208,7 @@ export async function attestElementorCoverage({
     complete: true,
     verified: true,
     discoveryProof: {
-      method: "recursive-html-crawl+sitemap+wordpress-inventory-seeded-reconciled",
+      method: "recursive-html-crawl+sitemap+frontend-wordpress-inventory-reconciled",
       discoveredUrls: publicProof.discoveredUrls,
       inspectedUrls: publicProof.inspectedUrls,
       failedUrls: publicProof.failedUrls,
@@ -230,7 +232,7 @@ export async function attestElementorCoverage({
     completeSiteEnumeration: true,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
-    note: "La coverage completa è attestata dal server sul set sitemap+crawl HTML ricorsivo, includendo come seed obbligatori tutte le risorse WordPress pubblicate dell’inventario autorevole. Asset e download sono esclusi dal perimetro Elementor. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
+    note: "La coverage completa è attestata dal server sul set sitemap+crawl HTML ricorsivo, riconciliato con le sole risorse WordPress rilevanti per il frontend pubblico. Template Elementor interni, attachment ed elementi floating non sono trattati come pagine pubbliche. La scrittura condivisa resta bloccata finché Display Conditions e ownership non sono verificate.",
   };
 }
 
