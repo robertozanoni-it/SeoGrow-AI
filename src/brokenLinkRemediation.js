@@ -5,6 +5,13 @@ const clone = (value) => {
 
 const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const BROKEN_LINK_CLEANUP_MODES = Object.freeze({
+  PRESERVE_TEXT: "unlink-preserve-text",
+  DELETE_ANCHOR_TEXT: "delete-anchor-text",
+});
+
+const cleanupModes = new Map();
+
 export function brokenExternalTarget(issue = {}) {
   const raw = issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "";
   try {
@@ -15,10 +22,48 @@ export function brokenExternalTarget(issue = {}) {
   }
 }
 
-export function removeExactAnchor(html, targetUrl) {
+export function normalizeBrokenLinkCleanupMode(mode) {
+  return mode === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT
+    ? BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT
+    : BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+}
+
+export function setBrokenLinkCleanupMode(targetUrl, mode) {
+  const target = brokenExternalTarget({ targetUrl });
+  if (!target) return false;
+  const normalized = normalizeBrokenLinkCleanupMode(mode);
+  if (normalized === BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT) cleanupModes.delete(target);
+  else cleanupModes.set(target, normalized);
+  return true;
+}
+
+export function brokenLinkCleanupMode(targetUrl) {
+  const target = brokenExternalTarget({ targetUrl });
+  return target
+    ? normalizeBrokenLinkCleanupMode(cleanupModes.get(target))
+    : BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+}
+
+export function clearBrokenLinkCleanupMode(targetUrl) {
+  const target = brokenExternalTarget({ targetUrl });
+  if (target) cleanupModes.delete(target);
+}
+
+const takeBrokenLinkCleanupMode = (targetUrl) => {
+  const target = brokenExternalTarget({ targetUrl });
+  if (!target) return BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+  const action = normalizeBrokenLinkCleanupMode(cleanupModes.get(target));
+  cleanupModes.delete(target);
+  return action;
+};
+
+export function removeExactAnchor(html, targetUrl, mode) {
   const source = String(html || "");
   const target = brokenExternalTarget({ targetUrl });
-  if (!source || !target) return { value: source, count: 0, anchors: [] };
+  const action = mode === undefined
+    ? takeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
+  if (!source || !target) return { value: source, count: 0, anchors: [], action };
 
   const pattern = new RegExp(
     `<a\\b([^>]*?\\bhref\\s*=\\s*["']${escapeRegExp(target)}["'][^>]*)>([\\s\\S]*?)<\\/a\\s*>`,
@@ -27,24 +72,27 @@ export function removeExactAnchor(html, targetUrl) {
   const anchors = [];
   const value = source.replace(pattern, (_whole, _attrs, inner) => {
     anchors.push(String(inner || "").replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim());
-    return inner;
+    return action === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT ? "" : inner;
   });
-  return { value, count: anchors.length, anchors };
+  return { value, count: anchors.length, anchors, action };
 }
 
-export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl) {
+export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, mode) {
   if (rawElementorData === undefined || rawElementorData === null || rawElementorData === "") {
-    return { state: "absent", count: 0, serialized: "", anchors: [] };
+    return { state: "absent", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
   }
 
   let data;
   try {
     data = typeof rawElementorData === "string" ? JSON.parse(rawElementorData) : clone(rawElementorData);
   } catch {
-    return { state: "invalid", count: 0, serialized: "", anchors: [] };
+    return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
   }
-  if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [] };
+  if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
 
+  const action = mode === undefined
+    ? takeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
   let count = 0;
   const anchors = [];
   let nodes = 0;
@@ -60,7 +108,7 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl) 
 
     for (const [key, child] of Object.entries(value)) {
       if (typeof child === "string") {
-        const result = removeExactAnchor(child, targetUrl);
+        const result = removeExactAnchor(child, targetUrl, action);
         if (result.count) {
           value[key] = result.value;
           count += result.count;
@@ -73,11 +121,12 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl) 
     return true;
   };
 
-  if (!walk(data)) return { state: "invalid", count: 0, serialized: "", anchors: [] };
+  if (!walk(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action };
   return {
     state: "valid",
     count,
     serialized: JSON.stringify(data),
     anchors,
+    action,
   };
 }
