@@ -27,9 +27,9 @@ jobs:
       - name: Package SeoGrow Connector
         run: node scripts/package-connector.mjs
 
-      - name: Upload Connector 1.3.7
+      - name: Upload Connector 1.3.8
         uses: actions/upload-artifact@v6
         with:
-          name: seogrow-connector-1.3.7
-          path: artifacts/seogrow-connector-1.3.7.zip
+          name: seogrow-connector-1.3.8
+          path: artifacts/seogrow-connector-1.3.8.zip
           if-no-files-found: error
