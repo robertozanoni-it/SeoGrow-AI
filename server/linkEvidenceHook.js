@@ -75,6 +75,12 @@ export function extractLinkEvidence(html, sourceUrl, targetUrl) {
   };
 }
 
+export function assertWholePageResponse(response) {
+  if (response.status !== 200 || response.headers.get("content-range")) {
+    throw new Error(`Pagina sorgente non completa (HTTP ${response.status}): assenza del link non verificabile.`);
+  }
+}
+
 async function fetchHtml(input) {
   let current = new URL(String(input || ""));
   if (current.protocol !== "https:") throw new Error("La pagina sorgente deve usare HTTPS.");
@@ -102,7 +108,7 @@ async function fetchHtml(input) {
       current = next;
       continue;
     }
-    if (!response.ok) throw new Error(`Pagina sorgente non leggibile (HTTP ${response.status}).`);
+    assertWholePageResponse(response);
     const contentType = response.headers.get("content-type") || "";
     if (!/(?:text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("La pagina sorgente non restituisce HTML.");
     return { html: await response.text(), finalUrl: current.href };

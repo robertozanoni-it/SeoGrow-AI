@@ -9,7 +9,7 @@ export function assertCompletedModelResponse(data) {
   if (refused) throw outputError("AI_REFUSAL", "Il provider AI ha rifiutato la generazione. Nessuna proposta applicabile.");
   if (data.error) throw outputError("AI_PROVIDER_ERROR", "Il provider AI ha segnalato un errore nella generazione.");
   if (data.incomplete_details || (data.status && data.status !== "completed") || output.some(item => item?.status && item.status !== "completed") ||
-      choices.some(c => c?.finish_reason && c.finish_reason !== "stop")) throw outputError("AI_OUTPUT_INCOMPLETE", "Il provider AI non ha completato integralmente la generazione: la risposta interrotta non viene applicata.");
+      choices.some(c => c && Object.hasOwn(c, "finish_reason") && c.finish_reason !== "stop")) throw outputError("AI_OUTPUT_INCOMPLETE", "Il provider AI non ha completato integralmente la generazione: la risposta interrotta non viene applicata.");
   if (choices.length > 1) throw outputError("AI_OUTPUT_AMBIGUOUS", "Il provider AI ha restituito più risposte: serve una singola proposta.");
 }
 const textParts = content => typeof content === "string" ? content : Array.isArray(content)
