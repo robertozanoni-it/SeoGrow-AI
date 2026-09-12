@@ -1,33 +1,61 @@
-name: Batch development snapshot
+name: Batch source integration and isolated QA
 on:
   push:
     branches: [feat/problems-batch-remediation-20260912]
-    paths: [.github/workflows/batch-development-artifact.yml]
+    paths: [.qa-delivery/batch-4.b64]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  snapshot:
+  integrate-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
-      - name: Archive tracked source only
-        run: git archive --format=zip --output="$RUNNER_TEMP/seogrow-source.zip" HEAD
-      - uses: actions/upload-artifact@v6
         with:
-          name: batch-development-source
-          path: ${{ runner.temp }}/seogrow-source.zip
-          retention-days: 2
+          ref: feat/problems-batch-remediation-20260912
+          fetch-depth: 0
+      - name: Verify and apply the exact locally tested source delta
+        shell: bash
+        run: |
+          test "$(git branch --show-current)" = 'feat/problems-batch-remediation-20260912'
+          git merge-base --is-ancestor 65741085eaf86f670e7232540e3da555809959d9 HEAD
+          python - <<'PY'
+          import base64, hashlib, lzma, pathlib, subprocess
+          encoded = ''.join(pathlib.Path(f'.qa-delivery/batch-{i}.b64').read_text().strip() for i in range(1, 5))
+          packed = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(packed).hexdigest() == '5ffa1b1fca6a8ca3301606d35bb96d519245aaa4819d399066aab255d73eaec7'
+          patch = lzma.decompress(packed)
+          assert len(patch) == 176886
+          for line in patch.decode().splitlines():
+              if line.startswith('diff --git '):
+                  for name in line.split()[2:]:
+                      path = pathlib.PurePosixPath(name[2:])
+                      assert not path.is_absolute() and '..' not in path.parts
+                      assert path.parts[0] in {'src', 'server', 'scripts'}, path
+          subprocess.run(['git', 'apply', '--check', '-'], input=patch, check=True)
+          subprocess.run(['git', 'apply', '--index', '-'], input=patch, check=True)
+          PY
+      - name: Commit source only to the dedicated feature branch
+        run: |
+          git rm -r .qa-delivery
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Implement controlled batch remediation using the shared WordPress engine'
+          git push origin HEAD:refs/heads/feat/problems-batch-remediation-20260912
+          git rev-parse HEAD > "$RUNNER_TEMP/batch-tested-commit.txt"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-      - name: Install locked dependencies without lifecycle scripts
+      - name: Install exact dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
-      - name: Archive development dependencies
-        run: tar -czf "$RUNNER_TEMP/seogrow-dependencies.tgz" node_modules
-      - uses: actions/upload-artifact@v6
+      - name: Full isolated QA including batch browser scenarios
+        run: npm run qa:release
+      - name: Upload test logs and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v6
         with:
-          name: batch-development-dependencies
-          path: ${{ runner.temp }}/seogrow-dependencies.tgz
-          retention-days: 1
+          name: batch-integration-qa
+          path: |
+            .qa-runtime/automation/release/
+            ${{ runner.temp }}/batch-tested-commit.txt
+          if-no-files-found: warn
+          retention-days: 7
