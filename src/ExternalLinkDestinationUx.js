@@ -151,9 +151,9 @@ const renderLiveEvidence = async (card, issue, { force = false } = {}) => {
     if (explanation) explanation.insertAdjacentElement("afterend", block);
     else card.appendChild(block);
   }
-  if (!force && block.dataset.identity === identity && block.dataset.loaded === "1") return;
+  if (!force && block.dataset.identity === identity && ["loading", "1"].includes(block.dataset.loaded)) return;
   block.dataset.identity = identity;
-  block.dataset.loaded = "0";
+  block.dataset.loaded = "loading";
   block.replaceChildren();
 
   const title = document.createElement("h4");
