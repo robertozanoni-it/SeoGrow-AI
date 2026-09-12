@@ -36,3 +36,4 @@ require_once __DIR__ . '/atomic-write.php';
 require_once __DIR__ . '/elementor-single-text-write.php';
 require_once __DIR__ . '/elementor-link-cleanup-write.php';
 require_once __DIR__ . '/elementor-shared-link-remediation.php';
+require_once __DIR__ . '/elementor-shared-link-scan-guard.php';
