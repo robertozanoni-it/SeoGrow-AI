@@ -39,20 +39,38 @@ function instruction(kind, issue, retry = false, qualityFeedback = "") {
   throw new Error("Tipo di valore SEO non supportato.");
 }
 
-function collectOutputText(data) {
+export function collectSeoOutputText(data) {
   const direct = typeof data?.output_text === "string" ? data.output_text.trim() : "";
   if (direct) return direct;
-  const parts = [];
+
+  const responseParts = [];
   for (const item of Array.isArray(data?.output) ? data.output : []) {
     for (const content of Array.isArray(item?.content) ? item.content : []) {
-      if (content?.type === "output_text" && typeof content.text === "string") parts.push(content.text);
-      else if (typeof content?.text === "string" && /text/i.test(String(content?.type || ""))) parts.push(content.text);
+      if (content?.type === "output_text" && typeof content.text === "string") responseParts.push(content.text);
+      else if (typeof content?.text === "string" && /text/i.test(String(content?.type || ""))) responseParts.push(content.text);
     }
   }
-  return parts.join("").trim();
+  const responseText = responseParts.join("").trim();
+  if (responseText) return responseText;
+
+  const choice = Array.isArray(data?.choices) ? data.choices[0] : null;
+  const messageContent = choice?.message?.content;
+  if (typeof messageContent === "string" && messageContent.trim()) return messageContent.trim();
+  if (Array.isArray(messageContent)) {
+    const chatParts = messageContent.flatMap((part) => {
+      if (typeof part === "string") return [part];
+      if (typeof part?.text === "string") return [part.text];
+      if (typeof part?.content === "string") return [part.content];
+      return [];
+    });
+    const chatText = chatParts.join("").trim();
+    if (chatText) return chatText;
+  }
+  if (typeof choice?.text === "string" && choice.text.trim()) return choice.text.trim();
+  return "";
 }
 
-function parseStructuredValue(text) {
+export function parseSeoStructuredValue(text) {
   const source = String(text || "").trim();
   if (!source) throw new Error("OpenAI non ha restituito il valore SEO richiesto.");
   const candidates = [source];
@@ -64,11 +82,24 @@ function parseStructuredValue(text) {
   for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
+      if (typeof parsed === "string" && parsed.trim()) return parsed.trim();
       const value = String(parsed?.value || "").trim();
       if (value) return value;
     } catch {
       // Prova la forma successiva senza nascondere un eventuale errore finale.
     }
+  }
+
+  // Alcuni gateway OpenAI-compatible rispettano il contenuto richiesto ma non
+  // espongono lo schema Responses. Accettiamo solo testo semplice, che passa
+  // comunque dai controlli editoriali/di lunghezza prima di diventare proposta.
+  if (!/[{}]/.test(source)) {
+    const plain = source
+      .replace(/^```(?:text)?\s*/i, "")
+      .replace(/```$/i, "")
+      .replace(/^(["'])([\s\S]*)\1$/, "$2")
+      .trim();
+    if (plain) return plain;
   }
   throw new Error("OpenAI non ha restituito un valore SEO strutturato valido.");
 }
@@ -141,7 +172,7 @@ async function requestValue(kind, issue, context, retry, qualityFeedback = "") {
   if (data?.error || data?.incomplete_details || (data?.status && data.status !== "completed")) {
     throw new Error("OpenAI non ha completato integralmente la generazione del valore SEO.");
   }
-  return parseStructuredValue(collectOutputText(data));
+  return parseSeoStructuredValue(collectSeoOutputText(data));
 }
 
 const deterministicSeoTitleFallback = (page, issue) => {

@@ -17,8 +17,9 @@ test("il live flow V2 è montato dal runtime nativo e non dipende dal riordino D
 
 test("la generazione SEO usa direttamente il nuovo endpoint robusto", () => {
   assert.match(liveControl, /\/api\/wordpress\/generate-seo-value-v2/);
-  assert.match(seoServer, /collectOutputText/);
-  assert.match(seoServer, /parseStructuredValue/);
+  assert.match(seoServer, /collectSeoOutputText/);
+  assert.match(seoServer, /parseSeoStructuredValue/);
+  assert.match(seoServer, /choices/);
   assert.match(seoServer, /max_output_tokens:\s*retry\s*\?\s*1200\s*:\s*900/);
   assert.match(seoServer, /deterministicMetaDescription/);
   assert.doesNotMatch(main, /wordpressSeoRuntimePatch/);
