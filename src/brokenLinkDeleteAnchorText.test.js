@@ -31,7 +31,7 @@ test("unlink-preserve-text resta il comportamento predefinito e mantiene il mark
   assert.match(result.value, /<em>guida avanzata<\/em>/);
 });
 
-test("la scelta dell'utente viene riutilizzata dal piano Elementor fino al reset", () => {
+test("la scelta distruttiva è one-shot e non resta armata per una seconda correzione", () => {
   const raw = JSON.stringify([{ id: "w1", settings: { editor: `<p>Prima <a href="${target}">guida avanzata</a> dopo.</p>` }, elements: [] }]);
   assert.equal(setBrokenLinkCleanupMode(target, "delete-anchor-text"), true);
   assert.equal(brokenLinkCleanupMode(target), "delete-anchor-text");
@@ -40,19 +40,32 @@ test("la scelta dell'utente viene riutilizzata dal piano Elementor fino al reset
   assert.equal(deleted.action, "delete-anchor-text");
   assert.equal(deleted.count, 1);
   assert.doesNotMatch(deleted.serialized, /guida avanzata|example\.com/);
-
-  clearBrokenLinkCleanupMode(target);
   assert.equal(brokenLinkCleanupMode(target), "unlink-preserve-text");
+
   const preserved = prepareElementorBrokenExternalLink(raw, target);
+  assert.equal(preserved.action, "unlink-preserve-text");
   assert.match(preserved.serialized, /guida avanzata/);
 });
 
-test("la UI espone entrambe le risoluzioni e una conferma distruttiva esplicita", async () => {
+test("su post_content la scelta distruttiva viene consumata una sola volta", () => {
+  clearBrokenLinkCleanupMode(target);
+  setBrokenLinkCleanupMode(target, BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT);
+  const first = removeExactAnchor(`<a href="${target}">prima</a>`, target);
+  const second = removeExactAnchor(`<a href="${target}">seconda</a>`, target);
+  assert.equal(first.action, "delete-anchor-text");
+  assert.equal(first.value, "");
+  assert.equal(second.action, "unlink-preserve-text");
+  assert.equal(second.value, "seconda");
+});
+
+test("la UI espone entrambe le risoluzioni, limita la scelta a una preview e conferma la rimozione distruttiva", async () => {
   const ux = await readFile(new URL("./BrokenLinkCleanupChoiceUx.js", import.meta.url), "utf8");
   const appMain = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
   assert.match(ux, /Mantieni il testo/);
   assert.match(ux, /Elimina link e testo associato/);
   assert.match(ux, /Anchor text che verrà eliminato/);
+  assert.match(ux, /previewCards\.length !== 1/);
+  assert.match(ux, /choiceKey/);
   assert.match(ux, /window\.confirm/);
   assert.match(appMain, /BrokenLinkCleanupChoiceUx/);
 });
