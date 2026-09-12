@@ -3,6 +3,7 @@ import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './writeRecovery';
 import './locationEvents';
+import './PageRouteReconciler';
 import './seoResponseIntegrity';
 import './taskClientIdIntegrity';
 import './uiIntegrityFixes';
