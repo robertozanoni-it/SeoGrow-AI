@@ -38,3 +38,18 @@ test("overlay navigation enables corrections before notifying route listeners", 
     assert.deepEqual(events, ["#Correzioni", ["seogrow-locationchange", true]]);
   } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
 });
+
+test("hash navigation notifica sincronicamente App e layer guidati anche ai confini di remount", () => {
+  const old = globalThis.window;
+  const events = [];
+  globalThis.window = {
+    location: { hash: "#Task", href: "http://127.0.0.1:5176/#Task" },
+    history: { pushState() {} },
+    dispatchEvent: event => events.push(event.type),
+  };
+  try {
+    navigatePage("Audit SEO");
+    assert.equal(globalThis.window.location.hash, "#Audit%20SEO");
+    assert.deepEqual(events, ["hashchange", "seogrow-locationchange"]);
+  } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
+});
