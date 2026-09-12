@@ -1,4 +1,4 @@
-import { controlledPreviewAllowed, correctionMatchesProblem } from "./resolutionPath.js";
+import { controlledPreviewAllowed, correctionMatchesProblem, resolutionPath } from "./resolutionPath.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -223,6 +223,7 @@ export default function AutomaticProposalPage() {
   const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, problem, pageHistory, siteHistory });
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
   const previewAllowed = controlledPreviewAllowed(problem, focus);
+  const nextResolution = problem ? resolutionPath(problem, latestCorrection) : null;
 
   const closeAndGo = (page) => {
     clearAutomaticProposalFocus();
@@ -307,8 +308,8 @@ export default function AutomaticProposalPage() {
             </div>
             {!previewAllowed ? (
               <div className="automatic-proposal-warning" role="alert">
-                <strong>La correzione automatica non è più autorizzata.</strong>
-                <p>I dati correnti classificano questo caso come {label(problem.correctability, labels.correctability)}. SeoGrow non forza una proposta automatica su uno stato cambiato.</p>
+                <strong>{nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong>
+                <p>{nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>
                 <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
               </div>
             ) : problem.problemState === "resolved" ? (
