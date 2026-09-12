@@ -1,0 +1,42 @@
+
+> seogrow-ai-mvp@1.4.3 build
+> vite build
+
+[36mvite v8.2.2 [32mbuilding client environment for production...[36m[39m
+transforming...
+✓ 2567 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                0.54 kB │ gzip:   0.34 kB
+dist/assets/appMain-rVUducng.css                             169.26 kB │ gzip:  31.26 kB
+dist/assets/taxonomy-cache-coherence-capability-CZeYRYli.js    0.94 kB │ gzip:   0.47 kB
+dist/assets/rolldown-runtime-Dd_uD5pT.js                       1.10 kB │ gzip:   0.62 kB
+dist/assets/seogrow-connector-DNspuWBx.js                      1.61 kB │ gzip:   0.61 kB
+dist/assets/taxonomy-recovery-auto-journal-CPrk-LX-.js         2.65 kB │ gzip:   0.87 kB
+dist/assets/taxonomy-public-cache-purge-COO0WSPQ.js            4.20 kB │ gzip:   1.21 kB
+dist/assets/elementor-reference-read-DOlHROXk.js               4.49 kB │ gzip:   1.39 kB
+dist/assets/taxonomy-diagnostics-read-Cfd1sqce.js              4.50 kB │ gzip:   1.48 kB
+dist/assets/wordpress-public-inventory-paged-CFgoVscc.js       4.72 kB │ gzip:   1.20 kB
+dist/assets/elementor-shared-link-scan-guard-BG0TXgjR.js       5.54 kB │ gzip:   1.85 kB
+dist/assets/index-JmJS51hi.js                                  6.03 kB │ gzip:   2.61 kB
+dist/assets/taxonomy-persistence-proof-CP5hbuya.js             8.81 kB │ gzip:   2.19 kB
+dist/assets/elementor-single-text-write-C5ZqK1KA.js           10.48 kB │ gzip:   2.82 kB
+dist/assets/elementor-link-cleanup-write-DdgTNkkB.js          11.31 kB │ gzip:   3.19 kB
+dist/assets/taxonomy-doctor-convergence-Cffd43MX.js           11.41 kB │ gzip:   2.68 kB
+dist/assets/taxonomy-recovery-journal-CBCbm9oo.js             12.27 kB │ gzip:   2.68 kB
+dist/assets/taxonomy-doctor-state-CN3mQJkc.js                 12.91 kB │ gzip:   2.92 kB
+dist/assets/elementor-text-write-iMACw8SR.js                  13.32 kB │ gzip:   3.84 kB
+dist/assets/elementor-shared-link-remediation-DP19qIkE.js     14.22 kB │ gzip:   4.00 kB
+dist/assets/atomic-write-BjvUZRIs.js                          16.48 kB │ gzip:   4.01 kB
+dist/assets/papaparse.min-BnlZcRhC.js                         18.69 kB │ gzip:   6.79 kB
+dist/assets/seogrow-connector-core-yzbYNwbm.js                26.87 kB │ gzip:   5.61 kB
+dist/assets/jszip.min-CKI1XIy_.js                             95.81 kB │ gzip:  28.43 kB
+dist/assets/PerformanceChart-JXn9S53p.js                     352.19 kB │ gzip: 102.26 kB
+dist/assets/appMain-CV-afQHv.js                              847.69 kB │ gzip: 248.85 kB
+
+[32m✓ built in 1.42s[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 700 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m

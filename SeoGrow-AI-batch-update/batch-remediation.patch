@@ -1,0 +1,2514 @@
+diff --git a/scripts/browser-smoke.mjs b/scripts/browser-smoke.mjs
+index 1e39511..885f3f1 100644
+--- a/scripts/browser-smoke.mjs
++++ b/scripts/browser-smoke.mjs
+@@ -1,3 +1,4 @@
++import { runBatchMatrix } from './qa-batch-matrix.mjs';
+ import { runFormMatrix } from "./qa-form-matrix.mjs";
+ import { runBrowserMatrix } from "./qa-browser-matrix.mjs";
+ import { access, rm, mkdir, writeFile } from "node:fs/promises";
+@@ -420,6 +421,8 @@ try {
+   await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, screenshot, command, mode: process.env.QA_MODE || "release" });
+   await clickSidebar("Audit SEO");
+   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
++  await runBatchMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
++  await clickSidebar("Audit SEO");
+   await assertViewportVisibility(1440, "desktop", "desktop");
+   await assertViewportVisibility(900, "tablet", "tablet");
+   await assertViewportVisibility(390, "mobile", "mobile");
+diff --git a/scripts/qa-batch-matrix.mjs b/scripts/qa-batch-matrix.mjs
+new file mode 100644
+index 0000000..2e02bed
+--- /dev/null
++++ b/scripts/qa-batch-matrix.mjs
+@@ -0,0 +1,98 @@
++import assert from 'node:assert/strict';
++
++// Real browser + real UI/engine/IndexedDB. Only remote WordPress and AI HTTP responses are fixtures.
++export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode }) {
++  if (mode === 'smoke') return;
++  const input = (selector, value) => evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)}); e.dispatchEvent(new Event('input',{bubbles:true})); })()`);
++  const click = async text => {
++    const query=`[...document.querySelectorAll('.batch-remediation button')].find(b=>b.textContent.trim()===${JSON.stringify(text)} && !b.disabled)`;
++    await waitFor(query, text); await evaluate(`(${query}).click()`);
++  };
++  const saved = await evaluate(`(async () => {
++    const m=await import('/src/workspaceDatabase.js'); const keys=['seogrow-page-audit-history-v2','seogrow-analyses-v2','seogrow-tasks-v2'];
++    const saved=Object.fromEntries(keys.map(k=>[k,m.workspaceStorage.getItem(k)]));
++    const url=n=>'https://example.com/batch-'+n+'/';
++    const issues=[1,2].map(n=>({type:'meta_description',label:'Meta description mancante '+n,sourceUrl:url(n),severity:'alta'}));
++    issues.push({type:'broken-link',label:'Link interno da revisionare',sourceUrl:url(3),targetUrl:'https://example.com/vecchia/',anchorText:'Approfondisci',severity:'media'});
++    m.workspaceStorage.setItem('seogrow-page-audit-history-v2','{}');
++    m.workspaceStorage.setItem('seogrow-analyses-v2',JSON.stringify({9001:[{analyzedAt:new Date(Date.now()-60000).toISOString(),issues}]}));
++    m.workspaceStorage.setItem('seogrow-tasks-v2','[]'); await m.flushWorkspace();
++    (await import('/src/wordpressSession.js')).rememberWordPressSession(9001,{url:'https://example.com/',username:'QA',applicationPassword:'fixture-only'});
++    window.__batchFixture={writes:[],requests:[],entities:Object.fromEntries([1,2].map(n=>[url(n),{id:700+n,status:'publish',link:url(n),title:{raw:'Pagina'},content:{raw:'<p>Contenuto della pagina</p>'},meta:{rank_math_description:''}}])),previews:{},token:0,stale:false};
++    window.__batchPreviousFetch=window.fetch;
++    window.fetch=async (path,options)=>{
++      const pathname=new URL(typeof path==='string'?path:path.url,location.href).pathname;
++      const handled=['/api/wordpress/connection-check','/api/wordpress/inspect-fast','/api/frontend/inspect','/api/wordpress/generate-seo-value-v2','/api/wordpress/live-preview','/api/wordpress/live-apply','/api/wordpress/verify-frontend','/api/audit'];
++      if(!handled.includes(pathname)) return window.__batchPreviousFetch(path,options);
++      const f=window.__batchFixture,b=JSON.parse(options?.body||'{}'); f.requests.push(pathname);
++      const result=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
++      if(pathname.endsWith('/connection-check')) return result({ok:true,user:{id:1}});
++      if(pathname.endsWith('/inspect-fast')) {
++        const entity=f.entities[b.url]; if(f.stale && entity.id===702) entity.meta.rank_math_description='Modifica esterna';
++        return result({ok:true,resource:'pages',entity});
++      }
++      if(pathname==='/api/frontend/inspect'||pathname.endsWith('/verify-frontend')) {const e=f.entities[b.url]; return result({ok:true,status:200,isHtml:true,url:e.link,wordpressDocumentId:e.id,title:'Pagina',titleCount:1,metaDescription:e.meta.rank_math_description,metaDescriptionCount:1,h1:1,verificationSafe:true,requiresBrowserVerification:false});}
++      if(pathname.endsWith('/generate-seo-value-v2')) return result({value:'Descrizione utile e completa per la pagina di prova: servizi, informazioni e approfondimenti disponibili per tutti i visitatori.',publishable:true,quality:{publishable:true}});
++      if(pathname.endsWith('/live-preview')) {
++        const e=f.entities[b.targetUrl],data={ok:true,approvalToken:'fixture-'+(++f.token),expiresInSeconds:600,changed:['meta.rank_math_description'],previewBefore:{meta:e.meta},previewAfter:b.changes,resource:'pages',id:e.id,adapter:'Rank Math'};
++        f.previews[data.approvalToken]=structuredClone(data); return result(data);
++      }
++      if(pathname.endsWith('/live-apply')) {
++        const p=f.previews[b.approvalToken]; if(!p) return result({code:'APPROVAL_EXPIRED',error:'Token già usato'},409); delete f.previews[b.approvalToken];
++        f.writes.push(p.id); const e=Object.values(f.entities).find(e=>e.id===p.id); e.meta=structuredClone(p.previewAfter.meta);
++        return result({ok:true,changed:p.changed,before:p.previewBefore,after:p.previewAfter,adapter:'Rank Math'});
++      }
++      const e=f.entities[b.url]; return result({url:e.link,fetchedAt:new Date().toISOString(),description:e.meta.rank_math_description,title:'Pagina',h1:1,issues:[]});
++    };
++    window.dispatchEvent(new CustomEvent('seogrow-storage-ok')); return saved;
++  })()`);
++  await command('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
++  await clickSidebar('Problemi');
++  await waitFor("document.querySelectorAll('.problem-row').length===3 && document.querySelector('.batch-toolbar')", 'batch fixture rows');
++  await record('BATCH-UI-SELECTION', async () => {
++    assert.equal(await evaluate("document.querySelectorAll('.problem-row a[href]').length>=3"), true);
++    assert.equal(await evaluate("document.body.innerText.includes('Approfondisci')"), true);
++    await input('.problem-search input','/batch-1/');
++    await waitFor("document.querySelectorAll('.problem-row').length===1",'filtered batch');
++    await evaluate("document.querySelector('.batch-toolbar input[type=checkbox]').click()");
++    await waitFor("document.querySelector('.batch-toolbar strong').textContent==='1 selezionati'",'one filtered selection');
++    await input('.problem-search input','');
++    await waitFor("document.querySelectorAll('.problem-row').length===3",'clear filter');
++    assert.equal(await evaluate("document.querySelector('.batch-toolbar strong').textContent"),'1 selezionati');
++    await click('Risolvi tutti i problemi risolvibili (2)');
++    await click('Prepara piano e anteprime');
++    await waitFor("document.querySelectorAll('.batch-entry.state-prepared').length===2",'real prepared batch');
++    assert.deepEqual(await evaluate('window.__batchFixture.writes'),[]);
++    assert.equal(await evaluate("document.querySelectorAll('.batch-diff pre').length>=4"),true);
++    await screenshot('batch-preview-desktop');
++  });
++  await record('BATCH-UI-EXECUTION',async()=>{
++    await evaluate("window.__batchFixture.stale=true");
++    await click('Approva e avvia correzione batch');
++    await waitFor("document.querySelector('.batch-entry.state-resolved_verified') && document.querySelector('.batch-entry.state-stale_target')",'verified and stale partial result');
++    assert.deepEqual(await evaluate('window.__batchFixture.writes'),[701]);
++    assert.equal(await evaluate("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Scarica report JSON' && !b.disabled)"),true);
++    const secret=await evaluate("(async()=>{const m=await import('/src/batchRemediationStore.js'); return JSON.stringify(await m.listBatchRuns(9001));})()");
++    assert.ok(!secret.includes('fixture-only')&&!secret.includes('approvalToken'));
++    await screenshot('batch-partial-result');
++  });
++  await record('BATCH-UI-RESPONSIVE', async()=>{
++    for(const width of [1440,390]) {
++      await command('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width===390});
++      await evaluate("document.querySelector('.batch-workspace').scrollIntoView({block:'start'})");
++      await waitFor('document.documentElement.scrollWidth <= innerWidth + 1','batch without page overflow');
++      await screenshot('batch-'+width);
++    }
++    await command('Emulation.clearDeviceMetricsOverride');
++  });
++  await record('BATCH-UI-RECOVERY',async()=>{
++    await evaluate("(async()=>{await(await import('/src/workspaceDatabase.js')).flushWorkspace();})()");
++    await reload(); await clickSidebar('Problemi');
++    await waitFor("document.querySelector('.batch-history-grid button')",'persisted batch history');
++    await evaluate("document.querySelector('.batch-history').open=true; document.querySelector('.batch-history-grid button').click()");
++    await waitFor("document.querySelector('.batch-workspace')?.textContent.includes('Vista storica')",'safe history after refresh');
++    assert.equal(await evaluate("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Approva e avvia correzione batch')"),false);
++    assert.equal(await evaluate("document.querySelectorAll('.batch-entry.state-resolved_verified').length"),1);
++  });
++  await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js'); for(const[k,v]of Object.entries(${JSON.stringify(saved)})){if(v===null)m.workspaceStorage.removeItem(k);else m.workspaceStorage.setItem(k,v);}await m.flushWorkspace();window.dispatchEvent(new CustomEvent('seogrow-storage-ok'));})()`);
++}
+diff --git a/scripts/qa-matrix.mjs b/scripts/qa-matrix.mjs
+index bd1885c..0523a38 100644
+--- a/scripts/qa-matrix.mjs
++++ b/scripts/qa-matrix.mjs
+@@ -48,6 +48,10 @@ export const qaMatrix = [
+   ["STRESS-500", "500 tasks and project isolation", "P1", "E2E Browser / Performance", "Two existing tasks", "Seed 500, search, filter foreign project, reload", "502 stored IDs unique, foreign task excluded, filters respond", "release"],
+   ["IDB-REAL-001", "Native IndexedDB abort", "P0", "Storage/Persistence / Error Injection", "Disposable native browser DB", "Write, abort replacement, reopen", "Original complete record survives", "release"],
+   ["RESPONSIVE-001", "Task/modal layouts and keyboard", "P1", "Responsive / Visual / E2E Browser", "Populated Task UI", "1440,768,390; open modal; Escape", "No page overflow, modal contained, initial focus inside, Escape closes; PNG evidence", "smoke"],
++  ["BATCH-UI-SELECTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Filter, select, real preview; zero writes", "Real UI, journal and IndexedDB; no live WordPress", "full"],
++  ["BATCH-UI-EXECUTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Approve; verified result and isolated stale target", "Real UI, journal and IndexedDB; no live WordPress", "full"],
++  ["BATCH-UI-RESPONSIVE", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Desktop and mobile layout; screenshot evidence", "Real UI, journal and IndexedDB; no live WordPress", "full"],
++  ["BATCH-UI-RECOVERY", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Reload, reopen persisted history without write replay", "Real UI, journal and IndexedDB; no live WordPress", "full"],
+ ];
+ export function requiredScenarios(mode) {
+   const level = ["smoke", "full", "release"].indexOf(mode);
+diff --git a/server/wordpressLiveApprovalHook.js b/server/wordpressLiveApprovalHook.js
+index 9297af0..3f6e98f 100644
+--- a/server/wordpressLiveApprovalHook.js
++++ b/server/wordpressLiveApprovalHook.js
+@@ -208,7 +208,7 @@ function registerRoutes(app) {
+     if (!rateLimit(req)) return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
+     try {
+       cleanupApprovals();
+-      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, issue, adapter, isolatedQa } = req.body || {};
++      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, issue, adapter, isolatedQa, expectedCurrent, expectedStatus } = req.body || {};
+       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+       const cleanPatch = isolatedQa === true ? null : allowedChanges(changes);
+       if (cleanPatch) assertSeoPatchLengths(cleanPatch);
+@@ -218,6 +218,12 @@ function registerRoutes(app) {
+       const status = String(current?.status || "").toLowerCase();
+       if (["trash", "auto-draft", "inherit"].includes(status)) throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
+       const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : cleanPatch;
++      if (expectedCurrent !== undefined) {
++        const stable = value => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
++          ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
++        if (stable(expectedCurrent) !== stable(selectedState(current, patch)) || (expectedStatus !== undefined && expectedStatus !== current.status))
++          return res.status(409).json({ code: "STALE_TARGET", error: "La risorsa è cambiata durante la generazione. Rigenera la proposta." });
++      }
+       const before = selectedState(current, patch);
+       const after = afterState(current, patch);
+       if (JSON.stringify(before) === JSON.stringify(after)) throw new Error("La modifica proposta coincide con il valore già presente.");
+diff --git a/src/BatchRemediationPanel.css b/src/BatchRemediationPanel.css
+new file mode 100644
+index 0000000..279b6a7
+--- /dev/null
++++ b/src/BatchRemediationPanel.css
+@@ -0,0 +1,38 @@
++.batch-remediation { margin: 16px 0 24px; min-width: 0; color: #1b3040; }
++.batch-toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:#eff7fd; border:1px solid #cbdfea; padding:16px; border-radius:14px; }
++.batch-toolbar label,.batch-highrisk { display:flex; align-items:center; gap:8px; }
++.batch-toolbar input[type=checkbox],.batch-highrisk input,.problem-batch-select input { width:18px; height:18px; flex-shrink:0; }
++.batch-toolbar select { max-width:230px; padding:9px; border:1px solid #b8cbd8; border-radius:8px; background:white; }
++.batch-note { font-size:.86rem; color:#526776; line-height:1.5; margin:10px 0; }
++.batch-error { background:#fff3e6; border-left:4px solid #b65519; padding:14px; color:#76390f; }
++.batch-workspace { margin-top:18px; padding:24px; scroll-margin-top:24px; }
++.batch-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
++.batch-heading h2 { margin:0; }
++.batch-credentials,.batch-diff { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
++.batch-credentials label { display:grid; gap:7px; }
++.batch-credentials input { padding:10px; border:1px solid #b8cbd8; border-radius:8px; }
++.batch-kpis { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin:18px 0; }
++.batch-kpis>div { display:flex; flex-direction:column; gap:8px; background:#f0f6fa; border-radius:10px; padding:14px; }
++.batch-kpis strong { font-size:1.6rem; }.batch-kpis span { font-size:.8rem; }
++.batch-workspace progress { width:min(500px,65%); height:14px; margin:12px 8px 12px 0; }
++.batch-entry-list { display:grid; gap:16px; margin:18px 0; }
++.batch-entry { border:1px solid #d5e0e7; border-radius:12px; padding:18px; min-width:0; background:white; }
++.batch-entry header { display:flex; justify-content:space-between; gap:16px; align-items:start; flex-wrap:wrap; }
++.batch-entry h3 { margin:0 0 6px; font-size:1.02rem; }.batch-entry h4 { margin:12px 0 8px; }
++.batch-entry a,.batch-modified a { overflow-wrap:anywhere; }.batch-entry p { line-height:1.5; font-size:.9rem; }
++.batch-state { padding:6px 10px; background:#eef3f6; border-radius:8px; font-size:.82rem; }
++.batch-entry.state-resolved_verified { border-color:#80bba1; }.batch-entry.state-uncertain,.batch-entry.state-failed { border-color:#d49a87; }
++.batch-diff>div { min-width:0; }.batch-diff pre { background:#f5f8fa; padding:14px; border:1px solid #e0e8ed; border-radius:8px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; font:13px/1.55 ui-monospace,monospace; min-width:0; }
++.batch-highrisk { padding:14px; background:#fff3dd; border-radius:8px; margin-top:14px; color:#653a09; }
++.batch-actions { display:flex; gap:10px; flex-wrap:wrap; margin:18px 0; }
++.batch-history { border-top:1px solid #d8e2e8; margin-top:18px; padding-top:16px; }.batch-history summary { cursor:pointer; font-weight:650; }
++.batch-history-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:14px; }
++.batch-history-grid button { display:grid; text-align:left; gap:7px; padding:15px; }.batch-modified { display:grid; gap:9px; }
++.problem-batch-select { display:flex; align-items:center; gap:8px; font-size:.8rem; cursor:pointer; }
++.problem-card .problem-main button { border:0; background:none; text-align:left; padding:0; color:inherit; font:inherit; cursor:pointer; }
++.problem-card .problem-main a { color:inherit; text-decoration:underline; overflow-wrap:anywhere; }
++.problem-card .problem-main small { display:block; }
++@media(max-width:1000px) { .batch-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } }
++@media(max-width:640px) { .batch-workspace { padding:14px; }.batch-toolbar { align-items:stretch; }.batch-toolbar button { width:100%; }.batch-diff,.batch-credentials { grid-template-columns:1fr; }.batch-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }.batch-entry { padding:13px; } }
++
++.problem-batch-facts { display: grid; gap: .3rem; font-size: .85rem; }
+diff --git a/src/BatchRemediationPanel.jsx b/src/BatchRemediationPanel.jsx
+new file mode 100644
+index 0000000..a5b169f
+--- /dev/null
++++ b/src/BatchRemediationPanel.jsx
+@@ -0,0 +1,164 @@
++import { useEffect, useRef, useState } from 'react';
++import { batchCapability, visibleBatchSelection, createBatchRun, batchSummary, BATCH_LABELS, retryableProblemKeys, recoverBatchRun } from './batchRemediationModel.js';
++import { prepareBatch, executeBatch } from './batchRemediationQueue.js';
++import { batchHistorySnapshot, listBatchRuns, saveBatchRun, withBatchLock } from './batchRemediationStore.js';
++import { createBatchWordPressPorts } from './batchRemediationRuntime.js';
++import { getWordPressSession, rememberWordPressSession } from './wordpressSession.js';
++import { listCorrections } from './remediationStore.js';
++import { safeHttpHref } from './reliabilityModel.js';
++import { openProblemResolution } from './AutomaticProposalNavigation.js';
++import { readableCorrectionFields } from './correctionPresentation.js';
++import { navigatePage } from './navigationUx.js';
++import './BatchRemediationPanel.css';
++
++const runLabels = { PLANNING: 'Preparazione in corso', AWAITING_APPROVAL: 'Revisione correzione batch', RUNNING: 'Correzione batch in corso',
++  SUCCESS: 'Correzione batch completata', PARTIAL_SUCCESS: 'Batch completato con problemi ancora aperti', COMPLETED_WITH_OPEN: 'Batch concluso: interventi da completare', INTERRUPTED: 'Batch interrotto' };
++const date = at => at ? new Date(at).toLocaleString('it-IT') : 'Non disponibile';
++function download(name, content, mime) {
++  const url = URL.createObjectURL(new Blob([content], { type: mime }));
++  const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click();
++  setTimeout(() => URL.revokeObjectURL(url), 1000);
++}
++const csvCell = value => '"' + String(value ?? '').replace(/^[\s]*[=+@-]/, match => "'" + match).replaceAll('"', '""') + '"';
++
++export default function BatchRemediationPanel({ client, rows, selectedKeys, onSelect, busy: parentBusy, onBusy, onShowOpen }) {
++  const [shown, setShown] = useState(false), [draft, setDraft] = useState([]), [run, setRun] = useState(null);
++  const [credentials, setCredentials] = useState(() => getWordPressSession(client.id, client.url) || { username: '', applicationPassword: '' });
++  const [message, setMessage] = useState(''), [history, setHistory] = useState([]), [highRisk, setHighRisk] = useState([]);
++  const [historyOnly, setHistoryOnly] = useState(false), [showModified, setShowModified] = useState(false);
++  const busy = useRef(false), stop = useRef(false), mounted = useRef(true), currentRun = useRef(null), ports = useRef(null), parentRun = useRef(null);
++  const checkbox = useRef(null), heading = useRef(null);
++  const selected = visibleBatchSelection(rows, selectedKeys);
++  const automatic = rows.filter(p => batchCapability(p).state === 'PENDING');
++  useEffect(() => { if (checkbox.current) checkbox.current.indeterminate = selected.length > 0 && selected.length < rows.length; }, [selected.length, rows.length]);
++  useEffect(() => {
++    mounted.current = true;
++    let cancelled = false, timer;
++    const reload = () => { clearTimeout(timer); timer = setTimeout(() => { listBatchRuns(client.id).then(data => { if (!cancelled) setHistory(data); }).catch(error => { if (!cancelled) setMessage(error.message); }); }, 100); };
++    reload(); window.addEventListener('seogrow-batch-history', reload);
++    return () => { cancelled = true; mounted.current = false; stop.current = true; clearTimeout(timer); window.removeEventListener('seogrow-batch-history', reload); };
++  }, [client.id]);
++  const progress = value => { if (mounted.current) setRun({ ...value, entries: value.entries.map(e => ({ ...e })) }); };
++  const action = async task => {
++    if (busy.current) return;
++    busy.current = true; stop.current = false; onBusy(true); setMessage('');
++    try { await withBatchLock(client.url, task); }
++    catch (error) { if (mounted.current) setMessage(error.message); }
++    finally { busy.current = false; onBusy(false); }
++  };
++  const choose = (problems, from = null) => {
++    if (busy.current) return;
++    setShown(true); setDraft(problems); setRun(null); setHighRisk([]); setHistoryOnly(false); setMessage('');
++    currentRun.current = null; parentRun.current = from;
++    setTimeout(() => heading.current?.focus(), 0);
++  };
++  const prepare = () => action(async () => {
++    const next = createBatchRun({ clientId: Number(client.id), clientName: client.name, siteUrl: client.url, problems: draft, parentRunId: parentRun.current });
++    const connection = { ...credentials, url: client.url };
++    const nextPorts = createBatchWordPressPorts({ run: next, credentials: connection, save: saveBatchRun, progress, stopped: () => stop.current });
++    await nextPorts.connection();
++    rememberWordPressSession(client.id, connection);
++    currentRun.current = next; ports.current = nextPorts;
++    await prepareBatch(next, nextPorts);
++  });
++  const approve = () => action(async () => {
++    const next = currentRun.current;
++    if (!next || historyOnly || next.id !== run?.id) throw new Error('Riapri la selezione e rigenera le anteprime.');
++    await ports.current.connection();
++    await executeBatch(next, { fingerprint: next.planFingerprint, highRiskIds: highRisk }, ports.current);
++    window.dispatchEvent(new CustomEvent('seogrow-remediation-history'));
++  });
++  const openHistory = item => action(async () => {
++    const corrections = await listCorrections({ clientId: Number(client.id) });
++    const recovered = recoverBatchRun(item, corrections);
++    if (recovered.status !== item.status) await saveBatchRun(recovered);
++    currentRun.current = null; ports.current = null;
++    setRun(recovered); setShown(true); setHistoryOnly(true); setHighRisk([]);
++    setTimeout(() => heading.current?.focus(), 0);
++  });
++  const retry = () => {
++    const keys = new Set(retryableProblemKeys(run));
++    if (historyOnly && run.status === 'AWAITING_APPROVAL') for (const e of run.entries.filter(e => e.state === 'PREPARED')) for (const k of e.problemKeys) keys.add(k);
++    // Original records are only input identities; the runtime re-resolves the latest persisted audit.
++    choose(run.entries.filter(e => keys.has(e.problem.key)).map(e => e.problem), run.id);
++  };
++  const report = format => {
++    if (!run) return;
++    if (format === 'json') download(`${run.id}.json`, JSON.stringify(batchHistorySnapshot(run), null, 2), 'application/json');
++    else {
++      const columns = ['Problema','Pagina','Anchor text','Destinazione','Stato','Motivo','Correzione','Verifica'];
++      const lines = run.entries.map(e => [e.problem.title, e.problem.sourceUrl, e.preview?.plan?.linkCleanup?.anchorText || (e.problem.anchorTexts || []).join(' | '), (e.problem.targetUrls || []).join(' | '), BATCH_LABELS[e.state], e.reason, e.correctionId, e.verification?.note || '']);
++      download(`${run.id}.csv`, '\uFEFF' + [columns, ...lines].map(line => line.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
++    }
++  };
++  const summary = run ? batchSummary(run) : null;
++  const prepared = run?.entries.filter(e => e.state === 'PREPARED') || [];
++  const canApprove = !parentBusy && !historyOnly && run?.status === 'AWAITING_APPROVAL' && prepared.length > 0 && prepared.filter(e => e.highRisk).every(e => highRisk.includes(e.id));
++  const done = run ? run.entries.filter(e => !['PENDING','PREFLIGHT','PREPARED','IN_EXECUTION','VERIFYING'].includes(e.state)).length : 0;
++  return <section className="batch-remediation" aria-label="Correzione batch dei problemi">
++    <div className="batch-toolbar">
++      <label><input ref={checkbox} type="checkbox" checked={rows.length > 0 && selected.length === rows.length} disabled={parentBusy || !rows.length} onChange={e => onSelect(e.target.checked ? rows.map(p => p.key) : [])} /> Seleziona tutti i visibili</label>
++      <strong>{selected.length} selezionati</strong>
++      <select aria-label="Selezione rapida batch" value="" disabled={parentBusy} onChange={e => {
++        const mode = e.target.value;
++        onSelect((mode === 'none' ? [] : mode === 'auto' ? automatic : mode === 'critical' ? rows.filter(p => p.severity === 'high') : rows.filter(p => p.priority === 'high')).map(p => p.key));
++      }}><option value="">Selezione rapida</option><option value="none">Deseleziona tutti</option><option value="auto">Risolvibili automaticamente</option><option value="critical">Critici / gravità alta</option><option value="priority">Alta priorità</option></select>
++      <button className="primary" disabled={parentBusy || !selected.length} onClick={() => choose(selected)}>Risolvi problemi in batch{selected.length ? ` (${selected.length})` : ''}</button>
++      <button className="secondary" disabled={parentBusy || !automatic.length} onClick={() => { onSelect(automatic.map(p => p.key)); choose(automatic); }}>Risolvi tutti i problemi risolvibili ({automatic.length})</button>
++    </div>
++    <p className="batch-note">Le azioni usano solo i problemi visibili con i filtri attuali. “Risolvibili” indica candidati: nessuna modifica prima del preflight e della tua approvazione.</p>
++    {selectedKeys.length > selected.length && <p className="batch-note">{selectedKeys.length - selected.length} selezioni non visibili escluse dal prossimo batch.</p>}
++    {message && <p className="batch-error" role="alert">{message}</p>}
++    {shown && <section className="batch-workspace panel" aria-label="Revisione correzione batch">
++      <div className="batch-heading"><h2 ref={heading} tabIndex={-1}>{run ? runLabels[run.status] || run.status : 'Prepara correzione batch'}</h2>
++        {parentBusy ? <button className="secondary" onClick={() => { stop.current = true; setMessage('Arresto richiesto: l’operazione già inviata viene registrata, senza avviare nuove write.'); }}>Interrompi dopo l’operazione corrente</button>
++          : <button className="secondary" onClick={() => { setShown(false); currentRun.current = null; }}>Torna ai problemi</button>}
++      </div>
++      <p><strong>{client.name}</strong> · <a href={safeHttpHref(client.url)} target="_blank" rel="noopener noreferrer">{client.url}</a></p>
++      {!run && <>
++        <p>{draft.length} problemi da esaminare. Preparazione e connessione sono in sola lettura su WordPress. Le proposte AI possono consumare credito del provider configurato.</p>
++        <div className="batch-credentials"><label>Utente WordPress<input autoComplete="username" value={credentials.username} disabled={parentBusy} onChange={e => setCredentials(v => ({ ...v, username: e.target.value }))} /></label>
++          <label>Password applicativa<input type="password" autoComplete="off" value={credentials.applicationPassword} disabled={parentBusy} onChange={e => setCredentials(v => ({ ...v, applicationPassword: e.target.value }))} /></label></div>
++        <p className="batch-note">Credenziali solo nella sessione in memoria; non sono salvate nei report o nello storico.</p>
++        <button className="primary" disabled={parentBusy || !credentials.username || !credentials.applicationPassword} onClick={prepare}>{parentBusy ? 'Preflight in corso…' : 'Prepara piano e anteprime'}</button>
++      </>}
++      {run && <>
++        <p className="batch-note">{run.id} · {date(run.createdAt)}{run.parentRunId ? ` · Retry di ${run.parentRunId}` : ''}</p>
++        <div className="batch-kpis">{[['Selezionati',summary.selected],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
++        <p>Costo AI stimato: {run.estimatedCost ?? 'non disponibile'} · Costo reale: {run.cost ?? 'non disponibile'} · Modello: {run.model || 'configurazione corrente; dato non restituito'}</p>
++        <div aria-live="polite"><progress max={run.entries.length} value={done} aria-label="Avanzamento batch" /> <span>{done} / {run.entries.length} problemi elaborati</span></div>
++        {historyOnly && <p className="batch-note">Vista storica: i token di approvazione non vengono conservati. Un nuovo tentativo richiede nuove anteprime e una nuova approvazione.</p>}
++        <div className="batch-entry-list">{run.entries.map(entry => <article key={entry.id} className={`batch-entry state-${entry.state.toLowerCase()}`}>
++          <header><div><h3>{entry.problem.title}</h3><a href={safeHttpHref(entry.problem.sourceUrl)} target="_blank" rel="noopener noreferrer">{entry.problem.sourceUrl}</a></div><strong className="batch-state">{BATCH_LABELS[entry.state]}</strong></header>
++          <p>{entry.reason || 'La proposta richiede approvazione.'}</p>
++          {(entry.problem.targetUrls || []).map(url => <p key={url}>Destinazione: <a href={safeHttpHref(url)} target="_blank" rel="noopener noreferrer">{url}</a></p>)}
++          {entry.kind === 'external_link' && <p>Anchor text: <strong>{entry.preview?.plan?.linkCleanup?.anchorText || entry.problem.anchorTexts?.join(' · ') || 'Non disponibile: non viene inventato'}</strong></p>}
++          {entry.preview && <>
++            <p>Sistema: <strong>{entry.preview.plan.adapter}</strong> · Risorsa: {entry.preview.data.resource} #{entry.preview.data.id} · Rischio: {entry.highRisk ? 'alto: conferma esplicita' : 'ordinario'} · Rollback: snapshot disponibile nello storico Correzioni, soggetto a verifica.</p>
++            <p>Verifica: controllo WordPress e HTML pubblico; audit incrementale quando supportato. Duplicati tra pagine e visibilità dinamica possono richiedere ulteriori controlli.</p>
++            {readableCorrectionFields(entry.preview).map(field => <section key={field.field} className="batch-field"><h4>{field.label}</h4><div className="batch-diff"><div><strong>Valore attuale / prima</strong><pre>{typeof field.before === 'string' ? field.before : JSON.stringify(field.before,null,2)}</pre></div><div><strong>Valore proposto / dopo</strong><pre>{typeof field.after === 'string' ? field.after : JSON.stringify(field.after,null,2)}</pre></div></div></section>)}
++            <details><summary>Payload completo, campi e dipendenze</summary><div className="batch-diff"><pre>{JSON.stringify(entry.preview.data.previewBefore,null,2)}</pre><pre>{JSON.stringify(entry.preview.data.previewAfter,null,2)}</pre></div><p>Dipendenze: {entry.dependsOn.join(', ') || 'nessuna'}</p></details>
++          </>}
++          {entry.state === 'PREPARED' && entry.highRisk && !historyOnly && <label className="batch-highrisk"><input type="checkbox" disabled={parentBusy} checked={highRisk.includes(entry.id)} onChange={e => setHighRisk(v => e.target.checked ? [...v, entry.id] : v.filter(id => id !== entry.id))} /> Confermo esplicitamente questa modifica ad alto rischio e il suo payload.</label>}
++          {entry.verification?.note && <p><strong>Esito verifica:</strong> {entry.verification.note}</p>}
++          {!parentBusy && ['BLOCKED','MANUAL_REQUIRED','UNSUPPORTED','UNCERTAIN','APPLIED_UNVERIFIED'].includes(entry.state) && <button className="secondary" onClick={() => openProblemResolution(entry.problem, client.id, 'problem-row')}>Apri problema e intervento singolo</button>}
++        </article>)}</div>
++        <div className="batch-actions">
++          {!historyOnly && run.status === 'AWAITING_APPROVAL' && <button className="primary" disabled={!canApprove} onClick={approve}>Approva e avvia correzione batch</button>}
++          {!parentBusy && <>
++            {(retryableProblemKeys(run).length > 0 || historyOnly && run.status === 'AWAITING_APPROVAL') && <button className="secondary" onClick={retry}>{historyOnly && run.status === 'AWAITING_APPROVAL' ? 'Rigenera anteprime' : 'Riprova problemi falliti / bloccati sicuri'}</button>}
++            <button className="secondary" onClick={() => choose(selected.length ? selected : run.entries.map(e => e.problem))}>Modifica selezione</button>
++            <button className="secondary" onClick={() => { setShown(false); onShowOpen?.(); }}>Visualizza problemi ancora aperti</button>
++            <button className="secondary" onClick={() => report('json')}>Scarica report JSON</button><button className="secondary" onClick={() => report('csv')}>Scarica report CSV</button>
++            <button className="secondary" onClick={() => navigatePage('Correzioni')}>Cronologia e ripristino</button>
++            <button className="secondary" onClick={() => setShowModified(v => !v)}>Apri pagine modificate</button>
++          </>}
++        </div>
++        {showModified && <div className="batch-modified">{[...new Set(run.entries.filter(e => ['APPLIED_UNVERIFIED','RESOLVED_VERIFIED'].includes(e.state)).map(e => e.problem.sourceUrl))].map(url => <a key={url} href={safeHttpHref(url)} target="_blank" rel="noopener noreferrer">{url}</a>)}</div>}
++      </>}
++    </section>}
++    <details className="batch-history"><summary>Cronologia batch ({history.length})</summary>
++      {history.length ? <div className="batch-history-grid">{history.map(item => <button className="secondary" disabled={parentBusy} key={item.id} onClick={() => openHistory(item)}><strong>{date(item.createdAt)}</strong><span>{runLabels[item.status] || item.status}</span><small>{item.entries.length} problemi · {item.id.slice(0,18)}…</small></button>)}</div> : <p>Nessun batch salvato per questo progetto.</p>}
++    </details>
++  </section>;
++}
+diff --git a/src/ProblemsWorkspace.jsx b/src/ProblemsWorkspace.jsx
+index 3baff7d..a21d02c 100644
+--- a/src/ProblemsWorkspace.jsx
++++ b/src/ProblemsWorkspace.jsx
+@@ -1,3 +1,4 @@
++import BatchRemediationPanel from "./BatchRemediationPanel.jsx";
+ import { problemEntryLabel } from "./resolutionPath.js";
+ import { filterProblemRows } from "./problemFilters.js";
+ import { openProblemResolution } from "./AutomaticProposalNavigation.js";
+@@ -310,6 +311,8 @@ export default function ProblemsWorkspace() {
+   const [revision, setRevision] = useState(0);
+   const [view, setView] = useState("compact");
+   const [selectedKey, setSelectedKey] = useState("");
++  const [batchSelection, setBatchSelection] = useState({ clientId: null, keys: [] });
++  const [batchBusyScope, setBatchBusyScope] = useState({ clientId: null, busy: false });
+   const [corrections, setCorrections] = useState([]);
+   const [correctionsState, setCorrectionsState] = useState({ loading: false, error: "" });
+   const [filters, setFilters] = useState({
+@@ -373,6 +376,7 @@ export default function ProblemsWorkspace() {
+   const pagesStore = readStore(PAGE_HISTORY_KEY, "object");
+   const selectedStore = readStore(SELECTED_CLIENT_KEY, "scalar");
+   const selectedClientId = normalizeClientId(selectedStore.value);
++  const batchBusy = batchBusyScope.clientId === selectedClientId && batchBusyScope.busy;
+   const client = clientsStore.value.find((item) => normalizeClientId(item?.id) === selectedClientId) || null;
+ 
+   const reloadCorrections = async () => {
+@@ -502,20 +506,28 @@ export default function ProblemsWorkspace() {
+         <span className="problems-source-note"><ShieldCheck /> Score e proposte AI non sono prove: apri il dettaglio per vedere fonte e data.</span>
+       </div>
+ 
++      <BatchRemediationPanel key={client.id} client={client} rows={filtered}
++        selectedKeys={batchSelection.clientId === client.id ? batchSelection.keys : []}
++        onSelect={keys => setBatchSelection({ clientId: client.id, keys })}
++        onShowOpen={() => setFilters(value => ({ ...value, state: "active", query: "", type: "", source: "", adapter: "", correctability: "", special: "", severity: "" }))}
++        busy={batchBusy} onBusy={value => setBatchBusyScope(current => value ? { clientId: client.id, busy: true } : current.clientId === client.id ? { clientId: client.id, busy: false } : current)} />
++
+       <section className={`problems-list card-record-grid native-problem-cards ${view}`} aria-live="polite">
+         {filtered.length ? filtered.map((problem, index) => {
+           const href = safeHttpHref(problem.sourceUrl);
+           return (
+-            <button type="button" className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
++            <article className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={event => { if (!event.target.closest("a,button,input,label") && !batchBusy) openProblemResolution(problem, selectedClientId, "problem-row"); }}>
++              <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={batchSelection.clientId === client.id && batchSelection.keys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
+               <span className="card-record-date">{problem.observedAt ? formatDate(problem.observedAt) : "Data non disponibile"}</span>
+               <span className={`problem-severity ${problem.severity}`}>{labelMap.severity[problem.severity]}</span>
+-              <span className="problem-main"><strong>{problem.title}</strong><small>{href || "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: {target}</small>)}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
++              <span className="problem-main"><button type="button" disabled={batchBusy} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}><strong>{problem.title}</strong></button><small>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{href}</a> : "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: <a href={safeHttpHref(target)} target="_blank" rel="noopener noreferrer">{target}</a></small>)}{problem.targetUrls?.length > 0 && <small>Anchor text: {problem.anchorTexts?.join(" · ") || "non disponibile"}</small>}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
+               <span className="problem-source"><FileSearch /> {problem.sources[0]?.label || "Fonte non disponibile"}<small>{freshnessLabel(problem.observedAt)}</small></span>
+               <span className={`problem-state ${problem.problemState}`}>{labelMap.problem[problem.problemState] || problem.problemState}</span>
++              <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
+               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
+               {problem.stale && <span className="problem-flag">Obsoleto</span>}
+               <span className="card-record-open">{problemEntryLabel(problem)} <ChevronRight /></span>
+-            </button>
++            </article>
+           );
+         }) : (
+           <div className="problems-empty"><CheckCircle2 /><h2>Nessun problema in questo filtro</h2><p>Cambia filtro oppure esegui un nuovo audit per aggiornare la situazione.</p><button className="secondary" onClick={() => navigate("Audit SEO")}><CircleGauge /> Apri Audit SEO</button></div>
+diff --git a/src/WordPressLiveRemediationControlV2.jsx b/src/WordPressLiveRemediationControlV2.jsx
+index a1cf707..c20965f 100644
+--- a/src/WordPressLiveRemediationControlV2.jsx
++++ b/src/WordPressLiveRemediationControlV2.jsx
+@@ -1,3 +1,4 @@
++import { inspectWordPress, inspectFrontend, inspectLinkEvidence, buildPlan, preparationFailure, createWordPressCorrection, applyPreparedCorrection } from "./wordpressRemediationEngine.js";
+ import ManualRemediationProposal from "./ManualRemediationProposal.jsx";
+ import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
+ import { selectFocusedRemediation, proposalSelectionKey, correctionIssueKeys } from "./remediationSelection.js";
+@@ -6,17 +7,14 @@ import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKi
+ import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
+ import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
+ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+-import { correctionCredentials } from "./correctionCredentials.js";
+-import { applyJournaledCorrection } from "./correctionJournal.js";
+ import { AUTO_FIX_LIMIT, selectedAutoFixIssues } from "./autoFixPlan.js";
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import { createPortal } from "react-dom";
+ import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
+ import { apiFetch } from "./api";
+-import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor } from "./brokenLinkRemediation.js";
++import { brokenExternalTarget } from "./brokenLinkRemediation.js";
+ import {
+   attachElementorImpactEvidence,
+-  elementorOwnershipDetail,
+   inspectElementorCoverageAttestation,
+   inspectElementorImpactEvidence,
+ } from "./elementorImpactClient";
+@@ -28,16 +26,9 @@ import {
+   assertNoPreviewConflicts,
+   detectPreviewConflicts,
+   previewIdentity,
+-  remediationContextDecision,
+ } from "./remediationPlanSafety";
+ import { normalizeClientId, safeHttpHref } from "./reliabilityModel";
+-import {
+-  assessCoreOwnership,
+-  chooseElementorContentCandidate,
+-  countTextWords,
+-  inspectEditableElementor,
+-  serializeElementor,
+-} from "./wordpressOwnership";
++
+ import "./WordPressLiveRemediationControl.css";
+ import "./WordPressLiveRemediationControlV2.css";
+ 
+@@ -74,27 +65,6 @@ const selectAudit = (clientId, requested) => {
+ const issueUrl = remediationSourceUrl;
+ const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+ const classifyIssue = remediationIssueKind;
+-const contentCandidatePreview = (value, max = 260) => {
+-  const text = String(value || "")
+-    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+-    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+-    .replace(/<[^>]+>/g, " ")
+-    .replace(/&nbsp;/gi, " ")
+-    .replace(/&amp;/gi, "&")
+-    .replace(/\s+/g, " ")
+-    .trim();
+-  return text.length > max ? `${text.slice(0, max)}…` : text;
+-};
+-
+-const isNonEditableWordPressUrl = (value) => {
+-  try {
+-    const url = new URL(String(value || ""));
+-    const path = url.pathname.replace(/\/+$/, "") || "/";
+-    if (/\/(?:category|categoria|tag|author|autore|date|feed)(?:\/|$)/i.test(path)) return true;
+-    if (/\/page\/\d+$/i.test(path) || /\/(?:search)(?:\/|$)/i.test(path)) return true;
+-    return ["s", "cat", "tag", "paged", "author", "feed"].some((key) => url.searchParams.has(key));
+-  } catch { return true; }
+-};
+ 
+ const readCredentials = (target) => {
+   const root = target?.closest(".remediation-host")?.querySelector(".audit-unified-credentials");
+@@ -106,405 +76,6 @@ const readCredentials = (target) => {
+   };
+ };
+ 
+-const pluginMeta = (entity) => entity?.meta && typeof entity.meta === "object" ? entity.meta : {};
+-const ownershipUndetermined = (kind, detail) => {
+-  const error = new Error(`Ownership frontend non determinabile per "${kind}". ${detail} Nessuna modifica è stata autorizzata.`);
+-  error.code = "OWNERSHIP_UNDETERMINED";
+-  return error;
+-};
+-
+-const metaKey = (entity, kind) => {
+-  const meta = pluginMeta(entity);
+-  const has = (key) => Object.prototype.hasOwnProperty.call(meta, key);
+-  const choices = {
+-    title: [["rank_math_title", "Rank Math"], ["_yoast_wpseo_title", "Yoast"]],
+-    meta_description: [["rank_math_description", "Rank Math"], ["_yoast_wpseo_metadesc", "Yoast"]],
+-    canonical: [["rank_math_canonical_url", "Rank Math"], ["_yoast_wpseo_canonical", "Yoast"]],
+-    noindex: [["rank_math_robots", "Rank Math"], ["_yoast_wpseo_meta-robots-noindex", "Yoast"]],
+-  };
+-  const matches = (choices[kind] || []).filter(([key]) => has(key));
+-  if (matches.length > 1) throw ownershipUndetermined(kind, `Sono esposti contemporaneamente ${matches.map(([, adapter]) => adapter).join(" e ")}; SeoGrow non sceglie un plugin SEO per priorità arbitraria.`);
+-  return matches[0] || null;
+-};
+-
+-const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement) => ({
+-  title: entity?.title?.raw || entity?.title?.rendered || "",
+-  content: contentOverride ?? entity?.content?.raw ?? entity?.content?.rendered ?? "",
+-  excerpt: entity?.excerpt?.raw || entity?.excerpt?.rendered || "",
+-  url: targetUrl,
+-  ...(remediationMeasurement ? { remediationMeasurement } : {}),
+-});
+-
+-const preparationFailure = (error) => {
+-  const message = error instanceof Error ? error.message : "Preparazione correzione non riuscita.";
+-  const code = String(error?.code || "");
+-  if (code === "CONTENT_WIDGET_SELECTION_REQUIRED") return {
+-    status: "selection_required",
+-    category: "selection",
+-    reason: message,
+-    contentCandidates: Array.isArray(error?.contentCandidates) ? error.contentCandidates : [],
+-  };
+-  if (/AI_OUTPUT_|AI_INVALID_RESPONSE|AI_PROVIDER_ERROR|AI_REFUSAL/.test(code)) return { status: "generation_error", category: "generation", reason: message };
+-  if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
+-  if (/CANONICAL_|INDEX_INTENT/.test(code)) return { status: "context_error", category: "context", reason: message };
+-  if (code === "OWNERSHIP_UNDETERMINED" || /ownership/i.test(message)) return { status: "ownership_error", category: "ownership", reason: message };
+-  if (/401|403|credenzial|autentic|password|unauthorized|forbidden/i.test(message)) return { status: "auth_error", category: "authentication", reason: message };
+-  if (/timeout|timed out|tempo.*scad/i.test(message)) return { status: "timeout_error", category: "timeout", reason: message };
+-  if (/openai|generaz|modello|ai\b/i.test(message)) return { status: "generation_error", category: "generation", reason: message };
+-  if (/adapter|non dispone|non espongono/i.test(message)) return { status: "adapter_error", category: "adapter", reason: message };
+-  return { status: "error", category: "runtime", reason: message };
+-};
+-
+-const contentMeasurement = (frontend, fieldContent) => {
+-  const frontendWords = Number(frontend?.words);
+-  const minimumWords = Number(frontend?.minimumWords);
+-  const fieldWords = countTextWords(fieldContent);
+-  if (![frontendWords, minimumWords, fieldWords].every((value) => Number.isSafeInteger(value) && value >= 0) || fieldWords > frontendWords) {
+-    throw ownershipUndetermined("content", "Il conteggio corrente di frontend e campo modificabile non è coerente; il target non può essere calcolato in sicurezza.");
+-  }
+-  return { frontendWords, fieldWords, minimumWords, marginWords: minimumWords >= 180 ? 30 : 20 };
+-};
+-
+-async function inspectWordPress(targetUrl, credentials) {
+-  if (isNonEditableWordPressUrl(targetUrl)) {
+-    const error = new Error("Archivio/tassonomia/paginazione WordPress: questa URL non è una pagina o un articolo modificabile via REST.");
+-    error.code = "NON_EDITABLE_ARCHIVE";
+-    throw error;
+-  }
+-  const response = await apiFetch("/api/wordpress/inspect-fast", {
+-    method: "POST",
+-    headers: { "content-type": "application/json" },
+-    body: JSON.stringify({
+-      siteUrl: credentials.url,
+-      url: targetUrl,
+-      username: credentials.username,
+-      applicationPassword: credentials.applicationPassword,
+-    }),
+-  });
+-  const data = await response.json();
+-  if (!response.ok) {
+-    const error = new Error(data.error || "Ispezione WordPress non riuscita.");
+-    error.code = response.status === 401 || response.status === 403 ? "AUTH" : "INSPECT";
+-    throw error;
+-  }
+-  return data;
+-}
+-
+-async function inspectFrontend(targetUrl) {
+-  const response = await apiFetch("/api/frontend/inspect", {
+-    method: "POST",
+-    headers: { "content-type": "application/json" },
+-    body: JSON.stringify({ url: targetUrl }),
+-  });
+-  const data = await response.json();
+-  if (!response.ok) throw new Error(data.error || "Ispezione frontend non riuscita.");
+-  return data;
+-}
+-
+-async function inspectLinkEvidence(sourceUrl, targetUrl) {
+-  const response = await apiFetch("/api/frontend/link-evidence", {
+-    method: "POST", headers: { "content-type": "application/json" },
+-    body: JSON.stringify({ sourceUrl, targetUrl }), cache: "no-store",
+-  });
+-  const evidence = await response.json();
+-  if (!response.ok || evidence.ok !== true) throw Object.assign(new Error(evidence.error || "Verifica attuale del link non disponibile."), { code: "LINK_EVIDENCE_UNAVAILABLE" });
+-  return evidence;
+-}
+-
+-async function verifyFrontend(targetUrl, expected) {
+-  const response = await apiFetch("/api/wordpress/verify-frontend", {
+-    method: "POST",
+-    headers: { "content-type": "application/json" },
+-    body: JSON.stringify({ url: targetUrl, expected }),
+-  });
+-  const data = await response.json();
+-  if (!response.ok) throw new Error(data.error || "Controllo ownership frontend non riuscito.");
+-  return data;
+-}
+-
+-async function verifyCoreOwnership(kind, targetUrl, inspected) {
+-  if (!["title", "content", "h1"].includes(kind)) return { ok: true, frontend: null };
+-  const entity = inspected.entity || {};
+-  const expected = kind === "title"
+-    ? { title: entity.title?.raw || entity.title?.rendered || "" }
+-    : { content: entity.content?.raw || entity.content?.rendered || "" };
+-  const frontend = await verifyFrontend(targetUrl, expected);
+-  return assessCoreOwnership(kind, entity, frontend);
+-}
+-
+-const alreadyResolvedReason = (kind, issue, ownership) => {
+-  const frontend = ownership?.frontend;
+-  if (!frontend) return "";
+-  const verificationSafe = frontend.verificationSafe !== false && frontend.requiresBrowserVerification !== true;
+-  if (!verificationSafe && ["h1", "content"].includes(kind)) return "";
+-  if (kind === "h1") {
+-    const label = String(issue?.label || "");
+-    if ((/\b0\s*H1\b/i.test(label) || /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label)) && Number(frontend.h1) === 1)
+-      return "Il problema H1 dell’audit non è più presente nel frontend corrente. Esegui un nuovo audit per aggiornare il report.";
+-  }
+-  if (kind === "content" && /brev|parole|word/.test(issueText(issue))) {
+-    const words = Number(frontend.words);
+-    const minimumWords = Number(frontend.minimumWords);
+-    if (Number.isFinite(words) && Number.isFinite(minimumWords) && minimumWords > 0 && words >= minimumWords)
+-      return `Il contenuto breve non è più presente nel frontend corrente (${words} parole, soglia ${minimumWords}). Esegui un nuovo audit per confermare.`;
+-  }
+-  return "";
+-};
+-
+-async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride, remediationMeasurement, manualValue) {
+-  const response = await apiFetch("/api/wordpress/generate-patch-v2", {
+-    method: "POST",
+-    headers: { "content-type": "application/json" },
+-    body: JSON.stringify({
+-      ...(manualValue !== undefined ? { manualValue } : {}),
+-      topic: `Remediation WordPress ${kind}`,
+-      context: JSON.stringify({ issue, page: pageContext(entity, targetUrl, contentOverride, remediationMeasurement) }),
+-    }),
+-  });
+-  const data = await response.json();
+-  if (!response.ok || !data.content) {
+-    const error = new Error(data.error || "Generazione patch non riuscita.");
+-    error.code = data.code || "GENERATION_FAILED";
+-    error.quality = data.quality || null;
+-    error.candidate = data.candidate || "";
+-    throw error;
+-  }
+-  const parsed = data.changes ? { changes: data.changes } : JSON.parse(String(data.content));
+-  if (!parsed?.changes || typeof parsed.changes !== "object") throw new Error("La patch WordPress è vuota.");
+-  return { changes: parsed.changes, quality: data.quality || null };
+-}
+-
+-async function generateSeoValue(kind, issue, entity, targetUrl, manualValue) {
+-  const response = await apiFetch("/api/wordpress/generate-seo-value-v2", {
+-    method: "POST",
+-    headers: { "content-type": "application/json" },
+-    body: JSON.stringify({ kind, issue, page: pageContext(entity, targetUrl), ...(manualValue !== undefined ? { manualValue } : {}) }),
+-  });
+-  const data = await response.json();
+-  if (!response.ok || !data.value || data.publishable !== true) {
+-    const error = new Error(data.error || "La proposta SEO richiede revisione editoriale e non può essere approvata automaticamente.");
+-    error.code = data.code || "EDITORIAL_REVIEW_REQUIRED";
+-    error.quality = data.quality || null;
+-    error.candidate = data.candidate || "";
+-    throw error;
+-  }
+-  return { value: String(data.value).trim(), quality: data.quality || null };
+-}
+-
+-async function chooseVerifiedElementorContentWidget(targetUrl, state, selectedWidgetId = "") {
+-  if (state.widgets.length > 8) throw ownershipUndetermined("content", "La pagina contiene più di 8 text-editor Elementor candidati; serve selezione assistita prima di modificare.");
+-  const probes = await Promise.all(state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })));
+-  const selected = chooseElementorContentCandidate(state.widgets, probes);
+-  const explicitId = String(selectedWidgetId || "").trim();
+-  if (explicitId) {
+-    const explicit = (selected.candidates || []).find((candidate) => candidate.id === explicitId);
+-    if (!explicit) throw ownershipUndetermined("content", "Il blocco Elementor scelto non è più verificato nel frontend corrente. Riapri la selezione e scegli un candidato ancora valido.");
+-    return explicit;
+-  }
+-  if (selected.candidate) return selected.candidate;
+-  if ((selected.candidates || []).length > 1) {
+-    const error = new Error(selected.reason);
+-    error.code = "CONTENT_WIDGET_SELECTION_REQUIRED";
+-    error.contentCandidates = selected.candidates.map((candidate) => ({
+-      id: candidate.id,
+-      words: candidate.words,
+-      preview: contentCandidatePreview(candidate.value),
+-    }));
+-    throw error;
+-  }
+-  throw ownershipUndetermined("content", selected.reason);
+-}
+-
+-async function elementorPlan(kind, issue, entity, targetUrl, state, frontend, options = {}) {
+-  if (!state?.parsed || !state.widgets.length) return null;
+-  if (kind === "h1") {
+-    const headings = state.widgets.map((candidate) => candidate.item);
+-    const h1 = headings.filter((item) => String(item.settings?.header_size || "h2").toLowerCase() === "h1");
+-    const label = String(issue?.label || "");
+-    const frontendH1 = Number(frontend?.h1);
+-    const missing = /\b0\s*H1\b/i.test(label);
+-    const multiple = /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label);
+-    if (missing || h1.length === 0) {
+-      if (frontendH1 !== 0 || !headings.length) throw ownershipUndetermined("h1", `Gli H1 Elementor modificabili non coincidono con il frontend (${Number.isFinite(frontendH1) ? frontendH1 : "non verificabile"}).`);
+-      headings[0].settings.header_size = "h1";
+-    } else if (multiple || h1.length > 1) {
+-      if (h1.length <= 1 || frontendH1 !== h1.length) throw ownershipUndetermined("h1", "Gli H1 pubblici non coincidono con gli H1 Elementor modificabili; potrebbe intervenire un template condiviso.");
+-      h1.slice(1).forEach((item) => { item.settings.header_size = "h2"; });
+-    } else return null;
+-    return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: null };
+-  }
+-  if (kind === "content") {
+-    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, options.contentWidgetId);
+-    const previous = selected.item.settings.editor;
+-    const measurement = contentMeasurement(frontend, previous);
+-    let generated;
+-    try { generated = await generateCorePatch("content", issue, entity, targetUrl, previous, measurement, options.manualValue); }
+-    catch (error) { error.manualOriginal = previous; error.contentWidgetId = selected.id; throw error; }
+-    if (typeof generated.changes?.content !== "string" || !generated.changes.content.trim() || generated.changes.content === previous) return null;
+-    selected.item.settings.editor = generated.changes.content;
+-    return {
+-      adapter: "Elementor single text-editor",
+-      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
+-      quality: generated.quality,
+-      contentWidget: {
+-        id: selected.id,
+-        beforeWords: selected.words,
+-        beforePreview: contentCandidatePreview(previous),
+-      },
+-    };
+-  }
+-  return null;
+-}
+-
+-async function buildPlan(kind, issue, inspected, targetUrl, frontendContext, options = {}) {
+-  const entity = inspected.entity || {};
+-  const contextDecision = remediationContextDecision(issue, frontendContext || {}, targetUrl);
+-  if (!contextDecision.allowed) {
+-    const error = new Error(contextDecision.reason);
+-    error.code = contextDecision.code;
+-    throw error;
+-  }
+-
+-  if (kind === "external_link") {
+-    const brokenUrl = brokenExternalTarget(issue);
+-    if (!brokenUrl) {
+-      const error = new Error("Il problema non contiene una destinazione esterna 404 valida da correggere.");
+-      error.code = "BROKEN_LINK_TARGET_MISSING";
+-      throw error;
+-    }
+-
+-    const elementorRaw = pluginMeta(entity)._elementor_data;
+-    const elementor = prepareElementorBrokenExternalLink(elementorRaw, brokenUrl);
+-    const evidence = options.linkEvidence;
+-    if (evidence && (evidence.targetUrl !== brokenUrl || evidence.requestedSourceUrl !== new URL(targetUrl).href)) throw ownershipUndetermined("external_link", "L’evidenza appartiene a una pagina o destinazione diversa: ricontrolla questo singolo problema.");
+-    const localAbsent = elementor.state === "valid" ? elementor.count === 0 : elementor.state === "absent" && typeof entity?.content?.raw === "string" && removeExactAnchor(entity.content.raw, brokenUrl, "unlink-preserve-text").count === 0;
+-    if (localAbsent && evidence?.verificationSafe === true && evidence?.scanComplete === true && evidence?.occurrenceCount === 0) return { alreadyResolved: true, linkResolution: "absent-confirmed", reason: "Link non più presente nel documento WordPress e nell’HTML pubblico ricontrollato. Nessuna modifica necessaria. Aggiorna l’audit per riallineare l’elenco dei problemi." };
+-    if (evidence && (evidence.verificationSafe !== true || evidence.occurrenceCount !== 1)) throw ownershipUndetermined("external_link", "La verifica attuale non conferma una singola occorrenza pubblica modificabile. Rileggi la pagina prima di scrivere.");
+-    if (elementor.state === "invalid") {
+-      throw ownershipUndetermined("external_link", "_elementor_data non è leggibile in modo strutturato: il link non viene modificato.");
+-    }
+-    if (elementor.state === "valid" && elementor.count > 1) {
+-      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${elementor.count} volte nel documento Elementor. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+-    }
+-    if (elementor.state === "valid" && elementor.count === 1) {
+-      return {
+-        adapter: "Elementor link cleanup",
+-        changes: { meta: { _elementor_data: elementor.serialized } },
+-        quality: null,
+-        linkCleanup: {
+-          targetUrl: brokenUrl,
+-          action: elementor.action,
+-          anchorText: elementor.anchors[0] || "",
+-        },
+-      };
+-    }
+-    if (elementor.state === "valid") {
+-      throw ownershipUndetermined("external_link", "La pagina usa Elementor ma la destinazione 404 non è presente nel documento locale. Potrebbe provenire da un template condiviso; il fallback su post_content è bloccato.");
+-    }
+-
+-    const coreContent = entity?.content?.raw || "";
+-    const core = removeExactAnchor(coreContent, brokenUrl);
+-    if (core.count > 1) {
+-      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${core.count} volte in post_content. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+-    }
+-    if (core.count === 1) {
+-      return {
+-        adapter: "WordPress core link cleanup",
+-        changes: { content: core.value },
+-        quality: null,
+-        linkCleanup: {
+-          targetUrl: brokenUrl,
+-          action: core.action,
+-          anchorText: core.anchors[0] || "",
+-        },
+-      };
+-    }
+-    throw ownershipUndetermined("external_link", "La destinazione 404 non compare in una sorgente WordPress locale modificabile. Nessun collegamento viene rimosso automaticamente.");
+-  }
+-
+-  if (["content", "h1"].includes(kind)) {
+-    const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
+-    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
+-    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
+-    const elementorState = inspectEditableElementor(kind, entity);
+-    if (elementorState.state === "invalid") throw ownershipUndetermined(kind, "_elementor_data è presente ma non è strutturato in modo valido e sicuro.");
+-    if (elementorState.state === "valid" && elementorState.widgets.length > 0) {
+-      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend, options);
+-      if (elementor) return elementor;
+-      throw ownershipUndetermined(kind, "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica senza ambiguità. Il fallback su post_content è bloccato.");
+-    }
+-    if (elementorState.state === "valid" && elementorState.hasDocument) {
+-      throw ownershipUndetermined(kind, `${elementorOwnershipDetail(entity)} Il fallback su post_content è bloccato.`);
+-    }
+-    if (ownership.ok) {
+-      const coreContent = entity?.content?.raw || entity?.content?.rendered || "";
+-      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined, options.manualValue);
+-      return { adapter: "WordPress core", ...generated };
+-    }
+-    throw ownershipUndetermined(kind, "La verifica frontend non dimostra che post_content sia la sorgente principale della pagina.");
+-  }
+-
+-  if (kind === "title") {
+-    const seoPlugin = metaKey(entity, "title");
+-    if (seoPlugin) {
+-      const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
+-      return { adapter: seoPlugin[1], changes: { meta: { [seoPlugin[0]]: generated.value } }, quality: generated.quality };
+-    }
+-    const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
+-    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
+-    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
+-    if (ownership.ok) {
+-      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, undefined, options.manualValue);
+-      return { adapter: "WordPress core", ...generated };
+-    }
+-    const plugin = metaKey(entity, "title");
+-    if (!plugin) throw new Error("Il title SEO è gestito dal frontend ma Rank Math/Yoast non espongono un campo REST scrivibile per questa pagina.");
+-    const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
+-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
+-  }
+-
+-  if (kind === "excerpt") {
+-    const generated = await generateCorePatch("excerpt", issue, entity, targetUrl, undefined, undefined, options.manualValue);
+-    return { adapter: "WordPress core", ...generated };
+-  }
+-
+-  if (kind === "meta_description") {
+-    const plugin = metaKey(entity, kind);
+-    if (!plugin) throw new Error("Rank Math/Yoast non espongono la meta description come campo REST scrivibile per questa pagina.");
+-    const generated = await generateSeoValue("meta_description", issue, entity, targetUrl, options.manualValue);
+-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
+-  }
+-
+-  if (kind === "canonical") {
+-    const plugin = metaKey(entity, kind);
+-    if (!plugin) throw new Error("Rank Math/Yoast non espongono la canonical come campo REST scrivibile per questa pagina.");
+-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: frontendContext?.url || targetUrl } }, quality: null };
+-  }
+-
+-  if (kind === "noindex") {
+-    const plugin = metaKey(entity, kind);
+-    if (!plugin) throw new Error("Rank Math/Yoast non espongono la direttiva noindex come campo REST scrivibile per questa pagina.");
+-    const [key, adapter] = plugin;
+-    const current = pluginMeta(entity)[key];
+-    const next = key === "_yoast_wpseo_meta-robots-noindex"
+-      ? "2"
+-      : Array.isArray(current)
+-        ? [...new Set(["index", "follow", ...current.filter((item) => !/noindex/i.test(String(item)))])]
+-        : "index,follow";
+-    return { adapter, changes: { meta: { [key]: next } }, quality: null };
+-  }
+-
+-  throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
+-}
+-
+-const flattenState = (state, fields) => {
+-  const flat = {};
+-  for (const field of fields || []) {
+-    if (field.startsWith("meta.")) flat[field] = state?.meta?.[field.slice(5)];
+-    else flat[field] = state?.[field];
+-  }
+-  return flat;
+-};
+ const previewText = (value) => JSON.stringify(value, null, 2) || "(anteprima non disponibile)";
+ const openAiConfigurationMissing = (item) => item?.status === "generation_error" && /openai.*non (?:è )?configurat|OPENAI_API_KEY/i.test(String(item?.reason || ""));
+ const h1OwnershipBlocked = (item) => item?.status === "ownership_error" && /h1/i.test(issueText(item?.issue));
+@@ -786,75 +357,8 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
+     setApplyingId(item.data.approvalToken);
+     setMessage(`Applicazione live: ${item.issue?.label || "problema SEO"}…`);
+     try {
+-      const data = {
+-        changed: item.data.changed,
+-        before: item.data.previewBefore,
+-        after: item.data.previewAfter,
+-        resource: item.data.resource,
+-        id: item.data.id,
+-        adapter: item.data.adapter,
+-      };
+-      const fields = data.changed || [];
+-      const snapshot = item.contextSnapshot || {};
+-      const pendingRecord = {
+-        id: `correction-${crypto.randomUUID()}`,
+-        batchId,
+-        clientId: snapshot.clientId,
+-        clientName: snapshot.clientName || "",
+-        platform: "wordpress",
+-        liveApproval: true,
+-        adapter: data.adapter || item.plan.adapter,
+-        issue: item.issue,
+-        issueLabel: item.issue?.label || "Problema SEO",
+-        issueType: item.issue?.type || "audit",
+-        severity: item.issue?.severity || "media",
+-        sourceUrl: data.sourceUrl || item.targetUrl,
+-        siteUrl: credentials.url,
+-        finalUrl: item.frontendContext?.url || "",
+-        canonical: item.frontendContext?.canonical || "",
+-        canonicalConfirmed: Boolean(item.frontendContext?.canonical),
+-        resource: data.resource,
+-        entityId: Number(data.id),
+-        wordpressResource: data.resource,
+-        wordpressId: Number(data.id),
+-        resourceIdentity: item.resourceIdentity,
+-        issueIdentity: item.issueIdentity,
+-        username: credentials.username,
+-        fields,
+-        before: flattenState(data.before, fields),
+-        after: flattenState(data.after, fields),
+-        rollbackChanges: data.before,
+-        editorialQuality: item.plan.quality || null,
+-        status: "Da verificare",
+-        appliedAt: new Date().toISOString(),
+-        frontendConfirmed: false,
+-        auditType: snapshot.auditType,
+-        auditAnalyzedAt: snapshot.analyzedAt,
+-        verificationNote: `Modifica live approvata e applicata tramite ${data.adapter || item.plan.adapter}. Scrittura e risoluzione SEO restano stati distinti.`,
+-      };
+-      const record = await applyJournaledCorrection(pendingRecord, async () => {
+-        correctionCredentials({ clientId: snapshot.clientId, siteUrl: snapshot.siteUrl }, {
+-          clientId: Number(readJson(SELECTED_CLIENT_KEY, 0)), siteUrl: credentials.url,
+-          username: credentials.username, applicationPassword: credentials.applicationPassword,
+-        });
+-        const response = await apiFetch("/api/wordpress/live-apply", {
+-          method: "POST",
+-          headers: { "content-type": "application/json" },
+-          body: JSON.stringify({ approvalToken: item.data.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
+-        });
+-        const applied = await response.json();
+-        if (!response.ok || applied.ok !== true) {
+-          const error = new Error(applied.error || "Applicazione live non riuscita.");
+-          error.code = applied.code || "APPLY_FAILED";
+-          throw error;
+-        }
+-        return {
+-          adapter: applied.adapter || pendingRecord.adapter,
+-          before: flattenState(applied.before, applied.changed || fields),
+-          after: flattenState(applied.after, applied.changed || fields),
+-          rollbackChanges: applied.before,
+-        };
+-      });
++      const pendingRecord = createWordPressCorrection(item, credentials, batchId);
++      const record = await applyPreparedCorrection(pendingRecord, item.data, credentials);
+       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
+       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "applied", data: { ...entry.data, apply: record } } : entry));
+       setMessage("Modifica applicata e registrata. Stato: Da verificare. Usa la riverifica specifica e, quando richiesto, un nuovo audit prima di considerare il problema risolto.");
+diff --git a/src/batchRemediation.test.js b/src/batchRemediation.test.js
+new file mode 100644
+index 0000000..4dcfe1e
+--- /dev/null
++++ b/src/batchRemediation.test.js
+@@ -0,0 +1,134 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { createBatchRun, batchCapability, visibleBatchSelection, consolidateBatch, batchExecutionOrder, approvalFingerprint, batchSummary, retryableProblemKeys, verificationState, recoverBatchRun } from './batchRemediationModel.js';
++import { prepareBatch, executeBatch } from './batchRemediationQueue.js';
++import { batchHistorySnapshot, withBatchLock } from './batchRemediationStore.js';
++
++const problem = (key, extra = {}) => ({ key, title: `Title ${key}`, issueType: 'title', sourceUrl: `https://example.com/${key}/`, correctability: 'automatic', problemState: 'open', interventionState: 'not_prepared', ...extra });
++const runFor = problems => createBatchRun({ id:'test',clientId:1,siteUrl:'https://example.com/',clientName:'Fixture',problems });
++const preview = (entry, opts = {}) => ({ resourceIdentity: opts.resource || entry.problem.sourceUrl, targetUrl:entry.problem.sourceUrl,
++  plan:{changes:opts.changes || {title:'Proposta '+entry.id},adapter:'WordPress'},data:{approvalToken:'token-'+entry.id,changed:['title'],previewBefore:{title:'prima'},previewAfter:opts.changes || {title:'Proposta '+entry.id}},contextSnapshot:{clientId:1} });
++function portsFor(options = {}) {
++  const trace = [], saved = [], applied = [];
++  const ports = {
++    assertContext:async()=>{}, preparationKey:e=>e.problem.key,
++    save:async run=>{ trace.push('save:'+run.status); saved.push(structuredClone(run)); },
++    prepare:async e=>preview(e), validate:async()=>{},
++    apply:async e=>{ trace.push('write:'+e.id); applied.push(e.id); return {id:e.correctionId}; },
++    verify:async()=>({ record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true} }),
++    ...options,
++  };
++  return { ports,trace,saved,applied };
++}
++const approve = run => ({ fingerprint: run.planFingerprint, highRiskIds: run.entries.filter(e=>e.highRisk).map(e=>e.id) });
++test('selection intersects the visible filtered dataset and never includes hidden IDs',()=>{
++  assert.deepEqual(visibleBatchSelection([problem('a'),problem('b')],['a','hidden']).map(p=>p.key),['a']);
++});
++test('planner rejects invalid clients, non-HTTPS and empty selections',()=>{
++  assert.throws(()=>createBatchRun({clientId:0,siteUrl:'https://example.com/',problems:[]}));
++  assert.throws(()=>createBatchRun({clientId:1,siteUrl:'http://example.com/',problems:[problem('a')]}));
++  assert.throws(()=>runFor([]));
++});
++test('capabilities exclude manual, ownership, archive, unsupported, applied and resolved',()=>{
++  for(const [extra,state] of [[{correctability:'manual'},'MANUAL_REQUIRED'],[{ownershipBlocked:true},'BLOCKED'],[{pageKind:'archive'},'MANUAL_REQUIRED'],[{issueType:'broken-link'},'UNSUPPORTED'],[{interventionState:'applied'},'BLOCKED'],[{problemState:'resolved'},'SKIPPED']]) assert.equal(batchCapability(problem('a',extra)).state,state);
++});
++test('planner deduplicates repeated selection IDs without losing independent pages',()=>{
++  assert.equal(runFor([problem('a'),problem('a'),problem('b')]).entries.length,2);
++});
++test('preparation persists progress but never writes remotely',async()=>{
++  const run=runFor([problem('a')]),{ports,applied,saved}=portsFor();await prepareBatch(run,ports);
++  assert.equal(applied.length,0);assert.equal(run.status,'AWAITING_APPROVAL');assert.ok(saved.some(r=>r.entries[0].state==='PREFLIGHT'));
++});
++test('exact generation inputs are cached and latest identical token is retained',async()=>{
++  const run=runFor([problem('a'),problem('b')]);let generations=0;
++  const {ports}=portsFor({preparationKey:()=> 'same',prepare:async e=>{generations++;return preview(e,{resource:'same',changes:{title:'same'}});}});
++  await prepareBatch(run,ports);assert.equal(generations,1);assert.equal(run.entries[1].state,'SKIPPED');assert.equal(run.entries[0].problemKeys.length,2);
++});
++test('overlapping fields on same resource are blocked, independent resource stays ready',async()=>{
++  const run=runFor([problem('a'),problem('b'),problem('c')]);const{ports}=portsFor({prepare:async e=>preview(e,{resource:e.id==='op-3'?'other':'same'})});
++  await prepareBatch(run,ports);assert.deepEqual(run.entries.map(e=>e.state),['BLOCKED','BLOCKED','PREPARED']);
++});
++test('independent fields on same resource do not conflict',()=>{
++  const run=runFor([problem('a'),problem('b')]);
++  run.entries.forEach((e,i)=>{e.state='PREPARED';e.preview=preview(e,{resource:'same',changes:i?{meta:{rank_math_description:'New'}}:{title:'New'}});});
++  consolidateBatch(run);assert.ok(run.entries.every(e=>e.state==='PREPARED'));
++});
++test('dependency sorting is deterministic and cycles throw',()=>{
++  const a={id:'a',dependsOn:['b']},b={id:'b',dependsOn:[]};assert.deepEqual(batchExecutionOrder([a,b]).map(e=>e.id),['b','a']);
++  assert.throws(()=>batchExecutionOrder([a,{...b,dependsOn:['a']}]),/DEPENDENCY_CYCLE/);
++});
++test('no approval, modified preview and missing high-risk checkbox cannot write',async()=>{
++  const run=runFor([problem('a',{issueType:'h1'})]),{ports,applied}=portsFor();await prepareBatch(run,ports);
++  await assert.rejects(executeBatch(run,null,ports));await assert.rejects(executeBatch(run,{fingerprint:run.planFingerprint,highRiskIds:[]},ports));
++  const approval=approve(run);run.entries[0].preview.plan.changes.title='tampered';await assert.rejects(executeBatch(run,approval,ports));assert.equal(applied.length,0);
++});
++test('double-click execution is rejected before the first await can yield',async()=>{
++  const run=runFor([problem('a')]),{ports,applied}=portsFor();await prepareBatch(run,ports);const approval=approve(run);
++  const results=await Promise.allSettled([executeBatch(run,approval,ports),executeBatch(run,approval,ports)]);
++  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(applied.length,1);
++});
++test('successful execution journals IN_EXECUTION before remote write',async()=>{
++  const run=runFor([problem('a')]),t=portsFor();await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);
++  assert.equal(run.entries[0].state,'RESOLVED_VERIFIED');assert.equal(run.status,'SUCCESS');
++  assert.ok(t.saved.some(r=>r.entries[0].state==='IN_EXECUTION' && r.entries[0].definitelyNoWrite===false));
++});
++test('single-page API success without verified SEO is not success',async()=>{
++  const run=runFor([problem('a')]),{ports}=portsFor({verify:async()=>({record:{status:'Da verificare',writeConfirmed:true,frontendConfirmed:true},needsAudit:true})});
++  await prepareBatch(run,ports);await executeBatch(run,approve(run),ports);assert.equal(run.entries[0].state,'APPLIED_UNVERIFIED');assert.equal(run.status,'PARTIAL_SUCCESS');
++});
++test('verification errors preserve applied state, never make write retryable',async()=>{
++  const run=runFor([problem('a')]),{ports}=portsFor({verify:async()=>{throw new Error('timeout');}});await prepareBatch(run,ports);await executeBatch(run,approve(run),ports);
++  assert.equal(run.entries[0].state,'APPLIED_UNVERIFIED');assert.deepEqual(retryableProblemKeys(run),[]);
++});
++test('unknown write result halts the rest and cannot be retried',async()=>{
++  const run=runFor([problem('a'),problem('b')]);let writes=0;const{ports}=portsFor({apply:async()=>{writes++;throw new Error('response lost');}});
++  await prepareBatch(run,ports);await executeBatch(run,approve(run),ports);assert.equal(writes,1);assert.equal(run.entries[0].state,'UNCERTAIN');assert.equal(run.entries[1].state,'BLOCKED');assert.deepEqual(retryableProblemKeys(run),['b']);
++});
++test('known prewrite failure is isolated and later operations continue',async()=>{
++  const run=runFor([problem('a'),problem('b')]);const t=portsFor({validate:async e=>{if(e.id==='op-1')throw new Error('resource missing');}});
++  await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);assert.equal(run.entries[0].state,'FAILED');assert.equal(run.entries[1].state,'RESOLVED_VERIFIED');assert.deepEqual(t.applied,['op-2']);
++});
++test('auth loss during preflight stops all future writes',async()=>{
++  const run=runFor([problem('a'),problem('b')]);const t=portsFor({validate:async()=>{throw Object.assign(new Error('auth lost'),{code:'AUTH_LOST'});}});
++  await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);assert.equal(t.applied.length,0);assert.equal(run.entries[1].state,'BLOCKED');
++});
++test('disk failure before write stops execution without a remote side effect',async()=>{
++  const run=runFor([problem('a')]),t=portsFor();await prepareBatch(run,t.ports);
++  t.ports.save=async r=>{if(r.entries[0].state==='IN_EXECUTION')throw new Error('disk full');};
++  await assert.rejects(executeBatch(run,approve(run),t.ports),/disk full/);assert.equal(t.applied.length,0);
++});
++test('stop request settles the current operation and blocks subsequent ones',async()=>{
++  const run=runFor([problem('a'),problem('b')]);let stopped=false;const t=portsFor({stopped:()=>stopped,verify:async()=>{stopped=true;return{record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true}};}});
++  await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);assert.deepEqual(t.applied,['op-1']);assert.equal(run.entries[1].state,'BLOCKED');
++});
++test('realistic 10-problem scenario: 6 fixes, duplicate, manual, failure, stale',async()=>{
++  const problems=Array.from({length:10},(_,i)=>problem(String(i),i===7?{correctability:'manual'}:{}));
++  const run=runFor(problems);const t=portsFor({prepare:async e=>preview(e,{resource:e.id==='op-7'?'shared':e.id==='op-1'?'shared':e.id,changes:{title:['op-1','op-7'].includes(e.id)?'shared':'new'+e.id}}),
++    validate:async e=>{if(e.id==='op-9')throw new Error('isolated');if(e.id==='op-10')throw Object.assign(new Error('stale'),{code:'STALE_TARGET'});}});
++  await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);
++  const sum=batchSummary(run);assert.equal(t.applied.length,6);assert.equal(sum.resolvedProblems,7);assert.equal(sum.MANUAL_REQUIRED,1);assert.equal(sum.FAILED,1);assert.equal(sum.STALE_TARGET,1);assert.equal(run.status,'PARTIAL_SUCCESS');assert.deepEqual(retryableProblemKeys(run),['8','9']);
++});
++test('recovery preserves uncertainty and requires fresh approval for queued entries',()=>{
++  const run=runFor([problem('a'),problem('b')]);run.status='RUNNING';run.entries[0].state='IN_EXECUTION';run.entries[1].state='PREPARED';run.approval={at:'old'};
++  const result=recoverBatchRun(run,[]);assert.equal(result.entries[0].state,'UNCERTAIN');assert.equal(result.entries[1].state,'BLOCKED');assert.equal(result.approval,null);assert.equal(result.status,'INTERRUPTED');
++});
++test('recovery reads confirmed receipt without fabricating verification',()=>{
++  const run=runFor([problem('a')]);run.status='RUNNING';run.entries[0].state='IN_EXECUTION';
++  const result=recoverBatchRun(run,[{id:run.entries[0].correctionId,status:'Da verificare',writeConfirmed:true,frontendConfirmed:false}]);assert.equal(result.entries[0].state,'APPLIED_UNVERIFIED');
++});
++test('report strips secrets deeply while preserving before/after and token counts',()=>{
++  const safe=batchHistorySnapshot({credentials:{password:'secret'},tokens:123,entries:[{preview:{data:{approvalToken:'s',previewBefore:{title:'old'}}}}],applicationPassword:'pw'});
++  assert.equal(safe.tokens,123);assert.doesNotMatch(JSON.stringify(safe),/secret|approvalToken|applicationPassword|credentials/);assert.equal(safe.entries[0].preview.data.previewBefore.title,'old');
++});
++test('false verification needs explicit write and public confirmation, no outstanding audit',()=>{
++  assert.equal(verificationState({record:{status:'Verificato'}}),'APPLIED_UNVERIFIED');
++  assert.equal(verificationState({record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true},needsAudit:true}),'APPLIED_UNVERIFIED');
++  assert.equal(verificationState({record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true},needsBrowserVerification:true}),'APPLIED_UNVERIFIED');
++});
++test('site lock fails closed when unavailable or held by another tab',async()=>{
++  let called=0;await assert.rejects(withBatchLock('https://example.com',async()=>called++,{}));
++  await assert.rejects(withBatchLock('https://example.com',async()=>called++,{request:async(_n,_o,cb)=>cb(null)}));assert.equal(called,0);
++});
++test('approval fingerprint binds site, resource, before/after, changes, dependencies and risk',()=>{
++  const run=runFor([problem('a')]);const e=run.entries[0];e.state='PREPARED';e.preview=preview(e);const before=approvalFingerprint(run);e.dependsOn=['other'];assert.notEqual(approvalFingerprint(run),before);
++});
+diff --git a/src/batchRemediationModel.js b/src/batchRemediationModel.js
+new file mode 100644
+index 0000000..614017b
+--- /dev/null
++++ b/src/batchRemediationModel.js
+@@ -0,0 +1,135 @@
++import { changedFieldKeys } from './remediationPlanSafety.js';
++import { remediationIssueKind } from './remediationIssueKind.js';
++
++export const BATCH_LABELS = {
++  PENDING: 'In attesa', PREFLIGHT: 'Preflight', PREPARED: 'Pronta per approvazione',
++  IN_EXECUTION: 'In esecuzione', VERIFYING: 'Verifica in corso',
++  RESOLVED_VERIFIED: 'Risolto e verificato', APPLIED_UNVERIFIED: 'Applicata, da verificare',
++  FAILED: 'Fallita', SKIPPED: 'Saltata', BLOCKED: 'Bloccata', MANUAL_REQUIRED: 'Intervento assistito/manuale',
++  STALE_TARGET: 'Risorsa cambiata', UNSUPPORTED: 'Non supportata', UNCERTAIN: 'Esito incerto: non ripetere',
++};
++export const stableBatchJson = value => JSON.stringify(value, (_key, v) =>
++  v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
++export const problemIssue = p => ({ type: p.issueType, label: p.title, detail: p.detail, sourceUrl: p.sourceUrl, targetUrl: p.targetUrls?.[0] || '' });
++export function batchCapability(problem) {
++  const kind = remediationIssueKind(problemIssue(problem));
++  if (['resolved', 'intentional'].includes(problem.problemState)) return { state: 'SKIPPED', reason: 'Problema risolto o intenzionale.', kind };
++  if (problem.ownershipBlocked) return { state: 'BLOCKED', reason: 'Ownership da chiarire nel flusso singolo.', kind };
++  if (['applied', 'verified'].includes(problem.interventionState)) return { state: 'BLOCKED', reason: 'Esiste una modifica da verificare: non ripetere la scrittura.', kind };
++  if (!kind || problem.correctability === 'not_supported') return { state: 'UNSUPPORTED', reason: 'Nessun adapter batch sicuro per questo problema.', kind };
++  if (['archive', 'gdpr'].includes(problem.pageKind) || ['manual', 'assisted'].includes(problem.correctability)) return { state: 'MANUAL_REQUIRED', reason: 'Usa la revisione assistita del problema.', kind };
++  return { state: 'PENDING', reason: 'Auto-fix con approvazione; disponibilità confermata dal preflight.', kind };
++}
++export function visibleBatchSelection(rows, keys) {
++  const wanted = new Set(keys);
++  return rows.filter(p => wanted.has(p.key));
++}
++export function createBatchRun({ clientId, siteUrl, clientName, problems, parentRunId = null, id = crypto.randomUUID(), now = new Date().toISOString() }) {
++  if (!Number.isSafeInteger(Number(clientId)) || Number(clientId) <= 0) throw new Error('Progetto batch non valido.');
++  const site = new URL(siteUrl);
++  if (site.protocol !== 'https:' || site.username || site.password || site.search || site.hash) throw new Error('Il batch richiede la base HTTPS esatta del sito.');
++  const unique = [...new Map(problems.map(p => [p.key, p])).values()];
++  if (!unique.length) throw new Error('Seleziona almeno un problema visibile.');
++  return {
++    schemaVersion: 1, id: `batch-${id}`, revision: 0, clientId: Number(clientId), clientName, siteUrl,
++    createdAt: now, updatedAt: now, parentRunId, status: 'PLANNING', approval: null,
++    cost: null, model: null, tokens: null, estimatedCost: null,
++    entries: unique.map((p, index) => ({ id: `op-${index + 1}`, problem: structuredClone(p), ...batchCapability(p),
++      problemKeys: [p.key], dependsOn: [], definitelyNoWrite: true, correctionId: `batch-${id}:op-${index + 1}`, logs: [] })),
++  };
++}
++export function consolidateBatch(run) {
++  const identical = new Map();
++  for (const entry of run.entries.filter(e => e.state === 'PREPARED')) {
++    const p = entry.preview;
++    const key = stableBatchJson([p.resourceIdentity, p.plan.changes, p.data.previewBefore, p.data.previewAfter]);
++    const previous = identical.get(key);
++    if (previous) {
++      previous.problemKeys.push(...entry.problemKeys);
++      // A later live-preview invalidates an earlier overlapping token. Use the latest exact token.
++      previous.preview = p;
++      entry.state = 'SKIPPED'; entry.consolidatedInto = previous.id;
++      entry.reason = `Consolidata in ${previous.id}: nessuna scrittura duplicata.`;
++    } else identical.set(key, entry);
++  }
++  const fields = new Map();
++  for (const entry of run.entries.filter(e => e.state === 'PREPARED')) {
++    for (const field of changedFieldKeys(entry.preview.plan.changes)) {
++      const key = `${entry.preview.resourceIdentity}:${field}`;
++      const previous = fields.get(key);
++      // Partial overlap is blocked even when a sub-field matches. Never merge opaque Elementor JSON.
++      if (previous) {
++        for (const conflict of [previous, entry]) {
++          conflict.state = 'BLOCKED'; conflict.code = 'PREVIEW_CONFLICT';
++          conflict.reason = `Proposte sovrapposte sul campo ${field}; revisionale singolarmente.`;
++        }
++      } else fields.set(key, entry);
++    }
++  }
++  const prepared = run.entries.filter(e => e.state === 'PREPARED');
++  for (const entry of prepared) {
++    for (const other of prepared) {
++      if (other.id === entry.id || other.preview.resourceIdentity !== entry.preview.resourceIdentity) continue;
++      if ((entry.kind === 'external_link' && other.kind === 'canonical') || (entry.kind === 'h1' && other.kind === 'content')) entry.dependsOn.push(other.id);
++    }
++    entry.dependsOn = [...new Set(entry.dependsOn)];
++  }
++  try { batchExecutionOrder(prepared); }
++  catch {
++    for (const entry of prepared) { entry.state = 'BLOCKED'; entry.code = 'DEPENDENCY_CYCLE'; entry.reason = 'Dipendenze cicliche: esecuzione bloccata.'; }
++  }
++  return run;
++}
++export function batchExecutionOrder(entries) {
++  const pending = new Map(entries.map(e => [e.id, e])), ordered = [];
++  while (pending.size) {
++    const next = [...pending.values()].find(e => e.dependsOn.every(id => !pending.has(id)));
++    if (!next) throw new Error('DEPENDENCY_CYCLE');
++    ordered.push(next); pending.delete(next.id);
++  }
++  return ordered;
++}
++export const approvalFingerprint = run => stableBatchJson([run.clientId, run.siteUrl,
++  run.entries.filter(e => e.state === 'PREPARED').map(e => [e.id, e.problemKeys, e.dependsOn, e.highRisk,
++    e.preview.resourceIdentity, e.preview.data.previewBefore, e.preview.data.previewAfter, e.preview.plan.changes, e.preview.contextSnapshot])]);
++export function batchSummary(run) {
++  const counts = {};
++  for (const entry of run.entries) counts[entry.state] = (counts[entry.state] || 0) + 1;
++  const operations = run.entries.filter(e => e.preview && !e.consolidatedInto);
++  const applied = operations.filter(e => ['RESOLVED_VERIFIED', 'APPLIED_UNVERIFIED', 'VERIFYING'].includes(e.state));
++  return { ...counts, selected: run.entries.length, operations: operations.length,
++    applied: applied.length, pagesModified: new Set(applied.map(e => e.preview.resourceIdentity)).size,
++    resolvedProblems: operations.filter(e => e.state === 'RESOLVED_VERIFIED').reduce((n, e) => n + e.problemKeys.length, 0),
++    highRisk: operations.filter(e => e.state === 'PREPARED' && e.highRisk).length };
++}
++export function verificationState(result) {
++  return result?.record?.status === 'Verificato' && result.record.writeConfirmed === true && result.record.frontendConfirmed === true &&
++    !result.needsAudit && !result.needsBrowserVerification && !result.error ? 'RESOLVED_VERIFIED' : 'APPLIED_UNVERIFIED';
++}
++export function retryableProblemKeys(run) {
++  const keys = new Set();
++  for (const entry of run.entries) {
++    if (entry.definitelyNoWrite === true && ['FAILED', 'STALE_TARGET', 'BLOCKED'].includes(entry.state) && entry.code !== 'PREVIEW_CONFLICT') {
++      for (const key of entry.problemKeys) keys.add(key);
++    }
++  }
++  return [...keys];
++}
++export function recoverBatchRun(run, corrections) {
++  const next = structuredClone(run);
++  if (!['RUNNING', 'PLANNING', 'APPROVING'].includes(next.status)) return next;
++  const byId = new Map(corrections.map(c => [c.id, c]));
++  for (const entry of next.entries) {
++    if (['IN_EXECUTION', 'VERIFYING'].includes(entry.state)) {
++      const record = byId.get(entry.correctionId);
++      entry.state = record?.writeConfirmed === true ? verificationState({ record }) : 'UNCERTAIN';
++      entry.definitelyNoWrite = false;
++      entry.reason = 'Run interrotta: stato ricostruito dal journal; nessuna write ripetuta.';
++    } else if (['PENDING', 'PREFLIGHT', 'PREPARED'].includes(entry.state)) {
++      entry.state = 'BLOCKED'; entry.code = 'BATCH_INTERRUPTED';
++      entry.reason = 'Run interrotta: serve un nuovo preflight e una nuova approvazione.';
++    }
++  }
++  next.status = 'INTERRUPTED'; next.approval = null;
++  return next;
++}
+diff --git a/src/batchRemediationQueue.js b/src/batchRemediationQueue.js
+new file mode 100644
+index 0000000..2a9ae20
+--- /dev/null
++++ b/src/batchRemediationQueue.js
+@@ -0,0 +1,118 @@
++import { consolidateBatch, batchExecutionOrder, approvalFingerprint, verificationState, batchSummary } from './batchRemediationModel.js';
++const systemic = code => /AUTH|HTTP_429|RATE_LIMIT|SCOPE_CHANGED|BATCH_STORAGE|BATCH_REVISION|AbortError|CONNECTION_LOST|UNCERTAIN/.test(code || '');
++const note = (entry, state, reason = '', code = '') => {
++  entry.state = state; entry.reason = reason; entry.code = code;
++  entry.logs.push({ at: new Date().toISOString(), state, code });
++};
++const errorCode = error => String(error?.code || error?.cause?.code || error?.name || 'ERROR');
++
++// The queue knows no WordPress write implementation. All effects use the existing engine through ports.
++export async function prepareBatch(run, ports) {
++  const persist = async () => { await ports.save(run); ports.progress?.(run); };
++  await persist();
++  const generated = new Map();
++  let stop = false;
++  for (const entry of run.entries) {
++    if (entry.state !== 'PENDING') continue;
++    if (stop || ports.stopped?.()) { note(entry, 'BLOCKED', 'Preparazione interrotta.', 'BATCH_INTERRUPTED'); continue; }
++    note(entry, 'PREFLIGHT'); await persist();
++    try {
++      await ports.assertContext();
++      const key = ports.preparationKey(entry);
++      // Exact duplicate inputs reuse a valid proposal, not a fresh AI call.
++      const preview = generated.has(key) ? generated.get(key) : await ports.prepare(entry);
++      if (!generated.has(key)) generated.set(key, preview);
++      await ports.assertContext();
++      if (preview.alreadyResolved) {
++        note(entry, 'SKIPPED', preview.reason || 'Non più presente; da confermare nel nuovo audit.', 'ALREADY_ABSENT');
++      } else {
++        if (!preview.data?.approvalToken || !preview.data?.changed?.length || !preview.resourceIdentity) throw new Error('Anteprima incompleta: scrittura bloccata.');
++        entry.preview = preview;
++        entry.highRisk = ['canonical', 'noindex', 'external_link', 'content', 'h1'].includes(entry.kind);
++        note(entry, 'PREPARED');
++      }
++    } catch (error) {
++      const code = errorCode(error);
++      const state = /STALE/.test(code) ? 'STALE_TARGET' : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE/.test(code) ? 'BLOCKED' : 'FAILED';
++      note(entry, state, error.message, code); stop = systemic(code);
++    }
++    await persist();
++  }
++  consolidateBatch(run);
++  run.status = run.entries.some(e => e.state === 'PREPARED') ? 'AWAITING_APPROVAL' : 'COMPLETED_WITH_OPEN';
++  run.planFingerprint = approvalFingerprint(run);
++  await persist(); return run;
++}
++export async function executeBatch(run, approval, ports) {
++  if (run.status !== 'AWAITING_APPROVAL' || !approval || approval.fingerprint !== approvalFingerprint(run) || approval.fingerprint !== run.planFingerprint)
++    throw new Error('Approvazione mancante, riutilizzata o piano cambiato. Rigenera le anteprime.');
++  const queue = batchExecutionOrder(run.entries.filter(e => e.state === 'PREPARED'));
++  if (!queue.length) throw new Error('Nessuna operazione approvabile.');
++  const high = new Set(approval.highRiskIds || []);
++  if (queue.some(e => e.highRisk && !high.has(e.id))) throw new Error('Conferma esplicitamente ogni modifica ad alto rischio.');
++  run.status = 'APPROVING'; // Claim synchronously: even two callers in one tick cannot start the same run.
++  try { await ports.assertContext(); } catch (error) { run.status = 'AWAITING_APPROVAL'; throw error; }
++  run.approval = { fingerprint: approval.fingerprint, highRiskIds: [...high], at: new Date().toISOString() };
++  run.status = 'RUNNING'; run.startedAt = new Date().toISOString();
++  const persist = async () => { await ports.save(run); ports.progress?.(run); };
++  await persist();
++  let stop = false;
++  for (const entry of queue) {
++    if (stop || ports.stopped?.()) { note(entry, 'BLOCKED', 'Batch interrotto: nuova approvazione necessaria.', 'BATCH_INTERRUPTED'); await persist(); continue; }
++    if (entry.dependsOn.some(id => !['RESOLVED_VERIFIED'].includes(run.entries.find(e => e.id === id)?.state))) {
++      note(entry, 'BLOCKED', 'La dipendenza non è stata risolta e verificata.', 'DEPENDENCY_NOT_VERIFIED'); await persist(); continue;
++    }
++    try {
++      await ports.assertContext();
++      await ports.validate(entry);
++      await ports.assertContext();
++    } catch (error) {
++      const code = errorCode(error);
++      note(entry, /STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
++      stop = systemic(code); await persist(); continue;
++    }
++    note(entry, 'IN_EXECUTION'); entry.definitelyNoWrite = false;
++    // Durable write-ahead state, before even calling the correction journal.
++    await persist();
++    try {
++      const record = await ports.apply(entry, run);
++      entry.recordId = record.id;
++      note(entry, 'APPLIED_UNVERIFIED', 'Scrittura confermata; risoluzione SEO non ancora confermata.');
++    } catch (error) {
++      const code = errorCode(error);
++      entry.definitelyNoWrite = error.definitelyNoWrite === true;
++      note(entry, entry.definitelyNoWrite ? (/STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED') : 'UNCERTAIN', error.message, code);
++      stop = !entry.definitelyNoWrite || systemic(code);
++      await persist(); continue;
++    }
++    await persist();
++    note(entry, 'VERIFYING'); await persist();
++    try {
++      await ports.assertContext();
++      const result = await ports.verify(entry);
++      entry.verification = { needsAudit: result?.needsAudit === true, needsBrowserVerification: result?.needsBrowserVerification === true,
++        at: new Date().toISOString(), note: result?.record?.verificationNote || result?.error?.message || '' };
++      note(entry, verificationState(result), entry.verification.note);
++    } catch (error) {
++      note(entry, 'APPLIED_UNVERIFIED', `Scrittura confermata; verifica non conclusa: ${error.message}`, errorCode(error));
++      stop = systemic(errorCode(error));
++    }
++    await persist();
++  }
++  // Local incremental checks never expand to an unrelated whole-site AI audit.
++  if (!stop && !ports.stopped?.() && ports.deltaVerify) {
++    const candidates = run.entries.filter(e => e.state === 'APPLIED_UNVERIFIED');
++    for (const entry of candidates) {
++      try {
++        await ports.assertContext();
++        const result = await ports.deltaVerify(entry);
++        if (result) { entry.verification = { ...entry.verification, at: new Date().toISOString(), note: result.record?.verificationNote || '' }; note(entry, verificationState(result), entry.verification.note); }
++      } catch (error) { entry.verification = { ...entry.verification, deltaError: error.message }; }
++      await persist();
++    }
++  }
++  run.completedAt = new Date().toISOString(); run.durationMs = Date.parse(run.completedAt) - Date.parse(run.startedAt);
++  const summary = batchSummary(run);
++  run.status = summary.UNCERTAIN ? 'INTERRUPTED' : summary.resolvedProblems === summary.selected ? 'SUCCESS' : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
++  run.summary = summary; await persist(); return run;
++}
+diff --git a/src/batchRemediationRuntime.js b/src/batchRemediationRuntime.js
+new file mode 100644
+index 0000000..76606a0
+--- /dev/null
++++ b/src/batchRemediationRuntime.js
+@@ -0,0 +1,173 @@
++import { apiFetch } from './api.js';
++import { workspaceStorage, assertWorkspaceWritable } from './workspaceDatabase.js';
++import { normalizeAnalysisHistory } from './platform.js';
++import { selectFocusedRemediation, correctionIssueKeys } from './remediationSelection.js';
++import { previewIdentity } from './remediationPlanSafety.js';
++import { inspectWordPress, inspectFrontend, inspectLinkEvidence, buildPlan, createWordPressCorrection, applyPreparedCorrection } from './wordpressRemediationEngine.js';
++import { attachElementorImpactEvidence, inspectElementorImpactEvidence } from './elementorImpactClient.js';
++import { buildElementorImpactCandidateUrls } from './elementorImpactCandidates.js';
++import { brokenExternalTarget } from './brokenLinkRemediation.js';
++import { assertSeoPatchLengths } from './seoTextPolicy.js';
++import { correctionCredentials } from './correctionCredentials.js';
++import { listCorrections, readCorrection, updateCorrection, removeVerifiedTask } from './remediationStore.js';
++import { recheckCorrectionById } from './remediationIntegrity.js';
++import { exactPageKey, assertPublicObservation } from './remediationEvidence.js';
++import { requiresDuplicateAudit, metadataVerificationTarget } from './metadataCorrectionVerification.js';
++import { remediationIssueKind } from './remediationIssueKind.js';
++import { stableBatchJson } from './batchRemediationModel.js';
++
++const read = (key, fallback) => { try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
++const fail = (message, code) => Object.assign(new Error(message), { code });
++const expectedState = (entity, changes) => {
++  const out = {};
++  for (const key of ['title', 'content', 'excerpt']) if (changes[key] !== undefined) out[key] = String(entity[key]?.raw ?? entity[key]?.rendered ?? '');
++  if (changes.meta) out.meta = Object.fromEntries(Object.keys(changes.meta).map(key => [key, entity.meta?.[key] ?? '']));
++  return out;
++};
++const request = async (path, body) => {
++  const response = await apiFetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
++  const data = await response.json();
++  if (!response.ok) throw fail(data.error || `Richiesta non riuscita (${response.status}).`, data.code || (/401|403|password|autentic|unauthorized|forbidden|incorrect_password/i.test(data.error || '') ? 'AUTH_LOST' : `HTTP_${response.status}`));
++  return data;
++};
++
++export function createBatchWordPressPorts({ run, credentials, save, progress, stopped }) {
++  const context = { clientId: run.clientId, siteUrl: run.siteUrl };
++  const wp = { url: credentials.url, username: credentials.username, applicationPassword: credentials.applicationPassword };
++  const cache = new Map(), audits = new Map();
++  const assertContext = async () => {
++    assertWorkspaceWritable();
++    const currentId = Number(read('seogrow-selected-client-v1', null));
++    const client = read('seogrow-clients', []).find(c => Number(c.id) === run.clientId);
++    if (currentId !== run.clientId || !client || client.url !== run.siteUrl) throw fail('Il progetto o il sito è cambiato. Batch fermato.', 'SCOPE_CHANGED');
++    correctionCredentials(context, { clientId: currentId, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword });
++  };
++  const resolve = entry => {
++    const client = read('seogrow-clients', []).find(c => Number(c.id) === run.clientId);
++    const history = [
++      ...(read('seogrow-page-audit-history-v2', {})[run.clientId] || []).map(item => ({ type: 'page', item })),
++      ...normalizeAnalysisHistory(read('seogrow-analyses-v2', {})[run.clientId]).map(item => ({ type: 'site', item })),
++    ];
++    const p = entry.problem;
++    const focus = { clientId: run.clientId, issueType: p.issueType, title: p.title, sourceUrl: p.sourceUrl, targetUrl: p.targetUrls?.[0] || '', issueKey: p.key };
++    const selection = selectFocusedRemediation(history, focus, run.clientId, client);
++    if (!selection) throw fail('Il problema non identifica un’unica rilevazione nell’audit corrente. Aprilo singolarmente.', 'STALE_TARGET');
++    return { client, audit: selection.audit, issue: selection.audit.item.issues[selection.issueIndex], focus };
++  };
++  const connection = async () => {
++    await assertContext();
++    const checked = await request('/api/wordpress/connection-check', { siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword });
++    if (checked.ok !== true || !(checked.user?.id > 0)) throw fail('Connessione WordPress non verificata.', 'AUTH_LOST');
++    await assertContext(); return checked;
++  };
++  const pendingCorrection = async (entry, preview) => {
++    const corrections = await listCorrections({ clientId: run.clientId });
++    return corrections.find(c => c.id !== entry.correctionId &&
++      ((correctionIssueKeys(c).includes(entry.problem.key)) || (preview && c.resourceIdentity === preview.resourceIdentity && c.fields?.some(f => preview.data.changed.includes(f)))) &&
++      (c.status === 'Esito incerto' || (['Applicato','Da verificare'].includes(c.status) && c.writeConfirmed !== false)));
++  };
++  const ports = {
++    save, progress, stopped, assertContext, connection,
++    preparationKey: entry => { const r = resolve(entry); return stableBatchJson([entry.kind, entry.problem.sourceUrl, r.issue, r.audit.type, r.audit.item.analyzedAt || r.audit.item.startedAt]); },
++    prepare: async entry => {
++      const resolved = resolve(entry), targetUrl = entry.problem.sourceUrl;
++      if (new URL(targetUrl).origin !== new URL(run.siteUrl).origin) throw fail('La pagina non appartiene al sito approvato.', 'SCOPE_CHANGED');
++      if (await pendingCorrection(entry)) throw fail('Esiste una scrittura applicata o incerta per questo problema. Verificala nello storico.', 'UNCERTAIN_PENDING_WRITE');
++      if (!cache.has(targetUrl)) cache.set(targetUrl, Promise.all([inspectWordPress(targetUrl, wp), inspectFrontend(targetUrl)]));
++      const [raw, frontendContext] = await cache.get(targetUrl), inspected = structuredClone(raw);
++      if (inspected.ok !== true || !['pages','posts'].includes(inspected.resource) || !(inspected.entity?.id > 0) || inspected.entity.status !== 'publish')
++        throw fail('Il batch modifica solo pagine/articoli pubblicati e identificati senza ambiguità.', 'UNSUPPORTED_RESOURCE');
++      if (exactPageKey(inspected.entity.link) !== exactPageKey(targetUrl) || exactPageKey(frontendContext.url) !== exactPageKey(targetUrl))
++        throw fail('Permalink WordPress e pagina pubblica non coincidono esattamente con il target.', 'OWNERSHIP_UNDETERMINED');
++      if (['content','h1'].includes(entry.kind)) {
++        const candidates = buildElementorImpactCandidateUrls({ audit: resolved.audit.item, issue: resolved.issue, client: resolved.client });
++        const evidence = await inspectElementorImpactEvidence(inspected.entity, wp, candidates);
++        if (evidence) attachElementorImpactEvidence(inspected.entity, evidence);
++      }
++      const plan = await buildPlan(entry.kind, resolved.issue, inspected, targetUrl, frontendContext, {
++        linkCleanupMode: 'unlink-preserve-text',
++        linkEvidence: entry.kind === 'external_link' ? await inspectLinkEvidence(targetUrl, brokenExternalTarget(resolved.issue)) : undefined,
++      });
++      if (plan.alreadyResolved) return plan;
++      assertSeoPatchLengths(plan.changes);
++      await assertContext();
++      if (stableBatchJson(resolve(entry).audit.item) !== stableBatchJson(resolved.audit.item)) throw fail('Audit cambiato durante la preparazione.', 'STALE_TARGET');
++      const expectedCurrent = expectedState(inspected.entity, plan.changes);
++      const data = await request('/api/wordpress/live-preview', { siteUrl: wp.url, targetUrl, username: wp.username, applicationPassword: wp.applicationPassword,
++        resource: inspected.resource, id: inspected.entity.id, changes: plan.changes, issue: resolved.issue, adapter: plan.adapter,
++        expectedCurrent, expectedStatus: inspected.entity.status });
++      if (data.ok !== true || stableBatchJson(data.previewBefore) !== stableBatchJson(expectedCurrent)) throw fail('Snapshot della preview diverso dalla lettura usata per generarla.', 'STALE_TARGET');
++      const preview = { status: 'preview', targetUrl, issue: resolved.issue, inspected, frontendContext, plan, data,
++        expiresAt: Date.now() + Number(data.expiresInSeconds || 0) * 1000,
++        contextSnapshot: { clientId: run.clientId, clientName: run.clientName, siteUrl: run.siteUrl, auditType: resolved.audit.type,
++          analyzedAt: resolved.audit.item.analyzedAt || resolved.audit.item.startedAt, auditFingerprint: JSON.stringify(resolved.audit.item) },
++        ...previewIdentity({ issue: resolved.issue, inspected, targetUrl, frontend: frontendContext }) };
++      if (await pendingCorrection(entry, preview)) throw fail('Un’altra correzione sul campo è ancora da verificare.', 'UNCERTAIN_PENDING_WRITE');
++      return preview;
++    },
++    validate: async entry => {
++      const p = entry.preview;
++      if (!p?.data?.approvalToken || !Number.isFinite(p.expiresAt) || Date.now() >= p.expiresAt) throw fail('Anteprima scaduta: rigenera e approva di nuovo.', 'APPROVAL_EXPIRED');
++      if (JSON.stringify(resolve(entry).audit.item) !== p.contextSnapshot.auditFingerprint) throw fail('L’audit è cambiato dopo l’anteprima.', 'STALE_TARGET');
++      if (await pendingCorrection(entry, p)) throw fail('Scrittura precedente ancora da riconciliare/verificare.', 'UNCERTAIN_PENDING_WRITE');
++      const current = await inspectWordPress(p.targetUrl, wp);
++      if (current.resource !== p.inspected.resource || current.entity?.id !== p.inspected.entity.id || current.entity.status !== p.inspected.entity.status || exactPageKey(current.entity.link) !== exactPageKey(p.targetUrl) ||
++          stableBatchJson(expectedState(current.entity, p.plan.changes)) !== stableBatchJson(p.data.previewBefore)) throw fail('Target o campo cambiato: la vecchia proposta non viene applicata.', 'STALE_TARGET');
++    },
++    apply: async entry => {
++      const record = createWordPressCorrection(entry.preview, wp, run.id, entry.correctionId);
++      record.batchProblemKeys = [...entry.problemKeys];
++      record.batchIssues = run.entries.filter(e => entry.problemKeys.includes(e.problem.key)).map(e => ({ issue: e.preview?.issue || entry.preview.issue, sourceUrl: e.problem.sourceUrl }));
++      try { return await applyPreparedCorrection(record, entry.preview.data, wp, assertContext); }
++      catch (error) {
++        const stored = await readCorrection(entry.correctionId);
++        if (!stored || (stored.status === 'Bloccato' && stored.writeConfirmed === false)) error.definitelyNoWrite = true;
++        throw error;
++      }
++    },
++    verify: entry => recheckCorrectionById(entry.correctionId, { ...context, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword }),
++    deltaVerify: async entry => {
++      const record = await readCorrection(entry.correctionId);
++      if (!record || record.writeConfirmed !== true || record.status === 'Ripristinato') return null;
++      // Duplicates need comparison across documents. A single-page pass is never enough.
++      if (requiresDuplicateAudit(record)) return { record, needsAudit: true };
++      const p = entry.preview;
++      const current = await inspectWordPress(p.targetUrl, wp);
++      if (current.entity?.id !== record.entityId || stableBatchJson(expectedState(current.entity, p.plan.changes)) !== stableBatchJson(p.data.previewAfter)) return { record, needsAudit: true };
++      const frontend = await request('/api/wordpress/verify-frontend', { url: record.sourceUrl, expected: record.after });
++      assertPublicObservation(record, frontend);
++      if (frontend.verificationSafe !== true || frontend.requiresBrowserVerification === true) return { record, needsBrowserVerification: true };
++      let fixed = false, auditEvidence = null;
++      if (['title','meta_description','h1'].includes(entry.kind)) {
++        if (!audits.has(p.targetUrl)) audits.set(p.targetUrl, request('/api/audit', { url: p.targetUrl }));
++        auditEvidence = await audits.get(p.targetUrl);
++        const at = Date.parse(auditEvidence.fetchedAt || '');
++        const samePage = exactPageKey(auditEvidence.url) === exactPageKey(p.targetUrl);
++        const fresh = Number.isFinite(at) && at >= Date.parse(record.appliedAt) && at <= Date.now() + 60000;
++        const issues = auditEvidence.issues;
++        const unresolved = !Array.isArray(issues) || issues.some(issue => remediationIssueKind(issue) === entry.kind || issue.type === 'metadata-tags');
++        const metadata = metadataVerificationTarget(record);
++        const expected = metadata?.expected || (entry.kind === 'title' ? record.after.title : null);
++        const observed = entry.kind === 'meta_description' ? frontend.metaDescription : frontend.title;
++        const normalized = value => typeof value === 'string' ? value.normalize('NFC').replace(/\s+/g,' ').trim() : null;
++        const count = entry.kind === 'title' ? frontend.titleCount : frontend.metaDescriptionCount;
++        const actualMatches = entry.kind === 'h1' ? frontend.h1 === 1 && auditEvidence.h1 === 1 :
++          count === 1 && typeof expected === 'string' && normalized(expected) === normalized(observed) &&
++          normalized(entry.kind === 'title' ? auditEvidence.title : auditEvidence.description) === normalized(expected);
++        fixed = samePage && fresh && !unresolved && actualMatches;
++      } else if (entry.kind === 'external_link') {
++        const evidence = await inspectLinkEvidence(p.targetUrl, brokenExternalTarget(p.issue));
++        fixed = evidence.verificationSafe === true && evidence.scanComplete === true && evidence.occurrenceCount === 0;
++        auditEvidence = evidence;
++      }
++      if (!fixed) return { record, needsAudit: true };
++      await assertContext();
++      const verified = await updateCorrection(record.id, { status: 'Verificato', frontendConfirmed: true, frontendFailure: false,
++        verifiedAt: new Date().toISOString(), verificationNote: 'Scrittura confermata, valori WordPress e HTML pubblico coerenti; controllo incrementale del problema superato.',
++        batchDeltaEvidence: { checkedAt: new Date().toISOString(), frontend, audit: auditEvidence } }, { expectedRecord: record });
++      removeVerifiedTask(verified);
++      return { record: verified, needsAudit: false };
++    },
++  };
++  return ports;
++}
+diff --git a/src/batchRemediationRuntime.test.js b/src/batchRemediationRuntime.test.js
+new file mode 100644
+index 0000000..3041239
+--- /dev/null
++++ b/src/batchRemediationRuntime.test.js
+@@ -0,0 +1,143 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { registerHooks } from 'node:module';
++import { existsSync } from 'node:fs';
++import { IDBFactory } from 'fake-indexeddb';
++
++// Node integration harness: ignore CSS only, and resolve the app's legacy extensionless JS imports.
++// The runtime, engine, API client, journal, verification and IndexedDB transactions remain real.
++registerHooks({ resolve(specifier, context, next) {
++  if (specifier.endsWith('.css')) return { url: 'data:text/javascript,export default {};', shortCircuit: true };
++  if (specifier.startsWith('.') && context.parentURL?.startsWith('file:') && !/\.[a-z]+$/i.test(specifier)) {
++    const candidate = new URL(specifier + '.js', context.parentURL);
++    if (existsSync(candidate)) return next(candidate.href, context);
++  }
++  return next(specifier, context);
++}});
++const window = Object.assign(new EventTarget(), { indexedDB: new IDBFactory(), setTimeout, clearTimeout, location: { href: 'http://localhost:5176/', reload() {} } });
++globalThis.window = window;
++globalThis.StorageEvent = class extends Event { constructor(type, init = {}) { super(type); Object.assign(this, init); } };
++const native = new Map();
++globalThis.localStorage = { get length() { return native.size; }, key: i => [...native.keys()][i], getItem: k => native.get(k) ?? null, setItem: (k,v) => native.set(k,String(v)), removeItem: k => native.delete(k) };
++const locks = new Set();
++Object.defineProperty(globalThis.navigator, 'locks', { configurable: true, value: { async request(name, options, callback) {
++  if (locks.has(name)) return callback(null);
++  locks.add(name); try { return await callback({ name }); } finally { locks.delete(name); }
++} } });
++const { initializeWorkspace, workspaceStorage, flushWorkspace, openWorkspaceDb, WORKSPACE_STORE } = await import('./workspaceDatabase.js');
++const { createBatchRun, batchSummary, retryableProblemKeys, recoverBatchRun } = await import('./batchRemediationModel.js');
++const { prepareBatch, executeBatch } = await import('./batchRemediationQueue.js');
++const { createBatchWordPressPorts } = await import('./batchRemediationRuntime.js');
++const { saveBatchRun, listBatchRuns, withBatchLock } = await import('./batchRemediationStore.js');
++const { listCorrections, readCorrection } = await import('./remediationStore.js');
++const { buildUnifiedProblems } = await import('./problemsModel.js');
++await initializeWorkspace(globalThis.localStorage);
++let nextClient = 20000;
++const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
++async function fixture(mode = 'success', count = 1) {
++  const client = { id: ++nextClient, name: 'Batch integration fixture', url: 'https://example.com/' };
++  const issues = Array.from({ length: count }, (_, i) => ({ type: 'meta_description', label: 'Meta description mancante', sourceUrl: `https://example.com/page-${i + 1}/`, severity: 'alta' }));
++  const audit = { analyzedAt: new Date(Date.now() - 60000).toISOString(), issues };
++  workspaceStorage.setItem('seogrow-clients', JSON.stringify([client]));
++  workspaceStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
++  workspaceStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [audit] }));
++  workspaceStorage.setItem('seogrow-page-audit-history-v2', '{}');
++  workspaceStorage.setItem('seogrow-tasks-v2', '[]');
++  await flushWorkspace();
++  const problems = buildUnifiedProblems({ clientId: client.id, client, siteHistory: [audit], pageHistory: [], tasks: [], corrections: [] }).rows;
++  assert.equal(problems.length, count);
++  const run = createBatchRun({ clientId: client.id, clientName: client.name, siteUrl: client.url, problems });
++  const entities = new Map(issues.map((issue, i) => [issue.sourceUrl, { id: i + 1, link: issue.sourceUrl, status: 'publish', title: { raw: 'Titolo pagina' }, content: { raw: '<p>Contenuto leggibile.</p>' }, meta: { rank_math_description: '' } }]));
++  const requests = [], writes = [], previews = new Map();
++  let token = 0;
++  const observed = entity => ({ ok: true, status: 200, isHtml: true, url: entity.link, wordpressDocumentId: entity.id, title: 'Titolo pagina', titleCount: 1, metaDescription: mode === 'bad-frontend' ? '' : entity.meta.rank_math_description, metaDescriptionCount: 1, verificationSafe: true, requiresBrowserVerification: false, h1: 1 });
++  window.fetch = async (input, options) => {
++    const path = new URL(input, window.location.href).pathname, body = JSON.parse(options?.body || '{}');
++    requests.push({ path, body });
++    if (path === '/api/wordpress/connection-check') return response({ ok: true, user: { id: 1 } });
++    if (path === '/api/wordpress/inspect-fast') return response({ ok: true, resource: 'pages', entity: structuredClone(entities.get(body.url)) });
++    if (path === '/api/frontend/inspect' || path === '/api/wordpress/verify-frontend') return response(observed(entities.get(body.url)));
++    if (path === '/api/wordpress/generate-seo-value-v2') return response({ value: `Descrizione della pagina ${body.page.url}: informazioni, servizi e approfondimenti utili ai visitatori.`, publishable: true, quality: { publishable: true } });
++    if (path === '/api/wordpress/live-preview') {
++      const entity = entities.get(body.targetUrl);
++      if (mode === 'stale-preparation') entity.meta.rank_math_description = 'Modifica esterna';
++      assert.equal(body.expectedStatus, 'publish');
++      if (JSON.stringify(body.expectedCurrent) !== JSON.stringify({ meta: entity.meta })) return response({ code: 'STALE_TARGET', error: 'Target cambiato durante preparazione' }, 409);
++      const data = { ok: true, approvalToken: `test-token-${++token}`, expiresInSeconds: 600, resource: 'pages', id: entity.id, adapter: 'Rank Math', changed: ['meta.rank_math_description'], previewBefore: { meta: structuredClone(entity.meta) }, previewAfter: structuredClone(body.changes) };
++      previews.set(data.approvalToken, { data, entity }); return response(data);
++    }
++    if (path === '/api/wordpress/live-apply') {
++      const match = previews.get(body.approvalToken); assert.ok(match); previews.delete(body.approvalToken);
++      const journal = await readCorrection(run.entries.find(e => e.preview?.data.approvalToken === body.approvalToken).correctionId);
++      assert.equal(journal.status, 'Esito incerto'); assert.equal(journal.writeConfirmed, false);
++      const persisted = (await listBatchRuns(client.id)).find(r => r.id === run.id);
++      assert.ok(persisted.approval); assert.ok(persisted.entries.some(e => e.state === 'IN_EXECUTION'));
++      writes.push(match.entity.id); match.entity.meta = structuredClone(match.data.previewAfter.meta);
++      if (mode === 'lost-response') throw new TypeError('Risposta persa dopo scrittura');
++      return response({ ok: true, before: match.data.previewBefore, after: match.data.previewAfter, changed: match.data.changed, adapter: 'Rank Math' });
++    }
++    if (path === '/api/audit') {
++      const entity = entities.get(body.url);
++      return response({ url: entity.link, fetchedAt: new Date().toISOString(), title: 'Titolo pagina', titleCount: 1, description: entity.meta.rank_math_description, metaDescriptionCount: 1, h1: 1, issues: mode === 'bad-frontend' ? [issues[0]] : [] });
++    }
++    throw new Error('Unexpected API call: ' + path);
++  };
++  const credentials = { url: client.url, username: 'fixture-user', applicationPassword: 'fixture-not-a-secret' };
++  const ports = createBatchWordPressPorts({ run, credentials, save: saveBatchRun });
++  await ports.connection();
++  return { run, ports, client, audit, entities, requests, writes };
++}
++
++test('real runtime pipeline: no writes before approval; journal commits before API and delta verifies metadata', async () => {
++  const f = await fixture();
++  await prepareBatch(f.run, f.ports);
++  assert.equal(f.run.entries[0].state, 'PREPARED', JSON.stringify(f.run.entries[0]));
++  assert.equal(f.writes.length, 0);
++  const saved = (await listBatchRuns(f.client.id))[0];
++  assert.ok(!JSON.stringify(saved).includes('fixture-not-a-secret'));
++  assert.ok(!JSON.stringify(saved).includes('test-token'));
++  await executeBatch(f.run, { fingerprint: f.run.planFingerprint, highRiskIds: [] }, f.ports);
++  assert.deepEqual(f.writes, [1]);
++  assert.equal(f.run.entries[0].state, 'RESOLVED_VERIFIED', JSON.stringify(f.run.entries[0].verification));
++  assert.equal(batchSummary(f.run).resolvedProblems, 1);
++  const corrections = await listCorrections({ clientId: f.client.id });
++  const rows = buildUnifiedProblems({ clientId: f.client.id, siteHistory: [f.audit], corrections }).rows;
++  assert.equal(rows[0].problemState, 'resolved');
++  assert.deepEqual(retryableProblemKeys(f.run), []);
++});
++test('real API200 with mismatching HTML remains unverified and cannot repeat write', async () => {
++  const f = await fixture('bad-frontend'); await prepareBatch(f.run, f.ports);
++  await executeBatch(f.run, { fingerprint: f.run.planFingerprint }, f.ports);
++  assert.deepEqual(f.writes, [1]); assert.equal(f.run.entries[0].state, 'APPLIED_UNVERIFIED'); assert.deepEqual(retryableProblemKeys(f.run), []);
++});
++test('real preflight refuses a stale resource before persisting any approval token or writing', async () => {
++  const f = await fixture('stale-preparation'); await prepareBatch(f.run, f.ports);
++  assert.equal(f.run.entries[0].state, 'STALE_TARGET'); assert.deepEqual(f.writes, []);
++  assert.equal((await listCorrections({ clientId: f.client.id })).length, 0);
++});
++test('real journal retains unknown outcome after lost response and stops independent remaining writes', async () => {
++  const f = await fixture('lost-response', 2); await prepareBatch(f.run, f.ports);
++  await executeBatch(f.run, { fingerprint: f.run.planFingerprint }, f.ports);
++  assert.equal(f.writes.length, 1); assert.equal(f.run.entries[0].state, 'UNCERTAIN'); assert.equal(f.run.entries[1].state, 'BLOCKED');
++  assert.equal((await readCorrection(f.run.entries[0].correctionId)).status, 'Esito incerto');
++  assert.ok(!retryableProblemKeys(f.run).includes(f.run.entries[0].problem.key));
++  const recovered = recoverBatchRun({ ...f.run, status: 'RUNNING' }, await listCorrections({ clientId: f.client.id }));
++  assert.equal(recovered.status, 'INTERRUPTED'); assert.equal(recovered.entries[0].state, 'UNCERTAIN');
++});
++test('IndexedDB revision CAS rejects stale run writers and history stays scoped to client', async () => {
++  const f = await fixture(); await saveBatchRun(f.run); const copy = structuredClone(f.run);
++  await saveBatchRun(f.run); await assert.rejects(saveBatchRun(copy), { code: 'BATCH_REVISION_CONFLICT' });
++  const history = await listBatchRuns(f.client.id); assert.equal(history.length, 1); assert.equal(history[0].revision, 2);
++  assert.deepEqual(await listBatchRuns(9999999), []);
++});
++test('site lock denies another caller while first holds ownership', async () => {
++  await withBatchLock('https://example.com/', async () => {
++    await assert.rejects(withBatchLock('https://example.com', async () => assert.fail('Concurrent run')), { code: 'BATCH_ALREADY_RUNNING' });
++  });
++});
++test('corrupt saved run aborts the transaction without an unhandled parser exception', async () => {
++  const f = await fixture(); await saveBatchRun(f.run);
++  const db = await openWorkspaceDb();
++  await new Promise((resolve,reject) => { const tx = db.transaction(WORKSPACE_STORE,'readwrite'); tx.objectStore(WORKSPACE_STORE).put('{', `seogrow-batch-run-v1:${f.client.id}:${f.run.id}`); tx.oncomplete=resolve; tx.onabort=reject; });
++  db.close(); await assert.rejects(saveBatchRun(f.run), { code: 'BATCH_STORAGE_FAILED' });
++});
+diff --git a/src/batchRemediationStore.js b/src/batchRemediationStore.js
+new file mode 100644
+index 0000000..1433b65
+--- /dev/null
++++ b/src/batchRemediationStore.js
+@@ -0,0 +1,56 @@
++import { openWorkspaceDb, WORKSPACE_STORE, workspaceTransaction, guardWorkspaceTransaction, assertWorkspaceWritable } from './workspaceDatabase.js';
++const PREFIX = 'seogrow-batch-run-v1:';
++const secret = /^(?:applicationPassword|password|authorization|apiKey|approvalToken|accessToken|refreshToken|credentials)$/i;
++export function batchHistorySnapshot(run) {
++  return JSON.parse(JSON.stringify(run, (key, value) => {
++    if (secret.test(key) || key === 'inspected' || key === 'frontendContext') return undefined;
++    return value;
++  }));
++}
++export async function saveBatchRun(run) {
++  assertWorkspaceWritable();
++  const snapshot = batchHistorySnapshot({ ...run, revision: run.revision + 1, updatedAt: new Date().toISOString() });
++  const db = await openWorkspaceDb();
++  let conflict = false;
++  try {
++    await workspaceTransaction(db, tx => guardWorkspaceTransaction(tx, () => {
++      const store = tx.objectStore(WORKSPACE_STORE), key = `${PREFIX}${run.clientId}:${run.id}`;
++      const request = store.get(key);
++      request.onsuccess = () => {
++        let current;
++        try { current = request.result ? JSON.parse(request.result) : null; }
++        catch { tx.abort(); return; }
++        if ((current?.revision || 0) !== run.revision) { conflict = true; tx.abort(); return; }
++        store.put(JSON.stringify(snapshot), key);
++      };
++    }), [WORKSPACE_STORE]);
++  } catch (cause) {
++    throw Object.assign(new Error(conflict ? 'Run modificata in un’altra scheda: ricarica lo storico.' : 'Impossibile salvare il batch: nessuna nuova write autorizzata.', { cause }), { code: conflict ? 'BATCH_REVISION_CONFLICT' : 'BATCH_STORAGE_FAILED' });
++  } finally { db.close(); }
++  run.revision = snapshot.revision; run.updatedAt = snapshot.updatedAt;
++  window.dispatchEvent(new CustomEvent('seogrow-batch-history', { detail: { clientId: run.clientId, id: run.id } }));
++  return snapshot;
++}
++export async function listBatchRuns(clientId) {
++  const db = await openWorkspaceDb();
++  try {
++    return await new Promise((resolve, reject) => {
++      const tx = db.transaction(WORKSPACE_STORE, 'readonly'), store = tx.objectStore(WORKSPACE_STORE);
++      const keys = store.getAllKeys(), values = store.getAll();
++      tx.oncomplete = () => {
++        try {
++          resolve(keys.result.flatMap((key, i) => String(key).startsWith(`${PREFIX}${Number(clientId)}:`) ? [JSON.parse(values.result[i])] : []).sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
++        } catch (error) { reject(error); }
++      };
++      tx.onabort = () => reject(tx.error || new Error('Storico batch non leggibile.'));
++    });
++  } finally { db.close(); }
++}
++export async function withBatchLock(siteUrl, action, locks = globalThis.navigator?.locks) {
++  if (!locks?.request) throw new Error('Web Locks non disponibile: batch bloccato per evitare esecuzioni concorrenti.');
++  const key = new URL(siteUrl).href.replace(/\/+$/, '');
++  return locks.request(`seogrow-batch:${key}`, { ifAvailable: true }, async lock => {
++    if (!lock) throw Object.assign(new Error('Un batch per questo sito è già attivo in un’altra scheda.'), { code: 'BATCH_ALREADY_RUNNING' });
++    return action();
++  });
++}
+diff --git a/src/brokenExternalLinkRemediation.test.js b/src/brokenExternalLinkRemediation.test.js
+index a2ee208..b41379d 100644
+--- a/src/brokenExternalLinkRemediation.test.js
++++ b/src/brokenExternalLinkRemediation.test.js
+@@ -42,7 +42,7 @@ test("più occorrenze restano rilevabili come ambigue", () => {
+ });
+ 
+ test("il controllo live usa il piano external_link senza OpenAI o Rank Math", async () => {
+-  const source = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++  const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+   assert.match(source, /kind === "external_link"/);
+   assert.match(source, /prepareElementorBrokenExternalLink/);
+   assert.match(source, /Elementor link cleanup/);
+diff --git a/src/elementorContentSelection.test.js b/src/elementorContentSelection.test.js
+index c2fe662..a19713f 100644
+--- a/src/elementorContentSelection.test.js
++++ b/src/elementorContentSelection.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ import { chooseElementorContentCandidate, inspectEditableElementor } from "./wordpressOwnership.js";
+ 
+-const control = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const control = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const writer = await readFile(new URL("../wordpress-plugin/seogrow-connector/elementor-single-text-write.php", import.meta.url), "utf8");
+ const loader = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
+ 
+diff --git a/src/elementorImpactClient.test.js b/src/elementorImpactClient.test.js
+index c5ab02d..65fc337 100644
+--- a/src/elementorImpactClient.test.js
++++ b/src/elementorImpactClient.test.js
+@@ -8,7 +8,7 @@ import {
+ } from "./elementorImpactClient.js";
+ 
+ const source = await readFile(new URL("./elementorImpactClient.js", import.meta.url), "utf8");
+-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ 
+ test("client Elementor deduplica le sorgenti e preferisce quelle già risolte dal server", () => {
+   const documents = elementorSourceDocuments({
+diff --git a/src/problemsModel.js b/src/problemsModel.js
+index 4e69d9c..efed7d4 100644
+--- a/src/problemsModel.js
++++ b/src/problemsModel.js
+@@ -97,6 +97,7 @@ const createGroup = (record, issue, sourceUrl) => ({
+   issueType: issue?.type || record.issueType || "",
+   sourceUrl,
+   targetUrls: new Set(),
++  anchorTexts: new Set(),
+   detail: issue?.detail || "",
+   severity: severity(issue?.severity || record.severity),
+   priority: "unknown",
+@@ -236,6 +237,7 @@ export function buildUnifiedProblems({
+       if (isLegalPage(sourceUrl)) continue;
+       const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
+       const group = findOrCreate(groups, aliasMap, record, issue, sourceUrl);
++      for (const text of [issue?.anchorText, issue?.anchor, issue?.linkText, ...(Array.isArray(issue?.occurrences) ? issue.occurrences : []).map(o => o.anchorText)].filter(v => typeof v === "string" && v.trim())) group.anchorTexts.add(text.trim());
+       const brokenTarget = issueBrokenTarget(issue);
+       if (brokenTarget) group.targetUrls.add(brokenTarget);
+       const intentional = issue?.intentional === true;
+@@ -289,7 +291,7 @@ export function buildUnifiedProblems({
+     });
+   }
+ 
+-  for (const correction of Array.isArray(corrections) ? corrections : []) {
++  for (const correction of (Array.isArray(corrections) ? corrections : []).flatMap(record => [record, ...(Array.isArray(record.batchIssues) ? record.batchIssues : []).map(item => ({ ...record, batchIssues: undefined, issue: item.issue, issueType: item.issue?.type, issueLabel: item.issue?.label, sourceUrl: item.sourceUrl, issueKey: undefined, legacyIssueKey: undefined }))])) {
+     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
+     const sourceUrl = correction?.sourceUrl || "";
+     if (isLegalPage(sourceUrl)) continue;
+@@ -344,6 +346,7 @@ export function buildUnifiedProblems({
+       issueType: group.issueType,
+       sourceUrl: group.sourceUrl,
+       targetUrls: [...group.targetUrls],
++      anchorTexts: [...group.anchorTexts],
+       detail: group.detail || "Dettaglio non disponibile.",
+       severity: group.severity,
+       priority: group.priority,
+diff --git a/src/remediationHost.test.js b/src/remediationHost.test.js
+index 564c894..243302e 100644
+--- a/src/remediationHost.test.js
++++ b/src/remediationHost.test.js
+@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
+ const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+ const runtime = await readFile(new URL("./RemediationRuntime.jsx", import.meta.url), "utf8");
+ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ 
+ test("il motore legacy non è più montato nel runtime principale", () => {
+   assert.doesNotMatch(main, /AuditUnifiedRemediation/);
+diff --git a/src/remediationOrderingAndSeoV2.test.js b/src/remediationOrderingAndSeoV2.test.js
+index 16f0c50..50ced26 100644
+--- a/src/remediationOrderingAndSeoV2.test.js
++++ b/src/remediationOrderingAndSeoV2.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ 
+ const seoServer = await readFile(new URL("../server/wordpressSeoAdapterV2Hook.js", import.meta.url), "utf8");
+-const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const liveControl = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const runtime = await readFile(new URL("./RemediationRuntime.jsx", import.meta.url), "utf8");
+ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+ const bootstrap = await readFile(new URL("../server/remediationBootstrap.js", import.meta.url), "utf8");
+diff --git a/src/remediationPhase2.test.js b/src/remediationPhase2.test.js
+index fa72a0d..df69e6a 100644
+--- a/src/remediationPhase2.test.js
++++ b/src/remediationPhase2.test.js
+@@ -2,7 +2,7 @@ import test from "node:test";
+ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ 
+-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+ const location = await readFile(new URL("./locationEvents.js", import.meta.url), "utf8");
+diff --git a/src/remediationResolutionPaths.test.js b/src/remediationResolutionPaths.test.js
+index fe9a884..2f9fb93 100644
+--- a/src/remediationResolutionPaths.test.js
++++ b/src/remediationResolutionPaths.test.js
+@@ -53,7 +53,7 @@ const html=body=>`<!doctype html><html><head><title>Pagina yoga</title></head><b
+ test('evidence matches hrefs and supported wrappers, not mentions',()=>{const doc=html(`<a data-href="${target}" href="https://other.example/">altro</a><!-- <a href="${target}">commento</a> --><a href="https://www.google.com/search?q=${target}">Yoga Journal</a>`);const e=extractLinkEvidence(doc,source,target);assert.equal(e.occurrenceCount,1);assert.equal(e.anchorText,'Yoga Journal');assert.equal(assessLinkEvidenceHtml(doc,source,source,e),true);});
+ test('partial, redirected, challenge and login pages cannot prove absence',()=>{for(const[doc,final]of[['<html><body>loading</body></html>',source],[html('').replace('</html>',''),source],[html(''),'https://example.com/other/'],[html('').replace('Pagina yoga','Just a moment'),source],[html('').replace('Pagina yoga','Login'),source]])assert.equal(assessLinkEvidenceHtml(doc,source,final,extractLinkEvidence(doc,final,target)),false);});
+ test('bounded scan is incomplete rather than a false zero',()=>{const doc=html('<a href="https://other.example">x</a>'.repeat(15001)+`<a href="${target}">target</a>`);const e=extractLinkEvidence(doc,source,target);assert.equal(e.scanComplete,false);assert.equal(assessLinkEvidenceHtml(doc,source,source,e),false);});
+-const ui=await fs.readFile(new URL('./WordPressLiveRemediationControlV2.jsx',import.meta.url),'utf8');
++const ui=(await fs.readFile(new URL('./WordPressLiveRemediationControlV2.jsx',import.meta.url),'utf8') + "\n" + await fs.readFile(new URL('./wordpressRemediationEngine.js',import.meta.url),'utf8'));
+ const code=ui.match(/async function buildPlan\([\s\S]*?(?=\n(?:const |function |async function |export ))/)[0];
+ const env={URL,pluginMeta:e=>e.meta||{},remediationContextDecision:()=>({allowed:true}),brokenExternalTarget,prepareElementorBrokenExternalLink,removeExactAnchor,ownershipUndetermined:(_k,message)=>new Error(message)};
+ const plan=runInNewContext(code+'\nbuildPlan',env);
+diff --git a/src/remediationRuntimeState.test.js b/src/remediationRuntimeState.test.js
+index 49d09c5..5c8ef64 100644
+--- a/src/remediationRuntimeState.test.js
++++ b/src/remediationRuntimeState.test.js
+@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
+ 
+ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+ const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const integrity = await readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8");
+ 
+ test("la chiusura dei problemi è responsabilità del runtime nativo, non di patch DOM legacy", () => {
+diff --git a/src/wordpressApplyConcurrency.test.js b/src/wordpressApplyConcurrency.test.js
+index 75ca05d..65363c7 100644
+--- a/src/wordpressApplyConcurrency.test.js
++++ b/src/wordpressApplyConcurrency.test.js
+@@ -36,3 +36,18 @@ test('edit after server preflight is rejected by Connector; consumed approval ca
+   assert.equal((await invoke('live-apply', body)).data.code, 'APPROVAL_EXPIRED');
+   assert.equal(calls.length, count);
+ });
++
++test('batch live-preview rejects changed generation snapshot and status without issuing an approval', async t => {
++  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
++  t.mock.method(globalThis, 'fetch', async (_url, init) => {
++    assert.notEqual(init.method, 'POST');
++    return Response.json({ id: 12, status: 'publish', title: { raw: 'Changed externally' } });
++  });
++  const base = { username: 'fixture', applicationPassword: 'fixture', siteUrl: 'https://example.com/', resource: 'pages', id: 12, changes: { title: 'Approved proposal' } };
++  const stale = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Original at generation' }, expectedStatus: 'publish' });
++  assert.equal(stale.status, 409); assert.equal(stale.data.code, 'STALE_TARGET'); assert.equal(stale.data.approvalToken, undefined);
++  const changedStatus = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Changed externally' }, expectedStatus: 'draft' });
++  assert.equal(changedStatus.status, 409); assert.equal(changedStatus.data.code, 'STALE_TARGET');
++  const current = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Changed externally' }, expectedStatus: 'publish' });
++  assert.equal(current.status, 200); assert.ok(current.data.approvalToken);
++});
+diff --git a/src/wordpressLiveRemediation.test.js b/src/wordpressLiveRemediation.test.js
+index f517add..5606700 100644
+--- a/src/wordpressLiveRemediation.test.js
++++ b/src/wordpressLiveRemediation.test.js
+@@ -2,7 +2,7 @@ import test from "node:test";
+ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ 
+-const client = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const client = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const impactClient = await readFile(new URL("./elementorImpactClient.js", import.meta.url), "utf8");
+ const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
+ const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
+diff --git a/src/wordpressRemediationEngine.js b/src/wordpressRemediationEngine.js
+new file mode 100644
+index 0000000..fc7a592
+--- /dev/null
++++ b/src/wordpressRemediationEngine.js
+@@ -0,0 +1,517 @@
++import { applyJournaledCorrection } from "./correctionJournal.js";
++import { correctionCredentials } from "./correctionCredentials.js";
++import { workspaceStorage } from "./workspaceDatabase.js";
++import { apiFetch } from "./api.js";
++import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor } from "./brokenLinkRemediation.js";
++import { elementorOwnershipDetail } from "./elementorImpactClient.js";
++import { remediationContextDecision } from "./remediationPlanSafety.js";
++import { assessCoreOwnership, chooseElementorContentCandidate, countTextWords, inspectEditableElementor, serializeElementor } from "./wordpressOwnership.js";
++
++const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
++const contentCandidatePreview = (value, max = 260) => {
++  const text = String(value || "")
++    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
++    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
++    .replace(/<[^>]+>/g, " ")
++    .replace(/&nbsp;/gi, " ")
++    .replace(/&amp;/gi, "&")
++    .replace(/\s+/g, " ")
++    .trim();
++  return text.length > max ? `${text.slice(0, max)}…` : text;
++};
++
++const isNonEditableWordPressUrl = (value) => {
++  try {
++    const url = new URL(String(value || ""));
++    const path = url.pathname.replace(/\/+$/, "") || "/";
++    if (/\/(?:category|categoria|tag|author|autore|date|feed)(?:\/|$)/i.test(path)) return true;
++    if (/\/page\/\d+$/i.test(path) || /\/(?:search)(?:\/|$)/i.test(path)) return true;
++    return ["s", "cat", "tag", "paged", "author", "feed"].some((key) => url.searchParams.has(key));
++  } catch { return true; }
++};
++
++const pluginMeta = (entity) => entity?.meta && typeof entity.meta === "object" ? entity.meta : {};
++const ownershipUndetermined = (kind, detail) => {
++  const error = new Error(`Ownership frontend non determinabile per "${kind}". ${detail} Nessuna modifica è stata autorizzata.`);
++  error.code = "OWNERSHIP_UNDETERMINED";
++  return error;
++};
++
++const metaKey = (entity, kind) => {
++  const meta = pluginMeta(entity);
++  const has = (key) => Object.prototype.hasOwnProperty.call(meta, key);
++  const choices = {
++    title: [["rank_math_title", "Rank Math"], ["_yoast_wpseo_title", "Yoast"]],
++    meta_description: [["rank_math_description", "Rank Math"], ["_yoast_wpseo_metadesc", "Yoast"]],
++    canonical: [["rank_math_canonical_url", "Rank Math"], ["_yoast_wpseo_canonical", "Yoast"]],
++    noindex: [["rank_math_robots", "Rank Math"], ["_yoast_wpseo_meta-robots-noindex", "Yoast"]],
++  };
++  const matches = (choices[kind] || []).filter(([key]) => has(key));
++  if (matches.length > 1) throw ownershipUndetermined(kind, `Sono esposti contemporaneamente ${matches.map(([, adapter]) => adapter).join(" e ")}; SeoGrow non sceglie un plugin SEO per priorità arbitraria.`);
++  return matches[0] || null;
++};
++
++const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement) => ({
++  title: entity?.title?.raw || entity?.title?.rendered || "",
++  content: contentOverride ?? entity?.content?.raw ?? entity?.content?.rendered ?? "",
++  excerpt: entity?.excerpt?.raw || entity?.excerpt?.rendered || "",
++  url: targetUrl,
++  ...(remediationMeasurement ? { remediationMeasurement } : {}),
++});
++
++export const preparationFailure = (error) => {
++  const message = error instanceof Error ? error.message : "Preparazione correzione non riuscita.";
++  const code = String(error?.code || "");
++  if (code === "CONTENT_WIDGET_SELECTION_REQUIRED") return {
++    status: "selection_required",
++    category: "selection",
++    reason: message,
++    contentCandidates: Array.isArray(error?.contentCandidates) ? error.contentCandidates : [],
++  };
++  if (/AI_OUTPUT_|AI_INVALID_RESPONSE|AI_PROVIDER_ERROR|AI_REFUSAL/.test(code)) return { status: "generation_error", category: "generation", reason: message };
++  if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
++  if (/CANONICAL_|INDEX_INTENT/.test(code)) return { status: "context_error", category: "context", reason: message };
++  if (code === "OWNERSHIP_UNDETERMINED" || /ownership/i.test(message)) return { status: "ownership_error", category: "ownership", reason: message };
++  if (/401|403|credenzial|autentic|password|unauthorized|forbidden/i.test(message)) return { status: "auth_error", category: "authentication", reason: message };
++  if (/timeout|timed out|tempo.*scad/i.test(message)) return { status: "timeout_error", category: "timeout", reason: message };
++  if (/openai|generaz|modello|ai\b/i.test(message)) return { status: "generation_error", category: "generation", reason: message };
++  if (/adapter|non dispone|non espongono/i.test(message)) return { status: "adapter_error", category: "adapter", reason: message };
++  return { status: "error", category: "runtime", reason: message };
++};
++
++const contentMeasurement = (frontend, fieldContent) => {
++  const frontendWords = Number(frontend?.words);
++  const minimumWords = Number(frontend?.minimumWords);
++  const fieldWords = countTextWords(fieldContent);
++  if (![frontendWords, minimumWords, fieldWords].every((value) => Number.isSafeInteger(value) && value >= 0) || fieldWords > frontendWords) {
++    throw ownershipUndetermined("content", "Il conteggio corrente di frontend e campo modificabile non è coerente; il target non può essere calcolato in sicurezza.");
++  }
++  return { frontendWords, fieldWords, minimumWords, marginWords: minimumWords >= 180 ? 30 : 20 };
++};
++
++export async function inspectWordPress(targetUrl, credentials) {
++  if (isNonEditableWordPressUrl(targetUrl)) {
++    const error = new Error("Archivio/tassonomia/paginazione WordPress: questa URL non è una pagina o un articolo modificabile via REST.");
++    error.code = "NON_EDITABLE_ARCHIVE";
++    throw error;
++  }
++  const response = await apiFetch("/api/wordpress/inspect-fast", {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({
++      siteUrl: credentials.url,
++      url: targetUrl,
++      username: credentials.username,
++      applicationPassword: credentials.applicationPassword,
++    }),
++  });
++  const data = await response.json();
++  if (!response.ok) {
++    const error = new Error(data.error || "Ispezione WordPress non riuscita.");
++    error.code = response.status === 401 || response.status === 403 ? "AUTH" : "INSPECT";
++    throw error;
++  }
++  return data;
++}
++
++export async function inspectFrontend(targetUrl) {
++  const response = await apiFetch("/api/frontend/inspect", {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({ url: targetUrl }),
++  });
++  const data = await response.json();
++  if (!response.ok) throw new Error(data.error || "Ispezione frontend non riuscita.");
++  return data;
++}
++
++export async function inspectLinkEvidence(sourceUrl, targetUrl) {
++  const response = await apiFetch("/api/frontend/link-evidence", {
++    method: "POST", headers: { "content-type": "application/json" },
++    body: JSON.stringify({ sourceUrl, targetUrl }), cache: "no-store",
++  });
++  const evidence = await response.json();
++  if (!response.ok || evidence.ok !== true) throw Object.assign(new Error(evidence.error || "Verifica attuale del link non disponibile."), { code: "LINK_EVIDENCE_UNAVAILABLE" });
++  return evidence;
++}
++
++async function verifyFrontend(targetUrl, expected) {
++  const response = await apiFetch("/api/wordpress/verify-frontend", {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({ url: targetUrl, expected }),
++  });
++  const data = await response.json();
++  if (!response.ok) throw new Error(data.error || "Controllo ownership frontend non riuscito.");
++  return data;
++}
++
++async function verifyCoreOwnership(kind, targetUrl, inspected) {
++  if (!["title", "content", "h1"].includes(kind)) return { ok: true, frontend: null };
++  const entity = inspected.entity || {};
++  const expected = kind === "title"
++    ? { title: entity.title?.raw || entity.title?.rendered || "" }
++    : { content: entity.content?.raw || entity.content?.rendered || "" };
++  const frontend = await verifyFrontend(targetUrl, expected);
++  return assessCoreOwnership(kind, entity, frontend);
++}
++
++const alreadyResolvedReason = (kind, issue, ownership) => {
++  const frontend = ownership?.frontend;
++  if (!frontend) return "";
++  const verificationSafe = frontend.verificationSafe !== false && frontend.requiresBrowserVerification !== true;
++  if (!verificationSafe && ["h1", "content"].includes(kind)) return "";
++  if (kind === "h1") {
++    const label = String(issue?.label || "");
++    if ((/\b0\s*H1\b/i.test(label) || /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label)) && Number(frontend.h1) === 1)
++      return "Il problema H1 dell’audit non è più presente nel frontend corrente. Esegui un nuovo audit per aggiornare il report.";
++  }
++  if (kind === "content" && /brev|parole|word/.test(issueText(issue))) {
++    const words = Number(frontend.words);
++    const minimumWords = Number(frontend.minimumWords);
++    if (Number.isFinite(words) && Number.isFinite(minimumWords) && minimumWords > 0 && words >= minimumWords)
++      return `Il contenuto breve non è più presente nel frontend corrente (${words} parole, soglia ${minimumWords}). Esegui un nuovo audit per confermare.`;
++  }
++  return "";
++};
++
++async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride, remediationMeasurement, manualValue) {
++  const response = await apiFetch("/api/wordpress/generate-patch-v2", {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({
++      ...(manualValue !== undefined ? { manualValue } : {}),
++      topic: `Remediation WordPress ${kind}`,
++      context: JSON.stringify({ issue, page: pageContext(entity, targetUrl, contentOverride, remediationMeasurement) }),
++    }),
++  });
++  const data = await response.json();
++  if (!response.ok || !data.content) {
++    const error = new Error(data.error || "Generazione patch non riuscita.");
++    error.code = data.code || "GENERATION_FAILED";
++    error.quality = data.quality || null;
++    error.candidate = data.candidate || "";
++    throw error;
++  }
++  const parsed = data.changes ? { changes: data.changes } : JSON.parse(String(data.content));
++  if (!parsed?.changes || typeof parsed.changes !== "object") throw new Error("La patch WordPress è vuota.");
++  return { changes: parsed.changes, quality: data.quality || null };
++}
++
++async function generateSeoValue(kind, issue, entity, targetUrl, manualValue) {
++  const response = await apiFetch("/api/wordpress/generate-seo-value-v2", {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({ kind, issue, page: pageContext(entity, targetUrl), ...(manualValue !== undefined ? { manualValue } : {}) }),
++  });
++  const data = await response.json();
++  if (!response.ok || !data.value || data.publishable !== true) {
++    const error = new Error(data.error || "La proposta SEO richiede revisione editoriale e non può essere approvata automaticamente.");
++    error.code = data.code || "EDITORIAL_REVIEW_REQUIRED";
++    error.quality = data.quality || null;
++    error.candidate = data.candidate || "";
++    throw error;
++  }
++  return { value: String(data.value).trim(), quality: data.quality || null };
++}
++
++async function chooseVerifiedElementorContentWidget(targetUrl, state, selectedWidgetId = "") {
++  if (state.widgets.length > 8) throw ownershipUndetermined("content", "La pagina contiene più di 8 text-editor Elementor candidati; serve selezione assistita prima di modificare.");
++  const probes = await Promise.all(state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })));
++  const selected = chooseElementorContentCandidate(state.widgets, probes);
++  const explicitId = String(selectedWidgetId || "").trim();
++  if (explicitId) {
++    const explicit = (selected.candidates || []).find((candidate) => candidate.id === explicitId);
++    if (!explicit) throw ownershipUndetermined("content", "Il blocco Elementor scelto non è più verificato nel frontend corrente. Riapri la selezione e scegli un candidato ancora valido.");
++    return explicit;
++  }
++  if (selected.candidate) return selected.candidate;
++  if ((selected.candidates || []).length > 1) {
++    const error = new Error(selected.reason);
++    error.code = "CONTENT_WIDGET_SELECTION_REQUIRED";
++    error.contentCandidates = selected.candidates.map((candidate) => ({
++      id: candidate.id,
++      words: candidate.words,
++      preview: contentCandidatePreview(candidate.value),
++    }));
++    throw error;
++  }
++  throw ownershipUndetermined("content", selected.reason);
++}
++
++async function elementorPlan(kind, issue, entity, targetUrl, state, frontend, options = {}) {
++  if (!state?.parsed || !state.widgets.length) return null;
++  if (kind === "h1") {
++    const headings = state.widgets.map((candidate) => candidate.item);
++    const h1 = headings.filter((item) => String(item.settings?.header_size || "h2").toLowerCase() === "h1");
++    const label = String(issue?.label || "");
++    const frontendH1 = Number(frontend?.h1);
++    const missing = /\b0\s*H1\b/i.test(label);
++    const multiple = /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label);
++    if (missing || h1.length === 0) {
++      if (frontendH1 !== 0 || !headings.length) throw ownershipUndetermined("h1", `Gli H1 Elementor modificabili non coincidono con il frontend (${Number.isFinite(frontendH1) ? frontendH1 : "non verificabile"}).`);
++      headings[0].settings.header_size = "h1";
++    } else if (multiple || h1.length > 1) {
++      if (h1.length <= 1 || frontendH1 !== h1.length) throw ownershipUndetermined("h1", "Gli H1 pubblici non coincidono con gli H1 Elementor modificabili; potrebbe intervenire un template condiviso.");
++      h1.slice(1).forEach((item) => { item.settings.header_size = "h2"; });
++    } else return null;
++    return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: null };
++  }
++  if (kind === "content") {
++    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, options.contentWidgetId);
++    const previous = selected.item.settings.editor;
++    const measurement = contentMeasurement(frontend, previous);
++    let generated;
++    try { generated = await generateCorePatch("content", issue, entity, targetUrl, previous, measurement, options.manualValue); }
++    catch (error) { error.manualOriginal = previous; error.contentWidgetId = selected.id; throw error; }
++    if (typeof generated.changes?.content !== "string" || !generated.changes.content.trim() || generated.changes.content === previous) return null;
++    selected.item.settings.editor = generated.changes.content;
++    return {
++      adapter: "Elementor single text-editor",
++      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
++      quality: generated.quality,
++      contentWidget: {
++        id: selected.id,
++        beforeWords: selected.words,
++        beforePreview: contentCandidatePreview(previous),
++      },
++    };
++  }
++  return null;
++}
++
++export async function buildPlan(kind, issue, inspected, targetUrl, frontendContext, options = {}) {
++  const entity = inspected.entity || {};
++  const contextDecision = remediationContextDecision(issue, frontendContext || {}, targetUrl);
++  if (!contextDecision.allowed) {
++    const error = new Error(contextDecision.reason);
++    error.code = contextDecision.code;
++    throw error;
++  }
++
++  if (kind === "external_link") {
++    const brokenUrl = brokenExternalTarget(issue);
++    if (!brokenUrl) {
++      const error = new Error("Il problema non contiene una destinazione esterna 404 valida da correggere.");
++      error.code = "BROKEN_LINK_TARGET_MISSING";
++      throw error;
++    }
++
++    const elementorRaw = pluginMeta(entity)._elementor_data;
++    const elementor = prepareElementorBrokenExternalLink(elementorRaw, brokenUrl, options.linkCleanupMode);
++    const evidence = options.linkEvidence;
++    if (evidence && (evidence.targetUrl !== brokenUrl || evidence.requestedSourceUrl !== new URL(targetUrl).href)) throw ownershipUndetermined("external_link", "L’evidenza appartiene a una pagina o destinazione diversa: ricontrolla questo singolo problema.");
++    const localAbsent = elementor.state === "valid" ? elementor.count === 0 : elementor.state === "absent" && typeof entity?.content?.raw === "string" && removeExactAnchor(entity.content.raw, brokenUrl, "unlink-preserve-text").count === 0;
++    if (localAbsent && evidence?.verificationSafe === true && evidence?.scanComplete === true && evidence?.occurrenceCount === 0) return { alreadyResolved: true, linkResolution: "absent-confirmed", reason: "Link non più presente nel documento WordPress e nell’HTML pubblico ricontrollato. Nessuna modifica necessaria. Aggiorna l’audit per riallineare l’elenco dei problemi." };
++    if (evidence && (evidence.verificationSafe !== true || evidence.occurrenceCount !== 1)) throw ownershipUndetermined("external_link", "La verifica attuale non conferma una singola occorrenza pubblica modificabile. Rileggi la pagina prima di scrivere.");
++    if (elementor.state === "invalid") {
++      throw ownershipUndetermined("external_link", "_elementor_data non è leggibile in modo strutturato: il link non viene modificato.");
++    }
++    if (elementor.state === "valid" && elementor.count > 1) {
++      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${elementor.count} volte nel documento Elementor. Serve scegliere esplicitamente quale collegamento rimuovere.`);
++    }
++    if (elementor.state === "valid" && elementor.count === 1) {
++      return {
++        adapter: "Elementor link cleanup",
++        changes: { meta: { _elementor_data: elementor.serialized } },
++        quality: null,
++        linkCleanup: {
++          targetUrl: brokenUrl,
++          action: elementor.action,
++          anchorText: elementor.anchors[0] || "",
++        },
++      };
++    }
++    if (elementor.state === "valid") {
++      throw ownershipUndetermined("external_link", "La pagina usa Elementor ma la destinazione 404 non è presente nel documento locale. Potrebbe provenire da un template condiviso; il fallback su post_content è bloccato.");
++    }
++
++    const coreContent = entity?.content?.raw || "";
++    const core = removeExactAnchor(coreContent, brokenUrl, options.linkCleanupMode);
++    if (core.count > 1) {
++      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${core.count} volte in post_content. Serve scegliere esplicitamente quale collegamento rimuovere.`);
++    }
++    if (core.count === 1) {
++      return {
++        adapter: "WordPress core link cleanup",
++        changes: { content: core.value },
++        quality: null,
++        linkCleanup: {
++          targetUrl: brokenUrl,
++          action: core.action,
++          anchorText: core.anchors[0] || "",
++        },
++      };
++    }
++    throw ownershipUndetermined("external_link", "La destinazione 404 non compare in una sorgente WordPress locale modificabile. Nessun collegamento viene rimosso automaticamente.");
++  }
++
++  if (["content", "h1"].includes(kind)) {
++    const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
++    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
++    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
++    const elementorState = inspectEditableElementor(kind, entity);
++    if (elementorState.state === "invalid") throw ownershipUndetermined(kind, "_elementor_data è presente ma non è strutturato in modo valido e sicuro.");
++    if (elementorState.state === "valid" && elementorState.widgets.length > 0) {
++      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend, options);
++      if (elementor) return elementor;
++      throw ownershipUndetermined(kind, "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica senza ambiguità. Il fallback su post_content è bloccato.");
++    }
++    if (elementorState.state === "valid" && elementorState.hasDocument) {
++      throw ownershipUndetermined(kind, `${elementorOwnershipDetail(entity)} Il fallback su post_content è bloccato.`);
++    }
++    if (ownership.ok) {
++      const coreContent = entity?.content?.raw || entity?.content?.rendered || "";
++      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined, options.manualValue);
++      return { adapter: "WordPress core", ...generated };
++    }
++    throw ownershipUndetermined(kind, "La verifica frontend non dimostra che post_content sia la sorgente principale della pagina.");
++  }
++
++  if (kind === "title") {
++    const seoPlugin = metaKey(entity, "title");
++    if (seoPlugin) {
++      const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
++      return { adapter: seoPlugin[1], changes: { meta: { [seoPlugin[0]]: generated.value } }, quality: generated.quality };
++    }
++    const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
++    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
++    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
++    if (ownership.ok) {
++      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, undefined, options.manualValue);
++      return { adapter: "WordPress core", ...generated };
++    }
++    const plugin = metaKey(entity, "title");
++    if (!plugin) throw new Error("Il title SEO è gestito dal frontend ma Rank Math/Yoast non espongono un campo REST scrivibile per questa pagina.");
++    const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
++    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
++  }
++
++  if (kind === "excerpt") {
++    const generated = await generateCorePatch("excerpt", issue, entity, targetUrl, undefined, undefined, options.manualValue);
++    return { adapter: "WordPress core", ...generated };
++  }
++
++  if (kind === "meta_description") {
++    const plugin = metaKey(entity, kind);
++    if (!plugin) throw new Error("Rank Math/Yoast non espongono la meta description come campo REST scrivibile per questa pagina.");
++    const generated = await generateSeoValue("meta_description", issue, entity, targetUrl, options.manualValue);
++    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
++  }
++
++  if (kind === "canonical") {
++    const plugin = metaKey(entity, kind);
++    if (!plugin) throw new Error("Rank Math/Yoast non espongono la canonical come campo REST scrivibile per questa pagina.");
++    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: frontendContext?.url || targetUrl } }, quality: null };
++  }
++
++  if (kind === "noindex") {
++    const plugin = metaKey(entity, kind);
++    if (!plugin) throw new Error("Rank Math/Yoast non espongono la direttiva noindex come campo REST scrivibile per questa pagina.");
++    const [key, adapter] = plugin;
++    const current = pluginMeta(entity)[key];
++    const next = key === "_yoast_wpseo_meta-robots-noindex"
++      ? "2"
++      : Array.isArray(current)
++        ? [...new Set(["index", "follow", ...current.filter((item) => !/noindex/i.test(String(item)))])]
++        : "index,follow";
++    return { adapter, changes: { meta: { [key]: next } }, quality: null };
++  }
++
++  throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
++}
++
++export const flattenState = (state, fields) => {
++  const flat = {};
++  for (const field of fields || []) {
++    if (field.startsWith("meta.")) flat[field] = state?.meta?.[field.slice(5)];
++    else flat[field] = state?.[field];
++  }
++  return flat;
++};
++
++export function createWordPressCorrection(item, credentials, batchId, correctionId = "") {
++      const data = {
++        changed: item.data.changed,
++        before: item.data.previewBefore,
++        after: item.data.previewAfter,
++        resource: item.data.resource,
++        id: item.data.id,
++        adapter: item.data.adapter,
++      };
++      const fields = data.changed || [];
++      const snapshot = item.contextSnapshot || {};
++      return {
++        id: correctionId || `correction-${crypto.randomUUID()}`,
++        batchId,
++        clientId: snapshot.clientId,
++        clientName: snapshot.clientName || "",
++        platform: "wordpress",
++        liveApproval: true,
++        adapter: data.adapter || item.plan.adapter,
++        issue: item.issue,
++        issueLabel: item.issue?.label || "Problema SEO",
++        issueType: item.issue?.type || "audit",
++        severity: item.issue?.severity || "media",
++        sourceUrl: data.sourceUrl || item.targetUrl,
++        siteUrl: credentials.url,
++        finalUrl: item.frontendContext?.url || "",
++        canonical: item.frontendContext?.canonical || "",
++        canonicalConfirmed: Boolean(item.frontendContext?.canonical),
++        resource: data.resource,
++        entityId: Number(data.id),
++        wordpressResource: data.resource,
++        wordpressId: Number(data.id),
++        resourceIdentity: item.resourceIdentity,
++        issueIdentity: item.issueIdentity,
++        username: credentials.username,
++        fields,
++        before: flattenState(data.before, fields),
++        after: flattenState(data.after, fields),
++        rollbackChanges: data.before,
++        editorialQuality: item.plan.quality || null,
++        status: "Da verificare",
++        appliedAt: new Date().toISOString(),
++        frontendConfirmed: false,
++        auditType: snapshot.auditType,
++        auditAnalyzedAt: snapshot.analyzedAt,
++        verificationNote: `Modifica live approvata e applicata tramite ${data.adapter || item.plan.adapter}. Scrittura e risoluzione SEO restano stati distinti.`,
++      };
++}
++
++export async function applyPreparedCorrection(pendingRecord, preview, credentials, assertContext = async () => {}) {
++  const write = async () => {
++    await assertContext();
++      return await applyJournaledCorrection(pendingRecord, async () => {
++        await assertContext();
++        correctionCredentials(pendingRecord, {
++          clientId: Number(JSON.parse(workspaceStorage.getItem("seogrow-selected-client-v1") || "null")),
++          siteUrl: credentials.url, username: credentials.username, applicationPassword: credentials.applicationPassword,
++        });
++        const response = await apiFetch("/api/wordpress/live-apply", {
++          method: "POST",
++          headers: { "content-type": "application/json" },
++          body: JSON.stringify({ approvalToken: preview.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
++        });
++        const applied = await response.json();
++        if (!response.ok || applied.ok !== true) {
++          const error = new Error(applied.error || "Applicazione live non riuscita.");
++          error.code = applied.code || "APPLY_FAILED";
++          throw error;
++        }
++        return {
++          adapter: applied.adapter || pendingRecord.adapter,
++          before: flattenState(applied.before, applied.changed || pendingRecord.fields),
++          after: flattenState(applied.after, applied.changed || pendingRecord.fields),
++          rollbackChanges: applied.before,
++        };
++      });
++  };
++  const locks = globalThis.navigator?.locks;
++  if (!locks?.request) throw Object.assign(new Error("Lock risorsa non disponibile: scrittura bloccata."), { definitelyNoWrite: true });
++  const site = new URL(pendingRecord.siteUrl).href.replace(/\/+$/, "");
++  return locks.request(`seogrow-write:${site}:${pendingRecord.resource}:${pendingRecord.entityId}`, { ifAvailable: true }, async lock => {
++    if (!lock) throw Object.assign(new Error("Una scrittura su questa risorsa è già in corso."), { code: "RESOURCE_LOCKED", definitelyNoWrite: true });
++    return write();
++  });
++}
+diff --git a/src/wordpressRemediationV2.test.js b/src/wordpressRemediationV2.test.js
+index 19cf387..27efe82 100644
+--- a/src/wordpressRemediationV2.test.js
++++ b/src/wordpressRemediationV2.test.js
+@@ -9,7 +9,7 @@ import {
+ } from "./wordpressOwnership.js";
+ 
+ const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
+-const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++const liveControl = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+ const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url), "utf8");
+ 
+diff --git a/src/wrappedLinkCleanup.test.js b/src/wrappedLinkCleanup.test.js
+index 3d15c89..9473ec7 100644
+--- a/src/wrappedLinkCleanup.test.js
++++ b/src/wrappedLinkCleanup.test.js
+@@ -122,7 +122,7 @@ test("anchor markup and whitespace are preserved while the readable label is nor
+ // Exercise the actual app planner on every supported app platform. A missing
+ // source file is a failure, not a reason to skip a release assertion.
+ test("actual WordPress plan chooses the local Elementor adapter for both modes", async () => {
+-  const source = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
++  const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
+   const match = source.match(/async function buildPlan\([\s\S]*?(?=\n(?:const |function |async function |export ))/);
+   assert.ok(match, "actual buildPlan source found");
+   const buildPlan = runInNewContext(`${match[0]}\nbuildPlan`, {

@@ -1,0 +1,147 @@
+{
+  "baseCommit": "86c2cc76737c29411f39fe7a3fcf456378b60f26",
+  "baseBranch": "ux/simple-numbered-wizard",
+  "patchSha256": "a1a80aed192dfe692921a769b067e014b2a63409603fd0c0fb5b0d859a6653a8",
+  "files": [
+    {
+      "path": "scripts/browser-smoke.mjs",
+      "beforeSha256": "a9251b52c9d292e4191eab9a22498639268bc1f7e29d49c9a108dea4f1567ecb",
+      "afterSha256": "ec025bacbc5acc49dafb7a3d004d6bc9b4c4b9daa821c4c5141f87b184079148"
+    },
+    {
+      "path": "scripts/qa-batch-matrix.mjs",
+      "beforeSha256": null,
+      "afterSha256": "cd56c48a45125af47e3b6dbab9d73cb24b998b5d4b210cc7e1e5b153623f8666"
+    },
+    {
+      "path": "scripts/qa-matrix.mjs",
+      "beforeSha256": "5b01b9c309a9d82607f129bd1a97d97918261899c5dfcb8232183992751744a9",
+      "afterSha256": "5e516a9d85f0c78c6ff8bfd9f736fcfaf3f2d9382343cb2ab3891106d95eacdd"
+    },
+    {
+      "path": "server/wordpressLiveApprovalHook.js",
+      "beforeSha256": "43ab1e8d5f1ab8dba08a24d9f101c390538a74492ba2bf5d00a7b5b03e68566e",
+      "afterSha256": "702d271cc4bc18d2288710f77eb8756dcab6a921c03da9564027c87b2e07b67a"
+    },
+    {
+      "path": "src/BatchRemediationPanel.css",
+      "beforeSha256": null,
+      "afterSha256": "c0e2854fb86574811840a7bd5cefaeb4ab346aa053f2a32c139b553ef24b925b"
+    },
+    {
+      "path": "src/BatchRemediationPanel.jsx",
+      "beforeSha256": null,
+      "afterSha256": "fca51610e0d2260e99092c978b3ebf76edc53636b4137e9f1d23661e671d1375"
+    },
+    {
+      "path": "src/ProblemsWorkspace.jsx",
+      "beforeSha256": "d65c8b1b0c1259381568ccc9af6ae4f0fb47030f253fcb2dd4b0c0e8ed9b1040",
+      "afterSha256": "3051e37143f3149a859c1fdd9daad0024544994d58d4c03e40f11ad93d3f15dd"
+    },
+    {
+      "path": "src/WordPressLiveRemediationControlV2.jsx",
+      "beforeSha256": "7af5d57477a2514bc2dfd1f569dec36a77bfcbe251701a428e7d939e5a9310d9",
+      "afterSha256": "c36a18b7e84be856698ad5c4fd80d69fbc8403f995cf689e409b915c0cc7d041"
+    },
+    {
+      "path": "src/batchRemediation.test.js",
+      "beforeSha256": null,
+      "afterSha256": "b0ec3e9fd1e6a3c60752eb9d2db41ba95b7ab66beb67a14b90983c7cfa7871bb"
+    },
+    {
+      "path": "src/batchRemediationModel.js",
+      "beforeSha256": null,
+      "afterSha256": "4713d1843b1c2e5fe63501a82af83eea070763f5ba77febab6e491860bef60a1"
+    },
+    {
+      "path": "src/batchRemediationQueue.js",
+      "beforeSha256": null,
+      "afterSha256": "65996ee7ccfbd5bdb0736cb353abac21af1b875bb0ff173cda3fc3ce12e3d995"
+    },
+    {
+      "path": "src/batchRemediationRuntime.js",
+      "beforeSha256": null,
+      "afterSha256": "fa8a54fc34ffef097d222bbc05779dce9f54682156f5c873cdcfbd826ac81c77"
+    },
+    {
+      "path": "src/batchRemediationRuntime.test.js",
+      "beforeSha256": null,
+      "afterSha256": "910c906ecf4868679a6fc42723af1aa649dc8ad7678b3191d0bfbe80ea065541"
+    },
+    {
+      "path": "src/batchRemediationStore.js",
+      "beforeSha256": null,
+      "afterSha256": "fd47241b4581374da3b1d614494a2927a7b9623fcdff86e1c854c6a1e78fce91"
+    },
+    {
+      "path": "src/brokenExternalLinkRemediation.test.js",
+      "beforeSha256": "b6c44a9f9f2cf0a9b313340df7578cddd080f3286706f1f9b3949619d527d49f",
+      "afterSha256": "0c2440cac63ac30969129ac7dfbe1bb36c658537c9ef886e93775b6db687d054"
+    },
+    {
+      "path": "src/elementorContentSelection.test.js",
+      "beforeSha256": "4c463b1b3fb6b72b60493ee66ae6d512f54483bb3845a29149ffc00906fafba5",
+      "afterSha256": "8b1627d45c0b67d3e27dba101ccec08e662c18664f79de807fae956789cd5ccf"
+    },
+    {
+      "path": "src/elementorImpactClient.test.js",
+      "beforeSha256": "da37d538200e7507514cf4d9b56a22e303326594fcd957fd1aecb7a1a267bf03",
+      "afterSha256": "d4da39820e1b961013016c37fd7118f23db67e04e9c893dd1500f34486105d73"
+    },
+    {
+      "path": "src/problemsModel.js",
+      "beforeSha256": "88dd27aa7201d1fa3a41261e48f7062f2ea03e0cdbf65ec8692dec39d1005aac",
+      "afterSha256": "8ec1159c927aa23a6e80a9e39cce522d9d74f37bfffe7cb3c53f9c02bf3f1844"
+    },
+    {
+      "path": "src/remediationHost.test.js",
+      "beforeSha256": "de2760fdd42b1d2f265fb35c046e529f2d5171e9175b38855fcb16176fe605b3",
+      "afterSha256": "62d034495f16257f7a3e95581d2d6b74690db3978782537f08702a66e78ef7c2"
+    },
+    {
+      "path": "src/remediationOrderingAndSeoV2.test.js",
+      "beforeSha256": "9dbaa582e4273dab342815f4045cadc26f0511186678db8a750e6add4d368a04",
+      "afterSha256": "711e84e094d80576866735d03ee4d2d95a62223bd7dd08164114653e78c5fa54"
+    },
+    {
+      "path": "src/remediationPhase2.test.js",
+      "beforeSha256": "7328ab015c707917872c86bc258e4ea23a3bcd35b8c78569f13d44d9960745fc",
+      "afterSha256": "c44034a5d67a281084d09581db2e16b66e5ad6a706fc1eb38e20b22b8f3f568a"
+    },
+    {
+      "path": "src/remediationResolutionPaths.test.js",
+      "beforeSha256": "af0f3ffac859d8e11abb390ec5e3da9b57f09b4f9f04b27e788cc200e7c976b0",
+      "afterSha256": "034f2b2ed57a45c2a9f6304c7dd1d797e323f6c1030ceaa49258f4bf47001412"
+    },
+    {
+      "path": "src/remediationRuntimeState.test.js",
+      "beforeSha256": "faa099e2ec5d17afb8eac649b2fc5463e55a02e8125d04f6af1fa3a94adaf7a2",
+      "afterSha256": "73c3f74c8c0a59406e56a56564ace193e751d4ed971f80f48f2bcc86d58c877a"
+    },
+    {
+      "path": "src/wordpressApplyConcurrency.test.js",
+      "beforeSha256": "890c6d79d32c1b3c18a95fa22c7419aae71dcd95b486e447dd0809d1c8fe66f6",
+      "afterSha256": "d73e4af3ef2b3838bacdda970fa2febf01d6782f695187ca1ee5584e60cb9e4d"
+    },
+    {
+      "path": "src/wordpressLiveRemediation.test.js",
+      "beforeSha256": "c964a9820442213b94e0db19e22357f89698e2111fa2617bd51f2c2f2b4197b8",
+      "afterSha256": "07d3c6d98b56ae227c0c3a96dcbe8f9e6c6e075f67b9f0e982de813a3912f0a6"
+    },
+    {
+      "path": "src/wordpressRemediationEngine.js",
+      "beforeSha256": null,
+      "afterSha256": "83a59aa4bc7bf9cfdec0ed48df21b79b5a9062f9a59bf1a9bb72b83afb05ba18"
+    },
+    {
+      "path": "src/wordpressRemediationV2.test.js",
+      "beforeSha256": "b9a8f27e67804b044de1437ffc5e34af3a65e1edadd01d977cb504a169aa3b61",
+      "afterSha256": "cfbd2aa4a08eb4f7b096f90f4879055429f2bc4bc88e92196229c4d6d3e54eb6"
+    },
+    {
+      "path": "src/wrappedLinkCleanup.test.js",
+      "beforeSha256": "1a5087c07788bcd5fa158db6169c1e0b3753b5c1afcff200a7615e934b6d3802",
+      "afterSha256": "a3f491d03f0d96a1fdde026c9dedd55056c7e30f5258365ce05f5ef462d24567"
+    }
+  ]
+}

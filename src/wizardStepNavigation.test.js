@@ -1,55 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import {
+  WIZARD_DESTINATION_PAGES,
+  WIZARD_STEP_COUNTS,
+  hasExplicitWizardStepAction,
+  wizardActionCoverageComplete,
+  wizardStepAction,
+} from "./WizardStepNavigation.js";
 
-const navigation = await readFile(new URL("./WizardStepNavigation.js", import.meta.url), "utf8");
-const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+test("tutte le card dei wizard correnti hanno una pagina di destinazione esplicita", () => {
+  const entries = Object.entries(WIZARD_STEP_COUNTS);
+  assert.equal(entries.length, 16);
+  assert.equal(entries.reduce((total, [, count]) => total + count, 0), 72);
+  assert.equal(wizardActionCoverageComplete(), true);
 
-test("il navigatore del wizard è caricato dall'app", () => {
-  assert.match(main, /import ['"]\.\/WizardStepNavigation['"]/);
-  assert.match(navigation, /document\.addEventListener\("click", handleWizardClick\)/);
-});
-
-test("Panoramica apre soltanto pagine operative reali", () => {
-  assert.match(navigation, /Panoramica:[\s\S]*page: "Centro progetto"/);
-  assert.match(navigation, /Panoramica:[\s\S]*page: "Problemi"/);
-  assert.match(navigation, /Panoramica:[\s\S]*page: "Opportunità"/);
-  assert.match(navigation, /Panoramica:[\s\S]*page: "Correzioni"/);
-  assert.match(navigation, /Panoramica:[\s\S]*page: "Task"/);
-  assert.doesNotMatch(navigation, /selector:/);
-});
-
-test("i wizard delle pagine operative usano solo destinazioni page", () => {
-  for (const page of [
-    "Clienti",
-    "Centro progetto",
-    "Problemi",
-    "Audit SEO",
-    "Posizionamenti",
-    "Link interni",
-    "Opportunità",
-    "Correzioni",
-    "Task",
-    "Piano editoriale",
-    "SEO Agent",
-    "GEO AI",
-    "Integrazioni",
-    "Impostazioni",
-    "Storico",
-  ]) {
-    assert.match(navigation, new RegExp(page.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const [page, count] of entries) {
+    for (let index = 0; index < count; index += 1) {
+      assert.equal(
+        hasExplicitWizardStepAction(page, index),
+        true,
+        `${page}: lo step ${index + 1} deve aprire una pagina reale`,
+      );
+      const action = wizardStepAction(page, index);
+      assert.deepEqual(Object.keys(action), ["page"]);
+      assert.equal(WIZARD_DESTINATION_PAGES.includes(action.page), true);
+    }
   }
-  assert.match(navigation, /WIZARD_DESTINATION_PAGES/);
-  assert.match(navigation, /navigatePage\(action\.page\)/);
-  assert.doesNotMatch(navigation, /openFirstCardDetail/);
-  assert.doesNotMatch(navigation, /openProjectCard/);
-  assert.doesNotMatch(navigation, /scrollToSelector/);
 });
 
-test("anche Indietro e Successivo eseguono la pagina dello step raggiunto con il contesto corretto", () => {
-  assert.match(navigation, /guided-wizard-footer button/);
-  assert.match(navigation, /Successivo/);
-  assert.match(navigation, /const targetCard = wizard\.querySelectorAll\("\.guided-step-card"\)\[next\]/);
-  assert.match(navigation, /const meta = readCardMeta\(targetCard, next\)/);
-  assert.match(navigation, /runWizardStepAction\(currentPage\(\), next, meta\)/);
+test("nessuna card wizard corrente usa sezioni, selector, detail o tools", () => {
+  for (const [page, count] of Object.entries(WIZARD_STEP_COUNTS)) {
+    for (let index = 0; index < count; index += 1) {
+      const action = wizardStepAction(page, index);
+      assert.equal("selector" in action, false);
+      assert.equal("detail" in action, false);
+      assert.equal("tools" in action, false);
+      assert.equal("projectCard" in action, false);
+      assert.equal("fallback" in action, false);
+    }
+  }
+});
+
+test("uno step futuro non mappato apre una pagina sicura invece di una sezione", () => {
+  assert.deepEqual(wizardStepAction("Pagina futura", 0), { page: "Panoramica" });
 });

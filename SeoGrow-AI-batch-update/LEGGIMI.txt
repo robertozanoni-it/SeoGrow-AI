@@ -1,0 +1,40 @@
+SEOGROW AI — AGGIORNAMENTO BATCH / VERSIONE DI SVILUPPO
+
+Stato: PARTIAL. Test automatici superati; browser e WordPress reale non convalidati.
+Leggi REPORT-IMPLEMENTAZIONE.md prima di applicarlo.
+
+INSTALLAZIONE NEL REPOSITORY ESISTENTE
+1. Ferma SeoGrow AI e conserva eventuali modifiche locali con un commit.
+2. Apri APPLICA.command e seleziona la cartella principale del repository SeoGrow-AI.
+3. Solo se tutti i controlli passano, il programma crea un backup dei file coinvolti,
+   un nuovo ramo locale feat/batch-locale-... e applica la patch.
+4. Riavvia con AVVIA.command dalla cartella abituale di SeoGrow.
+
+Il programma richiede Git e Node già disponibili per SeoGrow.
+Se il doppio clic non avvia .command, apri Terminale, scrivi zsh seguito da uno spazio,
+trascina APPLICA.command nella finestra e premi Invio.
+
+Non vengono modificati .env, credenziali, node_modules o siti WordPress.
+Non vengono eseguiti commit, push, merge o pubblicazioni automatiche.
+I sorgenti del batch restano modifiche locali sul nuovo ramo.
+
+COMPATIBILITÀ
+Baseline: ux/simple-numbered-wizard, commit 86c2cc76737c29411f39fe7a3fcf456378b60f26.
+Il controllo confronta il contenuto di ogni file coinvolto, non soltanto il nome del ramo.
+Se la tua versione è diversa, o il repository contiene modifiche locali,
+l'aggiornamento si ferma: non forzarlo e non sostituire manualmente file più recenti.
+
+VERIFICA
+I checksum prima/dopo e della patch sono in manifest.json.
+I log dei 1.022 test, lint, build e test dell'installatore sono in qa/.
+I quattro nuovi scenari browser sono predisposti, ma non hanno ancora un esito PASS.
+Prima dell'uso su siti reali, completare qa:release e una prova controllata su staging.
+
+GITHUB
+Il trasferimento completo non è stato completato. I file remoti temporanei sono stati
+rimossi. Un normale git pull NON installa questa funzione: usa il presente aggiornamento.
+
+PACCHETTO SORGENTI COMPLETI
+Lo ZIP completo è una copia di riferimento: esclude dipendenze, credenziali, dati runtime,
+.git e workflow temporaneo. Per aggiornare la tua copia configurata è preferibile usare
+APPLICA.command, che conserva i dati esistenti e verifica la compatibilità.
