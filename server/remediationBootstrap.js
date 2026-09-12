@@ -63,6 +63,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 const remediationModules = await Promise.all([
   import("./wordpressConnectionHook.js"),
   import("./wordpressLiveApprovalHook.js"),
+  import("./elementorSharedRollbackRoute.js"),
   import("./wordpressLiveRollbackHook.js"),
   import("./wordpressSeoAdapterV2Hook.js"),
   import("./frontendVerificationHook.js"),
@@ -79,7 +80,7 @@ const remediationModules = await Promise.all([
   import("./elementorSharedLinkHook.js"),
 ]);
 
-const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
+const ELEMENTOR_IMPACT_MODULE_INDEX = 7;
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
 
 export function registerRemediationRoutes(app) {
@@ -105,6 +106,7 @@ export function registerRemediationRoutes(app) {
         "frontend-link-evidence-read-only",
         "elementor-shared-link-preview",
         "elementor-shared-link-apply",
+        "elementor-shared-link-rollback",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
