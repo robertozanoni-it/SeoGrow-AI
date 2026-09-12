@@ -27,11 +27,16 @@ test("sidebar finale è sensibilmente più scura delle superfici precedenti", ()
   assert.match(main, /import '\.\/SidebarContrastFinal\.css'/);
 });
 
-test("problemi link esterni espongono pagina sorgente e destinazione esatta", () => {
+test("problemi link esterni espongono pagina sorgente, anchor e destinazione esatta", () => {
   assert.match(external, /broken-external-link/);
   assert.match(external, /issue\?\.targetUrl \|\| issue\?\.brokenUrl \|\| issue\?\.destinationUrl/);
   assert.match(external, /Link esterno: \$\{target\}/);
   assert.match(external, /problem-external-targets/);
-  assert.match(external, /link\.href = target/);
+  assert.match(external, /Pagina con il link/);
+  assert.match(external, /Anchor text/);
+  assert.match(external, /Link da correggere/);
+  assert.match(external, /makeExternalLink\(issue\.sourceUrl/);
+  assert.match(external, /makeExternalLink\(issue\.targetUrl/);
+  assert.match(external, /Riprova correzione/);
   assert.match(main, /import '\.\/ExternalLinkDestinationUx'/);
 });
