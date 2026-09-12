@@ -63,6 +63,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 const remediationModules = await Promise.all([
   import("./wordpressConnectionHook.js"),
   import("./wordpressLiveApprovalHook.js"),
+  import("./elementorSharedRollbackRoute.js"),
   import("./wordpressLiveRollbackHook.js"),
   import("./wordpressSeoAdapterV2Hook.js"),
   import("./frontendVerificationHook.js"),
@@ -76,9 +77,10 @@ const remediationModules = await Promise.all([
   import("./wordpressWriteReconciliationHook.js"),
   import("./providerBudgetConfigHook.js"),
   import("./linkEvidenceHook.js"),
+  import("./elementorSharedLinkHook.js"),
 ]);
 
-const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
+const ELEMENTOR_IMPACT_MODULE_INDEX = 7;
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
 
 export function registerRemediationRoutes(app) {
@@ -102,6 +104,9 @@ export function registerRemediationRoutes(app) {
         "elementor-coverage-attestation",
         "elementor-reference-impact-read-only",
         "frontend-link-evidence-read-only",
+        "elementor-shared-link-preview",
+        "elementor-shared-link-apply",
+        "elementor-shared-link-rollback",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -119,15 +124,17 @@ export function registerRemediationRoutes(app) {
       aiProvider: (() => { try { return openAiCompatibleProvider(); } catch { return "invalid"; } })(),
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
-      elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
-      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
-      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
+      elementorImpactMode: "read-only-server-attested-coverage",
+      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative",
+      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match",
       elementorReferenceImpactMode: "connector-inventory-plus-rest-meta-read-only-page-post-fail-closed-custom-types",
+      elementorSharedLinkMode: "unique-template-single-anchor-complete-public-impact-explicit-approval-stale-safe-auto-rollback",
       linkEvidenceMode: "read-only-source-anchor-target-evidence",
       writeReconciliationMode: "read-only-exact-before-after-classification-core-fields",
       taxonomyConnectorMinimum: "1.3.0",
       elementorInventoryConnectorMinimum: "1.3.0",
       elementorReferenceImpactConnectorMinimum: "1.3.0",
+      elementorSharedLinkConnectorMinimum: "1.3.8",
       draftCopyCompatibility: false,
     });
   });

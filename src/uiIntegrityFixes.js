@@ -34,25 +34,43 @@ const validBrokenTarget = (value) => {
   }
 };
 
+function evidenceBrokenTarget(card) {
+  for (const field of card.querySelectorAll(".wp-live-link-evidence-field")) {
+    const label = field.querySelector("span")?.textContent || "";
+    if (!/link da correggere/i.test(label)) continue;
+    const href = field.querySelector("a")?.getAttribute("href") || "";
+    const target = validBrokenTarget(href);
+    if (target) return target;
+  }
+  return "";
+}
+
 function brokenTargetFromCard(card) {
   if (!(card instanceof Element)) return "";
-  const explanation = card.querySelector(".correction-explanation")?.textContent || "";
-  const explicit = explanation.match(/Link esatto da correggere:\s*(https?:\/\/[^\s]+)/i)?.[1];
-  if (explicit) return validBrokenTarget(explicit);
+
+  // The evidence block carries the verified href as a DOM attribute and is the
+  // authoritative source. Avoid parsing concatenated prose such as
+  // ".../advanced/Prossimo passo", which can still form a syntactically valid URL.
+  const evidence = evidenceBrokenTarget(card);
+  if (evidence) return evidence;
 
   const title = card.querySelector(".wp-live-preview-title")?.textContent || "";
   if (!/link esterno non raggiungibile|collegamento esterno 404/i.test(`${title} ${card.textContent || ""}`)) return "";
+
   const preview = [...card.querySelectorAll(".correction-readable pre")]
     .map((node) => validBrokenTarget(node.textContent))
     .find(Boolean);
-  return preview || "";
+  if (preview) return preview;
+
+  const explanation = card.querySelector(".correction-explanation")?.textContent || "";
+  const explicit = explanation.match(/Link esatto da correggere:\s*(https?:\/\/.*?)(?=\s*Prossimo passo:|\s*Dettaglio tecnico|$)/i)?.[1];
+  return explicit ? validBrokenTarget(explicit) : "";
 }
 
-function createBrokenLinkField(card, url) {
-  if (!(card instanceof Element) || !url || card.querySelector(`.${BROKEN_LINK_FIELD_CLASS}`)) return false;
-
+function buildBrokenLinkField(url) {
   const section = document.createElement("section");
   section.className = BROKEN_LINK_FIELD_CLASS;
+  section.dataset.target = url;
   section.setAttribute("aria-label", "Link esterno da correggere");
 
   const label = document.createElement("label");
@@ -93,6 +111,19 @@ function createBrokenLinkField(card, url) {
 
   row.append(input, open, copy);
   section.append(label, row);
+  return section;
+}
+
+function createBrokenLinkField(card, url) {
+  if (!(card instanceof Element) || !url) return false;
+  const existing = card.querySelector(`.${BROKEN_LINK_FIELD_CLASS}`);
+  if (existing?.dataset.target === url && existing.querySelector("input")?.value === url) return false;
+
+  const section = buildBrokenLinkField(url);
+  if (existing) {
+    existing.replaceWith(section);
+    return true;
+  }
 
   const explanation = card.querySelector(".correction-explanation");
   if (explanation?.nextSibling) explanation.parentNode.insertBefore(section, explanation.nextSibling);

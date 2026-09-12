@@ -28,7 +28,13 @@ export async function applyJournaledCorrection(record, write, persist = saveCorr
     return await persist({ ...record, ...patch, id: record.id, clientId: record.clientId, status: "Da verificare", writeConfirmed: true,
       frontendConfirmed: false, verifiedAt: "" });
   } catch (cause) {
-    if (["ATOMIC_WRITE_UNAVAILABLE", "STALE_CONFLICT", "STALE_PREVIEW", "EXPECTED_CURRENT_REQUIRED"].includes(cause.code)) {
+    if ([
+      "ATOMIC_WRITE_UNAVAILABLE",
+      "STALE_CONFLICT",
+      "STALE_PREVIEW",
+      "EXPECTED_CURRENT_REQUIRED",
+      "SHARED_LINK_FRONTEND_ROLLED_BACK",
+    ].includes(cause.code)) {
       await persist({ ...record, status: "Bloccato", writeConfirmed: false, frontendConfirmed: false, verificationNote: cause.message });
       throw new Error(cause.message, { cause });
     }
