@@ -1,7 +1,6 @@
 import {
   BROKEN_LINK_CLEANUP_MODES,
   brokenExternalTarget,
-  brokenLinkCleanupMode,
   clearBrokenLinkCleanupMode,
   setBrokenLinkCleanupMode,
 } from "./brokenLinkRemediation.js";
@@ -9,20 +8,28 @@ import "./BrokenLinkCleanupChoiceUx.css";
 
 const PRESERVE = BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
 const DELETE = BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT;
+const choiceModes = new Map();
 let frame = 0;
-let pendingApplyTarget = "";
 
 const safeTarget = (value) => brokenExternalTarget({ targetUrl: value });
 
-const targetFromEvidence = (card) => {
+const urlFromEvidenceField = (card, labelPattern) => {
   for (const field of card.querySelectorAll(".wp-live-link-evidence-field")) {
-    if (!/link da correggere/i.test(field.querySelector("span")?.textContent || "")) continue;
+    if (!labelPattern.test(field.querySelector("span")?.textContent || "")) continue;
     const href = field.querySelector("a")?.getAttribute("href") || "";
-    const target = safeTarget(href);
-    if (target) return target;
+    try { return new URL(href).href; } catch { return ""; }
   }
   return "";
 };
+
+const sourceFromCard = (card) => {
+  const evidence = urlFromEvidenceField(card, /pagina con il link/i);
+  if (evidence) return evidence;
+  const value = String(card.querySelector(".wp-live-preview-title small")?.textContent || "").trim();
+  try { return new URL(value).href; } catch { return value; }
+};
+
+const targetFromEvidence = (card) => safeTarget(urlFromEvidenceField(card, /link da correggere/i));
 
 const targetFromReadablePreview = (card) => {
   const value = card.querySelector(".correction-readable .wp-live-diff section:first-child pre")?.textContent || "";
@@ -30,6 +37,7 @@ const targetFromReadablePreview = (card) => {
 };
 
 const targetFromCard = (card) => targetFromEvidence(card) || targetFromReadablePreview(card);
+const choiceKey = (card, target = targetFromCard(card)) => `${sourceFromCard(card)}|${target}`;
 
 const anchorFromCard = (card) => {
   const verified = String(card.querySelector(".wp-live-link-anchor")?.textContent || "").trim();
@@ -55,10 +63,22 @@ const setText = (node, value) => {
   if (node && node.textContent !== value) node.textContent = value;
 };
 
-const prepareAgain = (card) => {
+const prepareAgain = (card, target) => {
+  const previews = card.closest(".wp-live-remediation")?.querySelectorAll(".wp-live-preview-row.preview") || [];
+  if (previews.length !== 1) {
+    window.alert("Per cambiare questa risoluzione prepara un solo problema alla volta, così la scelta resta legata alla pagina corretta.");
+    clearBrokenLinkCleanupMode(target);
+    return false;
+  }
   const remediation = card.closest(".wp-live-remediation");
   const prepareOne = remediation?.querySelector(".wp-live-remediation-actions button.secondary");
-  prepareOne?.click();
+  if (!prepareOne) {
+    clearBrokenLinkCleanupMode(target);
+    return false;
+  }
+  prepareOne.click();
+  window.setTimeout(() => clearBrokenLinkCleanupMode(target), 60000);
+  return true;
 };
 
 const createChoice = (card, target) => {
@@ -83,9 +103,11 @@ const createChoice = (card, target) => {
   preserve.dataset.cleanupMode = PRESERVE;
   preserve.textContent = "Mantieni il testo";
   preserve.addEventListener("click", () => {
-    if (brokenLinkCleanupMode(target) === PRESERVE) return;
-    setBrokenLinkCleanupMode(target, PRESERVE);
-    prepareAgain(card);
+    const key = choiceKey(card, target);
+    if (choiceModes.get(key) === PRESERVE) return;
+    choiceModes.set(key, PRESERVE);
+    clearBrokenLinkCleanupMode(target);
+    prepareAgain(card, target);
   });
   actions.appendChild(preserve);
 
@@ -95,9 +117,11 @@ const createChoice = (card, target) => {
   remove.dataset.cleanupMode = DELETE;
   remove.textContent = "Elimina link e testo associato";
   remove.addEventListener("click", () => {
-    if (brokenLinkCleanupMode(target) === DELETE) return;
+    const key = choiceKey(card, target);
+    if (choiceModes.get(key) === DELETE) return;
+    choiceModes.set(key, DELETE);
     setBrokenLinkCleanupMode(target, DELETE);
-    prepareAgain(card);
+    if (!prepareAgain(card, target)) choiceModes.set(key, PRESERVE);
   });
   actions.appendChild(remove);
   section.appendChild(actions);
@@ -111,6 +135,7 @@ const createChoice = (card, target) => {
 };
 
 const syncChoice = (card, target) => {
+  const key = choiceKey(card, target);
   let choice = card.querySelector(".seogrow-link-cleanup-choice");
   if (!choice || choice.dataset.target !== target) {
     choice?.remove();
@@ -122,7 +147,7 @@ const syncChoice = (card, target) => {
     else card.appendChild(choice);
   }
 
-  const mode = brokenLinkCleanupMode(target);
+  const mode = choiceModes.get(key) === DELETE ? DELETE : PRESERVE;
   const anchor = anchorFromCard(card) || "testo del collegamento";
   for (const button of choice.querySelectorAll("button[data-cleanup-mode]")) {
     const selected = button.dataset.cleanupMode === mode;
@@ -133,10 +158,8 @@ const syncChoice = (card, target) => {
   const warning = choice.querySelector(".seogrow-link-cleanup-warning");
   if (mode === DELETE) {
     setText(warning, `Attenzione: verrà eliminato definitivamente anche l'anchor text «${anchor}». Controlla che la frase restante sia corretta prima di applicare.`);
-    warning.hidden = false;
   } else {
     setText(warning, "Il collegamento 404 verrà rimosso, ma l'anchor text resterà visibile nella pagina.");
-    warning.hidden = false;
   }
 
   const readable = card.querySelector(".correction-readable");
@@ -160,17 +183,17 @@ const syncChoice = (card, target) => {
 
 export function annotateBrokenLinkCleanupChoices() {
   if (typeof document === "undefined") return 0;
-  let changed = 0;
-  for (const card of document.querySelectorAll(".wp-live-preview-row.preview")) {
-    const title = card.querySelector(".wp-live-preview-title strong")?.textContent || "";
-    if (!/link esterno/i.test(title)) continue;
-    const target = targetFromCard(card);
-    if (!target) continue;
-    const existed = Boolean(card.querySelector(".seogrow-link-cleanup-choice"));
-    syncChoice(card, target);
-    if (!existed) changed += 1;
-  }
-  return changed;
+  const previewCards = [...document.querySelectorAll(".wp-live-preview-row.preview")];
+  if (previewCards.length !== 1) return 0;
+
+  const card = previewCards[0];
+  const title = card.querySelector(".wp-live-preview-title strong")?.textContent || "";
+  if (!/link esterno/i.test(title)) return 0;
+  const target = targetFromCard(card);
+  if (!target) return 0;
+  const existed = Boolean(card.querySelector(".seogrow-link-cleanup-choice"));
+  syncChoice(card, target);
+  return existed ? 0 : 1;
 }
 
 const schedule = () => {
@@ -186,7 +209,8 @@ const confirmDestructiveChoice = (event) => {
   const card = button?.closest?.(".wp-live-preview-row.preview");
   if (!card) return;
   const target = targetFromCard(card);
-  if (!target || brokenLinkCleanupMode(target) !== DELETE) return;
+  const key = target ? choiceKey(card, target) : "";
+  if (!target || choiceModes.get(key) !== DELETE) return;
   const anchor = anchorFromCard(card) || "testo del collegamento";
   const accepted = window.confirm(
     `Conferma eliminazione del link 404 e del testo associato.\n\nAnchor text che verrà eliminato: «${anchor}»\n\nQuesta operazione rimuove il testo dalla pagina. Procedere?`,
@@ -194,17 +218,14 @@ const confirmDestructiveChoice = (event) => {
   if (!accepted) {
     event.preventDefault();
     event.stopImmediatePropagation();
-    return;
   }
-  pendingApplyTarget = target;
 };
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__seogrowBrokenLinkCleanupChoiceInstalled) {
   window.__seogrowBrokenLinkCleanupChoiceInstalled = true;
   document.addEventListener("click", confirmDestructiveChoice, true);
   window.addEventListener("seogrow-remediation-applied", () => {
-    if (pendingApplyTarget) clearBrokenLinkCleanupMode(pendingApplyTarget);
-    pendingApplyTarget = "";
+    choiceModes.clear();
     schedule();
   });
   const observer = new MutationObserver(schedule);
