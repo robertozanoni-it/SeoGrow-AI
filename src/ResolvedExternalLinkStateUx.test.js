@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   externalLinkEvidenceState,
   normalizeSharedConnectorRouteError,
-} from "./ResolvedExternalLinkStateUx.js";
+} from "./ResolvedExternalLinkStateModel.js";
 
 const appMain = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./ResolvedExternalLinkStateUx.css", import.meta.url), "utf8");
