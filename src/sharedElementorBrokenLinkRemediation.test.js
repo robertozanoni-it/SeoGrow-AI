@@ -34,6 +34,21 @@ test("Connector shared Elementor limita la scrittura a una transizione CAS atomi
   assert.match(plugin, /SHARED_LINK_TRANSITION_INVALID/);
 });
 
+test("scan guard prova l'unicità su tutta la libreria osservabile oppure blocca la write shared", async () => {
+  const guard = await read("../wordpress-plugin/seogrow-connector/elementor-shared-link-scan-guard.php");
+  const loader = await read("../wordpress-plugin/seogrow-connector/seogrow-connector.php");
+  assert.match(loader, /elementor-shared-link-scan-guard\.php/);
+  assert.match(guard, /posts_per_page' => \$scan_cap \+ 1/);
+  assert.match(guard, /permissionDeniedTemplates/);
+  assert.match(guard, /unreadableTemplates/);
+  assert.match(guard, /unsupportedTemplateMatches/);
+  assert.match(guard, /scannerMatchCountAgrees/);
+  assert.match(guard, /uniqueMatchProven/);
+  assert.match(guard, /SHARED_LINK_SCAN_INCOMPLETE/);
+  assert.match(guard, /set_status\(409\)/);
+  assert.match(guard, /sharedWriteAllowed'\] = false/);
+});
+
 test("server shared Elementor richiede coverage completa, template unico e verifica frontend con rollback", async () => {
   const server = await read("../server/elementorSharedLinkHook.js");
   assert.match(server, /attestElementorCoverage/);
