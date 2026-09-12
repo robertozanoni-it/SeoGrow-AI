@@ -57,6 +57,17 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(requests.find(r=>r.path==='/api/wordpress/generate-seo-value-v2').body.kind,'seo_title');
       assert.deepEqual(requests.find(r=>r.path==='/api/wordpress/live-preview').body.changes,{meta:{rank_math_title:newTitle}},'SEO provider selected even when public title equals post_title');
       assert.equal(requests.some(r=>r.path==='/api/wordpress/generate-patch-v2'),false,'No unrelated core/content patch');
+      // Download while preparation is available; a saved correction closes the writer.
+      await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
+      try {
+        await button('Scarica SeoGrow Connector',scope);
+        await waitFor('window.__qaConnectorBlob','Complete Connector download');
+        const bytes=await evaluate('(async()=>Array.from(new Uint8Array(await window.__qaConnectorBlob.arrayBuffer())))()');
+        const zip=await JSZip.loadAsync(Uint8Array.from(bytes));
+        for(const file of ['seogrow-connector.php','seogrow-connector-core.inc','atomic-write.php','elementor-text-write.php','build-manifest.json']) assert.ok(zip.file('seogrow-connector/'+file),file);
+      } finally {
+        await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
+      }
       await evaluate('window.confirm=()=>true');
       await click(scope+' .wp-live-apply-one');
       const receipt='.automatic-proposal-page .saved-correction-details[data-correction-id]';
@@ -71,17 +82,6 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await button('Riverifica',receipt);
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('esattamente un tag')`,'Duplicate title tags cannot verify a correction');
       await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:1});
-      // Real browser download, not a single-file static package assumption.
-      await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
-      try {
-        await button('Scarica SeoGrow Connector',scope);
-        await waitFor('window.__qaConnectorBlob','Complete Connector download');
-        const bytes=await evaluate('(async()=>Array.from(new Uint8Array(await window.__qaConnectorBlob.arrayBuffer())))()');
-        const zip=await JSZip.loadAsync(Uint8Array.from(bytes));
-        for(const file of ['seogrow-connector.php','seogrow-connector-core.inc','atomic-write.php','elementor-text-write.php','build-manifest.json']) assert.ok(zip.file('seogrow-connector/'+file),file);
-      } finally {
-        await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
-      }
       await button('Torna ai problemi','.automatic-proposal-header');
       await click('.card-record[data-issue-type=\"duplicate-description\"]');
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Description proposal controls');
