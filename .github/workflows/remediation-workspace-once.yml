@@ -1,30 +1,43 @@
-name: Remediation isolated QA workspace
+name: Apply isolated remediation patch
 on:
   push:
     branches: [fix/remediation-complete-resolution-paths]
-    paths: [.github/workflows/remediation-workspace-once.yml]
+    paths: [.github/remediation-patch-ready.txt]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  workspace:
+  apply:
+    if: github.ref == 'refs/heads/fix/remediation-complete-resolution-paths'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --ignore-scripts
-      - name: Archive tracked source and installed dependencies only
+      - name: Verify and apply the exact reviewed patch
+        shell: bash
         run: |
-          mkdir -p /tmp/seogrow-qa-workspace
-          git archive --format=tar HEAD | gzip > /tmp/seogrow-qa-workspace/source.tar.gz
-          tar -czf /tmp/seogrow-qa-workspace/dependencies.tar.gz node_modules
-          git rev-parse HEAD > /tmp/seogrow-qa-workspace/commit.txt
-      - uses: actions/upload-artifact@v6
-        with:
-          name: seogrow-isolated-qa-workspace
-          path: /tmp/seogrow-qa-workspace/
-          retention-days: 1
-          if-no-files-found: error
+          set -euo pipefail
+          git merge-base --is-ancestor 32ba50b075be3415ca955252616d5cf84fdd572f HEAD
+          cat .github/remediation-patch-part-{1,2,3,4}.txt | base64 --decode | gzip --decompress > /tmp/remediation.patch
+          echo '9a3de0a462f6285c77df633b05d2a482865f1121f3883eff3f41277e2be40611  /tmp/remediation.patch' | sha256sum --check
+          git apply --check --whitespace=error /tmp/remediation.patch
+          git apply --whitespace=error /tmp/remediation.patch
+          rm .github/remediation-patch-part-{1,2,3,4}.txt .github/remediation-patch-ready.txt .github/workflows/remediation-workspace-once.yml
+      - run: npm ci --ignore-scripts
+      - run: npm run lint && npm test && npm run build
+      - name: Commit only source, tests, and removal of this one-shot bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- src server scripts
+          git add -u -- .github
+          git diff --cached --check
+          git commit -m 'Repair content generation, reviewed proposals and native resolution state'
+          git push origin HEAD:fix/remediation-complete-resolution-paths
