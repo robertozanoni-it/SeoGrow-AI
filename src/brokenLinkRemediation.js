@@ -31,7 +31,9 @@ export function normalizeBrokenLinkCleanupMode(mode) {
 export function setBrokenLinkCleanupMode(targetUrl, mode) {
   const target = brokenExternalTarget({ targetUrl });
   if (!target) return false;
-  cleanupModes.set(target, normalizeBrokenLinkCleanupMode(mode));
+  const normalized = normalizeBrokenLinkCleanupMode(mode);
+  if (normalized === BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT) cleanupModes.delete(target);
+  else cleanupModes.set(target, normalized);
   return true;
 }
 
@@ -47,10 +49,20 @@ export function clearBrokenLinkCleanupMode(targetUrl) {
   if (target) cleanupModes.delete(target);
 }
 
-export function removeExactAnchor(html, targetUrl, mode = brokenLinkCleanupMode(targetUrl)) {
+const takeBrokenLinkCleanupMode = (targetUrl) => {
+  const target = brokenExternalTarget({ targetUrl });
+  if (!target) return BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+  const action = normalizeBrokenLinkCleanupMode(cleanupModes.get(target));
+  cleanupModes.delete(target);
+  return action;
+};
+
+export function removeExactAnchor(html, targetUrl, mode) {
   const source = String(html || "");
   const target = brokenExternalTarget({ targetUrl });
-  const action = normalizeBrokenLinkCleanupMode(mode);
+  const action = mode === undefined
+    ? takeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
   if (!source || !target) return { value: source, count: 0, anchors: [], action };
 
   const pattern = new RegExp(
@@ -65,20 +77,22 @@ export function removeExactAnchor(html, targetUrl, mode = brokenLinkCleanupMode(
   return { value, count: anchors.length, anchors, action };
 }
 
-export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, mode = brokenLinkCleanupMode(targetUrl)) {
-  const action = normalizeBrokenLinkCleanupMode(mode);
+export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, mode) {
   if (rawElementorData === undefined || rawElementorData === null || rawElementorData === "") {
-    return { state: "absent", count: 0, serialized: "", anchors: [], action };
+    return { state: "absent", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
   }
 
   let data;
   try {
     data = typeof rawElementorData === "string" ? JSON.parse(rawElementorData) : clone(rawElementorData);
   } catch {
-    return { state: "invalid", count: 0, serialized: "", anchors: [], action };
+    return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
   }
-  if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action };
+  if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
 
+  const action = mode === undefined
+    ? takeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
   let count = 0;
   const anchors = [];
   let nodes = 0;
