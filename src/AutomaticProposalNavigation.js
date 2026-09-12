@@ -1,3 +1,4 @@
+import { shouldOpenAutomaticProposal } from "./resolutionPath.js";
 import { navigatePage } from "./navigationUx.js";
 import { problemNavigationFocus } from "./problemNavigationFocus.js";
 import { normalizeClientId } from "./reliabilityModel.js";
@@ -67,7 +68,7 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
   if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
-  const automatic = focus.correctability === "automatic";
+  const automatic = shouldOpenAutomaticProposal(problem);
   try {
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));

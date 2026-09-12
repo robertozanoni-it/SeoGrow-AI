@@ -26,13 +26,11 @@ test('meta description 160-character policy counts punctuation, spaces, NFC and 
   assert.doesNotThrow(() => assertSeoPatchLengths({content: 'x'.repeat(1000)}));
 });
 
-test('adding final punctuation never turns a 160-character deterministic fallback into 161', () => {
-  for (const size of [159,160,161,170,240]) {
-    const value = deterministicMetaDescription({content:('Parole naturali per la descrizione completa della pagina yoga. ').repeat(8).slice(0,size)});
-    assert.ok(value && seoCharacterCount(value) <= 160, value);
-    assert.match(value, /[.!?…]$/);
-  }
-  assert.equal(validateSeoSuggestion('meta_description','<b>'+sentence+'</b>').publishable,false,'markup is not erased before validating raw text');
+test('deterministic metadata uses complete sentences without clipping or fabricated punctuation', () => {
+  assert.equal(deterministicMetaDescription({content:sentence}), sentence);
+  assert.ok(seoCharacterCount(sentence) <= 160);
+  for (const size of [159,160,161,170,240]) assert.equal(deterministicMetaDescription({content:'Parole '.repeat(50).slice(0,size)}), '');
+  assert.equal(validateSeoSuggestion('meta_description','<b>'+sentence+'</b>').publishable,false);
 });
 
 test('server rejects oversized SEO metadata before requesting WordPress or granting approval', async () => {

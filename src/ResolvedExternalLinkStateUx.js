@@ -1,6 +1,5 @@
 import {
   STALE_MESSAGE,
-  externalLinkEvidenceState,
   normalizeSharedConnectorRouteError,
 } from "./ResolvedExternalLinkStateModel.js";
 import "./ResolvedExternalLinkStateUx.css";
@@ -24,8 +23,9 @@ const markResolvedStale = (card, status) => {
   card.dataset.externalLinkState = "resolved-stale";
   card.dataset.remediationState = "resolved-stale";
   card.classList.add("external-link-resolved-stale");
-  status.textContent = STALE_MESSAGE;
-  staleBadge(card).textContent = "✓ Link già assente dal frontend: nessuna modifica verrà proposta o applicata.";
+  if (status.textContent !== STALE_MESSAGE) status.textContent = STALE_MESSAGE;
+  const badge = staleBadge(card), message = "✓ Link già assente dalle sorgenti verificate: nessuna modifica verrà proposta o applicata.";
+  if (badge.textContent !== message) badge.textContent = message;
   card.querySelector(".seogrow-shared-link-remediation")?.remove();
   for (const button of card.querySelectorAll(".wp-live-link-evidence-actions button")) {
     if (/riprova correzione/i.test(button.textContent || "")) button.hidden = true;
@@ -52,7 +52,7 @@ export function reconcileResolvedExternalLinkStates() {
     const block = card.querySelector(".wp-live-link-evidence");
     const status = block?.querySelector(".wp-live-link-evidence-status");
     if (!block || !status) continue;
-    const state = externalLinkEvidenceState(status.textContent, block.dataset.loaded);
+    const state = card.dataset.linkResolution === "absent-confirmed" ? "resolved-stale" : "active";
     if (state === "resolved-stale") {
       const was = card.dataset.externalLinkState;
       markResolvedStale(card, status);

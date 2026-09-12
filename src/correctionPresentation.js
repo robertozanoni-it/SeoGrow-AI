@@ -30,7 +30,7 @@ export function correctionPresentation(item) {
   if (item.status === 'quality_error') return {
     title: 'Proposta respinta dal controllo qualità',
     explanation: withBrokenTarget(item, item.reason || 'La proposta generata non ha superato i controlli editoriali di SeoGrow; nessuna modifica è stata applicata.'),
-    next: 'Riprova “Prepara solo questo problema”. Per i title duplicati SeoGrow usa anche un fallback deterministico sicuro quando disponibile.',
+    next: 'Usa “Rivedi o scrivi la proposta”: correggi il testo, poi premi “Valida e prepara anteprima”. I controlli qualità restano obbligatori.',
   };
   if (item.status === 'context_error') return {
     title: 'Contesto SEO da confermare',
@@ -54,7 +54,7 @@ export function correctionPresentation(item) {
     explanation: 'WordPress è collegato, ma questa installazione di SeoGrow non vede ancora la configurazione OpenAI necessaria per generare la proposta.',
     next: 'Premi “Configura OpenAI” oppure riavvia la preview: SeoGrow prova a riutilizzare in memoria la configurazione della installazione principale senza copiarne la chiave.',
   };
-  if (item.status === 'generation_error') return { title: 'Generazione proposta non completata', explanation: withBrokenTarget(item, item.reason || 'La connessione WordPress è disponibile, ma il motore di generazione non ha prodotto una proposta valida.'), next: 'Controlla la causa indicata e riprova la preparazione.' };
+  if (item.status === 'generation_error') return { title: 'Generazione proposta non completata', explanation: withBrokenTarget(item, item.reason || 'La connessione WordPress è disponibile, ma il motore di generazione non ha prodotto una proposta valida.'), next: 'Controlla la causa oppure usa il campo di revisione per scrivere una proposta e validarla, senza pubblicazione automatica.' };
   if (item.status === 'stale') return {
     title: 'Anteprima scaduta — prepara di nuovo',
     explanation: withBrokenTarget(item, item.reason || 'Il progetto, l’audit o il contenuto WordPress sono cambiati dopo la preparazione. SeoGrow ha invalidato la proposta per evitare una sovrascrittura.'),

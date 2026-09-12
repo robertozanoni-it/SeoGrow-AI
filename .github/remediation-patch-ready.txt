@@ -1,1 +1,0 @@
-Apply the scoped source integration from .github/apply-remediation.py, run lint, tests and build, and remove the one-shot bootstrap. Do not modify WordPress or merge the release branch.

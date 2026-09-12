@@ -1,3 +1,4 @@
+import { problemEntryLabel } from "./resolutionPath.js";
 import { filterProblemRows } from "./problemFilters.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -513,7 +514,7 @@ export default function ProblemsWorkspace() {
               <span className={`problem-state ${problem.problemState}`}>{labelMap.problem[problem.problemState] || problem.problemState}</span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
-              <span className="card-record-open">{problem.correctability === "automatic" ? "Apri proposta" : "Apri risoluzione"} <ChevronRight /></span>
+              <span className="card-record-open">{problemEntryLabel(problem)} <ChevronRight /></span>
             </button>
           );
         }) : (

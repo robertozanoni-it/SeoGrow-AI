@@ -1,3 +1,4 @@
+import { resolutionPath, correctionMatchesProblem } from "./resolutionPath.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { openProblemResolution, RESOLUTION_FOCUS_KEY, PROPOSAL_ROUTE_PAGE } from "./AutomaticProposalNavigation.js";
 import { useEffect, useState } from "react";
@@ -7,7 +8,6 @@ import {
   CheckCircle2,
   ExternalLink,
   FileSearch,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -17,7 +17,6 @@ import { recheckCorrectionById } from "./remediationIntegrity";
 import {
   freshnessLabel,
   normalizeClientId,
-  normalizeHttpUrl,
   safeHttpHref,
 } from "./reliabilityModel";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
@@ -104,13 +103,7 @@ const formatDate = (value) => {
   });
 };
 
-const sameProblemCorrection = (problem, correction) => {
-  if (!problem || !correction) return false;
-  if (String(problem.issueType || "").toLowerCase() !== String(correction.issueType || "").toLowerCase()) return false;
-  const problemUrl = normalizeHttpUrl(problem.sourceUrl || "", { stripSlash: false });
-  const correctionUrl = normalizeHttpUrl(correction.sourceUrl || "", { stripSlash: false });
-  return Boolean(problemUrl && correctionUrl && problemUrl === correctionUrl);
-};
+const sameProblemCorrection = correctionMatchesProblem;
 
 const matchesFocus = matchesProblemFocus;
 
@@ -121,6 +114,8 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   const latestCorrection = corrections
     .filter((item) => sameProblemCorrection(problem, item))
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
+
+  const path = resolutionPath(problem, latestCorrection);
 
   const openCorrectionHistory = () => {
     try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* The route still remains read-only. */ }
@@ -144,7 +139,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
 
   const verifyNow = async () => {
     if (!latestCorrection?.id) {
-      openIntervention();
+      navigatePage("Audit SEO");
       return;
     }
     setWorking(true);
@@ -252,6 +247,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
                   {problem.correctability === "not_supported" && "Questo caso non dispone di un adapter automatico sicuro."}
                 </p>
               )}
+              <div className="problem-resolution-guidance"><h3>{path.title}</h3><p>{path.instructions}</p></div>
               {problem.fields.length > 0 && <p><strong>Campi coinvolti:</strong> {problem.fields.join(", ")}</p>}
               {problem.adapters.length > 0 && <p><strong>Adapter:</strong> {problem.adapters.join(", ")}</p>}
               {problem.quality && <p><strong>Quality gate:</strong> {problem.quality.publishable === false ? "revisione richiesta" : "superato"}</p>}
@@ -286,13 +282,14 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
 
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
 
-          {problem.problemState === "resolved" ? (
-            <button className="primary" type="button" onClick={verifyNow} disabled={working}><RefreshCw /> {working ? "Controllo…" : "Riverifica"}</button>
-          ) : problem.interventionState === "applied" || problem.interventionState === "verified" || problem.problemState === "needs_verification" ? (
-            <button className="primary" type="button" onClick={verifyNow} disabled={working}><RefreshCw /> {working ? "Verifica…" : "Verifica ora"}</button>
-          ) : (
-            <button className="primary" type="button" onClick={openIntervention}>{problem.ownershipBlocked ? "Identifica widget" : problem.correctability === "not_supported" ? "Apri istruzioni" : "Prepara correzione"}</button>
-          )}
+          <button className="primary" type="button" disabled={working} onClick={() => {
+            if (path.action === "history") openCorrectionHistory();
+            else if (path.action === "verify") verifyNow();
+            else if (path.action === "agent") askAgent();
+            else if (path.action === "manual" && href) window.open(href, "_blank", "noopener,noreferrer");
+            else if (path.action === "audit") navigatePage("Audit SEO");
+            else openIntervention();
+          }}>{working ? "Verifica…" : path.label}</button>
 
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>

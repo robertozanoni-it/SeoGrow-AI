@@ -1,3 +1,4 @@
+import { matchBrokenLinkHref, singleAnchorHref } from "../src/brokenLinkHref.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const HOOKED = Symbol.for("seogrow.linkEvidenceHook");
@@ -47,18 +48,18 @@ export function extractLinkEvidence(html, sourceUrl, targetUrl) {
   if (!source || !target) return { occurrenceCount: 0, anchorText: "", matches: [] };
 
   const matches = [];
-  const anchorPattern = /<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi;
+  const markup = String(html || "").replace(/<!--[\s\S]*?-->|<(script|style|template|textarea|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
+  const anchorPattern = /<a\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/a\s*>/gi;
   let scanned = 0;
   let occurrenceCount = 0;
   let firstAnchorText = "";
   let match;
-  while ((match = anchorPattern.exec(String(html || ""))) !== null && scanned < MAX_ANCHORS) {
+  while ((match = anchorPattern.exec(markup)) !== null && scanned < MAX_ANCHORS) {
     scanned += 1;
     const attrs = match[1] || "";
-    const hrefMatch = attrs.match(/\bhref\s*=\s*(?:["']([^"']*)["']|([^\s>]+))/i);
-    const rawHref = hrefMatch?.[1] || hrefMatch?.[2] || "";
+    const rawHref = singleAnchorHref(attrs);
     const resolved = normalizedHttpUrl(rawHref, source);
-    if (!resolved || resolved !== target) continue;
+    if (!resolved || (resolved !== target && !matchBrokenLinkHref(resolved, target))) continue;
     occurrenceCount += 1;
     const anchorText = cleanAnchorText(match[2]);
     if (!firstAnchorText && anchorText) firstAnchorText = anchorText;
@@ -70,6 +71,7 @@ export function extractLinkEvidence(html, sourceUrl, targetUrl) {
     anchorText: firstAnchorText,
     matches,
     truncated: occurrenceCount > matches.length || scanned >= MAX_ANCHORS,
+    scanComplete: scanned < MAX_ANCHORS,
   };
 }
 
@@ -85,6 +87,8 @@ async function fetchHtml(input) {
       method: "GET",
       headers: {
         accept: "text/html,application/xhtml+xml",
+        "cache-control": "no-cache, no-store",
+        pragma: "no-cache",
         "user-agent": "seoGrowAI/1.4-frontend-verification",
       },
       timeout: 12_000,
@@ -106,17 +110,28 @@ async function fetchHtml(input) {
   throw new Error("Pagina sorgente non leggibile.");
 }
 
+export function assessLinkEvidenceHtml(html, source, finalUrl, evidence) {
+  const comparable = value => { const url = new URL(value); url.pathname = url.pathname.replace(/\/+$/, "") || "/"; return url.href; };
+  const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i)?.[1] || "";
+  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1] || "";
+  const readable = cleanAnchorText(body);
+  return evidence.scanComplete === true && comparable(finalUrl) === comparable(source) && /<\/html\s*>/i.test(html) && readable.length >= 80 &&
+    !/captcha|verify you are human|access denied|just a moment|checking your browser|login|log in|sign in/i.test(`${title} ${readable}`);
+}
+
 export async function readLinkEvidencePage(sourceUrl, targetUrl) {
   const source = normalizedHttpUrl(sourceUrl);
   const target = normalizedHttpUrl(targetUrl);
   if (!source || !target) throw new Error("Pagina sorgente o link da verificare non valido.");
   const { html, finalUrl } = await fetchHtml(source);
+  const evidence = extractLinkEvidence(html, finalUrl, target);
   return {
-    ok: true,
-    readOnly: true,
+    ok: true, readOnly: true,
+    checkedAt: new Date().toISOString(), requestedSourceUrl: source,
+    verificationSafe: assessLinkEvidenceHtml(html, source, finalUrl, evidence),
     sourceUrl: finalUrl,
     targetUrl: target,
-    ...extractLinkEvidence(html, finalUrl, target),
+    ...evidence,
   };
 }
 

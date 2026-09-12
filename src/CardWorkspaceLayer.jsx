@@ -1,3 +1,4 @@
+import { problemEntryLabel } from "./resolutionPath.js";
 import { selectCardClient } from "./clientCardNavigation.js";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { useEffect, useMemo, useState } from "react";
@@ -692,7 +693,7 @@ function DatedCard({ item, index, onOpen }) {
       <span className="card-record-date"><CalendarDays /> {formatDate(item.date)}</span>
       <strong>{item.title}</strong>
       <small>{item.subtitle}</small>
-      <span className="card-record-open">{item.kind === "problem" ? item.problem?.correctability === "automatic" ? "Apri proposta" : "Apri risoluzione" : "Apri"} <ChevronRight /></span>
+      <span className="card-record-open">{item.kind === "problem" ? problemEntryLabel(item.problem) : "Apri"} <ChevronRight /></span>
     </button>
   );
 }
