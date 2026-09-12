@@ -35,7 +35,7 @@ test("overlay navigation enables corrections before notifying route listeners", 
   globalThis.window = { location: { hash: "#Panoramica" }, history: { pushState: (_state, _title, hash) => events.push(hash) }, dispatchEvent: event => events.push([event.type, globalThis.window.__seogrowCorrectionsMode]) };
   try {
     navigatePage("Correzioni");
-    assert.deepEqual(events, ["#Correzioni", ["seogrow-locationchange", true]]);
+    assert.deepEqual(events, ["#Correzioni", ["storage", true], ["seogrow-locationchange", true]]);
   } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
 });
 
@@ -45,11 +45,13 @@ test("hash navigation notifica sincronicamente App e layer guidati anche ai conf
   globalThis.window = {
     location: { hash: "#Task", href: "http://127.0.0.1:5176/#Task" },
     history: { pushState() {} },
-    dispatchEvent: event => events.push(event.type),
+    dispatchEvent: event => events.push({ type: event.type, key: event.key, newValue: event.newValue }),
   };
   try {
     navigatePage("Audit SEO");
     assert.equal(globalThis.window.location.hash, "#Audit%20SEO");
-    assert.deepEqual(events, ["hashchange", "seogrow-locationchange"]);
+    assert.deepEqual(events.map(event => event.type), ["storage", "hashchange", "seogrow-locationchange"]);
+    assert.equal(events[0].key, "seogrow-selected-page-v1");
+    assert.equal(events[0].newValue, JSON.stringify("Audit SEO"));
   } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
 });
