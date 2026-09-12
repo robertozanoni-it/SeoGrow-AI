@@ -38,7 +38,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
       const rewrittenBody = rewriteOpenAiCompatibleRequestBody(options?.body);
       if (rewrittenBody !== options?.body) routedOptions = { ...options, body: rewrittenBody };
     } catch (error) {
-      throw new Error(`Configurazione provider AI non valida: ${error.message || error}`);
+      throw new Error(`Configurazione provider AI non valida: ${error.message || error}`, { cause: error });
     }
 
     const headers = requestHeaders(input, routedOptions);
