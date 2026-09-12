@@ -34,6 +34,7 @@ import {
   Globe2,
   HelpCircle,
   Home,
+  Link2,
   Menu,
   Plug,
   Plus,
@@ -1459,6 +1460,8 @@ function ClientsPage({
   clients,
   setClients,
   gscData,
+  wordpressConnections = {},
+  onNavigate,
   onOpenClient,
   onDeleteClient,
   onDownloadReport,
@@ -1468,179 +1471,70 @@ function ClientsPage({
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", url: "" });
   const [formError, setFormError] = useState("");
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("Tutti");
   const add = (e) => {
     e.preventDefault();
     if (!form.name.trim()) return setFormError("Inserisci un nome cliente valido.");
     if (!form.url) return;
     let normalizedUrl;
-    try {
-      normalizedUrl = normalizeProjectUrl(form.url);
-    } catch {
-      return setFormError("Inserisci un indirizzo web valido.");
-    }
-    if (clients.some((client) => client.id !== editingId && projectIdentity(client.url) === projectIdentity(normalizedUrl)))
-      return setFormError("Esiste già un progetto associato a questo sito o sottocartella.");
+    try { normalizedUrl = normalizeProjectUrl(form.url); }
+    catch { return setFormError("Inserisci un indirizzo web valido."); }
+    if (clients.some((client) => client.id !== editingId && projectIdentity(client.url) === projectIdentity(normalizedUrl))) return setFormError("Esiste già un progetto associato a questo sito o sottocartella.");
     if (editingId) {
-      onUpdateClient(editingId, {
-        name: form.name.trim(),
-        url: normalizedUrl,
-      });
-      setEditingId(null);
-      setOpen(false);
-      setForm({ name: "", url: "" });
-      setFormError("");
-      return;
+      onUpdateClient(editingId, { name: form.name.trim(), url: normalizedUrl });
+      setEditingId(null); setOpen(false); setForm({ name: "", url: "" }); setFormError(""); return;
     }
-    setClients([
-      ...clients,
-      {
-        id: Math.max(0, ...clients.map((client) => Number(client.id) || 0)) + 1,
-        ...form,
-        name: form.name.trim(),
-        url: normalizedUrl,
-        score: 0,
-        sites: 1,
-        color: "#2477ee",
-      },
-    ]);
-    setOpen(false);
-    setForm({ name: "", url: "" });
-    setFormError("");
+    setClients([...clients, { id: Math.max(0, ...clients.map((client) => Number(client.id) || 0)) + 1, ...form, name: form.name.trim(), url: normalizedUrl, score: 0, sites: 1, color: "#2477ee" }]);
+    setOpen(false); setForm({ name: "", url: "" }); setFormError("");
   };
   const openClient = (event, id) => {
     if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
-    event.preventDefault();
-    onOpenClient(id);
+    event.preventDefault(); onOpenClient(id);
   };
+  const configured = clients.filter((client) => Boolean(gscData[client.id]) || Boolean(wordpressConnections[client.id])).length;
+  const priority = clients.filter((client) => Number(client.score || 0) > 0 && Number(client.score) < 65).length;
+  const filtered = clients.filter((client) => {
+    const matchesQuery = `${client.name} ${client.url}`.toLowerCase().includes(query.trim().toLowerCase());
+    if (!matchesQuery) return false;
+    if (filter === "Attivi") return Boolean(gscData[client.id]) || Boolean(wordpressConnections[client.id]);
+    if (filter === "Da collegare") return !gscData[client.id] || !wordpressConnections[client.id];
+    if (filter === "Prioritari") return Number(client.score || 0) > 0 && Number(client.score) < 65;
+    return true;
+  });
   return (
-    <>
-      <EmptyTitle
-        title="Clienti"
-        text="Tutti i progetti SEO in un unico spazio. Clicca una card per aprire la panoramica."
-        action="Nuovo cliente"
-        onAction={() => setOpen(true)}
-      />
-      <div className="client-grid">
-        {clients.map((c) => {
-          const dataset = gscData[c.id];
-          return (
-            <article
-              className="client-card"
-              key={c.id}
-              onClick={(event) => {
-                if (!event.target.closest("a,button")) openClient(event, c.id);
-              }}
-            >
-              <div className="client-card-top">
-                <div
-                  className="client-initial large"
-                  style={{ background: c.color }}
-                >
-                  {c.name.slice(0, 2).toUpperCase()}
-                </div>
-                <span className={`score ${dataset ? "" : "demo-score"}`}>
-                  {dataset ? formatInteger(dataset.totals.impressions) : "—"}
-                  <small>{dataset ? " imp." : ""}</small>
-                </span>
-              </div>
-              <h2>{c.name}</h2>
-              <a
-                href={c.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {c.url.replace(/^https?:\/\//, "")}
-              </a>
-              <div className="client-meta">
-                <span>{c.sites} sito</span>
-                <span>
-                  {dataset
-                    ? `${dataset.queries.length} query importate`
-                    : "Dati da importare"}
-                </span>
-              </div>
-              <button
-                className="open-project"
-                aria-label={`Apri la panoramica di ${c.name}`}
-                onClick={(event) => openClient(event, c.id)}
-              >
-                Apri panoramica →
-              </button>
-              <div className="client-actions">
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDownloadReport(c.id);
-                  }}
-                >
-                  <Download />
-                  Report
-                </button>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setEditingId(c.id);
-                    setForm({ name: c.name, url: c.url });
-                    setFormError("");
-                    setOpen(true);
-                  }}
-                >
-                  Modifica
-                </button>
-                <button
-                  className="danger-text"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteClient(c.id);
-                  }}
-                >
-                  <Trash2 />
-                  Elimina
-                </button>
-              </div>
-            </article>
-          );
-        })}
+    <div className="reference-clients-page">
+      <section className="reference-clients-head">
+        <div><span>Bentornato 👋</span><h1>Clienti</h1><p>Gestisci clienti, siti e stato SEO in un’unica vista.</p></div>
+        <div className="reference-clients-tools"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca cliente o dominio…" /></label><button className="secondary">Filtri</button><button className="primary" onClick={() => setOpen(true)}><Plus /> Nuovo cliente</button></div>
+      </section>
+      <section className="reference-client-kpis">
+        <article><Users /><span><small>Clienti totali</small><strong>{clients.length}</strong><em>Progetti nel workspace</em></span></article>
+        <article><Link2 /><span><small>Siti collegati</small><strong>{configured}</strong><em>Almeno una integrazione attiva</em></span></article>
+        <article><Settings /><span><small>Da configurare</small><strong>{Math.max(0, clients.length - configured)}</strong><em>In attesa di setup</em></span></article>
+        <article><AlertTriangle /><span><small>Priorità alta</small><strong>{priority}</strong><em>Score sotto 65</em></span></article>
+      </section>
+      <section className="reference-client-filterbar">
+        <div>{["Tutti", "Attivi", "Da collegare", "Prioritari"].map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}</div>
+        <span>{filtered.length} progetti</span>
+      </section>
+      <div className="reference-clients-layout">
+        <section className="reference-client-grid">
+          {filtered.map((c) => {
+            const dataset = gscData[c.id];
+            const wpConnected = Boolean(wordpressConnections[c.id]);
+            const score = Number(c.score || 0) || null;
+            return <article className="reference-client-card" key={c.id} onClick={(event) => { if (!event.target.closest("a,button")) openClient(event, c.id); }}>
+              <header><div className="reference-client-mark" style={{ background: c.color || "#edf4ff" }}>{c.name.slice(0, 2).toUpperCase()}</div><div><h2>{c.name}</h2><a href={c.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{c.url.replace(/^https?:\/\//, "")} <ExternalLink /></a></div><div className={`reference-client-score ${score && score < 65 ? "low" : score && score >= 80 ? "high" : ""}`}><small>SEO Score</small><strong>{score ?? "—"}<span>{score ? "/100" : ""}</span></strong></div></header>
+              <div className="reference-client-status"><span><Globe2 /><small>WordPress</small><b className={wpConnected ? "ok" : "pending"}>{wpConnected ? "Connesso" : "Da collegare"}</b></span><span><Database /><small>Search Console</small><b className={dataset ? "ok" : "pending"}>{dataset ? "Connesso" : "Da collegare"}</b></span><span><CircleGauge /><small>Audit</small><b>{score ? "Disponibile" : "Da eseguire"}</b></span></div>
+              <footer><span>{dataset ? `${dataset.queries.length} query importate` : "Dati Search Console non disponibili"}</span><div><button className="primary" onClick={(event) => openClient(event, c.id)}>Apri scheda →</button><button className="secondary mini" onClick={(event) => { event.stopPropagation(); onDownloadReport(c.id); }}><Download /></button><button className="secondary mini" onClick={(event) => { event.stopPropagation(); setEditingId(c.id); setForm({ name: c.name, url: c.url }); setFormError(""); setOpen(true); }}>•••</button><button className="secondary mini danger-text" aria-label={`Elimina ${c.name}`} onClick={(event) => { event.stopPropagation(); onDeleteClient(c.id); }}><Trash2 /></button></div></footer>
+            </article>;
+          })}
+        </section>
+        <aside className="reference-clients-aside"><section><h2>Azioni rapide</h2><button onClick={() => onNavigate?.("Integrazioni")}><Database /><span><strong>Collega Search Console</strong><small>Importa dati e monitora il sito</small></span>›</button><button onClick={() => onNavigate?.("Integrazioni")}><Globe2 /><span><strong>Configura WordPress</strong><small>Collega e ottimizza il sito</small></span>›</button><button onClick={() => setOpen(true)}><Plus /><span><strong>Nuovo cliente</strong><small>Aggiungi un nuovo progetto</small></span>›</button></section><section className="reference-clients-tip"><Sparkles /><h2>Suggerimento</h2><p>Collega Search Console e WordPress per ottenere analisi più accurate e azioni verificabili.</p></section></aside>
       </div>
-      {open && (
-        <Modal
-          title={editingId ? "Modifica cliente" : "Nuovo cliente"}
-          close={() => {
-            setOpen(false);
-            setEditingId(null);
-            setForm({ name: "", url: "" });
-            setFormError("");
-          }}
-        >
-          <form onSubmit={add} className="form">
-            <label>
-              Nome cliente
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Es. Studio Rossi"
-                required
-              />
-            </label>
-            <label>
-              Sito web
-              <input
-                type="url"
-                value={form.url}
-                onChange={(e) => setForm({ ...form, url: e.target.value })}
-                placeholder="https://…"
-                required
-              />
-            </label>
-            {formError && <p className="error">{formError}</p>}
-            <button className="primary" type="submit">
-              {editingId ? "Salva modifiche" : "Crea cliente"}
-            </button>
-          </form>
-        </Modal>
-      )}
-    </>
+      {open && <Modal title={editingId ? "Modifica cliente" : "Nuovo cliente"} close={() => { setOpen(false); setEditingId(null); setForm({ name: "", url: "" }); setFormError(""); }}><form onSubmit={add} className="form"><label>Nome cliente<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Es. Studio Rossi" required /></label><label>Sito web<input type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" required /></label>{formError && <p className="error">{formError}</p>}<button className="primary" type="submit">{editingId ? "Salva modifiche" : "Crea cliente"}</button></form></Modal>}
+    </div>
   );
 }
 
@@ -4656,6 +4550,8 @@ export default function App() {
           analysis={selectedAnalysis}
           selectedClient={selectedClient}
           gscData={gscData}
+          wordpressConnections={wordpressConnections}
+          onNavigate={setPage}
           onOpenClient={openClient}
           wordpressConnected={Boolean(wordpressConnections[selectedClient])}
         />
@@ -4666,6 +4562,8 @@ export default function App() {
           clients={clients}
           setClients={setClients}
           gscData={gscData}
+          wordpressConnections={wordpressConnections}
+          onNavigate={setPage}
           onOpenClient={openClient}
           onDeleteClient={deleteClient}
           onDownloadReport={downloadReport}

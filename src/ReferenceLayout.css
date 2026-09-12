@@ -383,3 +383,146 @@ body[data-seogrow-ui-mode="simple"] .workspace main {
   .reference-impact { justify-self: start; margin-left: 56px; }
   .reference-priority-row .primary { grid-column: 1 / -1; width: 100%; }
 }
+.reference-clients-page { display: grid; gap: 14px; }
+.reference-clients-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.reference-clients-head h1 { margin: 2px 0 4px; color: var(--ref-ink); }
+.reference-clients-head p,
+.reference-clients-head > div:first-child > span { margin: 0; color: var(--ref-muted); }
+.reference-clients-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.reference-clients-tools label {
+  min-width: 320px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--ref-line);
+  border-radius: 10px;
+  background: #fff;
+}
+.reference-clients-tools label svg { width: 17px; color: #7184a3; }
+.reference-clients-tools label input { width: 100%; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+.reference-client-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.reference-client-kpis article {
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--ref-line);
+  border-radius: 13px;
+  background: #fff;
+}.reference-client-kpis article > svg {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  padding: 13px;
+  border-radius: 14px;
+  color: var(--ref-blue);
+  background: #edf5ff;
+}
+.reference-client-kpis article:nth-child(3) > svg { color: #ef9200; background: #fff3e4; }
+.reference-client-kpis article:nth-child(4) > svg { color: var(--ref-red); background: #fff0f3; }
+.reference-client-kpis article > span { min-width: 0; display: grid; gap: 2px; }
+.reference-client-kpis small { color: #2e4770; font-weight: 750; }
+.reference-client-kpis strong { color: var(--ref-ink); font-size: 28px !important; line-height: 1 !important; }
+.reference-client-kpis em { color: var(--ref-muted); font-size: 12px; font-style: normal; }
+.reference-client-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.reference-client-filterbar > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.reference-client-filterbar button {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--ref-line);
+  border-radius: 999px;
+  background: #fff;
+  color: #536783;
+  font-weight: 750;
+}
+.reference-client-filterbar button.active { border-color: #1683f8; background: #1683f8; color: #fff; }
+.reference-client-filterbar > span { color: var(--ref-muted); font-size: 12px; }
+.reference-clients-layout { display: grid; grid-template-columns: minmax(0,1fr) 270px; gap: 14px; align-items: start; }
+.reference-client-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.reference-client-card {
+  min-width: 0;
+  min-height: 188px;
+  padding: 14px;
+  border: 1px solid var(--ref-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--ref-shadow);
+  cursor: pointer;
+}
+.reference-client-card:hover { border-color: #bdd6f6; box-shadow: 0 10px 28px rgba(25,75,140,.09); }
+.reference-client-card header { display: grid; grid-template-columns: 52px minmax(0,1fr) auto; gap: 12px; align-items: center; }
+.reference-client-mark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 850;
+  letter-spacing: -.03em;
+}
+.reference-client-card h2 { margin: 0 0 3px; color: var(--ref-ink); font-size: 15px !important; }
+.reference-client-card header a { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; color: var(--ref-blue); font-size: 12px !important; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reference-client-card header a svg { width: 13px; height: 13px; flex: none; }
+.reference-client-score { min-width: 78px; padding: 8px 10px; border-radius: 11px; background: #eef6ff; }
+.reference-client-score.low { background: #fff0f3; }
+.reference-client-score.high { background: #eafaf3; }
+.reference-client-score small { display: block; color: #58708d; }
+.reference-client-score strong { color: var(--ref-ink); font-size: 22px !important; }
+.reference-client-score.low strong { color: var(--ref-red); }
+.reference-client-score.high strong { color: var(--ref-green); }
+.reference-client-score strong span { font-size: 12px !important; color: var(--ref-muted); }
+.reference-client-status { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.reference-client-status > span { min-width: 0; padding: 8px; border-radius: 10px; background: #f8fbff; display: grid; grid-template-columns: 22px 1fr; gap: 1px 7px; align-items: center; }
+.reference-client-status svg { grid-row: 1 / 3; width: 22px; height: 22px; color: #356dab; }
+.reference-client-status small { color: #6f8198; font-size: 10px !important; }
+.reference-client-status b { width: fit-content; padding: 2px 6px; border-radius: 999px; color: #3e5877; background: #eef3f9; font-size: 10px !important; }
+.reference-client-status b.ok { color: #087f49; background: #e5f8ed; }
+.reference-client-status b.pending { color: #b56b00; background: #fff1d9; }
+.reference-client-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #edf1f7; }
+.reference-client-card footer > span { color: #6d7f96; font-size: 11px; }
+.reference-client-card footer > div { display: flex; gap: 6px; flex: none; }
+.reference-client-card footer button { min-height: 34px; }
+.reference-client-card footer .mini { width: 36px; padding: 0; display: grid; place-items: center; }
+.reference-client-card footer .mini svg { width: 15px; }
+.reference-clients-aside { display: grid; gap: 12px; }
+.reference-clients-aside > section { padding: 14px; border: 1px solid var(--ref-line); border-radius: 14px; background: #fff; }
+.reference-clients-aside h2 { margin: 0 0 10px; color: var(--ref-ink); font-size: 16px !important; }
+.reference-clients-aside section:first-child > button { width: 100%; min-height: 58px; display: grid; grid-template-columns: 32px 1fr 14px; align-items: center; gap: 9px; padding: 8px; border: 0; border-radius: 10px; background: #f6f9fe; color: #24466e; text-align: left; }
+.reference-clients-aside section:first-child > button + button { margin-top: 7px; }
+.reference-clients-aside button > svg { width: 24px; height: 24px; padding: 4px; border-radius: 8px; color: var(--ref-blue); background: #e8f2ff; }
+.reference-clients-aside button span { display: grid; gap: 2px; }
+.reference-clients-aside button strong { color: var(--ref-ink); font-size: 12px !important; }
+.reference-clients-aside button small { color: var(--ref-muted); font-size: 10px !important; }
+.reference-clients-tip { background: linear-gradient(160deg,#f8fbff,#edf4ff) !important; }
+.reference-clients-tip > svg { color: var(--ref-blue); }
+.reference-clients-tip p { margin: 0; color: #516b8f; line-height: 1.5; }
+@media (max-width: 1180px) {
+  .reference-client-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .reference-clients-layout { grid-template-columns: 1fr; }
+  .reference-clients-aside { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 820px) {
+  .reference-clients-head { align-items: stretch; flex-direction: column; }
+  .reference-clients-tools { justify-content: flex-start; }
+  .reference-clients-tools label { min-width: 0; flex: 1 1 100%; }
+  .reference-client-grid { grid-template-columns: 1fr; }
+  .reference-client-status { grid-template-columns: 1fr; }
+  .reference-clients-aside { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .reference-client-kpis { grid-template-columns: 1fr; }
+  .reference-client-card header { grid-template-columns: 46px minmax(0,1fr); }
+  .reference-client-score { grid-column: 1 / -1; }
+  .reference-client-card footer { align-items: stretch; flex-direction: column; }
+  .reference-client-card footer > div { width: 100%; flex-wrap: wrap; }
+  .reference-client-card footer .primary { flex: 1; }
+}
