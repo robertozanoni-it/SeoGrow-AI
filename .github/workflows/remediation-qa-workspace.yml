@@ -1,0 +1,32 @@
+name: Remediation QA workspace
+on:
+  push:
+    branches: [fix/remediation-complete-resolution]
+    paths: [.github/workflows/remediation-qa-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Archive only tracked source and installed public dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/remediation-workspace"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/remediation-workspace"
+          cp -a node_modules "$RUNNER_TEMP/remediation-workspace/node_modules"
+          tar -czf "$RUNNER_TEMP/remediation-workspace.tgz" -C "$RUNNER_TEMP/remediation-workspace" .
+      - uses: actions/upload-artifact@v6
+        with:
+          name: remediation-qa-workspace
+          path: ${{ runner.temp }}/remediation-workspace.tgz
+          retention-days: 1
+          if-no-files-found: error
