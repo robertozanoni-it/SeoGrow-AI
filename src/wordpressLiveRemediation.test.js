@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const client = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const client = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
 const impactClient = await readFile(new URL("./elementorImpactClient.js", import.meta.url), "utf8");
 const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");

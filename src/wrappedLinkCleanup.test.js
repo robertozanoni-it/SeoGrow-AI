@@ -122,7 +122,7 @@ test("anchor markup and whitespace are preserved while the readable label is nor
 // Exercise the actual app planner on every supported app platform. A missing
 // source file is a failure, not a reason to skip a release assertion.
 test("actual WordPress plan chooses the local Elementor adapter for both modes", async () => {
-  const source = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+  const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
   const match = source.match(/async function buildPlan\([\s\S]*?(?=\n(?:const |function |async function |export ))/);
   assert.ok(match, "actual buildPlan source found");
   const buildPlan = runInNewContext(`${match[0]}\nbuildPlan`, {

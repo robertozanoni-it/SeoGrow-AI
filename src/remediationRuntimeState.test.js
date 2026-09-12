@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
 const integrity = await readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8");
 
 test("la chiusura dei problemi è responsabilità del runtime nativo, non di patch DOM legacy", () => {

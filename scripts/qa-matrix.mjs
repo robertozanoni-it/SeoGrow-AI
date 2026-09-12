@@ -48,6 +48,10 @@ export const qaMatrix = [
   ["STRESS-500", "500 tasks and project isolation", "P1", "E2E Browser / Performance", "Two existing tasks", "Seed 500, search, filter foreign project, reload", "502 stored IDs unique, foreign task excluded, filters respond", "release"],
   ["IDB-REAL-001", "Native IndexedDB abort", "P0", "Storage/Persistence / Error Injection", "Disposable native browser DB", "Write, abort replacement, reopen", "Original complete record survives", "release"],
   ["RESPONSIVE-001", "Task/modal layouts and keyboard", "P1", "Responsive / Visual / E2E Browser", "Populated Task UI", "1440,768,390; open modal; Escape", "No page overflow, modal contained, initial focus inside, Escape closes; PNG evidence", "smoke"],
+  ["BATCH-UI-SELECTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Filter, select, real preview; zero writes", "Real UI, journal and IndexedDB; no live WordPress", "full"],
+  ["BATCH-UI-EXECUTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Approve; verified result and isolated stale target", "Real UI, journal and IndexedDB; no live WordPress", "full"],
+  ["BATCH-UI-RESPONSIVE", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Desktop and mobile layout; screenshot evidence", "Real UI, journal and IndexedDB; no live WordPress", "full"],
+  ["BATCH-UI-RECOVERY", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Reload, reopen persisted history without write replay", "Real UI, journal and IndexedDB; no live WordPress", "full"],
 ];
 export function requiredScenarios(mode) {
   const level = ["smoke", "full", "release"].indexOf(mode);

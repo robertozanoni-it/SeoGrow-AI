@@ -1,3 +1,4 @@
+import BatchRemediationPanel from "./BatchRemediationPanel.jsx";
 import { problemEntryLabel } from "./resolutionPath.js";
 import { filterProblemRows } from "./problemFilters.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
@@ -310,6 +311,8 @@ export default function ProblemsWorkspace() {
   const [revision, setRevision] = useState(0);
   const [view, setView] = useState("compact");
   const [selectedKey, setSelectedKey] = useState("");
+  const [batchSelection, setBatchSelection] = useState({ clientId: null, keys: [] });
+  const [batchBusyScope, setBatchBusyScope] = useState({ clientId: null, busy: false });
   const [corrections, setCorrections] = useState([]);
   const [correctionsState, setCorrectionsState] = useState({ loading: false, error: "" });
   const [filters, setFilters] = useState({
@@ -373,6 +376,7 @@ export default function ProblemsWorkspace() {
   const pagesStore = readStore(PAGE_HISTORY_KEY, "object");
   const selectedStore = readStore(SELECTED_CLIENT_KEY, "scalar");
   const selectedClientId = normalizeClientId(selectedStore.value);
+  const batchBusy = batchBusyScope.clientId === selectedClientId && batchBusyScope.busy;
   const client = clientsStore.value.find((item) => normalizeClientId(item?.id) === selectedClientId) || null;
 
   const reloadCorrections = async () => {
@@ -502,20 +506,28 @@ export default function ProblemsWorkspace() {
         <span className="problems-source-note"><ShieldCheck /> Score e proposte AI non sono prove: apri il dettaglio per vedere fonte e data.</span>
       </div>
 
+      <BatchRemediationPanel key={client.id} client={client} rows={filtered}
+        selectedKeys={batchSelection.clientId === client.id ? batchSelection.keys : []}
+        onSelect={keys => setBatchSelection({ clientId: client.id, keys })}
+        onShowOpen={() => setFilters(value => ({ ...value, state: "active", query: "", type: "", source: "", adapter: "", correctability: "", special: "", severity: "" }))}
+        busy={batchBusy} onBusy={value => setBatchBusyScope(current => value ? { clientId: client.id, busy: true } : current.clientId === client.id ? { clientId: client.id, busy: false } : current)} />
+
       <section className={`problems-list card-record-grid native-problem-cards ${view}`} aria-live="polite">
         {filtered.length ? filtered.map((problem, index) => {
           const href = safeHttpHref(problem.sourceUrl);
           return (
-            <button type="button" className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}>
+            <article className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={event => { if (!event.target.closest("a,button,input,label") && !batchBusy) openProblemResolution(problem, selectedClientId, "problem-row"); }}>
+              <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={batchSelection.clientId === client.id && batchSelection.keys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
               <span className="card-record-date">{problem.observedAt ? formatDate(problem.observedAt) : "Data non disponibile"}</span>
               <span className={`problem-severity ${problem.severity}`}>{labelMap.severity[problem.severity]}</span>
-              <span className="problem-main"><strong>{problem.title}</strong><small>{href || "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: {target}</small>)}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
+              <span className="problem-main"><button type="button" disabled={batchBusy} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}><strong>{problem.title}</strong></button><small>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{href}</a> : "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: <a href={safeHttpHref(target)} target="_blank" rel="noopener noreferrer">{target}</a></small>)}{problem.targetUrls?.length > 0 && <small>Anchor text: {problem.anchorTexts?.join(" · ") || "non disponibile"}</small>}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
               <span className="problem-source"><FileSearch /> {problem.sources[0]?.label || "Fonte non disponibile"}<small>{freshnessLabel(problem.observedAt)}</small></span>
               <span className={`problem-state ${problem.problemState}`}>{labelMap.problem[problem.problemState] || problem.problemState}</span>
+              <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
               <span className="card-record-open">{problemEntryLabel(problem)} <ChevronRight /></span>
-            </button>
+            </article>
           );
         }) : (
           <div className="problems-empty"><CheckCircle2 /><h2>Nessun problema in questo filtro</h2><p>Cambia filtro oppure esegui un nuovo audit per aggiornare la situazione.</p><button className="secondary" onClick={() => navigate("Audit SEO")}><CircleGauge /> Apri Audit SEO</button></div>

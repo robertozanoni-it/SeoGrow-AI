@@ -8,7 +8,7 @@ import {
 } from "./elementorImpactClient.js";
 
 const source = await readFile(new URL("./elementorImpactClient.js", import.meta.url), "utf8");
-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
 
 test("client Elementor deduplica le sorgenti e preferisce quelle già risolte dal server", () => {
   const documents = elementorSourceDocuments({

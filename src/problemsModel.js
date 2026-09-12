@@ -97,6 +97,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   issueType: issue?.type || record.issueType || "",
   sourceUrl,
   targetUrls: new Set(),
+  anchorTexts: new Set(),
   detail: issue?.detail || "",
   severity: severity(issue?.severity || record.severity),
   priority: "unknown",
@@ -236,6 +237,7 @@ export function buildUnifiedProblems({
       if (isLegalPage(sourceUrl)) continue;
       const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
       const group = findOrCreate(groups, aliasMap, record, issue, sourceUrl);
+      for (const text of [issue?.anchorText, issue?.anchor, issue?.linkText, ...(Array.isArray(issue?.occurrences) ? issue.occurrences : []).map(o => o.anchorText)].filter(v => typeof v === "string" && v.trim())) group.anchorTexts.add(text.trim());
       const brokenTarget = issueBrokenTarget(issue);
       if (brokenTarget) group.targetUrls.add(brokenTarget);
       const intentional = issue?.intentional === true;
@@ -289,7 +291,7 @@ export function buildUnifiedProblems({
     });
   }
 
-  for (const correction of Array.isArray(corrections) ? corrections : []) {
+  for (const correction of (Array.isArray(corrections) ? corrections : []).flatMap(record => [record, ...(Array.isArray(record.batchIssues) ? record.batchIssues : []).map(item => ({ ...record, batchIssues: undefined, issue: item.issue, issueType: item.issue?.type, issueLabel: item.issue?.label, sourceUrl: item.sourceUrl, issueKey: undefined, legacyIssueKey: undefined }))])) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
     const sourceUrl = correction?.sourceUrl || "";
     if (isLegalPage(sourceUrl)) continue;
@@ -344,6 +346,7 @@ export function buildUnifiedProblems({
       issueType: group.issueType,
       sourceUrl: group.sourceUrl,
       targetUrls: [...group.targetUrls],
+      anchorTexts: [...group.anchorTexts],
       detail: group.detail || "Dettaglio non disponibile.",
       severity: group.severity,
       priority: group.priority,

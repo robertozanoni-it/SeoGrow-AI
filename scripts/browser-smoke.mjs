@@ -1,3 +1,4 @@
+import { runBatchMatrix } from './qa-batch-matrix.mjs';
 import { runFormMatrix } from "./qa-form-matrix.mjs";
 import { runBrowserMatrix } from "./qa-browser-matrix.mjs";
 import { access, rm, mkdir, writeFile } from "node:fs/promises";
@@ -420,6 +421,8 @@ try {
   await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, screenshot, command, mode: process.env.QA_MODE || "release" });
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
+  await runBatchMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
+  await clickSidebar("Audit SEO");
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
   await assertViewportVisibility(390, "mobile", "mobile");

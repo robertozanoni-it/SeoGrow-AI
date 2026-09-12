@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./RemediationRuntime.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
-const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const live = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
 
 test("il motore legacy non è più montato nel runtime principale", () => {
   assert.doesNotMatch(main, /AuditUnifiedRemediation/);

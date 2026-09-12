@@ -36,3 +36,18 @@ test('edit after server preflight is rejected by Connector; consumed approval ca
   assert.equal((await invoke('live-apply', body)).data.code, 'APPROVAL_EXPIRED');
   assert.equal(calls.length, count);
 });
+
+test('batch live-preview rejects changed generation snapshot and status without issuing an approval', async t => {
+  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
+  t.mock.method(globalThis, 'fetch', async (_url, init) => {
+    assert.notEqual(init.method, 'POST');
+    return Response.json({ id: 12, status: 'publish', title: { raw: 'Changed externally' } });
+  });
+  const base = { username: 'fixture', applicationPassword: 'fixture', siteUrl: 'https://example.com/', resource: 'pages', id: 12, changes: { title: 'Approved proposal' } };
+  const stale = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Original at generation' }, expectedStatus: 'publish' });
+  assert.equal(stale.status, 409); assert.equal(stale.data.code, 'STALE_TARGET'); assert.equal(stale.data.approvalToken, undefined);
+  const changedStatus = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Changed externally' }, expectedStatus: 'draft' });
+  assert.equal(changedStatus.status, 409); assert.equal(changedStatus.data.code, 'STALE_TARGET');
+  const current = await invoke('live-preview', { ...base, expectedCurrent: { title: 'Changed externally' }, expectedStatus: 'publish' });
+  assert.equal(current.status, 200); assert.ok(current.data.approvalToken);
+});

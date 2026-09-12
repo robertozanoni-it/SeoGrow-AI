@@ -42,7 +42,7 @@ test("più occorrenze restano rilevabili come ambigue", () => {
 });
 
 test("il controllo live usa il piano external_link senza OpenAI o Rank Math", async () => {
-  const source = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+  const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
   assert.match(source, /kind === "external_link"/);
   assert.match(source, /prepareElementorBrokenExternalLink/);
   assert.match(source, /Elementor link cleanup/);

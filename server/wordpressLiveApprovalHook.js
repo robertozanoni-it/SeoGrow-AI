@@ -208,7 +208,7 @@ function registerRoutes(app) {
     if (!rateLimit(req)) return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
     try {
       cleanupApprovals();
-      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, issue, adapter, isolatedQa } = req.body || {};
+      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, issue, adapter, isolatedQa, expectedCurrent, expectedStatus } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
       const cleanPatch = isolatedQa === true ? null : allowedChanges(changes);
       if (cleanPatch) assertSeoPatchLengths(cleanPatch);
@@ -218,6 +218,12 @@ function registerRoutes(app) {
       const status = String(current?.status || "").toLowerCase();
       if (["trash", "auto-draft", "inherit"].includes(status)) throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
       const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : cleanPatch;
+      if (expectedCurrent !== undefined) {
+        const stable = value => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
+          ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
+        if (stable(expectedCurrent) !== stable(selectedState(current, patch)) || (expectedStatus !== undefined && expectedStatus !== current.status))
+          return res.status(409).json({ code: "STALE_TARGET", error: "La risorsa è cambiata durante la generazione. Rigenera la proposta." });
+      }
       const before = selectedState(current, patch);
       const after = afterState(current, patch);
       if (JSON.stringify(before) === JSON.stringify(after)) throw new Error("La modifica proposta coincide con il valore già presente.");
