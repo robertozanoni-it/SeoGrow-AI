@@ -1,0 +1,30 @@
+name: Remediation isolated QA workspace
+on:
+  push:
+    branches: [fix/remediation-complete-resolution-paths]
+    paths: [.github/workflows/remediation-workspace-once.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Archive tracked source and installed dependencies only
+        run: |
+          mkdir -p /tmp/seogrow-qa-workspace
+          git archive --format=tar HEAD | gzip > /tmp/seogrow-qa-workspace/source.tar.gz
+          tar -czf /tmp/seogrow-qa-workspace/dependencies.tar.gz node_modules
+          git rev-parse HEAD > /tmp/seogrow-qa-workspace/commit.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: seogrow-isolated-qa-workspace
+          path: /tmp/seogrow-qa-workspace/
+          retention-days: 1
+          if-no-files-found: error
