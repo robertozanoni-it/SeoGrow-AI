@@ -1,3 +1,5 @@
+import { workspaceStorage } from "./workspaceDatabase.js";
+
 const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
 const MAX_FRAMES = 120;
 let frame = 0;
@@ -9,7 +11,20 @@ const readRequestedPage = () => {
 };
 
 const dispatchPageState = (page) => {
-  const detail = { key: SELECTED_PAGE_KEY, newValue: JSON.stringify(page) };
+  const serialized = JSON.stringify(page);
+  // Persist the requested route before notifying React. If a page subtree
+  // remounts while navigation events are in flight, useStoredState must read
+  // the same page that is already present in the URL instead of reviving the
+  // previous screen from storage.
+  try {
+    if (workspaceStorage.getItem(SELECTED_PAGE_KEY) !== serialized) {
+      workspaceStorage.setItem(SELECTED_PAGE_KEY, serialized);
+    }
+  } catch {
+    // The event below can still reconcile the live session when persistence is
+    // unavailable; storage failures are handled by the workspace layer.
+  }
+  const detail = { key: SELECTED_PAGE_KEY, newValue: serialized };
   const event = typeof StorageEvent === "function"
     ? new StorageEvent("storage", detail)
     : Object.assign(new Event("storage"), detail);
