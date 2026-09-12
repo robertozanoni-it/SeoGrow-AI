@@ -1,3 +1,12 @@
+const notifyLocationChange = (oldURL = "") => {
+  const newURL = String(window.location?.href || "");
+  const hashEvent = typeof HashChangeEvent === "function"
+    ? new HashChangeEvent("hashchange", { oldURL: String(oldURL || ""), newURL })
+    : new Event("hashchange");
+  window.dispatchEvent(hashEvent);
+  window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+};
+
 export function navigatePage(page) {
   const next = `#${encodeURIComponent(page)}`;
   if (page === "Correzioni") {
@@ -6,8 +15,16 @@ export function navigatePage(page) {
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
     return;
   }
-  if (window.location.hash !== next) window.location.hash = next;
-  else window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+  if (window.location.hash !== next) {
+    const oldURL = String(window.location?.href || "");
+    window.location.hash = next;
+    // Native hashchange is asynchronous and can be missed during a React
+    // remount/reload boundary. Notify both state layers synchronously as well;
+    // duplicate native events are idempotent because they read the same hash.
+    notifyLocationChange(oldURL);
+  } else {
+    window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+  }
 }
 
 export const isNavigationItemVisible = (label, advancedOnly, mode, currentPage) =>
