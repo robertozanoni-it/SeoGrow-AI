@@ -1,4 +1,4 @@
-.audit-workspace-active > :not(.audit-enhancer-root) { display: none !important; }
+.audit-workspace-active > :not(.audit-enhancer-root):not(.card-workspace-host):not(.guided-page-wizard-host):not(.guided-page-help-host):not(.wizard-context-host) { display: none !important; }
 .audit-enhancer-root { display: grid; gap: 18px; }
 .audit-launcher { overflow: hidden; }
 
