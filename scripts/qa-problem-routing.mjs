@@ -36,7 +36,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await click('.problems-overview button:nth-child(2)');
       await waitFor("document.querySelectorAll('.native-problem-cards .problem-card').length===3",'High-severity filter affects the actual card list');
       await click('.problems-overview button:nth-child(5)');
-      await click('.card-record[data-issue-type="duplicate-title"]');
+      await click('.card-record[data-issue-type=\"duplicate-title\"]');
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Problem card opens specific proposal, not list');
       assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
       assert.equal(await evaluate("Boolean(document.querySelector('.problem-drawer-scrim'))"),false);
@@ -83,7 +83,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
         await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
       }
       await button('Torna ai problemi','.automatic-proposal-header');
-      await click('.card-record[data-issue-type="duplicate-description"]');
+      await click('.card-record[data-issue-type=\"duplicate-description\"]');
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Description proposal controls');
       for(const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-routing','Password applicativa':'qa-only'})) await set(scope+' .audit-unified-credentials',label,value);
       await mock('/api/wordpress/generate-seo-value-v2',{value:'x'.repeat(161),publishable:true});
@@ -95,19 +95,21 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await screenshot('description-routing-correct-field');
       assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-preview|live-apply/.test(r.path))"),false);
       await button('Torna ai problemi','.automatic-proposal-header');
-      await click('.card-record[data-issue-type="url-alias"]');
+      await click('.card-record[data-issue-type=\"url-alias\"]');
       await waitFor("document.body.dataset.seogrowProblemResolution==='true' && document.querySelector('.problem-resolution-heading h1')?.textContent.includes('Due URL')",'Manual diagnosis opens its specific full page');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-root-host')).display"),'block');
       assert.equal(await evaluate("(()=>{const e=document.querySelector('.problem-resolution-content section');const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&!!e.textContent.trim()})()"),true,'Nested diagnostic sections are visible and contain real problem data');
       await screenshot('manual-problem-resolution');
       await button('Torna ai problemi','.problem-resolution-root');
-      await click('.native-problem-cards [data-problem-key*="second-link"]');
+      await click('.native-problem-cards [data-problem-key*=\"second-link\"]');
       await waitFor("document.querySelector('.problem-resolution-targets a')?.href==='https://www.external.example/second-link'",'Second external-link card opens its own exact destination');
       assert.equal(await evaluate("[...document.querySelectorAll('.problem-resolution-targets a')].some(a=>a.href.includes('first-link'))"),false,'Never substitute the first problem on the same source page');
       await screenshot('external-problem-specific');
       await button('Apri Correzioni','.problem-resolution-actions');
       await waitFor("document.body.dataset.seogrowProblemResolution!=='true' && document.querySelector('.app main .page-title h1')?.textContent.includes('Correzioni')",'Manual resolution exits to actual correction history');
-      await revisit('Audit SEO');await click('.card-record[data-audit-card="true"]');
+      await revisit('Audit SEO');
+      console.error('AUDIT_REVISIT_DIAGNOSTIC '+JSON.stringify(await evaluate("(async()=>{const m=await import('/src/workspaceDatabase.js');const main=document.querySelector('.app main');const original=[...document.querySelectorAll('.sidebar > nav:not(.guided-nav) button')].map(b=>({text:b.textContent.trim(),active:b.classList.contains('active')}));const guided=[...document.querySelectorAll('.guided-nav button')].map(b=>({text:b.textContent.trim(),active:b.classList.contains('active')}));return{hash:location.hash,mainPage:main?.dataset?.page||'',mainClass:main?.className||'',workspacePage:m.workspaceStorage.getItem('seogrow-selected-page-v1'),cardMode:document.body.dataset.seogrowCardMode||'',cardHostCount:document.querySelectorAll('.card-workspace-host').length,cardWorkspaceCount:document.querySelectorAll('.card-workspace').length,auditRootCount:document.querySelectorAll('.audit-enhancer-root').length,original,guided,bridgeRequested:document.body.dataset.seogrowGuidedBridgeRequested||'',bridgeRendered:document.body.dataset.seogrowGuidedBridgeRenderedPage||'',bridgeNativeActive:document.body.dataset.seogrowGuidedBridgeNativeActive||'',reconcilerInstalled:Boolean(window.__seogrowPageRouteReconcilerInstalled),recoveryInstalled:Boolean(window.__seogrowCardWorkspaceRecoveryInstalled)}})()")));
+      await click('.card-record[data-audit-card=\"true\"]');
       await click('.card-horizontal-detail .audit-problem-open');
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Individual audit issue opens same specific proposal');
       assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
