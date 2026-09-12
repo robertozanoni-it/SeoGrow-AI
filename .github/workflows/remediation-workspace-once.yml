@@ -18,19 +18,32 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Verify and apply the exact reviewed patch
+      - name: Apply checked source integration
         shell: bash
         run: |
           set -euo pipefail
           git merge-base --is-ancestor 32ba50b075be3415ca955252616d5cf84fdd572f HEAD
-          cat .github/remediation-patch-part-{1,2,3,4}.txt | base64 --decode | gzip --decompress > /tmp/remediation.patch
-          echo '9a3de0a462f6285c77df633b05d2a482865f1121f3883eff3f41277e2be40611  /tmp/remediation.patch' | sha256sum --check
-          git apply --check --whitespace=error /tmp/remediation.patch
-          git apply --whitespace=error /tmp/remediation.patch
-          rm .github/remediation-patch-part-{1,2,3,4}.txt .github/remediation-patch-ready.txt .github/workflows/remediation-workspace-once.yml
+          python .github/apply-remediation.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/qa-form-matrix.mjs')
+          s=p.read_text()
+          anchor='  await runFieldBoundaries('
+          assert s.count(anchor)==1
+          s="import { runResolutionPaths } from './qa-resolution-paths.mjs';\n"+s
+          s=s.replace(anchor,'  await runResolutionPaths({evaluate,waitFor,record,button,set,read,revisit,mock,resetRequests,screenshot,command});\n'+anchor)
+          p.write_text(s)
+          p=Path('scripts/qa-matrix.mjs')
+          s=p.read_text()
+          anchor='export const qaMatrix = ['
+          assert s.count(anchor)==1
+          s=s.replace(anchor,anchor+'\n  ["REMEDIATION-REVIEW-AND-ABSENT-LINK", "Reviewed proposals and native absent-link state", "P0", "E2E Browser", "Synthetic upstream and actual React", "Reject, edit metadata/body, prepare; verify pending card and absent link", "No writes, full widget, resolved1 blocked0, desktop/mobile", "full"],')
+          p.write_text(s)
+          PY
+          rm .github/apply-remediation.py .github/remediation-patch-ready.txt .github/workflows/remediation-workspace-once.yml
       - run: npm ci --ignore-scripts
       - run: npm run lint && npm test && npm run build
-      - name: Commit only source, tests, and removal of this one-shot bootstrap
+      - name: Commit source and remove this one-shot bootstrap
         shell: bash
         run: |
           set -euo pipefail
@@ -41,3 +54,10 @@ jobs:
           git diff --cached --check
           git commit -m 'Repair content generation, reviewed proposals and native resolution state'
           git push origin HEAD:fix/remediation-complete-resolution-paths
+          git archive --format=tar HEAD | gzip > /tmp/seogrow-resolution-source.tar.gz
+      - uses: actions/upload-artifact@v6
+        with:
+          name: seogrow-resolution-source
+          path: /tmp/seogrow-resolution-source.tar.gz
+          retention-days: 1
+          if-no-files-found: error
