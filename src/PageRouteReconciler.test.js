@@ -7,10 +7,13 @@ const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("route reconciler riallinea hash e pagina React tramite il canale useStoredState", () => {
   assert.match(source, /seogrow-selected-page-v1/);
+  assert.match(source, /workspaceStorage/);
+  assert.match(source, /workspaceStorage\.getItem\(SELECTED_PAGE_KEY\)/);
+  assert.match(source, /workspaceStorage\.setItem\(SELECTED_PAGE_KEY, serialized\)/);
   assert.match(source, /\.app main/);
   assert.match(source, /dataset\?\.page/);
   assert.match(source, /StorageEvent/);
-  assert.match(source, /newValue:\s*JSON\.stringify\(page\)/);
+  assert.match(source, /newValue:\s*serialized/);
   assert.match(source, /dispatchEvent\(event\)/);
 });
 
