@@ -1,4 +1,5 @@
 import { workspaceStorage } from "./workspaceDatabase.js";
+import { activateNativePageState } from "./navigationUx.js";
 
 const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
 const MAX_FRAMES = 120;
@@ -12,17 +13,12 @@ const readRequestedPage = () => {
 
 const dispatchPageState = (page) => {
   const serialized = JSON.stringify(page);
-  // Persist the requested route before notifying React. If a page subtree
-  // remounts while navigation events are in flight, useStoredState must read
-  // the same page that is already present in the URL instead of reviving the
-  // previous screen from storage.
   try {
     if (workspaceStorage.getItem(SELECTED_PAGE_KEY) !== serialized) {
       workspaceStorage.setItem(SELECTED_PAGE_KEY, serialized);
     }
   } catch {
-    // The event below can still reconcile the live session when persistence is
-    // unavailable; storage failures are handled by the workspace layer.
+    // The live event/native control can still reconcile the current session.
   }
   const detail = { key: SELECTED_PAGE_KEY, newValue: serialized };
   const event = typeof StorageEvent === "function"
@@ -33,12 +29,13 @@ const dispatchPageState = (page) => {
 
 const renderedPage = () => document.querySelector(".app main")?.dataset?.page || "";
 
-export function reconcilePageRoute() {
+export function reconcilePageRoute({ allowNativeFallback = true } = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   const requested = readRequestedPage();
   if (!requested) return false;
   if (renderedPage() === requested) return true;
   dispatchPageState(requested);
+  if (allowNativeFallback && renderedPage() !== requested) activateNativePageState(requested);
   return renderedPage() === requested;
 }
 
@@ -50,7 +47,9 @@ const schedule = () => {
   const run = () => {
     frame = 0;
     if (currentGeneration !== generation) return;
-    if (reconcilePageRoute()) return;
+    // Give the event/storage channel the first frame, then use the native App
+    // button as a direct state bridge if the rendered page still disagrees.
+    if (reconcilePageRoute({ allowNativeFallback: attempts > 0 })) return;
     attempts += 1;
     if (attempts < MAX_FRAMES) frame = window.requestAnimationFrame(run);
   };
