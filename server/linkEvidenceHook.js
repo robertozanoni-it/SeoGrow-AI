@@ -49,6 +49,8 @@ export function extractLinkEvidence(html, sourceUrl, targetUrl) {
   const matches = [];
   const anchorPattern = /<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi;
   let scanned = 0;
+  let occurrenceCount = 0;
+  let firstAnchorText = "";
   let match;
   while ((match = anchorPattern.exec(String(html || ""))) !== null && scanned < MAX_ANCHORS) {
     scanned += 1;
@@ -57,19 +59,17 @@ export function extractLinkEvidence(html, sourceUrl, targetUrl) {
     const rawHref = hrefMatch?.[1] || hrefMatch?.[2] || "";
     const resolved = normalizedHttpUrl(rawHref, source);
     if (!resolved || resolved !== target) continue;
-    if (matches.length < MAX_MATCHES) {
-      matches.push({
-        href: resolved,
-        anchorText: cleanAnchorText(match[2]),
-      });
-    }
+    occurrenceCount += 1;
+    const anchorText = cleanAnchorText(match[2]);
+    if (!firstAnchorText && anchorText) firstAnchorText = anchorText;
+    if (matches.length < MAX_MATCHES) matches.push({ href: resolved, anchorText });
   }
 
   return {
-    occurrenceCount: matches.length,
-    anchorText: matches.find((item) => item.anchorText)?.anchorText || "",
+    occurrenceCount,
+    anchorText: firstAnchorText,
     matches,
-    truncated: matches.length === MAX_MATCHES,
+    truncated: occurrenceCount > matches.length || scanned >= MAX_ANCHORS,
   };
 }
 
