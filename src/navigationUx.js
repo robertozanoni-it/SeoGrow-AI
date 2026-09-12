@@ -1,3 +1,13 @@
+const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
+
+const notifyStoredPage = (page) => {
+  const detail = { key: SELECTED_PAGE_KEY, newValue: JSON.stringify(page) };
+  const event = typeof StorageEvent === "function"
+    ? new StorageEvent("storage", detail)
+    : Object.assign(new Event("storage"), detail);
+  window.dispatchEvent(event);
+};
+
 const notifyLocationChange = (oldURL = "") => {
   const newURL = String(window.location?.href || "");
   const hashEvent = typeof HashChangeEvent === "function"
@@ -12,6 +22,7 @@ export function navigatePage(page) {
   if (page === "Correzioni") {
     window.__seogrowCorrectionsMode = true;
     if (window.location.hash !== next) window.history.pushState(null, "", next);
+    notifyStoredPage(page);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
     return;
   }
@@ -19,10 +30,13 @@ export function navigatePage(page) {
     const oldURL = String(window.location?.href || "");
     window.location.hash = next;
     // Native hashchange is asynchronous and can be missed during a React
-    // remount/reload boundary. Notify both state layers synchronously as well;
-    // duplicate native events are idempotent because they read the same hash.
+    // remount/reload boundary. Notify route listeners synchronously and also
+    // update the useStoredState channel used by App so URL and rendered page
+    // cannot diverge during rapid QA/user navigation.
+    notifyStoredPage(page);
     notifyLocationChange(oldURL);
   } else {
+    notifyStoredPage(page);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
   }
 }
