@@ -1,0 +1,33 @@
+name: Batch development snapshot
+on:
+  push:
+    branches: [feat/problems-batch-remediation-20260912]
+    paths: [.github/workflows/batch-development-artifact.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Archive tracked source only
+        run: git archive --format=zip --output="$RUNNER_TEMP/seogrow-source.zip" HEAD
+      - uses: actions/upload-artifact@v6
+        with:
+          name: batch-development-source
+          path: ${{ runner.temp }}/seogrow-source.zip
+          retention-days: 2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Archive development dependencies
+        run: tar -czf "$RUNNER_TEMP/seogrow-dependencies.tgz" node_modules
+      - uses: actions/upload-artifact@v6
+        with:
+          name: batch-development-dependencies
+          path: ${{ runner.temp }}/seogrow-dependencies.tgz
+          retention-days: 1
