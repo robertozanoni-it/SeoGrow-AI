@@ -1,9 +1,9 @@
+import { transformBrokenLinkAnchors } from "./brokenLinkHref.js";
+
 const clone = (value) => {
   if (typeof structuredClone === "function") return structuredClone(value);
   return JSON.parse(JSON.stringify(value));
 };
-
-const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const BROKEN_LINK_CLEANUP_MODES = Object.freeze({
   PRESERVE_TEXT: "unlink-preserve-text",
@@ -63,18 +63,11 @@ export function removeExactAnchor(html, targetUrl, mode) {
   const action = mode === undefined
     ? consumeBrokenLinkCleanupMode(targetUrl)
     : normalizeBrokenLinkCleanupMode(mode);
-  if (!source || !target) return { value: source, count: 0, anchors: [], action };
-
-  const pattern = new RegExp(
-    `<a\\b([^>]*?\\bhref\\s*=\\s*["']${escapeRegExp(target)}["'][^>]*)>([\\s\\S]*?)<\\/a\\s*>`,
-    "gi",
-  );
-  const anchors = [];
-  const value = source.replace(pattern, (_whole, _attrs, inner) => {
-    anchors.push(String(inner || "").replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim());
-    return action === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT ? "" : inner;
-  });
-  return { value, count: anchors.length, anchors, action };
+  if (!source || !target) return { value: source, count: 0, anchors: [], matches: [], action };
+  return {
+    ...transformBrokenLinkAnchors(source, target, action === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT),
+    action,
+  };
 }
 
 export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, mode) {
@@ -95,6 +88,7 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, 
     : normalizeBrokenLinkCleanupMode(mode);
   let count = 0;
   const anchors = [];
+  const matches = [];
   let nodes = 0;
   const walk = (value, depth = 0) => {
     if (depth > 80 || nodes > 5000) return false;
@@ -113,6 +107,7 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, 
           value[key] = result.value;
           count += result.count;
           anchors.push(...result.anchors);
+          matches.push(...result.matches);
         }
       } else if (child && typeof child === "object") {
         if (!walk(child, depth + 1)) return false;
@@ -127,6 +122,7 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, 
     count,
     serialized: JSON.stringify(data),
     anchors,
+    matches,
     action,
   };
 }
