@@ -82,7 +82,7 @@ for (const href of [
 
 test("URL-looking data attributes and text never substitute for the actual href", () => {
   const html = `<a data-href="${target}" title="href='${target}'" href="https://other.example/">${target}</a>`;
-  assert.equal(removeExactAnchor(html, target).count, 0);
+  assert.equal(removeExactAnchor(html, target, "unlink-preserve-text").count, 0);
   assert.equal(singleAnchorHref(` data-href="${target}" href="https://other.example/"`), "https://other.example/");
   assert.equal(singleAnchorHref(` href="${target}" HREF="https://other.example/"`), "");
 });
@@ -103,7 +103,7 @@ test("query, case, slash and fragment differences do not become accidental match
 
 test("two exact/direct-or-wrapped occurrences remain ambiguous for the existing ownership gate", () => {
   const raw = fixture(`<p><a href="${target}">Prima</a><a href="${wrapped}">Seconda</a></p>`);
-  assert.equal(prepareElementorBrokenExternalLink(raw, target).count, 2);
+  assert.equal(prepareElementorBrokenExternalLink(raw, target, "unlink-preserve-text").count, 2);
 });
 
 test("malformed Elementor JSON stays blocked", () => {
