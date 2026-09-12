@@ -1,0 +1,141 @@
+.seogrow-shared-link-remediation {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #c7daf5;
+  border-radius: 14px;
+  background: #f7fbff;
+}
+
+.seogrow-shared-link-remediation > h4,
+.seogrow-shared-link-preview > h5 {
+  margin: 0 0 7px;
+  color: #102743;
+}
+
+.seogrow-shared-link-remediation > p {
+  margin: 0 0 12px;
+  color: #42536b;
+  line-height: 1.5;
+}
+
+.seogrow-shared-link-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 12px 0 8px;
+}
+
+.seogrow-shared-link-modes button.selected {
+  box-shadow: 0 0 0 2px rgba(28, 89, 190, 0.16);
+}
+
+.seogrow-shared-link-warning {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #fffaf0;
+  color: #6f4b15 !important;
+}
+
+.seogrow-shared-link-prepare,
+.seogrow-shared-link-apply {
+  min-height: 42px;
+}
+
+.seogrow-shared-link-status {
+  margin-top: 12px !important;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #eef4fb;
+}
+
+.seogrow-shared-link-status[data-kind="error"] {
+  background: #fff1ef;
+  color: #8a2f28;
+}
+
+.seogrow-shared-link-status[data-kind="ready"] {
+  background: #eff8f3;
+  color: #24553a;
+}
+
+.seogrow-shared-link-status[data-kind="success"] {
+  background: #eaf8ef;
+  color: #1f6238;
+}
+
+.seogrow-shared-link-status[data-kind="busy"] {
+  background: #f4f7fb;
+  color: #334a68;
+}
+
+.seogrow-shared-link-preview:not(:empty) {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #d9e3f1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.seogrow-shared-link-preview dl {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr);
+  gap: 7px 14px;
+  margin: 12px 0;
+}
+
+.seogrow-shared-link-preview dt {
+  font-weight: 800;
+  color: #42536b;
+}
+
+.seogrow-shared-link-preview dd {
+  margin: 0;
+  color: #17233b;
+  overflow-wrap: anywhere;
+}
+
+.seogrow-shared-link-preview details {
+  margin: 12px 0;
+}
+
+.seogrow-shared-link-preview ul {
+  max-height: 230px;
+  overflow: auto;
+  padding-left: 22px;
+}
+
+.seogrow-shared-link-preview li {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.seogrow-shared-link-after {
+  margin: 12px 0 !important;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f4f8fd;
+}
+
+.seogrow-shared-link-success {
+  margin: 0 !important;
+  color: #1f6238 !important;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .seogrow-shared-link-modes,
+  .seogrow-shared-link-modes button,
+  .seogrow-shared-link-prepare,
+  .seogrow-shared-link-apply {
+    width: 100%;
+  }
+
+  .seogrow-shared-link-preview dl {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .seogrow-shared-link-preview dd {
+    margin-bottom: 8px;
+  }
+}
