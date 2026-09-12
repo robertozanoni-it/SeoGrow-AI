@@ -106,24 +106,27 @@ async function fetchHtml(input) {
   throw new Error("Pagina sorgente non leggibile.");
 }
 
+export async function readLinkEvidencePage(sourceUrl, targetUrl) {
+  const source = normalizedHttpUrl(sourceUrl);
+  const target = normalizedHttpUrl(targetUrl);
+  if (!source || !target) throw new Error("Pagina sorgente o link da verificare non valido.");
+  const { html, finalUrl } = await fetchHtml(source);
+  return {
+    ok: true,
+    readOnly: true,
+    sourceUrl: finalUrl,
+    targetUrl: target,
+    ...extractLinkEvidence(html, finalUrl, target),
+  };
+}
+
 export function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
 
   app.post("/api/frontend/link-evidence", async (req, res) => {
     try {
-      const sourceUrl = normalizedHttpUrl(req.body?.sourceUrl);
-      const targetUrl = normalizedHttpUrl(req.body?.targetUrl);
-      if (!sourceUrl || !targetUrl) return res.status(400).json({ error: "Pagina sorgente o link da verificare non valido." });
-      const { html, finalUrl } = await fetchHtml(sourceUrl);
-      const evidence = extractLinkEvidence(html, finalUrl, targetUrl);
-      return res.json({
-        ok: true,
-        readOnly: true,
-        sourceUrl: finalUrl,
-        targetUrl,
-        ...evidence,
-      });
+      return res.json(await readLinkEvidencePage(req.body?.sourceUrl, req.body?.targetUrl));
     } catch (error) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : "Verifica link non riuscita.",
