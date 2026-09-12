@@ -8,6 +8,18 @@ const notifyStoredPage = (page) => {
   window.dispatchEvent(event);
 };
 
+export const activateNativePageState = (page) => {
+  if (typeof document === "undefined") return false;
+  const buttons = [...document.querySelectorAll(".sidebar > nav:not(.guided-nav) button")];
+  const target = buttons.find((button) => {
+    const label = button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "";
+    return label === page;
+  });
+  if (!target || target.disabled) return false;
+  target.click();
+  return true;
+};
+
 const notifyLocationChange = (oldURL = "") => {
   const newURL = String(window.location?.href || "");
   const hashEvent = typeof HashChangeEvent === "function"
@@ -26,13 +38,17 @@ export function navigatePage(page) {
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
     return;
   }
+
+  // The original App navigation owns the canonical React page state. The
+  // guided/card layers use the URL as their source of truth, so also trigger
+  // the hidden native control when it exists. This prevents a rapid reload or
+  // remount from leaving #Audit%20SEO in the URL while App still renders the
+  // previous page (for example Centro progetto).
+  activateNativePageState(page);
+
   if (window.location.hash !== next) {
     const oldURL = String(window.location?.href || "");
     window.location.hash = next;
-    // Native hashchange is asynchronous and can be missed during a React
-    // remount/reload boundary. Notify route listeners synchronously and also
-    // update the useStoredState channel used by App so URL and rendered page
-    // cannot diverge during rapid QA/user navigation.
     notifyStoredPage(page);
     notifyLocationChange(oldURL);
   } else {
