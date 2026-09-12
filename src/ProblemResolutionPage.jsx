@@ -124,6 +124,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   };
 
   const openIntervention = () => {
+    if (problem.issueType === "broken-external-link" && openProblemResolution(problem, client.id, "problem-card", { controlledPreview: true })) return;
     const request = {
       clientId: client.id,
       issueKey: problem.key,

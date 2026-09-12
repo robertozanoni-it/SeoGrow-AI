@@ -26,3 +26,9 @@ export function problemEntryLabel(problem) {
   if (["verify", "history", "audit"].includes(path.action)) return path.label;
   return shouldOpenAutomaticProposal(problem) ? "Apri proposta" : "Apri risoluzione";
 }
+
+// Requesting this preview never grants write permission or changes correctability.
+export const canOpenControlledLinkPreview = problem => problem?.issueType === "broken-external-link" &&
+  problem.targetUrls?.length === 1 && Boolean(safeHttpHref(problem.targetUrls[0])) && resolutionPath(problem).action === "prepare";
+export const controlledPreviewAllowed = (problem, focus) => shouldOpenAutomaticProposal(problem) ||
+  (focus?.controlledPreview === true && focus.targetUrl === problem?.targetUrls?.[0] && canOpenControlledLinkPreview(problem));

@@ -19,13 +19,13 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
     const elementor=text=>JSON.stringify([{id:'qa-widget',elType:'widget',widgetType:'text-editor',settings:{editor:text},elements:[]}]);
     const entity={id:42,status:'publish',link:source,title:{raw:'Guide pratiche per lo yoga'},content:{raw:original},meta:{rank_math_description:'Descrizione precedente.',_elementor_data:elementor(original)}};
     const publicState={ok:true,isHtml:true,status:200,url:source,canonical:source,wordpressDocumentId:42,h1:1,words:176,minimumWords:180,verificationSafe:true,contentProbeVisible:true,contentCoverageStrong:true,contentProbeCount:3,contentProbeMatches:3};
-    const seed=async(issue,automatic=true)=>{
-      await write(keys[0],{...saved[keys[0]],[clientId]:[{url:client.url,analyzedAt:new Date().toISOString(),score:80,issues:[{sourceUrl:source,url:source,severity:'alta',...issue}]}]});
+    const seed=async(issue,automatic=true,extraIssues=[])=>{
+      await write(keys[0],{...saved[keys[0]],[clientId]:[{url:client.url,analyzedAt:new Date().toISOString(),score:80,issues:[{sourceUrl:source,url:source,severity:'alta',...issue},...extraIssues.map(item=>({sourceUrl:source,url:source,severity:'alta',...item}))]}]});
       await write(keys[1],{...saved[keys[1]],[clientId]:[]});
       await write(keys[2],{...saved[keys[2]],[clientId]:{url:client.url,username:'qa-review'}});
       await revisit('Problemi');
       await waitFor(`document.querySelector('.native-problem-cards [data-issue-type=${q(issue.type)}]')`,'Specific synthetic card');
-      await evaluate(`document.querySelector('.native-problem-cards [data-issue-type=${q(issue.type)}]').click()`);
+      await evaluate(`([...document.querySelectorAll('.native-problem-cards [data-issue-type=${q(issue.type)}]')].find(e=>!${q(issue.targetUrl || "")}||e.textContent.includes(${q(issue.targetUrl || "")}))).click()`);
       if(!automatic)return;
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Native proposal credentials');
       for(const [label,value]of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-review','Password applicativa':'qa-only'}))await set(scope+' .audit-unified-credentials',label,value);
@@ -36,6 +36,7 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       await mock('/api/frontend/inspect',publicState);await mock('/api/wordpress/verify-frontend',publicState);
       await resetRequests();
     };
+    const visible=async selector=>waitFor(`(()=>{const e=document.querySelector(${q(selector)});if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'})()`, 'Visible: '+selector);
     const edit=async value=>{
       await evaluate(`(()=>{const e=document.querySelector('.manual-remediation-proposal textarea');e.focus();Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${q(value)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
       await waitFor(`document.querySelector('.manual-remediation-proposal textarea')?.value===${q(value)}`,'Edited value in React state');
@@ -47,7 +48,7 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       await seed({type:'duplicate-description',label:'Meta description duplicata'});
       await mock('/api/wordpress/generate-seo-value-v2',{error:'Proposta ripetitiva e troncata: rivedi il testo.',code:'EDITORIAL_REVIEW_REQUIRED',publishable:false},422);
       await button('Prepara solo questo problema',scope);
-      await waitFor("document.querySelector('.manual-remediation-proposal textarea')",'Manual review after quality rejection');
+      await visible('.manual-remediation-proposal textarea');
       await edit(description);
       await evaluate("document.querySelector('.manual-remediation-proposal').scrollIntoView({behavior:'instant',block:'center'})");
       await screenshot('resolution-meta-review-desktop');
@@ -71,13 +72,15 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       await evaluate("document.querySelector('.native-problem-cards [data-issue-type=\"duplicate-description\"]').click()");
       await waitFor("document.querySelector('.problem-resolution-actions .primary')?.textContent==='Verifica risultato'",'Pending card opens dedicated verification path');
       assert.equal(await evaluate("Boolean(document.querySelector('.automatic-proposal-page'))"),false);
+      await visible('.problem-resolution-actions .primary');
+      await evaluate("document.querySelector('.problem-resolution-actions').scrollIntoView({behavior:'instant',block:'center'})");
       await screenshot('resolution-pending-verification');
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${q(corrections.filter(c=>Number(c.clientId)!==Number(clientId)))})})()`);
 
       await seed({type:'thin-content',label:'Contenuto breve per pagina content: 176 parole'});
       await mock('/api/wordpress/generate-patch-v2',{error:'Il provider AI non ha restituito JSON valido.',code:'AI_OUTPUT_FORMAT',publishable:false},400);
       await button('Prepara solo questo problema',scope);
-      await waitFor("document.querySelector('.manual-remediation-proposal textarea')",'Content format error has a review path');
+      await visible('.manual-remediation-proposal textarea');
       assert.equal(await evaluate("document.querySelector('.manual-remediation-proposal textarea').value"),original,'Full selected widget remains available');
       await edit(expanded);
       await mock('/api/wordpress/generate-patch-v2',{ok:true,content:JSON.stringify({changes:{content:expanded}}),changes:{content:expanded},publishable:true,quality:{publishable:true,source:'user-reviewed'}});
@@ -90,14 +93,18 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
 
       await seed({type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:target},false);
       await button('Prepara correzione','.problem-resolution-actions');
-      await waitFor("document.querySelector('.audit-unified-remediation .wp-live-remediation')",'Native audit host for absent link');
-      const auditScope='.audit-unified-remediation';
-      for(const [label,value]of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-review','Password applicativa':'qa-only'}))await set('.audit-unified-credentials',label,value);
+      const auditScope='.proposal-remediation-slot';
+      await visible(auditScope+' .wp-live-remediation');
+      assert.match(await evaluate("document.querySelector('.automatic-proposal-kicker').textContent"),/Correzione controllata/);
+      assert.match(await evaluate("document.querySelector('.automatic-proposal-summary').textContent"),/Assistita/);
+      for(const [label,value]of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-review','Password applicativa':'qa-only'}))await set(auditScope+' .audit-unified-credentials',label,value);
       await mock('/api/wordpress/inspect-fast',{siteUrl:client.url,resource:'posts',entity});
       await mock('/api/frontend/inspect',publicState);
       await mock('/api/frontend/link-evidence',{ok:true,readOnly:true,targetUrl:target,requestedSourceUrl:source,sourceUrl:source,checkedAt:new Date().toISOString(),verificationSafe:true,scanComplete:true,occurrenceCount:0,anchorText:'',matches:[]});
-      await resetRequests();await button('Prepara solo questo problema',auditScope);
-      await waitFor("document.querySelector('.wp-live-preview-row.resolved[data-link-resolution=\"absent-confirmed\"]')",'Absent link is resolved in native state');
+      await resetRequests();
+      await visible(auditScope+' .wp-live-remediation-actions .secondary');
+      await button('Prepara solo questo problema',auditScope);
+      await visible(auditScope+' .wp-live-preview-row.resolved[data-link-resolution="absent-confirmed"]');
       await waitFor("document.querySelector('.wp-live-remediation-message')?.textContent.includes('già risolti 1')",'Counter includes resolved link');
       assert.match(await evaluate("document.querySelector('.wp-live-remediation-message').textContent"),/bloccati 0/);
       assert.equal(await evaluate("Boolean(document.querySelector('.wp-live-apply-one,.seogrow-shared-link-prepare'))"),false);
@@ -106,6 +113,38 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       await evaluate("document.querySelector('.wp-live-preview-row.resolved').scrollIntoView({behavior:'instant',block:'start'})");
       await screenshot('resolution-absent-link-native');await noWrite();
       assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-preview|generate/.test(r.path))"),false,'Confirmed absence produces no AI call or proposal');
+
+      // Two broken destinations on the same page stay isolated through both choices.
+      const otherTarget='https://www.yogaalliance.org/credentialing/credentials-for-teachers';
+      const linked=`${original}<p><a href="https://www.google.com/search?q=${target}">Yoga Journal</a> e <a href="https://www.google.com/search?q=${otherTarget}&amp;authuser=1">Yoga Alliance</a>.</p>`;
+      const linkEntity={...entity,meta:{...entity.meta,_elementor_data:elementor(linked)}};
+      await seed({type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:otherTarget},false,[{type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:target}]);
+      await button('Prepara correzione','.problem-resolution-actions');
+      await visible(scope+' .wp-live-remediation');
+      for(const [label,value]of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-review','Password applicativa':'qa-only'}))await set(scope+' .audit-unified-credentials',label,value);
+      await mock('/api/wordpress/inspect-fast',{siteUrl:client.url,resource:'posts',entity:linkEntity});
+      await mock('/api/frontend/inspect',publicState);
+      await mock('/api/frontend/link-evidence',{ok:true,readOnly:true,targetUrl:otherTarget,requestedSourceUrl:source,sourceUrl:source,checkedAt:new Date().toISOString(),verificationSafe:true,scanComplete:true,occurrenceCount:1,anchorText:'Yoga Alliance',matches:[{href:otherTarget,anchorText:'Yoga Alliance'}]});
+      await mock('/api/wordpress/live-preview',{approvalToken:'qa-target-link',adapter:'Elementor link cleanup',resource:'posts',id:42,changed:['meta._elementor_data'],previewBefore:{meta:linkEntity.meta},previewAfter:{meta:linkEntity.meta}});
+      await resetRequests();await button('Prepara solo questo problema',scope);
+      await visible(scope+' .wp-live-preview-row.preview .wp-live-apply-one');
+      const prepared=async()=>evaluate("window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/live-preview').at(-1)?.body");
+      let linkPlan=await prepared();
+      assert.equal(linkPlan.issue.targetUrl,otherTarget,'the selected destination is not the other 404 on the page');
+      let html=JSON.parse(linkPlan.changes.meta._elementor_data)[0].settings.editor;
+      assert.ok(html.includes(target)&&html.includes('Yoga Journal'),'other link survives');
+      assert.ok(!html.includes(otherTarget)&&html.includes('Yoga Alliance'),'unlink keeps the chosen anchor text');
+      await visible('.seogrow-link-cleanup-choice');
+      await button('Elimina link e testo associato',scope);
+      await waitFor("window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/live-preview').length===2",'delete choice regenerates only the selected proposal');
+      await visible(scope+' .wp-live-preview-row.preview .wp-live-apply-one');
+      linkPlan=await prepared();
+      assert.equal(linkPlan.issue.targetUrl,otherTarget);
+      html=JSON.parse(linkPlan.changes.meta._elementor_data)[0].settings.editor;
+      assert.ok(html.includes(target)&&html.includes('Yoga Journal')&&!html.includes('Yoga Alliance')&&!html.includes(otherTarget),'delete removes only the selected anchor, not the other link');
+      await evaluate("document.querySelector('.seogrow-link-cleanup-choice').scrollIntoView({behavior:'instant',block:'center'})");
+      await screenshot('resolution-exact-link-delete-preview');await noWrite();
+
     } finally {
       await command('Emulation.clearDeviceMetricsOverride');
       for(const key of keys)await write(key,saved[key]);
