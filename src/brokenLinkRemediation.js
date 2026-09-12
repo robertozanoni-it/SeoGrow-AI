@@ -49,19 +49,19 @@ export function clearBrokenLinkCleanupMode(targetUrl) {
   if (target) cleanupModes.delete(target);
 }
 
-const takeBrokenLinkCleanupMode = (targetUrl) => {
+export function consumeBrokenLinkCleanupMode(targetUrl) {
   const target = brokenExternalTarget({ targetUrl });
   if (!target) return BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
   const action = normalizeBrokenLinkCleanupMode(cleanupModes.get(target));
   cleanupModes.delete(target);
   return action;
-};
+}
 
 export function removeExactAnchor(html, targetUrl, mode) {
   const source = String(html || "");
   const target = brokenExternalTarget({ targetUrl });
   const action = mode === undefined
-    ? takeBrokenLinkCleanupMode(targetUrl)
+    ? consumeBrokenLinkCleanupMode(targetUrl)
     : normalizeBrokenLinkCleanupMode(mode);
   if (!source || !target) return { value: source, count: 0, anchors: [], action };
 
@@ -91,7 +91,7 @@ export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, 
   if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
 
   const action = mode === undefined
-    ? takeBrokenLinkCleanupMode(targetUrl)
+    ? consumeBrokenLinkCleanupMode(targetUrl)
     : normalizeBrokenLinkCleanupMode(mode);
   let count = 0;
   const anchors = [];
