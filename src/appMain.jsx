@@ -14,6 +14,7 @@ import './RemediationFocusReplay';
 import './PageStartHierarchy';
 import './CardWorkspaceRecovery';
 import './ExternalLinkDestinationUx';
+import './ResolvedExternalLinkStateUx';
 import './BrokenLinkCleanupChoiceUx';
 import './SharedElementorBrokenLinkUx';
 import './ProviderBudgetUx';
