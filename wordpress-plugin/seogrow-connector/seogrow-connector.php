@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SeoGrow Connector
  * Description: Espone a SeoGrow, tramite la REST API autenticata di WordPress, solo i campi necessari per Elementor, Rank Math e Yoast.
- * Version: 1.3.7
+ * Version: 1.3.8
  * Author: SeoGrow AI
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -28,3 +28,4 @@ require_once __DIR__ . '/elementor-text-write.php';
 require_once __DIR__ . '/atomic-write.php';
 require_once __DIR__ . '/elementor-single-text-write.php';
 require_once __DIR__ . '/elementor-link-cleanup-write.php';
+require_once __DIR__ . '/elementor-shared-link-remediation.php';
