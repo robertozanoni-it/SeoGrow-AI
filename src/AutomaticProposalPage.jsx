@@ -1,3 +1,4 @@
+import { controlledPreviewAllowed, correctionMatchesProblem, resolutionPath } from "./resolutionPath.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -65,6 +66,7 @@ const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHis
   const wantedType = String(problem?.issueType || "").trim().toLowerCase();
   const wantedUrl = normalizedUrl(problem?.sourceUrl || focus.sourceUrl);
   const wantedTitle = String(problem?.title || focus.title || "").trim().toLowerCase();
+  const wantedTarget = focus.targetUrl || (wantedType === "broken-external-link" && problem?.targetUrls?.length === 1 ? problem.targetUrls[0] : "");
 
   for (const entry of candidates) {
     const issues = Array.isArray(entry.item?.issues) ? entry.item.issues : [];
@@ -73,7 +75,8 @@ const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHis
       const title = String(issue?.label || issue?.title || issue?.type || "").trim().toLowerCase();
       const typeMatches = wantedType ? type === wantedType : title === wantedTitle;
       const urlMatches = normalizedUrl(issueSourceUrl(issue, entry.item, client)) === wantedUrl;
-      return typeMatches && urlMatches;
+      const targetMatches = !wantedTarget || safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || "") === safeHttpHref(wantedTarget);
+      return typeMatches && urlMatches && targetMatches;
     });
     if (issueIndex >= 0) {
       return {
@@ -207,14 +210,20 @@ export default function AutomaticProposalPage() {
     corrections,
   }) : { rows: [] };
   const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
-  const latestCorrection = client ? latestCorrectionForFocus(corrections, {
+  const linkProblem = (problem?.issueType || focus.issueType) === "broken-external-link" ? (problem || {
+    issueType: focus.issueType, sourceUrl: focus.sourceUrl, targetUrls: focus.targetUrl ? [focus.targetUrl] : [],
+  }) : null;
+  const scopedCorrections = linkProblem ? corrections.filter(record => correctionMatchesProblem(linkProblem, record)) : corrections;
+  const latestCorrection = client ? latestCorrectionForFocus(scopedCorrections, {
     clientId: selectedClientId,
     sourceUrl: problem?.sourceUrl || focus.sourceUrl,
-    issueType: problem?.issueType,
+    issueType: problem?.issueType || focus.issueType,
     title: problem?.title || focus.title,
   }) : null;
   const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, problem, pageHistory, siteHistory });
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
+  const previewAllowed = controlledPreviewAllowed(problem, focus);
+  const nextResolution = problem ? resolutionPath(problem, latestCorrection) : null;
 
   const closeAndGo = (page) => {
     clearAutomaticProposalFocus();
@@ -228,11 +237,11 @@ export default function AutomaticProposalPage() {
 
   const content = (
     <div className="automatic-proposal-page" data-revision={revision}>
-      {auditFocus && problem?.correctability === "automatic" && <RemediationFocusDispatcher focus={auditFocus} />}
+      {auditFocus && previewAllowed && <RemediationFocusDispatcher focus={auditFocus} />}
       <header className="automatic-proposal-header">
         <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
-          <span className="automatic-proposal-kicker"><WandSparkles /> Correzione automatica</span>
+          <span className="automatic-proposal-kicker"><WandSparkles /> {focus.controlledPreview ? "Correzione controllata" : "Correzione automatica"}</span>
           <h1>{PROPOSAL_PAGE}</h1>
           <p>{problem?.title || focus?.title || "Problema SEO"}</p>
           <small>{problem?.sourceUrl || focus?.sourceUrl || "URL non disponibile"}</small>
@@ -282,7 +291,7 @@ export default function AutomaticProposalPage() {
             </article>
             <article>
               <span>3</span>
-              <div><h2>Proposta automatica</h2><p>SeoGrow prepara l’anteprima soltanto se lo stato corrente è ancora <strong>Automatica</strong>. Prima dell’approvazione mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong>.</p></div>
+              <div><h2>Proposta controllata</h2><p>SeoGrow prepara l’anteprima soltanto per gli adapter supportati, dopo aver verificato la sorgente del problema. Prima dell’approvazione mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong>.</p></div>
             </article>
           </section>
 
@@ -297,10 +306,10 @@ export default function AutomaticProposalPage() {
                 <p>{latestCorrection ? "Una correzione è già registrata: consulta il Prima/Dopo e usa Riverifica qui sopra prima di preparare un altro intervento." : "Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica."}</p>
               </div>
             </div>
-            {problem.correctability !== "automatic" ? (
+            {!previewAllowed ? (
               <div className="automatic-proposal-warning" role="alert">
-                <strong>La correzione automatica non è più autorizzata.</strong>
-                <p>I dati correnti classificano questo caso come {label(problem.correctability, labels.correctability)}. SeoGrow non forza una proposta automatica su uno stato cambiato.</p>
+                <strong>{nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong>
+                <p>{nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>
                 <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
               </div>
             ) : problem.problemState === "resolved" ? (

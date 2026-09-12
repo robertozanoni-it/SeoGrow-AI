@@ -49,7 +49,11 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await visibleClick('.proposal-remediation-slot .wp-live-apply-one');
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes(${JSON.stringify(after)})`,'Saved comparison remains after actual UI apply');
       correctionId = await evaluate(`document.querySelector(${JSON.stringify(receipt)}).dataset.correctionId`);
-      await waitFor("document.querySelector('.wp-live-remediation-message')?.textContent.includes('Modifica applicata e registrata')",'Apply completed');
+      // The writer is intentionally unmounted as soon as the saved result requires verification.
+      // Assert the durable receipt and the single write, not a transient writer toast.
+      await waitFor(`(async()=>{const m=await import('/src/remediationStore.js');const r=await m.readCorrection(${JSON.stringify(correctionId)});return Boolean(r?.writeConfirmed===true&&r?.after&&r?.appliedAt)})()`,'Applied correction is durably stored');
+      assert.equal(await evaluate("window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/live-apply').length"),1,'Exactly one approved write');
+      await waitFor("!document.querySelector('.proposal-remediation-slot .wp-live-apply-one')",'Applied correction cannot expose another write');
       assert.deepEqual(await snapshotValues(receipt),[before,after]);
       assert.equal(await evaluate(`document.querySelector(${JSON.stringify(receipt+' .saved-correction-url')}).href`),targetUrl);
       await resetRequests();

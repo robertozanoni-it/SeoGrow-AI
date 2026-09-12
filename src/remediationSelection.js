@@ -1,9 +1,9 @@
-import { normalizeClientId, issueIdentity } from "./reliabilityModel.js";
+import { normalizeClientId, issueIdentity, safeHttpHref } from "./reliabilityModel.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { exactPageKey } from "./remediationEvidence.js";
 
 export const proposalSelectionKey = focus => focus ? JSON.stringify([
-  focus.clientId, focus.sourceUrl, focus.issueType || "", focus.title || "", focus.createdAt,
+  focus.clientId, focus.sourceUrl, focus.issueType || "", focus.title || "", focus.createdAt, focus.issueKey || "", focus.targetUrl || "", focus.controlledPreview === true,
 ]) : "";
 
 // A dedicated proposal resolves its current persisted identity, never a replayed index.
@@ -17,7 +17,8 @@ export function selectFocusedRemediation(audits, focus, clientId, client) {
     const indexes = (Array.isArray(audit.item?.issues) ? audit.item.issues : []).flatMap((issue, index) => {
       const sameType = focus.issueType ? text(issue.type) === text(focus.issueType)
         : text(issue.label || issue.title || issue.type) === text(focus.title);
-      return sameType && exactPageKey(remediationSourceUrl(issue, audit.item, client)) === source ? [index] : [];
+      const sameTarget = !focus.targetUrl || safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || "") === safeHttpHref(focus.targetUrl);
+      return sameType && sameTarget && exactPageKey(remediationSourceUrl(issue, audit.item, client)) === source ? [index] : [];
     });
     if (indexes.length) matching.push({ audit, indexes, at: Date.parse(audit.item.analyzedAt || audit.item.startedAt || "") });
   }

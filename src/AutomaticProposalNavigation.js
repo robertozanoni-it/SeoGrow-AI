@@ -1,3 +1,4 @@
+import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview } from "./resolutionPath.js";
 import { navigatePage } from "./navigationUx.js";
 import { problemNavigationFocus } from "./problemNavigationFocus.js";
 import { normalizeClientId } from "./reliabilityModel.js";
@@ -63,11 +64,13 @@ export const clearAutomaticProposalFocus = () => {
   }
 };
 
-export const openProblemResolution = (problem, clientId, openedFrom = "problem-card") => {
+export const openProblemResolution = (problem, clientId, openedFrom = "problem-card", { controlledPreview = false } = {}) => {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
   if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
-  const automatic = focus.correctability === "automatic";
+  const controlled = controlledPreview === true && canOpenControlledLinkPreview(problem);
+  if (controlled) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
+  const automatic = shouldOpenAutomaticProposal(problem) || controlled;
   try {
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));

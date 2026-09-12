@@ -22,7 +22,10 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
     const click = async selector => {
       await waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return !e.disabled&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0})()`,selector+' actionable');
-      const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({behavior:'instant',block:'center'});const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(e.disabled||s.display==='none'||s.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Not visible: '+${JSON.stringify(selector)});const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);if(hit!==e&&!e.contains(hit))throw new Error('Covered control: '+${JSON.stringify(selector)});return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+      // Scrolling a newly opened card can still be animated by its parent.
+      // Wait for a stable, hit-testable target before sending any mouse event.
+      const point=await evaluate(`(async()=>{const selector=${JSON.stringify(selector)};let element=document.querySelector(selector);element.scrollIntoView({behavior:'instant',block:'center'});let previous='',stable=0;for(let frame=0;frame<90;frame++){await new Promise(requestAnimationFrame);const e=document.querySelector(selector);if(!e||!e.isConnected)continue;if(e!==element){element=e;e.scrollIntoView({behavior:'instant',block:'center'});previous='';stable=0;}const r=e.getBoundingClientRect(),style=getComputedStyle(e);const key=[r.x,r.y,r.width,r.height,scrollX,scrollY].map(v=>Math.round(v*10)).join('|');stable=key===previous?stable+1:0;previous=key;if(stable<8)continue;if(e.disabled||style.display==='none'||style.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Not visible: '+selector);const x=r.x+r.width/2,y=r.y+r.height/2;const hit=document.elementFromPoint(x,y);if(hit!==e&&!e.contains(hit))throw new Error('Covered control: '+selector);return {x,y};}throw new Error('Pointer target did not settle: '+selector)})()`);
+      await command('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
       await command('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
       await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
     };
@@ -57,6 +60,17 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(requests.find(r=>r.path==='/api/wordpress/generate-seo-value-v2').body.kind,'seo_title');
       assert.deepEqual(requests.find(r=>r.path==='/api/wordpress/live-preview').body.changes,{meta:{rank_math_title:newTitle}},'SEO provider selected even when public title equals post_title');
       assert.equal(requests.some(r=>r.path==='/api/wordpress/generate-patch-v2'),false,'No unrelated core/content patch');
+      // Download while preparation is available; a saved correction closes the writer.
+      await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
+      try {
+        await button('Scarica SeoGrow Connector',scope);
+        await waitFor('window.__qaConnectorBlob','Complete Connector download');
+        const bytes=await evaluate('(async()=>Array.from(new Uint8Array(await window.__qaConnectorBlob.arrayBuffer())))()');
+        const zip=await JSZip.loadAsync(Uint8Array.from(bytes));
+        for(const file of ['seogrow-connector.php','seogrow-connector-core.inc','atomic-write.php','elementor-text-write.php','build-manifest.json']) assert.ok(zip.file('seogrow-connector/'+file),file);
+      } finally {
+        await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
+      }
       await evaluate('window.confirm=()=>true');
       await click(scope+' .wp-live-apply-one');
       const receipt='.automatic-proposal-page .saved-correction-details[data-correction-id]';
@@ -71,17 +85,6 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await button('Riverifica',receipt);
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('esattamente un tag')`,'Duplicate title tags cannot verify a correction');
       await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:1});
-      // Real browser download, not a single-file static package assumption.
-      await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
-      try {
-        await button('Scarica SeoGrow Connector',scope);
-        await waitFor('window.__qaConnectorBlob','Complete Connector download');
-        const bytes=await evaluate('(async()=>Array.from(new Uint8Array(await window.__qaConnectorBlob.arrayBuffer())))()');
-        const zip=await JSZip.loadAsync(Uint8Array.from(bytes));
-        for(const file of ['seogrow-connector.php','seogrow-connector-core.inc','atomic-write.php','elementor-text-write.php','build-manifest.json']) assert.ok(zip.file('seogrow-connector/'+file),file);
-      } finally {
-        await evaluate('URL.createObjectURL=window.__qaOrigCreate;HTMLAnchorElement.prototype.click=window.__qaOrigAnchor');
-      }
       await button('Torna ai problemi','.automatic-proposal-header');
       await click('.card-record[data-issue-type=\"duplicate-description\"]');
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Description proposal controls');

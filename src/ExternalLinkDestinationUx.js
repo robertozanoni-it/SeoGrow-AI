@@ -5,6 +5,7 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const linkEvidenceCache = new Map();
+let evidenceRequest = 0;
 
 const readJson = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -99,7 +100,8 @@ const readLinkEvidence = async (sourceUrl, targetUrl, { force = false } = {}) =>
   if (!source || !target) return { anchorText: "", occurrenceCount: 0, error: "URL non valido." };
   const key = evidenceKey(source, target);
   if (force) linkEvidenceCache.delete(key);
-  if (linkEvidenceCache.has(key)) return linkEvidenceCache.get(key);
+  const cached = linkEvidenceCache.get(key);
+  if (cached && Date.now() - cached.at < 15000) return cached.promise;
 
   const promise = apiFetch("/api/frontend/link-evidence", {
     method: "POST",
@@ -117,7 +119,7 @@ const readLinkEvidence = async (sourceUrl, targetUrl, { force = false } = {}) =>
     error: error instanceof Error ? error.message : "Anchor text non verificabile.",
   }));
 
-  linkEvidenceCache.set(key, promise);
+  linkEvidenceCache.set(key, { promise, at: Date.now() });
   return promise;
 };
 
@@ -154,6 +156,8 @@ const renderLiveEvidence = async (card, issue, { force = false } = {}) => {
   if (!force && block.dataset.identity === identity && ["loading", "1"].includes(block.dataset.loaded)) return;
   block.dataset.identity = identity;
   block.dataset.loaded = "loading";
+  const requestId = String(++evidenceRequest);
+  block.dataset.requestId = requestId;
   block.replaceChildren();
 
   const title = document.createElement("h4");
@@ -200,25 +204,27 @@ const renderLiveEvidence = async (card, issue, { force = false } = {}) => {
   block.appendChild(actions);
 
   const evidence = await readLinkEvidence(issue.sourceUrl, issue.targetUrl, { force });
-  if (!block.isConnected || block.dataset.identity !== identity) return;
-  const verifiedAnchor = String(evidence?.anchorText || issue.anchorText || "").trim();
+  if (!block.isConnected || block.dataset.identity !== identity || block.dataset.requestId !== requestId) return;
+  const verifiedAnchor = String(evidence?.error ? issue.anchorText || "" : evidence?.anchorText || "").trim();
   anchorValue.textContent = verifiedAnchor || "Anchor senza testo o non rilevabile";
   const occurrences = Number(evidence?.occurrenceCount || 0);
   status.textContent = evidence?.error
     ? `Anchor text non verificabile automaticamente: ${evidence.error}`
+    : evidence?.verificationSafe === false || evidence?.truncated === true ? "Verifica incompleta: non è possibile confermare l’assenza o correggere il link con questa lettura."
     : occurrences === 1
       ? "1 occorrenza verificata nel frontend della pagina."
       : occurrences > 1
         ? `${occurrences} occorrenze verificate: SeoGrow richiede una scelta esplicita prima di modificare.`
-        : "Il link non è più presente nel frontend corrente: riprepara il problema per aggiornare lo stato.";
+        : card.dataset.linkResolution === "absent-confirmed" ? "Link non più presente nelle sorgenti ricontrollate. Nessuna correzione necessaria: aggiorna l’audit." : "Nessuna occorrenza in questa lettura. Premi Prepara solo questo problema per verificare anche WordPress e aggiornare lo stato.";
 
   const text = card.textContent || "";
-  if (/template condiviso|ownership frontend non determinabile/i.test(text)) {
+  if (card.dataset.linkResolution !== "absent-confirmed" && /template condiviso|ownership frontend non determinabile/i.test(text)) {
     const guide = document.createElement("p");
     guide.className = "wp-live-link-repair-guide";
     guide.innerHTML = "<strong>Correzione assistita:</strong> il collegamento sembra provenire da Elementor/Theme Builder condiviso. Apri la pagina o il template interessato, sostituisci o rimuovi questo URL, quindi usa <strong>Rileggi anchor text</strong> e <strong>Riprova correzione</strong>. SeoGrow non modifica automaticamente un template condiviso senza ownership certa.";
     block.insertBefore(guide, actions);
   }
+  retry.hidden = card.dataset.linkResolution === "absent-confirmed";
   block.dataset.loaded = "1";
 };
 
@@ -290,7 +296,9 @@ export function annotateExternalLinkDestinations() {
     const matches = grouped.get(key) || [];
     if (!matches.length) continue;
     const offset = liveCounters.get(key) || 0;
-    const issue = matches[Math.min(offset, matches.length - 1)];
+    const explicitTarget = safeHttpUrl(card.dataset.brokenTarget || "");
+    const issue = explicitTarget ? matches.find(item => safeHttpUrl(item.targetUrl) === explicitTarget) : matches[Math.min(offset, matches.length - 1)];
+    if (!issue) continue;
     liveCounters.set(key, offset + 1);
     void renderLiveEvidence(card, issue);
   }

@@ -28,3 +28,5 @@
 .external-link-resolved-stale .seogrow-shared-link-remediation {
   display: none !important;
 }
+
+.wp-live-link-evidence-actions button[hidden] { display:none !important; }

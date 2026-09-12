@@ -115,9 +115,8 @@ test("Elementor sceglie un widget solo con copertura forte e univoca", () => {
 });
 
 test("il patch engine rifiuta output AI incompleti o semanticamente più corti", () => {
-  assert.match(patchServer, /data\.status !== "completed"/);
-  assert.match(patchServer, /data\.incomplete_details/);
-  assert.match(patchServer, /typeof parsed\.value !== "string"/);
+  assert.match(patchServer, /assertCompletedModelResponse\(data\)/);
+  assert.match(patchServer, /parseModelValue\(text\)/);
   assert.match(patchServer, /La patch è più corta del contenuto originale/);
   assert.match(patchServer, /remediationFeedback/);
   assert.doesNotMatch(patchServer, /CONTENUTO RIDOTTO PER GENERAZIONE/);

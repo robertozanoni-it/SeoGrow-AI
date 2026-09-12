@@ -219,3 +219,9 @@
     width: 100%;
   }
 }
+
+.manual-remediation-proposal { display:grid;gap:12px;margin-top:16px;padding:18px;border:1px solid #ccdbee;border-radius:14px;background:#f7fbff; }
+.manual-remediation-proposal h4,.manual-remediation-proposal p { margin:0; }
+.manual-remediation-proposal label { display:grid;gap:8px; }
+.manual-remediation-proposal textarea { box-sizing:border-box;width:100%;min-width:0;min-height:140px;resize:vertical;font:inherit;line-height:1.6;padding:12px; }
+.manual-remediation-proposal button { justify-self:start; }
