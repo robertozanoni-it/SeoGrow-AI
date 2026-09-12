@@ -1,31 +1,175 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { normalizeConditionValue, boundConditionValue, normalizeImpactUrls } from "../server/elementorImpactHook.js";
+import {
+  boundConditionValue,
+  extractElementorConditionEvidence,
+  interpretElementorConditions,
+  normalizeImpactCandidateUrls,
+  normalizeImpactDocuments,
+  normalizeImpactTarget,
+} from "../server/elementorImpactHook.js";
 
 const source = await readFile(new URL("../server/elementorImpactHook.js", import.meta.url), "utf8");
 const bootstrap = await readFile(new URL("../server/remediationBootstrap.js", import.meta.url), "utf8");
 
-// Preserve all pre-existing coverage tests from this file through direct source assertions.
-// The dedicated shared-link write path is separate from elementor-impact-inspect, which
-// remains strictly read-only and fail-closed.
-
-test("normalizza condizioni Elementor annidate preservando i valori osservati", () => {
-  const value = normalizeConditionValue({
-    include: ["include/general", { child: "exclude/singular/page/12" }],
-  });
-  assert.ok(value);
-  assert.match(JSON.stringify(value), /include\/general/);
-  assert.match(JSON.stringify(value), /exclude\/singular\/page\/12/);
+test("impact API accetta solo documenti Elementor con ID validi, deduplicati e limitati", () => {
+  const documents = normalizeImpactDocuments([
+    { id: 88, type: "header", origins: ["frontend-rendered"] },
+    { id: 88, type: "unknown", origins: ["local-reference"] },
+    { id: -1, type: "footer" },
+    { id: "91", type: "footer" },
+  ]);
+  assert.deepEqual(documents, [
+    { id: 88, type: "header", origins: ["frontend-rendered", "local-reference"] },
+    { id: 91, type: "footer", origins: [] },
+  ]);
 });
 
-test("normalizzazione URL impact accetta soltanto HTTPS e host del sito", () => {
-  const urls = normalizeImpactUrls([
+test("include/general viene interpretata come intero sito senza autorizzare scritture condivise", () => {
+  const interpretation = interpretElementorConditions(["include/general"]);
+  assert.equal(interpretation.entireSiteIncluded, true);
+  assert.equal(interpretation.semanticStatus, "resolved");
+  assert.equal(interpretation.displayConditionsResolved, true);
+  assert.equal(interpretation.entries[0].semanticStatus, "resolved-entire-site");
+  assert.equal(interpretation.targetApplicability, "unknown");
+
+  const evidence = extractElementorConditionEvidence({
+    id: 88,
+    title: { raw: "Header principale" },
+    status: "publish",
+    meta: {
+      _elementor_template_type: "header",
+      _elementor_conditions: ["include/general"],
+    },
+  }, { id: 88, type: "header", origins: ["frontend-rendered"] });
+  assert.equal(evidence.displayConditionsResolved, true);
+  assert.equal(evidence.conditionInterpretation.entireSiteIncluded, true);
+  assert.equal(evidence.affectedPagesEnumerated, false);
+  assert.equal(evidence.sharedWriteAllowed, false);
+});
+
+test("condizioni Elementor miste restano evidenza bounded e semanticamente parziale senza identità target", () => {
+  const evidence = extractElementorConditionEvidence({
+    id: 120,
+    type: "elementor_library",
+    title: { raw: "Popup promo" },
+    status: "publish",
+    link: "https://example.com/?elementor_library=popup-promo",
+    meta: {
+      _elementor_template_type: "popup",
+      _elementor_conditions: ["include/general", "exclude/singular/post/44"],
+    },
+  }, { id: 120, type: "popup", origins: ["frontend-rendered"] });
+
+  assert.equal(evidence.id, 120);
+  assert.equal(evidence.type, "popup");
+  assert.deepEqual(evidence.conditions, ["include/general", "exclude/singular/post/44"]);
+  assert.equal(evidence.conditionsObserved, true);
+  assert.equal(evidence.conditionsSource, "elementor-rest-edit-context");
+  assert.equal(evidence.conditionInterpretation.semanticStatus, "partial");
+  assert.equal(evidence.conditionInterpretation.entries[1].explicitNumericTarget, 44);
+  assert.equal(evidence.displayConditionsResolved, false);
+  assert.equal(evidence.affectedPagesEnumerated, false);
+  assert.equal(evidence.sharedWriteAllowed, false);
+});
+
+test("target WordPress esplicito risolve include/general più exclude singular per la risorsa corrente", () => {
+  assert.deepEqual(normalizeImpactTarget({ id: "44", type: "post" }), { id: 44, type: "post" });
+
+  const excluded = interpretElementorConditions(
+    ["include/general", "exclude/singular/post/44"],
+    { id: 44, type: "post" },
+  );
+  assert.equal(excluded.displayConditionsResolved, true);
+  assert.equal(excluded.semanticStatus, "resolved");
+  assert.equal(excluded.targetApplicability, "excluded");
+  assert.equal(excluded.entries[1].semanticStatus, "resolved-explicit-singular-target");
+  assert.equal(excluded.entries[1].explicitTargetType, "post");
+  assert.equal(excluded.entries[1].targetTypeMatches, true);
+  assert.equal(excluded.entries[1].targetMatches, true);
+  assert.equal(excluded.entries[1].targetEffect, "exclude");
+
+  const included = interpretElementorConditions(
+    ["include/general", "exclude/singular/post/44"],
+    { id: 55, type: "post" },
+  );
+  assert.equal(included.displayConditionsResolved, true);
+  assert.equal(included.targetApplicability, "applies");
+  assert.equal(included.entries[1].targetMatches, false);
+  assert.equal(included.entries[1].targetEffect, "no-match");
+});
+
+test("include singular con ID esplicito distingue target incluso, tipo errato e target non applicato", () => {
+  const applies = interpretElementorConditions(["include/singular/page/44"], { id: 44, type: "page" });
+  assert.equal(applies.displayConditionsResolved, true);
+  assert.equal(applies.targetApplicability, "applies");
+  assert.equal(applies.entries[0].explicitTargetType, "page");
+  assert.equal(applies.entries[0].targetTypeMatches, true);
+
+  const notApplied = interpretElementorConditions(["include/singular/page/44"], { id: 45, type: "page" });
+  assert.equal(notApplied.displayConditionsResolved, true);
+  assert.equal(notApplied.targetApplicability, "not-applied");
+
+  const wrongType = interpretElementorConditions(["include/singular/page/44"], { id: 44, type: "post" });
+  assert.equal(wrongType.displayConditionsResolved, true);
+  assert.equal(wrongType.targetApplicability, "not-applied");
+  assert.equal(wrongType.entries[0].targetTypeMatches, false);
+  assert.equal(wrongType.entries[0].targetMatches, false);
+
+  const missingType = interpretElementorConditions(["include/singular/page/44"], { id: 44 });
+  assert.equal(missingType.displayConditionsResolved, false);
+  assert.equal(missingType.targetApplicability, "unknown");
+
+  const unknownRule = interpretElementorConditions(
+    ["include/general", "include/singular/page/by-author/12"],
+    { id: 44, type: "page" },
+  );
+  assert.equal(unknownRule.displayConditionsResolved, false);
+  assert.equal(unknownRule.targetApplicability, "unknown");
+});
+
+test("extract evidence espone applicabilità target ma mantiene la scrittura condivisa bloccata", () => {
+  const evidence = extractElementorConditionEvidence({
+    id: 88,
+    title: { raw: "Header principale" },
+    status: "publish",
+    meta: {
+      _elementor_template_type: "header",
+      _elementor_conditions: ["include/general", "exclude/singular/page/99"],
+    },
+  }, { id: 88, type: "header" }, { id: 42, type: "page" });
+
+  assert.equal(evidence.displayConditionsResolved, true);
+  assert.equal(evidence.targetApplicability, "applies");
+  assert.equal(evidence.conditionInterpretation.target.id, 42);
+  assert.equal(evidence.sharedWriteAllowed, false);
+  assert.equal(evidence.affectedPagesEnumerated, false);
+});
+
+test("assenza di _elementor_conditions resta unknown e non viene trasformata in condizione globale", () => {
+  const evidence = extractElementorConditionEvidence({
+    id: 88,
+    title: { rendered: "Header" },
+    status: "publish",
+    meta: { _elementor_template_type: "header" },
+  }, { id: 88, type: "header" });
+  assert.equal(evidence.conditionsObserved, false);
+  assert.equal(evidence.conditions, null);
+  assert.equal(evidence.conditionsSource, "not-exposed");
+  assert.equal(evidence.displayConditionsResolved, false);
+  assert.match(evidence.note, /nessuna inferenza/i);
+});
+
+test("le URL candidate server restano HTTPS same-host e gli alias www vengono deduplicati", () => {
+  const base = new URL("https://www.example.com/blog/");
+  const urls = normalizeImpactCandidateUrls(base, [
     "https://example.com/a/",
-    "https://www.example.com/b/?x=1",
+    "https://www.example.com/a/",
+    "https://www.example.com/b/?x=1#frag",
     "http://example.com/insecure/",
     "https://evil.example.net/a/",
-  ], "https://example.com/");
+  ]);
   assert.deepEqual(urls, [
     "https://example.com/a/",
     "https://www.example.com/b/?x=1",
@@ -42,7 +186,7 @@ test("payload condizioni enorme viene limitato senza perdere il fail-closed", ()
   assert.equal(bounded.nested.length, 200);
 });
 
-test("la route Elementor impact resta solo POST read-only; la shared write è un adapter separato", () => {
+test("la route Elementor impact resta solo POST read-only; la shared write è un adapter separato e guardato", () => {
   assert.match(source, /app\.post\("\/api\/wordpress\/elementor-impact-inspect"/);
   assert.match(source, /readOnly:\s*true/);
   assert.match(source, /sharedWriteAllowed:\s*false/);
