@@ -12,6 +12,7 @@ import './RemediationFocusReplay';
 import './PageStartHierarchy';
 import './ExternalLinkDestinationUx';
 import './BrokenLinkCleanupChoiceUx';
+import './SharedElementorBrokenLinkUx';
 import './ProviderBudgetUx';
 import './ProposalBeforeAfterLinks';
 import React from 'react';
