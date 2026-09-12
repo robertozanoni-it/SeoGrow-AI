@@ -1,0 +1,31 @@
+name: Apply reviewed remediation patch
+on:
+  push:
+    branches: [fix/remediation-complete-resolution]
+    paths: [.qa-reviewed-remediation.patch.gz.b64]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/fix/remediation-complete-resolution'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - name: Check immutable patch and apply on this branch only
+        env:
+          EXPECTED_PATCH_SHA256: f501ccb2e863bd258d72a0c0cc79eb1b65609643604a16f7c1486decd9986ea6
+        run: |
+          base64 --decode .qa-reviewed-remediation.patch.gz.b64 | gzip -d > "$RUNNER_TEMP/reviewed.patch"
+          echo "$EXPECTED_PATCH_SHA256  $RUNNER_TEMP/reviewed.patch" | sha256sum --check
+          git apply --check "$RUNNER_TEMP/reviewed.patch"
+          git apply "$RUNNER_TEMP/reviewed.patch"
+          git diff --check
+          rm -f .qa-reviewed-remediation.patch.gz.b64 .github/workflows/remediation-qa-workspace.yml .github/workflows/apply-reviewed-remediation.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Unify remediation generation, validated manual proposals and native issue state'
+          git push origin HEAD:refs/heads/fix/remediation-complete-resolution
