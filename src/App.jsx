@@ -474,11 +474,9 @@ function EmptyState({ text, action, onAction }) {
 
 function Logo() {
   return (
-    <div className="logo">
-      <span>seo</span>
-      <strong>Grow</strong>
-      <b>AI</b>
-      <Activity size={25} />
+    <div className="logo reference-logo">
+      <img src="/favicon.svg" alt="" aria-hidden="true" />
+      <span className="reference-logo-copy"><strong>SeoGrow</strong> <b>AI</b><small>Grow smarter. Rank higher.</small></span>
     </div>
   );
 }
@@ -833,60 +831,6 @@ function VisibilityChart({ dataset }) {
           <PerformanceChart data={data} />
         </Suspense>
       </div>
-    </section>
-  );
-}
-
-function DataSource({ dataset, openIntegrations }) {
-  const rows = dataset
-    ? [
-        [
-          "Query rilevate",
-          formatInteger(dataset.queries.length),
-          Search,
-          "green",
-        ],
-        [
-          "Pagine rilevate",
-          formatInteger(dataset.pages.length),
-          FileText,
-          "blue",
-        ],
-        [
-          "Paesi e dispositivi",
-          `${dataset.countries.length} · ${dataset.devices.length}`,
-          Globe2,
-          "purple",
-        ],
-      ]
-    : [
-        ["Google Search Console", "Non importato", Database, "green"],
-        ["Metriche dashboard", "Dimostrative", Activity, "blue"],
-        ["Importazione", "ZIP Search Console", Upload, "purple"],
-      ];
-  return (
-    <section className="panel agents">
-      <div className="panel-head">
-        <h2>Origine dei dati</h2>
-        <span className={`live ${dataset ? "" : "muted-live"}`}>
-          <i />
-          {dataset ? "Dati reali" : "Da configurare"}
-        </span>
-      </div>
-      {rows.map(([name, text, Icon, tone]) => (
-        <div className="agent" key={name}>
-          <div className={`agent-icon ${tone}`}>
-            <Icon />
-          </div>
-          <div>
-            <strong>{name}</strong>
-            <small>{text}</small>
-          </div>
-        </div>
-      ))}
-      <button className="text-link" onClick={openIntegrations}>
-        {dataset ? "Aggiorna i dati" : "Importa Search Console"} <span>→</span>
-      </button>
     </section>
   );
 }
@@ -1444,7 +1388,6 @@ function RecentClients({ clients, setPage, gscData, onOpenClient }) {
 function Dashboard({
   clients,
   tasks,
-  setTasks,
   setPage,
   openAudit,
   dataset,
@@ -1453,139 +1396,45 @@ function Dashboard({
   selectedClient,
   gscData,
   onOpenClient,
+  wordpressConnected = false,
 }) {
-  const opportunityCount = dataset ? opportunityQueries(dataset).length : 0;
-  const selectedName = clients.find(
-    (client) => client.id === selectedClient,
-  )?.name;
-  const clientTasks = tasks.filter(
-    (task) =>
-      task.sourceClientId === selectedClient ||
-      (!task.sourceClientId && task.client === selectedName),
-  );
+  const client = clients.find((item) => item.id === selectedClient) || clients[0];
+  const clientTasks = tasks.filter((task) => task.sourceClientId === selectedClient || (!task.sourceClientId && task.client === client?.name));
+  const activeTasks = clientTasks.filter((task) => !task.stale && task.status !== "Completato");
+  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
+  const critical = issues.filter((issue) => String(issue.severity || "").toLowerCase() === "high").length;
+  const warnings = issues.filter((issue) => String(issue.severity || "").toLowerCase() === "medium").length;
+  const opportunities = dataset ? opportunityQueries(dataset) : [];
+  const top10 = dataset?.queries?.filter((item) => Number(item.position) <= 10).length || 0;
   const comparison = compareDatasets(dataset, previousDataset);
-  const notices = buildNotifications({
-    tasks: clientTasks,
-    dataset,
-    previousDataset,
-    analysis,
-  });
-  const metrics = dataset
-    ? [
-        [
-          "Clic organici",
-          formatInteger(dataset.totals.clicks),
-          comparison?.clicks != null
-            ? `${comparison.clicks >= 0 ? "+" : ""}${comparison.clicks.toFixed(1)}% vs precedente`
-            : `${formatPeriodDate(dataset.dateFrom)} – ${formatPeriodDate(dataset.dateTo)}`,
-          comparison?.clicks < -10 ? "red" : "green",
-          Activity,
-        ],
-        [
-          "Impressioni",
-          formatInteger(dataset.totals.impressions),
-          comparison?.impressions != null
-            ? `${comparison.impressions >= 0 ? "+" : ""}${comparison.impressions.toFixed(1)}% vs precedente`
-            : "Google Search Console",
-          "blue",
-          Target,
-        ],
-        [
-          "CTR medio",
-          `${dataset.totals.ctr.toFixed(2).replace(".", ",")}%`,
-          "clic ÷ impressioni",
-          "green",
-          CircleGauge,
-        ],
-        [
-          "Posizione media",
-          dataset.totals.position.toFixed(1).replace(".", ","),
-          `${opportunityCount} opportunità prioritarie`,
-          "blue",
-          Search,
-        ],
-      ]
-    : [
-        ["Clic organici", "—", "Importa Search Console", "green", Activity],
-        ["Impressioni", "—", "Importa Search Console", "blue", Target],
-        [
-          "Salute tecnica",
-          analysis?.score != null ? `${analysis.score}/100` : "—",
-          analysis ? "Ultima analisi disponibile" : "Avvia una nuova analisi",
-          analysis?.score >= 80 ? "green" : "red",
-          Bell,
-        ],
-        [
-          "Piano editoriale",
-          "—",
-          "Richiede dati del progetto",
-          "blue",
-          FileText,
-        ],
-      ];
+  const score = Number.isFinite(Number(analysis?.score)) ? Number(analysis.score) : null;
+  const contentTasks = activeTasks.filter((task) => /contenut|articol|meta|title/i.test(`${task.title || ""} ${task.kind || ""}`)).length;
+  const priorityActions = [
+    critical ? { title: `${critical} problemi critici`, detail: "Richiedono una revisione prioritaria", label: "Correggi", page: "Problemi", tone: "danger", Icon: AlertTriangle } : null,
+    opportunities.length ? { title: `${opportunities.length} opportunità SEO`, detail: "Query e pagine con margine di crescita", label: "Analizza", page: "Opportunità", tone: "success", Icon: Target } : null,
+    activeTasks.length ? { title: `${activeTasks.length} task aperte`, detail: "Attività operative del progetto", label: "Apri", page: "Task", tone: "info", Icon: ClipboardCheck } : null,
+  ].filter(Boolean).slice(0, 3);
   return (
-    <>
-      <div className="page-title">
-        <div>
-          <h1>Panoramica del progetto</h1>
-          <p>
-            {dataset
-              ? `Dati reali Search Console aggiornati al ${formatPeriodDate(dataset.dateTo)}.`
-              : "Importa i dati del progetto o avvia una prima analisi."}
-          </p>
+    <div className="reference-dashboard">
+      <section className="reference-dashboard-head">
+        <div><span>Bentornato</span><h1>Panoramica</h1><p>Tutto ciò che conta per la tua SEO, in un’unica vista.</p></div>
+        <div className="reference-dashboard-actions">
+          <div className="reference-project-chip"><Globe2 /><span><strong>{client?.name || "Progetto"}</strong><small>{client?.url?.replace(/^https?:\/\//, "") || ""}</small></span></div>
+          <div className="reference-audit-chip"><small>Ultimo audit</small><strong>{analysis?.analyzedAt ? new Date(analysis.analyzedAt).toLocaleDateString("it-IT") : "Non disponibile"}</strong></div>
+          <div className="reference-score-chip"><small>SEO Score</small><strong>{score ?? "—"}<span>{score != null ? "/100" : ""}</span></strong></div>
+          <button className="primary" onClick={openAudit}><Plus /> Nuovo audit</button>
         </div>
-        <button className="primary" onClick={openAudit}>
-          <Plus />
-          Nuova analisi
-        </button>
-      </div>
-      <div className="stats">
-        {metrics.map(([label, value, meta, tone, Icon]) => (
-          <Stat
-            key={label}
-            label={label}
-            value={value}
-            meta={meta}
-            tone={tone}
-            Icon={Icon}
-          />
-        ))}
-      </div>
-      {notices.length > 0 && (
-        <section className="notification-strip">
-          {notices.slice(0, 3).map((item) => (
-            <button
-              key={item.title}
-              onClick={() =>
-                setPage(item.title.includes("task") ? "Task" : "Opportunità")
-              }
-            >
-              <AlertTriangle className={item.tone} />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.text}</small>
-              </span>
-            </button>
-          ))}
-        </section>
-      )}
-      <div className="dashboard-grid">
-        <VisibilityChart dataset={dataset} />
-        <DataSource
-          dataset={dataset}
-          openIntegrations={() => setPage("Integrazioni")}
-        />
-        <TaskTable
-          tasks={clientTasks}
-          setTasks={setTasks}
-          compact
-          title="Priorità del progetto"
-          client={clients.find((item) => item.id === selectedClient)}
-          clients={clients}
-        />
-        <RecentClients clients={clients} setPage={setPage} gscData={gscData} onOpenClient={onOpenClient} />
-      </div>
-    </>
+      </section>
+      <section className="reference-overview-grid">
+        <button className="reference-overview-card problems" onClick={() => setPage("Problemi")}><AlertTriangle /><div><h2>Problemi</h2><div className="reference-card-numbers"><span><strong>{critical}</strong><small>Critici</small></span><span><strong>{warnings}</strong><small>Avvisi</small></span><span><strong>{opportunities.length}</strong><small>Opportunità</small></span></div></div><b>›</b></button>
+        <button className="reference-overview-card ranking" onClick={() => setPage("Posizionamenti")}><BarChart3 /><div><h2>Posizionamento</h2><div className="reference-card-numbers"><span><strong>{top10}</strong><small>Top 10</small></span><span><strong>{dataset?.queries?.length || 0}</strong><small>Monitorate</small></span></div></div><b>›</b></button>
+        <button className="reference-overview-card google" onClick={() => setPage("Posizionamenti")}><Database /><div><h2>Google</h2><div className="reference-card-numbers"><span><strong>{dataset ? formatInteger(dataset.totals.clicks) : "—"}</strong><small>Click</small></span><span><strong>{dataset ? formatInteger(dataset.totals.impressions) : "—"}</strong><small>Impression</small></span><span><strong>{dataset ? `${dataset.totals.ctr.toFixed(1)}%` : "—"}</strong><small>CTR</small></span></div></div><b>›</b></button>
+        <button className="reference-overview-card content" onClick={() => setPage("Piano editoriale")}><FileText /><div><h2>Contenuti</h2><div className="reference-card-numbers"><span><strong>{contentTasks}</strong><small>Da migliorare</small></span><span><strong>{activeTasks.length}</strong><small>Task aperte</small></span></div></div><b>›</b></button>
+      </section>
+      <section className="reference-health-strip"><div className="reference-health-title"><Activity /><span><strong>Salute sito</strong><small>Controlli principali del tuo sito</small></span></div><div><Check /><span><strong>Indicizzazione</strong><small>{analysis ? "Controllata" : "Da verificare"}</small></span></div><div><Check /><span><strong>WordPress</strong><small>{wordpressConnected ? "Connesso" : "Da collegare"}</small></span></div><div><Check /><span><strong>Search Console</strong><small>{dataset ? "Connesso" : "Da collegare"}</small></span></div><div className={comparison?.clicks < -10 ? "warning" : "ok"}><CircleGauge /><span><strong>Performance</strong><small>{comparison?.clicks != null ? `${comparison.clicks >= 0 ? "+" : ""}${comparison.clicks.toFixed(1)}%` : "Da monitorare"}</small></span></div></section>
+      <section className="reference-priority-panel"><div className="reference-section-title"><Target /><div><h2>Azioni prioritarie</h2><p>Interventi con maggiore impatto sul progetto.</p></div><button className="text-link" onClick={() => setPage("Task")}>Vedi tutte le azioni →</button></div>{priorityActions.length ? priorityActions.map(({ title, detail, label, page, tone, Icon }) => <div className="reference-priority-row" key={title}><span className={`reference-priority-icon ${tone}`}><Icon /></span><span><strong>{title}</strong><small>{detail}</small></span><span className={`reference-impact ${tone}`}>{tone === "danger" ? "Impatto alto" : tone === "success" ? "Crescita" : "Priorità"}</span><button className="primary" onClick={() => setPage(page)}>{label} →</button></div>) : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>Puoi rieseguire l’audit per aggiornare la situazione.</small></span></div>}</section>
+      <div className="reference-dashboard-lower"><VisibilityChart dataset={dataset} /><RecentClients clients={clients} setPage={setPage} gscData={gscData} onOpenClient={onOpenClient} /></div>
+    </div>
   );
 }
 
@@ -4800,7 +4649,6 @@ export default function App() {
         <Dashboard
           clients={clients}
           tasks={tasks}
-          setTasks={changeTasks}
           setPage={setPage}
           openAudit={() => setQuickAudit(true)}
           dataset={selectedDataset}
@@ -4809,6 +4657,7 @@ export default function App() {
           selectedClient={selectedClient}
           gscData={gscData}
           onOpenClient={openClient}
+          wordpressConnected={Boolean(wordpressConnections[selectedClient])}
         />
       );
     if (page === "Clienti")
