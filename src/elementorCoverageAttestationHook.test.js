@@ -14,13 +14,25 @@ test("attestazione combina coverage pubblica e inventario Connector autorevole",
   assert.match(source, /wordpress-public-inventory/);
 });
 
+test("inventario autorevole viene letto prima del crawl e le sole risorse frontend diventano seed obbligatori", () => {
+  const inventoryRead = source.indexOf("const inventoryResponse = await wpFetch");
+  const coverageRead = source.indexOf("const publicCoverage = await inspectElementorPublicCoverage");
+  assert.ok(inventoryRead >= 0 && coverageRead > inventoryRead);
+  assert.match(source, /const relevantInventoryResources = coverageRelevantInventoryResources\(inventory\)/);
+  assert.match(source, /const authoritativeSeedUrls = relevantInventoryResources\.map\(\(item\) => item\.url\)/);
+  assert.match(source, /authoritativeSeedUrls,/);
+  assert.match(source, /if \(inventory\.verified !== true\)/);
+});
+
 test("registro provenance viene scritto solo dopo riconciliazione verificata", () => {
   const guard = source.indexOf("if (reconciliation.verified !== true)");
   const register = source.indexOf("registerElementorCoverageAttestation({");
   assert.ok(guard >= 0 && register > guard);
   assert.match(source, /provenanceId = `elementor-coverage:\$\{randomUUID\(\)\}`/);
-  assert.match(source, /method: "crawl\+sitemap-reconciled"/);
+  assert.match(source, /method: "recursive-html-crawl\+sitemap\+frontend-wordpress-inventory-reconciled"/);
   assert.match(source, /queueExhausted: publicProof\.queueDrained === true/);
+  assert.match(source, /candidateUrls = \[\.\.\.new Set\(publicCoverage\.coverageUrls \|\| \[\]\)\]/);
+  assert.match(source, /candidateUrls\.length !== reconciliation\.totalUrls/);
 });
 
 test("attestazione non abilita mai scrittura Elementor condivisa", () => {

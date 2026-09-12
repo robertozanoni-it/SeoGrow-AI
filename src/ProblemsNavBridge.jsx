@@ -24,11 +24,17 @@ export default function ProblemsNavBridge() {
     let frame = 0;
     let attempts = 0;
     const findTarget = () => {
-      const groups = [...document.querySelectorAll(".guided-nav-group")];
-      const improve = groups.find(
-        (group) => group.querySelector(".guided-nav-label")?.textContent?.trim() === "Migliora",
+      /* GuidedNav already exposes Problemi. The bridge is only a fallback for
+         the legacy sidebar while the guided layer is unavailable. */
+      const guidedHasProblems = [...document.querySelectorAll(".guided-nav button")].some(
+        (button) => button.textContent?.trim() === "Problemi",
       );
-      if (improve) setTarget(improve);
+      if (guidedHasProblems) {
+        setTarget(null);
+        return;
+      }
+      const fallback = document.querySelector(".sidebar > nav:not(.guided-nav)");
+      if (fallback) setTarget(fallback);
       else if (++attempts < 120) frame = window.requestAnimationFrame(findTarget);
     };
     frame = window.requestAnimationFrame(findTarget);
@@ -49,7 +55,7 @@ export default function ProblemsNavBridge() {
   return createPortal(
     <button
       type="button"
-      className={page === "Problemi" ? "active" : ""}
+      className={`problems-nav-bridge-button${page === "Problemi" ? " active" : ""}`}
       aria-current={page === "Problemi" ? "page" : undefined}
       onClick={openProblems}
     >

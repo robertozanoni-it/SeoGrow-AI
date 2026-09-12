@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const workspace = await readFile(new URL("./ProblemsWorkspace.jsx", import.meta.url), "utf8");
+const mount = await readFile(new URL("./ProblemsWorkspaceMount.jsx", import.meta.url), "utf8");
 const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./ProblemsWorkspace.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
@@ -43,5 +44,14 @@ test("il Centro Problemi offre vista compatta e dettagliata con drawer accessibi
 test("Problemi è montato e raggiungibile dalla navigazione guidata", () => {
   assert.match(bridge, />Problemi</);
   assert.match(main, /<ProblemsNavBridge \/>/);
-  assert.match(main, /<ProblemsWorkspace \/>/);
+  assert.match(main, /<ProblemsWorkspaceMount \/>/);
+  assert.match(mount, /<ProblemsWorkspace key=/);
+});
+
+test("rientrare in Problemi rimonta il workspace e azzera i filtri temporanei", () => {
+  assert.match(mount, /currentPage\(\) === "Problemi"/);
+  assert.match(mount, /setVersion\(\(value\) => value \+ 1\)/);
+  assert.match(mount, /seogrow-locationchange/);
+  assert.match(mount, /hashchange/);
+  assert.match(mount, /popstate/);
 });

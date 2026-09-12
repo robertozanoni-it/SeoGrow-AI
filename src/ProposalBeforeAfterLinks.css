@@ -1,0 +1,45 @@
+.automatic-proposal-source-link,
+.wp-live-source-link,
+.correction-page-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.automatic-proposal-source-link {
+  margin-top: 7px;
+  color: #176fe8;
+  font-weight: 800;
+}
+
+.wp-live-source-link {
+  margin: 9px 0 3px;
+}
+
+.correction-page-reference {
+  margin-top: 9px;
+  border-top: 1px solid #dfe8f1;
+  padding-top: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: #5d7288;
+}
+
+.correction-page-reference > span {
+  font-weight: 750;
+}
+
+.correction-page-link {
+  color: #176fe8;
+  font-weight: 750;
+}
+
+.correction-page-link:hover,
+.automatic-proposal-source-link:hover {
+  text-decoration: underline;
+}

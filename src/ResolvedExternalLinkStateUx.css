@@ -1,0 +1,32 @@
+.wp-live-preview-row.external-link-resolved-stale {
+  border-color: #b7e3c8 !important;
+  background: linear-gradient(180deg, #f4fff8 0%, #effcf4 100%) !important;
+}
+
+.external-link-resolved-stale .wp-live-link-evidence {
+  border-color: #b7e3c8;
+  background: linear-gradient(180deg, #fbfffc 0%, #f1fbf5 100%);
+}
+
+.external-link-resolved-stale .wp-live-link-evidence-status {
+  color: #166534;
+  font-weight: 800;
+}
+
+.wp-live-link-resolved-stale {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #bbdfc7;
+  border-radius: 10px;
+  background: #ecfdf3;
+  color: #166534;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.external-link-resolved-stale .wp-live-link-repair-guide,
+.external-link-resolved-stale .seogrow-shared-link-remediation {
+  display: none !important;
+}
+
+.wp-live-link-evidence-actions button[hidden] { display:none !important; }

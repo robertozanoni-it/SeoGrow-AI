@@ -1,3 +1,4 @@
+import { runResolutionPaths } from './qa-resolution-paths.mjs';
 import assert from 'node:assert/strict';
 import { runAutoFix } from './qa-auto-fix.mjs';
 import { runRemainingFields } from './qa-remaining-fields.mjs';
@@ -162,6 +163,7 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
   });
   await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
   await runAutoFix({evaluate,waitFor,clickSidebar,record,button,set,read,revisit,mock,resetRequests,screenshot,command});
+  await runResolutionPaths({evaluate,waitFor,record,button,set,read,revisit,mock,resetRequests,screenshot,command});
   await runFieldBoundaries({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
 
 }

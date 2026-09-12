@@ -1,0 +1,127 @@
+.problem-main .problem-external-target {
+  display: block;
+  margin-top: 3px;
+  color: #8b3f2c !important;
+  font-weight: 750 !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.problem-external-targets {
+  border: 1px solid #f0d3c7;
+  border-radius: 14px;
+  background: #fff7f3;
+  padding: 14px 16px;
+}
+
+.problem-external-targets h3 {
+  margin: 0 0 8px;
+}
+
+.problem-external-targets a {
+  display: block;
+  margin-top: 5px;
+  color: #8b3f2c;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.wp-live-link-evidence {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid #f0d3c7;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fffaf7 0%, #fff5ef 100%);
+}
+
+.wp-live-link-evidence h4 {
+  margin: 0;
+  color: #7c2d12;
+}
+
+.wp-live-link-evidence-field {
+  display: grid;
+  grid-template-columns: minmax(130px, .28fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.wp-live-link-evidence-field > span {
+  color: #7c5b4d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.wp-live-link-evidence-field > strong,
+.wp-live-link-evidence-field > a {
+  min-width: 0;
+  color: #17233c;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.wp-live-link-evidence-field > a {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wp-live-link-evidence-status,
+.wp-live-link-repair-guide {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.wp-live-link-evidence-status {
+  color: #475569;
+  font-size: 13px;
+}
+
+.wp-live-link-repair-guide {
+  padding: 10px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: rgba(255,255,255,.72);
+  color: #7c2d12;
+}
+
+.wp-live-link-evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wp-live-link-evidence-actions .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .wp-live-link-evidence-field {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .wp-live-link-evidence-actions {
+    align-items: stretch;
+  }
+
+  .wp-live-link-evidence-actions .secondary {
+    width: 100%;
+  }
+}

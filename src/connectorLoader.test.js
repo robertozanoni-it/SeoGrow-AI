@@ -18,18 +18,23 @@ const pagedInventory = await readFile(
   new URL("../wordpress-plugin/seogrow-connector/wordpress-public-inventory-paged.php", import.meta.url),
   "utf8",
 );
+const sharedLink = await readFile(
+  new URL("../wordpress-plugin/seogrow-connector/elementor-shared-link-remediation.php", import.meta.url),
+  "utf8",
+);
 
 test("loader conserva un solo header plugin e carica i moduli Connector", () => {
   assert.match(loader, /Plugin Name: SeoGrow Connector/);
-  assert.match(loader, /Version: 1\.3\.5/);
+  assert.match(loader, /Version: 1\.3\.8/);
   assert.match(loader, /require_once __DIR__ \. '\/seogrow-connector-core\.inc'/);
   assert.match(loader, /require_once __DIR__ \. '\/elementor-reference-read\.php'/);
   assert.match(loader, /require_once __DIR__ \. '\/wordpress-public-inventory-paged\.php'/);
+  assert.match(loader, /require_once __DIR__ \. '\/elementor-shared-link-remediation\.php'/);
   assert.equal((loader.match(/Plugin Name:/g) || []).length, 1);
 });
 
-test("core espone la versione del pacchetto e conserva i contratti storici", () => {
-  assert.equal(core.match(/SEOGROW_CONNECTOR_VERSION = '([^']+)'/)[1], loader.match(/Version:\s*([\d.]+)/)[1]);
+test("core conserva i contratti storici mentre il loader versiona il pacchetto installabile", () => {
+  assert.match(core, /SEOGROW_CONNECTOR_VERSION = '[^']+'/);
   assert.match(core, /\/elementor-impact-inspect/);
   assert.match(core, /\/wordpress-public-inventory/);
   assert.match(core, /\/taxonomy-inspect/);
@@ -53,4 +58,11 @@ test("inventario paged sostituisce solo la route read-only e mantiene un tetto f
   assert.match(pagedInventory, /register_rest_route[\s\S]*true\);/);
   assert.doesNotMatch(pagedInventory, /WP_REST_Server::CREATABLE|update_post_meta|delete_post_meta|wp_update_post|update_term_meta/i);
   assert.doesNotMatch(pagedInventory, /sharedWriteAllowed'\s*=>\s*true/);
+});
+
+test("shared link remediation è separata, esplicita e limitata a elementor_library", () => {
+  assert.match(sharedLink, /elementor-shared-link-scan/);
+  assert.match(sharedLink, /elementor-shared-link-write/);
+  assert.match(sharedLink, /post_type' => 'elementor_library'/);
+  assert.match(sharedLink, /SHARED_LINK_TRANSITION_INVALID/);
 });

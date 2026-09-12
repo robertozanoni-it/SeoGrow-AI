@@ -1,3 +1,4 @@
+import { observedScoreDelta } from "./observedAuditData.js";
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { rememberWordPressSession, getWordPressSession } from "./wordpressSession.js";
 import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
@@ -4717,8 +4718,8 @@ export default function App() {
     const enriched = {
       ...analysis,
       ...diff,
-      scoreDelta: previous?.score != null ? analysis.score - previous.score : 0,
-      hasPrevious: previous?.score != null,
+      scoreDelta: observedScoreDelta(analysis, previous),
+      hasPrevious: observedScoreDelta(analysis, previous) !== null,
     };
     setAnalyses((current) => ({
       ...current,
@@ -5093,7 +5094,7 @@ export default function App() {
         <AuditScheduler />
         <FreshnessNotice key={`fresh-${selectedClient}`} sources={[{ labelName: "Search Console", date: selectedDataset?.importedAt }, { labelName: "Audit SEO", date: selectedAnalysis?.analyzedAt || auditResults[selectedClient]?.fetchedAt }, { labelName: "Posizionamenti", date: rankings[selectedClient]?.[0]?.checkedAt }]} settings={projectSettings} onOpen={() => setPage("Centro progetto")} />
         <AuditUpdateNotice key={`notice-${selectedClient}`} clientId={selectedClient} settings={projectSettings} onRead={monitorSeenAt => saveProjectSettings({ ...projectSettings, monitorSeenAt })} onOpen={() => setPage("Centro progetto")} />
-        <main>{content}</main>
+        <main data-page={page}>{content}</main>
       </div>
       {quickAudit && (
         <SiteAnalysisModal

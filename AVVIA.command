@@ -109,12 +109,25 @@ if ! [[ "$api_port" =~ '^[0-9]+$' ]] || [ "$api_port" -lt 1024 ] || [ "$api_port
   exit 1
 fi
 
-reuse_api=0
+# Se il frontend non è più aperto ma è rimasta una vecchia API verificata,
+# non la riutilizziamo: dopo un git pull la versione package può restare uguale
+# mentre il codice server è cambiato. Riavviarla garantisce che frontend e API
+# provengano sempre dallo stesso checkout corrente.
 if lsof -nP -iTCP:"$api_port" -sTCP:LISTEN -t >/dev/null 2>&1; then
   session=$(curl -fsS -H "x-seogrow-token: $APP_API_TOKEN" "http://127.0.0.1:$api_port/api/session" 2>/dev/null)
   if printf '%s' "$session" | grep -q "\"version\":\"$app_version\"" && printf '%s' "$session" | grep -q "\"tokenFingerprint\":\"$token_fingerprint\""; then
-    reuse_api=1
-    echo "API seoGrow AI $app_version già attiva e verificata: verrà riutilizzata."
+    api_pids=$(lsof -nP -iTCP:"$api_port" -sTCP:LISTEN -t 2>/dev/null | tr '\n' ' ')
+    echo "API seoGrow AI precedente rilevata sulla porta $api_port: riavvio per caricare il codice corrente."
+    if [ -n "$api_pids" ]; then kill $api_pids 2>/dev/null || true; fi
+    for attempt in {1..50}; do
+      if ! lsof -nP -iTCP:"$api_port" -sTCP:LISTEN -t >/dev/null 2>&1; then break; fi
+      sleep 0.1
+    done
+    if lsof -nP -iTCP:"$api_port" -sTCP:LISTEN -t >/dev/null 2>&1; then
+      echo "Errore: la precedente API seoGrow AI non si è arrestata sulla porta $api_port."
+      lsof -nP -iTCP:"$api_port" -sTCP:LISTEN 2>/dev/null
+      exit 1
+    fi
   else
     echo "Errore: la porta API $api_port è occupata da un altro programma."
     echo "Chiudi il programma indicato oppure cambia PORT nel file .env e riavvia."
@@ -142,8 +155,4 @@ echo "Lascia aperta questa finestra del Terminale mentre usi l'app."
 ) &
 opener_pid=$!
 
-if [ "$reuse_api" -eq 1 ]; then
-  ./node_modules/.bin/vite --port "$app_port" --strictPort
-else
-  ./node_modules/.bin/concurrently --kill-others-on-fail "./node_modules/.bin/vite --port $app_port --strictPort" "node server/index.js"
-fi
+./node_modules/.bin/concurrently --kill-others-on-fail "./node_modules/.bin/vite --port $app_port --strictPort" "node server/index.js"

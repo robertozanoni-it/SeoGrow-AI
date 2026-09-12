@@ -1,9 +1,11 @@
+import { remediationIssueKind } from "./remediationIssueKind.js";
 const stripDiacritics = (value) =>
   String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
 export const normalizeClientId = (value) => {
+  if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 };
@@ -28,7 +30,14 @@ export const normalizeHttpUrl = (value, { stripTracking = true, stripSlash = fal
   }
 };
 
-export const safeHttpHref = (value) => normalizeHttpUrl(value, { stripTracking: false }) || "";
+export const safeHttpHref = (value) => {
+  try {
+    const url = new URL(String(value || "").trim());
+    // Navigation must preserve the observed host/path/query, not turn a www or
+    // signed external URL into another resource. Identity normalization is separate.
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : "";
+  } catch { return ""; }
+};
 
 const normalizedIssueFamily = (record = {}) => {
   const issue = record.issue || {};
@@ -45,10 +54,11 @@ const brokenTarget = (record = {}) => {
   const issue = record.issue || record;
   const type = normalizedIssueFamily(record);
   if (!/broken-(?:external-)?link|link.*(?:404|410|interrott|raggiung)/i.test(type)) return "";
-  return normalizeHttpUrl(
-    issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || record.targetUrl || "",
-    { stripSlash: false },
-  );
+  const href = safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || record.targetUrl || "");
+  if (!href) return "";
+  const url = new URL(href);
+  url.hash = "";
+  return url.href;
 };
 
 export function resourceIdentity(record = {}) {
@@ -83,8 +93,10 @@ export function issueIdentity(record = {}) {
 export const exactProblemStatus = (value) => {
   const status = stripDiacritics(value).toLowerCase().trim();
   if (["verificato", "verified"].includes(status)) return "verified";
-  if (["da verificare", "needs verification", "needs-verification"].includes(status)) return "needs_verification";
+  if (["da verificare", "needs verification", "needs-verification", "esito incerto", "uncertain", "uncertain outcome"].includes(status)) return "needs_verification";
   if (["applicato", "applied"].includes(status)) return "applied";
+  if (["approvato", "approved"].includes(status)) return "approved";
+  if (["pronto", "preparato", "prepared", "ready"].includes(status)) return "prepared";
   if (["ripristinato", "rollback", "rolled back", "rolled-back"].includes(status)) return "rolled_back";
   if (["fallito", "failed", "errore", "error"].includes(status)) return "failed";
   if (["in corso", "in lavorazione", "running", "working"].includes(status)) return "working";
@@ -176,6 +188,14 @@ export function correctionEvent(record = {}) {
       record,
     };
   }
+  if (normalized === "approved") {
+    return {
+      kind: "correction_approved",
+      at: record.approvedAt || record.updatedAt || record.preparedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
   return {
     kind: "correction_prepared",
     at: record.preparedAt || record.updatedAt || record.createdAt || "",
@@ -200,13 +220,13 @@ const issueText = (issue = {}) =>
   `${issue.type || ""} ${issue.label || ""} ${issue.detail || ""}`.toLowerCase();
 
 export function issueCorrectability(issue = {}, { pageKind = "", ownershipBlocked = false } = {}) {
-  const text = issueText(issue);
+  const text = `${issue.type || ""} ${issue.label || ""}`.toLowerCase();
   if (ownershipBlocked) return "manual";
-  if (/broken-external-link|link esterno/.test(text)) return "manual";
+  if (/broken-external-link|link esterno/.test(text)) return "assisted";
   if (/broken-link|link interno/.test(text)) return "assisted";
-  if (["archive", "taxonomy"].includes(String(pageKind).toLowerCase())) return "not_supported";
+  if (["archive", "taxonomy", "gdpr"].includes(String(pageKind).toLowerCase())) return "not_supported";
   if (/canonical|noindex/.test(text)) return "assisted";
-  if (/meta description|title|titolo|h1|excerpt|estratto|contenuto|content|parole|word|brev/.test(text)) return "automatic";
+  if (remediationIssueKind(issue)) return "automatic";
   return "not_supported";
 }
 

@@ -1,5 +1,23 @@
+import { hydrateLocalProviderEnv } from "./providerEnv.js";
+import {
+  openAiCompatibleProvider,
+  rewriteOpenAiApiUrl,
+  rewriteOpenAiCompatibleRequestBody,
+} from "./openAiCompatibleEndpoint.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
+
+const providerEnv = hydrateLocalProviderEnv();
+if (providerEnv.imported) {
+  console.log("SeoGrow: configurazione AI locale riutilizzata in memoria dalla installazione principale.");
+}
+if (providerEnv.configured) {
+  try {
+    console.log(`SeoGrow: provider AI attivo ${openAiCompatibleProvider()}.`);
+  } catch (error) {
+    console.warn(`SeoGrow: configurazione provider AI non valida: ${error.message || error}`);
+  }
+}
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const requestHeaders = (input, options) => {
@@ -12,16 +30,31 @@ const requestHeaders = (input, options) => {
 
 if (!globalThis.fetch.__seogrowPinnedRemediation) {
   const guardedFetch = async (input, options = {}) => {
-    const url = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
-    const headers = requestHeaders(input, options);
+    const originalUrl = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
+    let url = String(originalUrl || "");
+    let routedOptions = options;
+    try {
+      url = rewriteOpenAiApiUrl(url);
+      const rewrittenBody = rewriteOpenAiCompatibleRequestBody(options?.body);
+      if (rewrittenBody !== options?.body) routedOptions = { ...options, body: rewrittenBody };
+    } catch (error) {
+      throw new Error(`Configurazione provider AI non valida: ${error.message || error}`, { cause: error });
+    }
+
+    const headers = requestHeaders(input, routedOptions);
     const userAgent = headers.get("user-agent") || "";
     const authorization = headers.get("authorization") || "";
-    const isHttps = /^https:\/\//i.test(String(url || ""));
+    const isHttps = /^https:\/\//i.test(url);
     const isSeoGrowRemediation = /seoGrowAI\/1\.4-(?:wordpress-remediation|frontend-verification)/i.test(userAgent);
-    const isAuthenticatedWordPressRest = /^Basic\s+/i.test(authorization) && /\/wp-json\//i.test(String(url || ""));
+    const isAuthenticatedWordPressRest = /^Basic\s+/i.test(authorization) && /\/wp-json\//i.test(url);
     const needsPinning = isHttps && (isSeoGrowRemediation || isAuthenticatedWordPressRest);
-    if (needsPinning) return pinnedHttpsFetch(url, options);
-    return nativeFetch(input, options);
+
+    const routedInput = url !== originalUrl
+      ? (typeof Request !== "undefined" && input instanceof Request ? new Request(url, input) : url)
+      : input;
+
+    if (needsPinning) return pinnedHttpsFetch(url, routedOptions);
+    return nativeFetch(routedInput, routedOptions);
   };
   guardedFetch.__seogrowPinnedRemediation = true;
   globalThis.fetch = guardedFetch;
@@ -30,6 +63,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 const remediationModules = await Promise.all([
   import("./wordpressConnectionHook.js"),
   import("./wordpressLiveApprovalHook.js"),
+  import("./elementorSharedRollbackRoute.js"),
   import("./wordpressLiveRollbackHook.js"),
   import("./wordpressSeoAdapterV2Hook.js"),
   import("./frontendVerificationHook.js"),
@@ -41,9 +75,12 @@ const remediationModules = await Promise.all([
   import("./elementorCoverageAttestationHook.js"),
   import("./elementorReferenceImpactHook.js"),
   import("./wordpressWriteReconciliationHook.js"),
+  import("./providerBudgetConfigHook.js"),
+  import("./linkEvidenceHook.js"),
+  import("./elementorSharedLinkHook.js"),
 ]);
 
-const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
+const ELEMENTOR_IMPACT_MODULE_INDEX = 7;
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
 
 export function registerRemediationRoutes(app) {
@@ -66,6 +103,10 @@ export function registerRemediationRoutes(app) {
         "wordpress-public-inventory-read-only",
         "elementor-coverage-attestation",
         "elementor-reference-impact-read-only",
+        "frontend-link-evidence-read-only",
+        "elementor-shared-link-preview",
+        "elementor-shared-link-apply",
+        "elementor-shared-link-rollback",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -77,17 +118,23 @@ export function registerRemediationRoutes(app) {
         "live-apply",
         "live-rollback",
         "write-reconciliation-read-only",
+        "provider-budget-status",
+        "openai-compatible-provider-routing",
       ],
+      aiProvider: (() => { try { return openAiCompatibleProvider(); } catch { return "invalid"; } })(),
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
-      elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
-      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
-      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
+      elementorImpactMode: "read-only-server-attested-coverage",
+      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative",
+      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match",
       elementorReferenceImpactMode: "connector-inventory-plus-rest-meta-read-only-page-post-fail-closed-custom-types",
+      elementorSharedLinkMode: "unique-template-single-anchor-complete-public-impact-explicit-approval-stale-safe-auto-rollback",
+      linkEvidenceMode: "read-only-source-anchor-target-evidence",
       writeReconciliationMode: "read-only-exact-before-after-classification-core-fields",
       taxonomyConnectorMinimum: "1.3.0",
       elementorInventoryConnectorMinimum: "1.3.0",
       elementorReferenceImpactConnectorMinimum: "1.3.0",
+      elementorSharedLinkConnectorMinimum: "1.3.8",
       draftCopyCompatibility: false,
     });
   });

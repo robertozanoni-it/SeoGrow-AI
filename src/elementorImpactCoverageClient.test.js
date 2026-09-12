@@ -19,11 +19,21 @@ test("il client trasmette coverageProof separato dalle URL", () => {
 
 test("senza proof esplicita il client tenta attestazione server e usa solo una provenance verificata", () => {
   assert.match(source, /\/api\/wordpress\/elementor-coverage-attest/);
-  assert.match(source, /if \(!response\.ok \|\| data\?\.verified !== true\) return null/);
+  assert.match(source, /if \(!response\.ok \|\| data\?\.verified !== true\) \{/);
+  assert.match(source, /verified:\s*false/);
+  assert.match(source, /coverageProof:\s*null/);
+  assert.match(source, /if \(diagnostic\?\.verified !== true\) return null/);
   assert.match(source, /source:\s*"verified-complete-crawl"/);
   assert.match(source, /totalUrls !== candidateUrls\.length/);
   assert.match(source, /effectiveCandidateUrls = attested\.candidateUrls/);
   assert.match(source, /effectiveCoverageProof = attested\.coverageProof/);
+});
+
+test("diagnostica forzata invalida solo la cache coverage e resta read-only", () => {
+  assert.match(source, /if \(force\) coverageAttestationCache\.delete\(key\)/);
+  assert.match(source, /export async function inspectElementorCoverageAttestation/);
+  assert.match(source, /sharedWriteAllowed:\s*false/);
+  assert.doesNotMatch(source, /sharedWriteAllowed:\s*true/);
 });
 
 test("attestazione non disponibile ricade sul set diagnostico esistente", () => {

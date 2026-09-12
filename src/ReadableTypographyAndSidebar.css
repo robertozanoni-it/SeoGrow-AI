@@ -1,0 +1,275 @@
+/* Final readability layer.
+   Requested direction: larger typography everywhere, double-size desktop sidebar,
+   and alternating blue/mint section surfaces without changing app behavior. */
+
+/* ---------- Global typography ---------- */
+body[data-seogrow-ui-mode] .workspace {
+  font-size: 16px;
+}
+
+body[data-seogrow-ui-mode] .workspace main :where(
+  p,
+  li,
+  label,
+  button,
+  input,
+  select,
+  textarea,
+  td,
+  a,
+  summary,
+  legend,
+  strong,
+  span
+) {
+  font-size: 16px !important;
+  line-height: 1.48;
+}
+
+body[data-seogrow-ui-mode] .workspace main :where(small, th) {
+  font-size: 14px !important;
+  line-height: 1.45;
+}
+
+body[data-seogrow-ui-mode] .workspace main h1,
+body[data-seogrow-ui-mode="simple"] .page-title h1 {
+  font-size: clamp(34px, 2.55vw, 44px) !important;
+  line-height: 1.08 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main h2,
+body[data-seogrow-ui-mode="simple"] .panel h2,
+body[data-seogrow-ui-mode="simple"] .panel-head h2 {
+  font-size: clamp(24px, 1.75vw, 30px) !important;
+  line-height: 1.18 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main h3 {
+  font-size: clamp(19px, 1.3vw, 23px) !important;
+  line-height: 1.25 !important;
+}
+
+body[data-seogrow-ui-mode] .page-title p {
+  font-size: 17px !important;
+  line-height: 1.55 !important;
+}
+
+/* Keep card hierarchy stronger than generic text. */
+body[data-seogrow-ui-mode] .card-workspace-title h2,
+body[data-seogrow-ui-mode] .project-center-card-hub-head h2 {
+  font-size: 26px !important;
+}
+
+body[data-seogrow-ui-mode] .card-record > strong,
+body[data-seogrow-ui-mode] .project-center-section-card h3 {
+  font-size: 19px !important;
+  line-height: 1.3 !important;
+}
+
+body[data-seogrow-ui-mode] .card-record > small,
+body[data-seogrow-ui-mode] .card-record-date,
+body[data-seogrow-ui-mode] .project-center-card-date,
+body[data-seogrow-ui-mode] .project-center-card-status,
+body[data-seogrow-ui-mode] .project-center-card-open {
+  font-size: 14px !important;
+}
+
+body[data-seogrow-ui-mode] .card-horizontal-fields small,
+body[data-seogrow-ui-mode] .project-center-detail-metrics small,
+body[data-seogrow-ui-mode] .card-row-head,
+body[data-seogrow-ui-mode] table thead th {
+  font-size: 13px !important;
+}
+
+body[data-seogrow-ui-mode] .card-horizontal-fields strong,
+body[data-seogrow-ui-mode] .project-center-detail-metrics strong,
+body[data-seogrow-ui-mode] .card-detail-row span,
+body[data-seogrow-ui-mode] .card-detail-row a {
+  font-size: 15px !important;
+}
+
+/* Give the larger type enough vertical breathing room. */
+body[data-seogrow-ui-mode] .card-record {
+  min-height: 188px;
+}
+
+body[data-seogrow-ui-mode] .project-center-section-card {
+  min-height: 228px;
+}
+
+body[data-seogrow-ui-mode] .card-horizontal-fields > div,
+body[data-seogrow-ui-mode] .project-center-detail-metrics > div {
+  min-height: 104px;
+}
+
+/* ---------- Sidebar section surfaces ---------- */
+body[data-seogrow-ui-mode] .guided-nav-scroll {
+  padding: 8px 8px 12px;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group {
+  gap: 5px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(odd) {
+  background: linear-gradient(135deg, #edf6ff 0%, #f7fbff 100%);
+  border-color: #d7e8f8;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(even) {
+  background: linear-gradient(135deg, #eaf8f3 0%, #f7fcfa 100%);
+  border-color: #d6ebe2;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-label,
+body[data-seogrow-ui-mode="simple"] .guided-nav-label {
+  display: block !important;
+  opacity: 1 !important;
+  color: #536b86 !important;
+  font-weight: 850 !important;
+}
+
+/* ---------- Desktop: approximately double the current sidebar typography ---------- */
+@media (min-width: 1025px) {
+  body[data-seogrow-ui-mode] .sidebar {
+    width: 376px !important;
+    padding: 24px 16px 16px !important;
+  }
+
+  body[data-seogrow-ui-mode] .workspace {
+    width: calc(100% - 376px) !important;
+    margin-left: 376px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .side-head {
+    padding: 0 14px 24px;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .logo {
+    font-size: 34px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+    min-height: 62px;
+    gap: 16px;
+    padding: 7px 16px;
+    border-radius: 12px;
+    font-size: 24px !important;
+    line-height: 1.2 !important;
+    font-weight: 700;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+    font-size: 24px !important;
+    line-height: 1.2 !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 29px !important;
+    height: 29px !important;
+    flex: 0 0 29px;
+  }
+
+  body[data-seogrow-ui-mode] .guided-nav-label,
+  body[data-seogrow-ui-mode="simple"] .guided-nav-label {
+    padding: 8px 15px 6px;
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+    letter-spacing: .09em;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+    min-height: 84px;
+    padding: 13px 16px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong {
+    font-size: 21px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
+    font-size: 16px !important;
+    line-height: 1.35 !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .side-foot strong {
+    font-size: 18px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .side-foot small {
+    font-size: 15px !important;
+  }
+}
+
+/* Tablet keeps the compact navigation architecture: larger icons, labels remain
+   hidden where the existing responsive layer intentionally collapses them. */
+@media (min-width: 761px) and (max-width: 1024px) {
+  body[data-seogrow-ui-mode] .guided-nav-group {
+    padding: 7px 5px;
+    border-radius: 13px;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+}
+
+/* Mobile drawer remains usable but typography is still clearly larger than before. */
+@media (max-width: 760px) {
+  body[data-seogrow-ui-mode] .sidebar,
+  html body[data-seogrow-ui-mode] .sidebar {
+    width: min(90vw, 360px) !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button,
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+    font-size: 20px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+    min-height: 54px;
+    gap: 14px;
+    padding-inline: 14px;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 25px !important;
+    height: 25px !important;
+  }
+
+  body[data-seogrow-ui-mode] .guided-nav-label,
+  body[data-seogrow-ui-mode="simple"] .guided-nav-label {
+    font-size: 15px !important;
+  }
+
+  body[data-seogrow-ui-mode] .workspace main :where(
+    p,
+    li,
+    label,
+    button,
+    input,
+    select,
+    textarea,
+    td,
+    a,
+    summary,
+    legend,
+    strong,
+    span
+  ) {
+    font-size: 15px !important;
+  }
+
+  body[data-seogrow-ui-mode] .workspace main :where(small, th) {
+    font-size: 13px !important;
+  }
+
+  body[data-seogrow-ui-mode] .page-title h1 {
+    font-size: 32px !important;
+  }
+}

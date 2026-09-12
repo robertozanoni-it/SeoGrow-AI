@@ -1,3 +1,9 @@
+import ManualRemediationProposal from "./ManualRemediationProposal.jsx";
+import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
+import { selectFocusedRemediation, proposalSelectionKey, correctionIssueKeys } from "./remediationSelection.js";
+import { verifiedForAudit } from "./remediationEvidence.js";
+import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKind.js";
+import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
 import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { correctionCredentials } from "./correctionCredentials.js";
@@ -7,12 +13,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
+import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor } from "./brokenLinkRemediation.js";
 import {
   attachElementorImpactEvidence,
   elementorOwnershipDetail,
+  inspectElementorCoverageAttestation,
   inspectElementorImpactEvidence,
 } from "./elementorImpactClient";
 import { buildElementorImpactCandidateUrls } from "./elementorImpactCandidates";
+import { navigatePage } from "./navigationUx.js";
 import { normalizeAnalysisHistory } from "./platform";
 import { listCorrections, setLastBatch, stableIssueKey } from "./remediationStore";
 import {
@@ -62,18 +71,19 @@ const selectAudit = (clientId, requested) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
+const issueUrl = remediationSourceUrl;
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
-const classifyIssue = (issue) => {
-  const text = issueText(issue);
-  if (/meta description/.test(text)) return "meta_description";
-  if (/canonical/.test(text)) return "canonical";
-  if (/noindex|indexability/.test(text)) return "noindex";
-  if (/h1/.test(text)) return "h1";
-  if (/excerpt|estratto/.test(text)) return "excerpt";
-  if (/contenuto|content|testo|parole|word|brev/.test(text)) return "content";
-  if (/title|titolo/.test(text)) return "title";
-  return "";
+const classifyIssue = remediationIssueKind;
+const contentCandidatePreview = (value, max = 260) => {
+  const text = String(value || "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
 const isNonEditableWordPressUrl = (value) => {
@@ -86,8 +96,8 @@ const isNonEditableWordPressUrl = (value) => {
   } catch { return true; }
 };
 
-const readCredentials = () => {
-  const root = document.querySelector(".audit-unified-credentials");
+const readCredentials = (target) => {
+  const root = target?.closest(".remediation-host")?.querySelector(".audit-unified-credentials");
   const inputs = [...(root?.querySelectorAll("input") || [])];
   return {
     url: inputs.find((input) => input.autocomplete === "url")?.value?.trim() || "",
@@ -128,7 +138,14 @@ const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement)
 const preparationFailure = (error) => {
   const message = error instanceof Error ? error.message : "Preparazione correzione non riuscita.";
   const code = String(error?.code || "");
-  if (/EDITORIAL_REVIEW_REQUIRED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
+  if (code === "CONTENT_WIDGET_SELECTION_REQUIRED") return {
+    status: "selection_required",
+    category: "selection",
+    reason: message,
+    contentCandidates: Array.isArray(error?.contentCandidates) ? error.contentCandidates : [],
+  };
+  if (/AI_OUTPUT_|AI_INVALID_RESPONSE|AI_PROVIDER_ERROR|AI_REFUSAL/.test(code)) return { status: "generation_error", category: "generation", reason: message };
+  if (/EDITORIAL_REVIEW_REQUIRED|SEO_TEXT_LIMIT_EXCEEDED/.test(code)) return { status: "quality_error", category: "quality", reason: message };
   if (/CANONICAL_|INDEX_INTENT/.test(code)) return { status: "context_error", category: "context", reason: message };
   if (code === "OWNERSHIP_UNDETERMINED" || /ownership/i.test(message)) return { status: "ownership_error", category: "ownership", reason: message };
   if (/401|403|credenzial|autentic|password|unauthorized|forbidden/i.test(message)) return { status: "auth_error", category: "authentication", reason: message };
@@ -184,6 +201,16 @@ async function inspectFrontend(targetUrl) {
   return data;
 }
 
+async function inspectLinkEvidence(sourceUrl, targetUrl) {
+  const response = await apiFetch("/api/frontend/link-evidence", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sourceUrl, targetUrl }), cache: "no-store",
+  });
+  const evidence = await response.json();
+  if (!response.ok || evidence.ok !== true) throw Object.assign(new Error(evidence.error || "Verifica attuale del link non disponibile."), { code: "LINK_EVIDENCE_UNAVAILABLE" });
+  return evidence;
+}
+
 async function verifyFrontend(targetUrl, expected) {
   const response = await apiFetch("/api/wordpress/verify-frontend", {
     method: "POST",
@@ -224,11 +251,12 @@ const alreadyResolvedReason = (kind, issue, ownership) => {
   return "";
 };
 
-async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride, remediationMeasurement) {
+async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride, remediationMeasurement, manualValue) {
   const response = await apiFetch("/api/wordpress/generate-patch-v2", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
+      ...(manualValue !== undefined ? { manualValue } : {}),
       topic: `Remediation WordPress ${kind}`,
       context: JSON.stringify({ issue, page: pageContext(entity, targetUrl, contentOverride, remediationMeasurement) }),
     }),
@@ -237,6 +265,8 @@ async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride
   if (!response.ok || !data.content) {
     const error = new Error(data.error || "Generazione patch non riuscita.");
     error.code = data.code || "GENERATION_FAILED";
+    error.quality = data.quality || null;
+    error.candidate = data.candidate || "";
     throw error;
   }
   const parsed = data.changes ? { changes: data.changes } : JSON.parse(String(data.content));
@@ -244,31 +274,48 @@ async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride
   return { changes: parsed.changes, quality: data.quality || null };
 }
 
-async function generateSeoValue(kind, issue, entity, targetUrl) {
+async function generateSeoValue(kind, issue, entity, targetUrl, manualValue) {
   const response = await apiFetch("/api/wordpress/generate-seo-value-v2", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind, issue, page: pageContext(entity, targetUrl) }),
+    body: JSON.stringify({ kind, issue, page: pageContext(entity, targetUrl), ...(manualValue !== undefined ? { manualValue } : {}) }),
   });
   const data = await response.json();
   if (!response.ok || !data.value || data.publishable !== true) {
     const error = new Error(data.error || "La proposta SEO richiede revisione editoriale e non può essere approvata automaticamente.");
     error.code = data.code || "EDITORIAL_REVIEW_REQUIRED";
     error.quality = data.quality || null;
+    error.candidate = data.candidate || "";
     throw error;
   }
   return { value: String(data.value).trim(), quality: data.quality || null };
 }
 
-async function chooseVerifiedElementorContentWidget(targetUrl, state) {
+async function chooseVerifiedElementorContentWidget(targetUrl, state, selectedWidgetId = "") {
   if (state.widgets.length > 8) throw ownershipUndetermined("content", "La pagina contiene più di 8 text-editor Elementor candidati; serve selezione assistita prima di modificare.");
   const probes = await Promise.all(state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })));
   const selected = chooseElementorContentCandidate(state.widgets, probes);
-  if (!selected.candidate) throw ownershipUndetermined("content", selected.reason);
-  return selected.candidate;
+  const explicitId = String(selectedWidgetId || "").trim();
+  if (explicitId) {
+    const explicit = (selected.candidates || []).find((candidate) => candidate.id === explicitId);
+    if (!explicit) throw ownershipUndetermined("content", "Il blocco Elementor scelto non è più verificato nel frontend corrente. Riapri la selezione e scegli un candidato ancora valido.");
+    return explicit;
+  }
+  if (selected.candidate) return selected.candidate;
+  if ((selected.candidates || []).length > 1) {
+    const error = new Error(selected.reason);
+    error.code = "CONTENT_WIDGET_SELECTION_REQUIRED";
+    error.contentCandidates = selected.candidates.map((candidate) => ({
+      id: candidate.id,
+      words: candidate.words,
+      preview: contentCandidatePreview(candidate.value),
+    }));
+    throw error;
+  }
+  throw ownershipUndetermined("content", selected.reason);
 }
 
-async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
+async function elementorPlan(kind, issue, entity, targetUrl, state, frontend, options = {}) {
   if (!state?.parsed || !state.widgets.length) return null;
   if (kind === "h1") {
     const headings = state.widgets.map((candidate) => candidate.item);
@@ -287,24 +334,92 @@ async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
     return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: null };
   }
   if (kind === "content") {
-    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state);
+    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, options.contentWidgetId);
     const previous = selected.item.settings.editor;
     const measurement = contentMeasurement(frontend, previous);
-    const generated = await generateCorePatch("content", issue, entity, targetUrl, previous, measurement);
+    let generated;
+    try { generated = await generateCorePatch("content", issue, entity, targetUrl, previous, measurement, options.manualValue); }
+    catch (error) { error.manualOriginal = previous; error.contentWidgetId = selected.id; throw error; }
     if (typeof generated.changes?.content !== "string" || !generated.changes.content.trim() || generated.changes.content === previous) return null;
     selected.item.settings.editor = generated.changes.content;
-    return { adapter: "Elementor", changes: { meta: { _elementor_data: serializeElementor(state.parsed) } }, quality: generated.quality };
+    return {
+      adapter: "Elementor single text-editor",
+      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
+      quality: generated.quality,
+      contentWidget: {
+        id: selected.id,
+        beforeWords: selected.words,
+        beforePreview: contentCandidatePreview(previous),
+      },
+    };
   }
   return null;
 }
 
-async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
+async function buildPlan(kind, issue, inspected, targetUrl, frontendContext, options = {}) {
   const entity = inspected.entity || {};
   const contextDecision = remediationContextDecision(issue, frontendContext || {}, targetUrl);
   if (!contextDecision.allowed) {
     const error = new Error(contextDecision.reason);
     error.code = contextDecision.code;
     throw error;
+  }
+
+  if (kind === "external_link") {
+    const brokenUrl = brokenExternalTarget(issue);
+    if (!brokenUrl) {
+      const error = new Error("Il problema non contiene una destinazione esterna 404 valida da correggere.");
+      error.code = "BROKEN_LINK_TARGET_MISSING";
+      throw error;
+    }
+
+    const elementorRaw = pluginMeta(entity)._elementor_data;
+    const elementor = prepareElementorBrokenExternalLink(elementorRaw, brokenUrl);
+    const evidence = options.linkEvidence;
+    if (evidence && (evidence.targetUrl !== brokenUrl || evidence.requestedSourceUrl !== new URL(targetUrl).href)) throw ownershipUndetermined("external_link", "L’evidenza appartiene a una pagina o destinazione diversa: ricontrolla questo singolo problema.");
+    const localAbsent = elementor.state === "valid" ? elementor.count === 0 : elementor.state === "absent" && typeof entity?.content?.raw === "string" && removeExactAnchor(entity.content.raw, brokenUrl, "unlink-preserve-text").count === 0;
+    if (localAbsent && evidence?.verificationSafe === true && evidence?.scanComplete === true && evidence?.occurrenceCount === 0) return { alreadyResolved: true, linkResolution: "absent-confirmed", reason: "Link non più presente nel documento WordPress e nell’HTML pubblico ricontrollato. Nessuna modifica necessaria. Aggiorna l’audit per riallineare l’elenco dei problemi." };
+    if (evidence && (evidence.verificationSafe !== true || evidence.occurrenceCount !== 1)) throw ownershipUndetermined("external_link", "La verifica attuale non conferma una singola occorrenza pubblica modificabile. Rileggi la pagina prima di scrivere.");
+    if (elementor.state === "invalid") {
+      throw ownershipUndetermined("external_link", "_elementor_data non è leggibile in modo strutturato: il link non viene modificato.");
+    }
+    if (elementor.state === "valid" && elementor.count > 1) {
+      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${elementor.count} volte nel documento Elementor. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+    }
+    if (elementor.state === "valid" && elementor.count === 1) {
+      return {
+        adapter: "Elementor link cleanup",
+        changes: { meta: { _elementor_data: elementor.serialized } },
+        quality: null,
+        linkCleanup: {
+          targetUrl: brokenUrl,
+          action: elementor.action,
+          anchorText: elementor.anchors[0] || "",
+        },
+      };
+    }
+    if (elementor.state === "valid") {
+      throw ownershipUndetermined("external_link", "La pagina usa Elementor ma la destinazione 404 non è presente nel documento locale. Potrebbe provenire da un template condiviso; il fallback su post_content è bloccato.");
+    }
+
+    const coreContent = entity?.content?.raw || "";
+    const core = removeExactAnchor(coreContent, brokenUrl);
+    if (core.count > 1) {
+      throw ownershipUndetermined("external_link", `La destinazione 404 compare ${core.count} volte in post_content. Serve scegliere esplicitamente quale collegamento rimuovere.`);
+    }
+    if (core.count === 1) {
+      return {
+        adapter: "WordPress core link cleanup",
+        changes: { content: core.value },
+        quality: null,
+        linkCleanup: {
+          targetUrl: brokenUrl,
+          action: core.action,
+          anchorText: core.anchors[0] || "",
+        },
+      };
+    }
+    throw ownershipUndetermined("external_link", "La destinazione 404 non compare in una sorgente WordPress locale modificabile. Nessun collegamento viene rimosso automaticamente.");
   }
 
   if (["content", "h1"].includes(kind)) {
@@ -314,7 +429,7 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
     const elementorState = inspectEditableElementor(kind, entity);
     if (elementorState.state === "invalid") throw ownershipUndetermined(kind, "_elementor_data è presente ma non è strutturato in modo valido e sicuro.");
     if (elementorState.state === "valid" && elementorState.widgets.length > 0) {
-      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend);
+      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend, options);
       if (elementor) return elementor;
       throw ownershipUndetermined(kind, "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica senza ambiguità. Il fallback su post_content è bloccato.");
     }
@@ -323,35 +438,40 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
     }
     if (ownership.ok) {
       const coreContent = entity?.content?.raw || entity?.content?.rendered || "";
-      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined);
+      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined, options.manualValue);
       return { adapter: "WordPress core", ...generated };
     }
     throw ownershipUndetermined(kind, "La verifica frontend non dimostra che post_content sia la sorgente principale della pagina.");
   }
 
   if (kind === "title") {
+    const seoPlugin = metaKey(entity, "title");
+    if (seoPlugin) {
+      const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
+      return { adapter: seoPlugin[1], changes: { meta: { [seoPlugin[0]]: generated.value } }, quality: generated.quality };
+    }
     const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
     const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
     if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
     if (ownership.ok) {
-      const generated = await generateCorePatch(kind, issue, entity, targetUrl);
+      const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, undefined, options.manualValue);
       return { adapter: "WordPress core", ...generated };
     }
     const plugin = metaKey(entity, "title");
     if (!plugin) throw new Error("Il title SEO è gestito dal frontend ma Rank Math/Yoast non espongono un campo REST scrivibile per questa pagina.");
-    const generated = await generateSeoValue("seo_title", issue, entity, targetUrl);
+    const generated = await generateSeoValue("seo_title", issue, entity, targetUrl, options.manualValue);
     return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
   }
 
   if (kind === "excerpt") {
-    const generated = await generateCorePatch("excerpt", issue, entity, targetUrl);
+    const generated = await generateCorePatch("excerpt", issue, entity, targetUrl, undefined, undefined, options.manualValue);
     return { adapter: "WordPress core", ...generated };
   }
 
   if (kind === "meta_description") {
     const plugin = metaKey(entity, kind);
     if (!plugin) throw new Error("Rank Math/Yoast non espongono la meta description come campo REST scrivibile per questa pagina.");
-    const generated = await generateSeoValue("meta_description", issue, entity, targetUrl);
+    const generated = await generateSeoValue("meta_description", issue, entity, targetUrl, options.manualValue);
     return { adapter: plugin[1], changes: { meta: { [plugin[0]]: generated.value } }, quality: generated.quality };
   }
 
@@ -386,6 +506,8 @@ const flattenState = (state, fields) => {
   return flat;
 };
 const previewText = (value) => JSON.stringify(value, null, 2) || "(anteprima non disponibile)";
+const openAiConfigurationMissing = (item) => item?.status === "generation_error" && /openai.*non (?:è )?configurat|OPENAI_API_KEY/i.test(String(item?.reason || ""));
+const h1OwnershipBlocked = (item) => item?.status === "ownership_error" && /h1/i.test(issueText(item?.issue));
 
 export default function WordPressLiveRemediationControlV2({ batchPlan = null, onBusyChange } = {}) {
   const busyRef = useRef(false);
@@ -432,27 +554,35 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     const clients = readJson(CLIENTS_KEY, []);
     const clientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
     const client = clients.find((item) => normalizeClientId(item?.id) === clientId) || null;
-    const audit = client ? selectAudit(clientId, batchPlan || requestedAudit) : null;
+    const proposalMode = Boolean(target?.closest(".proposal-remediation-slot"));
+    const focus = proposalMode ? readAutomaticProposalFocus() : null;
+    const selection = proposalMode ? selectFocusedRemediation(candidates(clientId), focus, clientId, client) : null;
+    const audit = proposalMode ? selection?.audit : client ? selectAudit(clientId, batchPlan || requestedAudit) : null;
     const issues = Array.isArray(audit?.item?.issues) ? audit.item.issues : [];
     const corrections = clientId ? await listCorrections({ clientId }) : [];
-    const verifiedKeys = new Set(corrections.filter((record) => record.status === "Verificato").flatMap((record) => [record.issueKey, record.legacyIssueKey].filter(Boolean)));
-    const permitted = batchPlan ? selectedAutoFixIssues(batchPlan, batchPlan.indexes, { clientId, audit: audit?.item }) : issues;
+    if (clientId !== normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)) || !target.isConnected ||
+        (proposalMode && proposalSelectionKey(readAutomaticProposalFocus()) !== selection?.focusKey)) {
+      throw new Error("Il progetto o il problema è cambiato: riapri la proposta corretta.");
+    }
+    const verifiedKeys = new Set(corrections.filter((record) => verifiedForAudit(record, auditTimestamp(audit))).flatMap(correctionIssueKeys));
+    const permitted = proposalMode ? [issues[selection?.issueIndex]].filter(Boolean) : batchPlan ? selectedAutoFixIssues(batchPlan, batchPlan.indexes, { clientId, audit: audit?.item }) : issues;
+    const uncertainKeys = new Set(corrections.filter(record => record.status === "Esito incerto").flatMap(correctionIssueKeys));
     const activeIssues = issues.filter((issue) => !verifiedKeys.has(stableIssueKey({
       issue,
       issueType: issue?.type || "audit",
       issueLabel: issue?.label || "",
       sourceUrl: issueUrl(issue, audit?.item, client),
     })));
-    return { clientId, client, audit, issues, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
+    return { clientId, client, audit, issues, proposalMode, selection, uncertainKeys, activeIssues: activeIssues.filter(issue => permitted.includes(issue)) };
   };
 
-  const prepare = async (all) => {
+  const prepare = async (all, explicitItem = null) => {
     if (busyRef.current) return;
     busyRef.current = true;
     onBusyChange?.(true);
     setRunning(true);
     try {
-    const credentials = readCredentials();
+    const credentials = readCredentials(target);
     if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
       setMessage("Connetti WordPress inserendo URL, utente e password applicativa prima di preparare le correzioni.");
       return;
@@ -462,15 +592,33 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       setMessage("Il progetto o l'audit richiesto non è disponibile. Seleziona esplicitamente il progetto e riapri l'audit.");
       return;
     }
-    const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
-    const requestedIndex = requestedAudit && normalizeClientId(requestedAudit.clientId) === context.clientId ? Number(requestedAudit.issueIndex || 0) : domIndex;
-    const selected = all ? context.activeIssues.slice(0, AUTO_FIX_LIMIT) : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
+    const issueKey = (issue, explicitUrl = "") => stableIssueKey({
+      issue,
+      issueType: issue?.type || "audit",
+      issueLabel: issue?.label || "",
+      sourceUrl: explicitUrl || issueUrl(issue, context.audit.item, context.client),
+    });
+    const domValue = target.closest(".remediation-host")?.querySelector(".audit-issue-select select")?.value;
+    const domIndex = domValue === undefined ? -1 : Number(domValue);
+    const requestedIndex = context.proposalMode ? context.selection.issueIndex : domIndex;
+    let selected;
+    if (explicitItem?.issue) {
+      const wanted = issueKey(explicitItem.issue, explicitItem.targetUrl || "");
+      selected = context.activeIssues.filter((issue) => issueKey(issue) === wanted).slice(0, 1);
+    } else {
+      selected = all ? context.activeIssues.slice(0, AUTO_FIX_LIMIT) : [context.issues[requestedIndex]].filter((issue) => issue && context.activeIssues.includes(issue));
+    }
     if (!selected.length) {
       setResults([]);
       setMessage("Nessun problema attivo da preparare.");
       return;
     }
 
+    if (selected.some(issue => context.uncertainKeys.has(issueKey(issue)))) {
+      setResults([]);
+      setMessage("Scrittura precedente con esito incerto. Controlla lo stato WordPress e lo storico prima di preparare o inviare una nuova modifica.");
+      return;
+    }
     setRunning(true);
     setResults([]);
     const next = [];
@@ -479,6 +627,13 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
       setMessage(`Esaminati ${index}/${selected.length} · in elaborazione: ${currentIssue?.label || "problema SEO"}…`);
       try {
+        const assertCurrentSelection = () => {
+          if (!target.isConnected || context.clientId !== normalizeClientId(readJson(SELECTED_CLIENT_KEY, null)) ||
+              (context.proposalMode && proposalSelectionKey(readAutomaticProposalFocus()) !== context.selection.focusKey)) {
+            throw new Error("Progetto o problema cambiato durante la preparazione: nessuna anteprima riutilizzabile.");
+          }
+        };
+        assertCurrentSelection();
         const kind = classifyIssue(currentIssue);
         if (!kind) throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
         const [inspected, frontendContext] = await Promise.all([
@@ -494,17 +649,26 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           const impactEvidence = await inspectElementorImpactEvidence(inspected.entity, credentials, candidateUrls);
           if (impactEvidence) attachElementorImpactEvidence(inspected.entity, impactEvidence);
         }
-        const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext);
+        assertCurrentSelection();
+        const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext, {
+          contentWidgetId: String(explicitItem?.contentWidgetId || ""),
+          manualValue: explicitItem?.manualValue,
+          linkEvidence: kind === "external_link" ? await inspectLinkEvidence(targetUrl, brokenExternalTarget(currentIssue)) : undefined,
+        });
+        assertCurrentSelection();
+        if (plan.changes) assertSeoPatchLengths(plan.changes);
         const contextSnapshot = {
           clientId: context.clientId,
           clientName: context.client?.name || "",
           siteUrl: credentials.url,
           auditType: context.audit.type,
           analyzedAt: auditTimestamp(context.audit),
+          focusKey: context.selection?.focusKey || "",
+          auditFingerprint: JSON.stringify(context.audit.item),
         };
         const identity = previewIdentity({ issue: currentIssue, inspected, targetUrl, frontend: frontendContext });
         if (plan.alreadyResolved) {
-          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, contextSnapshot, inspected, frontendContext, ...identity });
+          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, linkResolution: plan.linkResolution, contextSnapshot, inspected, frontendContext, ...identity });
           setResults([...next]);
           continue;
         }
@@ -529,9 +693,10 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           error.code = data.code || "PREVIEW_FAILED";
           throw error;
         }
+        assertCurrentSelection();
         next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data, contextSnapshot, inspected, frontendContext, ...identity });
       } catch (error) {
-        next.push({ ...preparationFailure(error), issue: currentIssue, targetUrl, quality: error?.quality || null });
+        next.push({ ...preparationFailure(error), issue: currentIssue, targetUrl, quality: error?.quality || null, candidate: error?.candidate || "", manualOriginal: error?.manualOriginal || "", manualValue: explicitItem?.manualValue, contentWidgetId: error?.contentWidgetId || explicitItem?.contentWidgetId || "" });
       }
       setResults([...next]);
     }
@@ -548,18 +713,55 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     } finally { busyRef.current = false; onBusyChange?.(false); setRunning(false); }
   };
 
+  const verifyH1Coverage = async (item) => {
+    if (!h1OwnershipBlocked(item) || busyRef.current) return;
+    busyRef.current = true;
+    onBusyChange?.(true);
+    setRunning(true);
+    let rerun = false;
+    try {
+      const credentials = readCredentials(target);
+      if (!credentials.url || !credentials.username || !credentials.applicationPassword) {
+        setMessage("Collega WordPress prima di verificare l'origine degli H1.");
+        return;
+      }
+      setMessage("Verifica origine H1: controllo sitemap, pagine pubbliche e inventario WordPress in sola lettura…");
+      const diagnostic = await inspectElementorCoverageAttestation(credentials, { force: true });
+      if (diagnostic?.verified !== true) {
+        const reason = diagnostic?.error || diagnostic?.reconciliation?.reason || "Coverage completa non attestabile.";
+        setResults((current) => current.map((entry) => entry === item ? {
+          ...entry,
+          status: "ownership_error",
+          reason: `Verifica origine H1 non completata: ${reason}`,
+        } : entry));
+        setMessage(`Origine H1 non ancora verificabile: ${reason} Nessuna modifica è stata eseguita.`);
+        return;
+      }
+      setMessage(`Coverage completa verificata su ${diagnostic.candidateUrls.length} URL. SeoGrow può ora riesaminare l'ownership H1 e preparare la proposta se il campo è sicuro.`);
+      rerun = true;
+    } catch (error) {
+      setMessage(`Verifica origine H1 non completata: ${error.message || error}`);
+    } finally {
+      busyRef.current = false;
+      onBusyChange?.(false);
+      setRunning(false);
+    }
+    if (rerun) await prepare(false, item);
+  };
+
   const applyOne = async (item) => {
     if (!item || item.status !== "preview" || busyRef.current) return;
     busyRef.current = true;
     onBusyChange?.(true);
     try {
-    const credentials = readCredentials();
+    const credentials = readCredentials(target);
     if (!credentials.username || !credentials.applicationPassword) {
       setMessage("La password applicativa non è disponibile. Reinseriscila prima dell'approvazione.");
       return;
     }
     try {
       assertNoPreviewConflicts(previews);
+      assertSeoPatchLengths(item.plan?.changes || {});
     } catch (error) {
       setMessage(error.message);
       return;
@@ -569,7 +771,9 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     catch (error) { setResults([]); setMessage(error.message); return; }
     const stale = normalizeClientId(item.contextSnapshot?.clientId) !== liveContext.clientId ||
       item.contextSnapshot?.auditType !== liveContext.audit?.type ||
-      String(item.contextSnapshot?.analyzedAt || "") !== String(auditTimestamp(liveContext.audit) || "");
+      String(item.contextSnapshot?.analyzedAt || "") !== String(auditTimestamp(liveContext.audit) || "") ||
+      (item.contextSnapshot?.focusKey || "") !== (liveContext.selection?.focusKey || "") ||
+      item.contextSnapshot?.auditFingerprint !== JSON.stringify(liveContext.audit?.item);
     if (stale) {
       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "stale", reason: "Audit o progetto cambiati dopo l'anteprima." } : entry));
       setMessage("Progetto o audit sono cambiati dopo la preparazione. L'anteprima selezionata è stata invalidata.");
@@ -639,7 +843,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           body: JSON.stringify({ approvalToken: item.data.approvalToken, username: credentials.username, applicationPassword: credentials.applicationPassword }),
         });
         const applied = await response.json();
-        if (!response.ok) {
+        if (!response.ok || applied.ok !== true) {
           const error = new Error(applied.error || "Applicazione live non riuscita.");
           error.code = applied.code || "APPLY_FAILED";
           throw error;
@@ -681,7 +885,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       {conflicts.length > 0 && <div className="wp-live-conflict" role="alert"><AlertTriangle /><div><strong>{conflicts.length} conflitti tra anteprime</strong><p>Due proposte cambiano diversamente lo stesso campo della stessa risorsa. Rigenera o scegli una sola proposta prima di approvare.</p></div></div>}
 
       {results.length > 0 && <div className="wp-live-preview-list">
-        {results.map((item, index) => <article key={`${item.issue?.label || "issue"}-${item.resourceIdentity || index}`} className={`wp-live-preview-row ${item.status}`}>
+        {results.map((item, index) => <article key={`${item.issue?.label || "issue"}-${item.resourceIdentity || index}`} className={`wp-live-preview-row ${item.status}`} data-broken-target={brokenExternalTarget(item.issue)} data-link-resolution={item.linkResolution || ""}>
           <div className="wp-live-preview-title">
             {item.status === "applied" || item.status === "resolved" ? <CheckCircle2 /> : <AlertTriangle />}
             <div>
@@ -691,10 +895,28 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             </div>
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
+          {["generation_error", "quality_error", "timeout_error"].includes(item.status) && ["title", "meta_description", "content", "excerpt"].includes(classifyIssue(item.issue)) && <ManualRemediationProposal item={item} kind={classifyIssue(item.issue)} disabled={running || Boolean(applyingId)} onPrepare={(manualValue) => prepare(false, { ...item, manualValue })} />}
+          {item.status === "resolved" && <div className="wp-live-guidance-actions"><button type="button" className="secondary" disabled={running || Boolean(applyingId)} onClick={() => prepare(false, item)}>Ricontrolla questo problema</button><button type="button" className="secondary" onClick={() => navigatePage("Audit SEO")}>Aggiorna audit</button><button type="button" className="secondary" onClick={() => navigatePage("Correzioni")}>Verifica nello storico</button></div>}
+          {item.status === "selection_required" && <section className="content-widget-picker" aria-label="Seleziona il blocco Elementor da ampliare">
+            <h4>Scegli il blocco da ampliare</h4>
+            <p>SeoGrow ha verificato più blocchi testuali locali nel frontend. Scegli esplicitamente quello corretto: nessuna modifica viene preparata finché non fai questa scelta.</p>
+            <div className="content-widget-picker-grid">
+              {(item.contentCandidates || []).map((candidate, candidateIndex) => <article className="content-widget-choice" key={candidate.id}>
+                <div><strong>Blocco {candidateIndex + 1}</strong><span>{candidate.words} parole · widget #{candidate.id}</span></div>
+                <p>{candidate.preview || "Anteprima testuale non disponibile."}</p>
+                <button type="button" className="secondary" disabled={running || Boolean(applyingId)} onClick={() => prepare(false, { ...item, contentWidgetId: candidate.id })}><Wrench />Amplia questo blocco</button>
+              </article>)}
+            </div>
+          </section>}
+          {(h1OwnershipBlocked(item) || openAiConfigurationMissing(item)) && <div className="wp-live-guidance-actions">
+            {h1OwnershipBlocked(item) && <button data-seogrow-live="1" type="button" className="primary" disabled={running || Boolean(applyingId)} onClick={() => verifyH1Coverage(item)}><Eye />{running ? "Verifica in corso…" : "Verifica origine H1"}</button>}
+            {openAiConfigurationMissing(item) && <button type="button" className="primary" onClick={() => navigatePage("Integrazioni")}><Wrench />Configura OpenAI</button>}
+          </div>}
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
             <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
-            {readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
+            {item.plan?.contentWidget && <section className="content-widget-selected"><strong>Blocco Elementor selezionato:</strong> widget #{item.plan.contentWidget.id} · {item.plan.contentWidget.beforeWords} parole</section>}
+            {item.plan?.linkCleanup ? <section className="correction-readable"><h4>Collegamento esterno 404</h4><p><strong>Testo mantenuto:</strong> {item.plan.linkCleanup.anchorText || "testo del collegamento"}</p><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{item.plan.linkCleanup.targetUrl}</pre></section><section><strong>Dopo la modifica</strong><pre>Collegamento rimosso; il testo resta visibile.</pre></section></div></section> : readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
             <button data-seogrow-live="1" type="button" className="danger wp-live-apply-one" disabled={Boolean(applyingId) || conflicts.length > 0} onClick={() => applyOne(item)}><ShieldCheck />{applyingId === item.data.approvalToken ? "Applicazione…" : "Applica questa modifica sul sito"}</button>
           </>}

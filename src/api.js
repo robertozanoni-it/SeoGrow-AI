@@ -1,14 +1,14 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
+import { normalizeClientId } from "./reliabilityModel.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
 
 const selectedClientId = () => {
   try {
-    const value = JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY));
-    return Number.isSafeInteger(Number(value)) ? Number(value) : null;
+    return normalizeClientId(JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY)));
   } catch {
     return null;
   }
@@ -29,6 +29,7 @@ export const isProjectScopedRequest = (input) => {
     "/api/dataforseo/",
     "/api/geo/simulate",
     "/api/generate",
+    "/api/audit",
     "/api/site-analysis",
     "/api/frontend/inspect",
     "/api/wordpress/",
@@ -36,10 +37,13 @@ export const isProjectScopedRequest = (input) => {
 };
 
 const assertProjectStillSelected = (entry) => {
-  if (!entry || entry.clientId == null) return;
+  if (!entry) return;
   const current = selectedClientId();
-  if (current === entry.clientId) return;
-  const reason = new DOMException("Progetto cambiato", "AbortError");
+  if (entry.clientId && current === entry.clientId) return;
+  const reason = new DOMException(
+    entry.clientId ? "Progetto cambiato" : "Progetto non selezionato",
+    "AbortError",
+  );
   if (!entry.controller.signal.aborted) entry.controller.abort(reason);
   throw reason;
 };
@@ -50,7 +54,7 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
     if (event?.detail?.key !== SELECTED_CLIENT_KEY) return;
     const current = selectedClientId();
     for (const entry of [...scopedRequests]) {
-      if (entry.clientId != null && entry.clientId !== current) {
+      if (!entry.clientId || entry.clientId !== current) {
         entry.controller.abort(new DOMException("Progetto cambiato", "AbortError"));
       }
     }
@@ -126,6 +130,14 @@ export const withExplicitWordPressSiteUrl = (path, init) => {
   }
 };
 
+export const apiTimeoutMs = (input) => {
+  const value = String(input || "");
+  if (value.includes("/api/dataforseo/")) return 960_000;
+  if (value.includes("/api/wordpress/elementor-coverage-attest")) return 420_000;
+  if (value.includes("/api/site-analysis")) return 210_000;
+  return 120_000;
+};
+
 export async function apiFetch(input, init = {}) {
   const method = String(init.method || "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
@@ -146,11 +158,7 @@ export async function apiFetch(input, init = {}) {
   try {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const controller = new AbortController();
-      const timeoutMs = inputText.includes("/api/dataforseo/")
-        ? 960_000
-        : inputText.includes("/api/site-analysis")
-          ? 210_000
-          : 120_000;
+      const timeoutMs = apiTimeoutMs(inputText);
       const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
       const signals = [controller.signal];
       if (preparedInit.signal) signals.push(preparedInit.signal);

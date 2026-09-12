@@ -20,6 +20,145 @@ function seogrow_connector_atomic_entity($row, $id) {
     );
 }
 
+function seogrow_connector_atomic_seo_meta_keys() {
+    return array(
+        'rank_math_title',
+        'rank_math_description',
+        'rank_math_canonical_url',
+        '_yoast_wpseo_title',
+        '_yoast_wpseo_metadesc',
+        '_yoast_wpseo_canonical',
+        '_yoast_wpseo_meta-robots-noindex',
+    );
+}
+
+function seogrow_connector_atomic_is_seo_meta_request($expected, $changes) {
+    if (!is_array($expected) || !is_array($changes)) { return false; }
+    if (array_keys($expected) !== array('meta') || array_keys($changes) !== array('meta')) { return false; }
+    if (!is_array($expected['meta']) || !is_array($changes['meta'])) { return false; }
+    if (count($expected['meta']) !== 1 || count($changes['meta']) !== 1) { return false; }
+    $expected_keys = array_keys($expected['meta']);
+    $change_keys = array_keys($changes['meta']);
+    if ($expected_keys !== $change_keys) { return false; }
+    $key = $change_keys[0];
+    if (!in_array($key, seogrow_connector_atomic_seo_meta_keys(), true)) { return false; }
+    return is_string($expected['meta'][$key]) && is_string($changes['meta'][$key]);
+}
+
+function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
+    global $wpdb;
+    $resource = (string) $request->get_param('resource');
+    $id = (int) $request->get_param('id');
+    $expected = $request->get_param('expectedCurrent');
+    $changes = $request->get_param('changes');
+
+    if (!in_array($resource, array('posts', 'pages'), true) || $id <= 0 || !current_user_can('edit_post', $id)) {
+        return new WP_Error('ATOMIC_WRITE_FORBIDDEN', 'Identità o permessi WordPress non validi.', array('status' => 403));
+    }
+    if (!seogrow_connector_atomic_is_seo_meta_request($expected, $changes)) {
+        return seogrow_connector_atomic_unavailable();
+    }
+
+    $key = array_keys($changes['meta'])[0];
+    $before_value = $expected['meta'][$key];
+    $after_value = $changes['meta'][$key];
+    if (strlen($before_value) > 4096 || strlen($after_value) > 4096) {
+        return new WP_Error('ATOMIC_META_VALUE_INVALID', 'Valore meta SEO troppo grande per la scrittura atomica.', array('status' => 400));
+    }
+
+    $post_type = $resource === 'posts' ? 'post' : 'page';
+    foreach (array($wpdb->posts, $wpdb->postmeta) as $table) {
+        $engine = $wpdb->get_var($wpdb->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s', $table));
+        if (strtoupper((string) $engine) !== 'INNODB') { return seogrow_connector_atomic_unavailable(); }
+    }
+    if ((string) $wpdb->get_var('SELECT @@session.autocommit') !== '1' || $wpdb->query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ') === false) {
+        return seogrow_connector_atomic_unavailable();
+    }
+    if ($wpdb->query('START TRANSACTION') === false) { return seogrow_connector_atomic_unavailable(); }
+
+    $committed = false;
+    try {
+        $post = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $id), ARRAY_A);
+        if (!$post || $post['post_type'] !== $post_type) { throw new RuntimeException('identity'); }
+
+        // Lock all metadata rows for the post before selecting the SEO key. A
+        // single existing row is required so apply and rollback can restore the
+        // exact same storage shape; missing or duplicate rows remain fail-closed.
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d FOR UPDATE", $id), ARRAY_A);
+        if (!is_array($rows)) { throw new RuntimeException('storage'); }
+        $matches = array_values(array_filter($rows, static function ($row) use ($key) {
+            return isset($row['meta_key']) && (string) $row['meta_key'] === $key;
+        }));
+        if (count($matches) !== 1) { throw new RuntimeException('ambiguous_meta'); }
+        $meta = $matches[0];
+        if (!seogrow_connector_atomic_exact_equal((string) $meta['meta_value'], $before_value)) {
+            throw new RuntimeException('stale');
+        }
+
+        $no_write_required = seogrow_connector_atomic_exact_equal($before_value, $after_value);
+        if (!$no_write_required) {
+            $affected = $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_id = %d AND post_id = %d AND meta_key = %s AND BINARY meta_value = BINARY %s",
+                $after_value,
+                (int) $meta['meta_id'],
+                $id,
+                $key,
+                $before_value
+            ));
+            if ($affected === false) { throw new RuntimeException('db_failure'); }
+            if ((int) $affected !== 1) { throw new RuntimeException('stale'); }
+        }
+
+        $locked_after = $wpdb->get_var($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_id = %d FOR UPDATE", (int) $meta['meta_id']));
+        if (!is_string($locked_after) || !seogrow_connector_atomic_exact_equal($locked_after, $after_value)) {
+            throw new RuntimeException('result');
+        }
+        if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('commit'); }
+        $committed = true;
+
+        clean_post_cache($id);
+        wp_cache_delete($id, 'post_meta');
+        $observed = $wpdb->get_var($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_id = %d", (int) $meta['meta_id']));
+        if (!is_string($observed) || !seogrow_connector_atomic_exact_equal($observed, $after_value)) {
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Meta SEO scritto ma valore finale non confermato. Riverifica prima di continuare.', array('status' => 409));
+        }
+        $post_after = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id), ARRAY_A);
+        if (!$post_after || $post_after['post_type'] !== $post_type) {
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Meta SEO scritto ma identità finale della risorsa non confermata.', array('status' => 409));
+        }
+        $entity = seogrow_connector_atomic_entity($post_after, $id);
+        $entity['meta'] = array($key => $observed);
+        return array(
+            'ok' => true,
+            'atomicGuaranteed' => true,
+            'staleChecked' => true,
+            'operation' => (string) $request->get_param('operation'),
+            'resource' => $resource,
+            'noWriteRequired' => $no_write_required,
+            'entity' => $entity,
+            'scope' => 'single-seo-postmeta-cas-v1',
+            'requiresFrontendVerification' => true,
+        );
+    } catch (Throwable $error) {
+        if (!$committed) { $wpdb->query('ROLLBACK'); }
+        clean_post_cache($id);
+        wp_cache_delete($id, 'post_meta');
+        if ($committed) {
+            return new WP_Error('ATOMIC_RESULT_UNVERIFIED', 'Esito della scrittura meta SEO da verificare. Nessun nuovo tentativo automatico eseguito.', array('status' => 409));
+        }
+        if ($error->getMessage() === 'stale') {
+            return new WP_Error('STALE_CONFLICT', 'Il meta SEO è cambiato dopo l’anteprima. Nessuna sovrascrittura eseguita.', array('status' => 409));
+        }
+        if ($error->getMessage() === 'ambiguous_meta') {
+            return new WP_Error('ATOMIC_WRITE_UNAVAILABLE', 'Scrittura meta SEO bloccata: il campo deve avere una singola riga postmeta verificabile per garantire apply e rollback esatti. Nessuna modifica applicata.', array('status' => 409));
+        }
+        if ($error->getMessage() === 'identity') {
+            return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'La risorsa WordPress è cambiata prima della scrittura.', array('status' => 409));
+        }
+        return seogrow_connector_atomic_unavailable();
+    }
+}
+
 function seogrow_connector_atomic_write(WP_REST_Request $request) {
     $operation = (string) $request->get_param('operation');
     if (!in_array($operation, array('apply', 'rollback'), true)) {
@@ -32,8 +171,8 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot e modifiche completi obbligatori.', array('status' => 400));
     }
 
-    // Taxonomy/plugin-meta ownership does not currently expose a single-row CAS
-    // primitive that SeoGrow can prove. Keep it fail-closed.
+    // Taxonomy storage remains fail-closed until its plugin-owned persistence can
+    // expose the same atomic compare-and-swap guarantees as posts/postmeta.
     if ($resource === 'taxonomy') {
         $term = seogrow_connector_find_exact_taxonomy_term(esc_url_raw((string) $request->get_param('url')));
         if (is_wp_error($term)) { return $term; }
@@ -55,10 +194,12 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         return new WP_Error('ATOMIC_WRITE_FORBIDDEN', 'Permessi insufficienti.', array('status' => 403));
     }
 
-    // Core post/page fields are stored on one wp_posts row, so they can be
-    // updated with a single SQL compare-and-swap statement. Meta is a separate
-    // row set and remains blocked to avoid a partially atomic mixed write.
+    // SEO metadata uses a dedicated single-row postmeta CAS. Elementor remains
+    // on its own native-document transaction because it has wider side effects.
     if (array_key_exists('meta', $changes)) {
+        if (seogrow_connector_atomic_is_seo_meta_request($expected, $changes)) {
+            return seogrow_connector_atomic_seo_meta_write($request);
+        }
         return function_exists('seogrow_connector_elementor_text_write') ? seogrow_connector_elementor_text_write($request) : seogrow_connector_atomic_unavailable();
     }
     $fields = array('title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt');

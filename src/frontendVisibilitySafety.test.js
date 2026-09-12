@@ -39,8 +39,7 @@ test("ID Elementor presenti solo in script template style o noscript non diventa
 });
 
 test("il contenuto breve non passa a Verificato con visibilità responsive non dimostrata", () => {
-  assert.match(integrity, /const visibilitySafe = data\.verificationSafe !== false && data\.requiresBrowserVerification !== true/);
-  assert.match(integrity, /const fixed = thresholdReached && modifiedContentVisible && qualityAccepted && visibilitySafe/);
+  assert.match(integrity, /contentVerificationEvidence\(record, data\)/);
   assert.match(integrity, /Serve una verifica browser prima di dichiarare la correzione risolta/i);
   assert.match(integrity, /needsBrowserVerification: !visibilitySafe/);
 });

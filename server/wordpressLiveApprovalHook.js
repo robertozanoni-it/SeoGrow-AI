@@ -1,3 +1,4 @@
+import { assertSeoPatchLengths } from "../src/seoTextPolicy.js";
 import { isolatedElementorQaPatch } from "./isolatedElementorQa.js";
 import { atomicWordPressWrite } from "./wordpressAtomicWrite.js";
 import crypto from "node:crypto";
@@ -209,12 +210,14 @@ function registerRoutes(app) {
       cleanupApprovals();
       const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, issue, adapter, isolatedQa } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+      const cleanPatch = isolatedQa === true ? null : allowedChanges(changes);
+      if (cleanPatch) assertSeoPatchLengths(cleanPatch);
       const base = await safeSiteBase(siteUrl || targetUrl);
       const headers = authHeaders(username, applicationPassword);
       const current = await loadEntity(base, headers, resource, id, readTransport);
       const status = String(current?.status || "").toLowerCase();
       if (["trash", "auto-draft", "inherit"].includes(status)) throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
-      const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : allowedChanges(changes);
+      const patch = isolatedQa === true ? isolatedElementorQaPatch(base, resource, id, current) : cleanPatch;
       const before = selectedState(current, patch);
       const after = afterState(current, patch);
       if (JSON.stringify(before) === JSON.stringify(after)) throw new Error("La modifica proposta coincide con il valore già presente.");
@@ -258,7 +261,7 @@ function registerRoutes(app) {
           : "Anteprima pronta. Nessuna modifica è stata ancora applicata al sito.",
       });
     } catch (error) {
-      return res.status(400).json({ error: error instanceof Error ? error.message : "Anteprima remediation non riuscita." });
+      return res.status(error.status || 400).json({ error: error instanceof Error ? error.message : "Anteprima remediation non riuscita.", code: error.code || "PREVIEW_FAILED" });
     }
   });
 
@@ -279,6 +282,7 @@ function registerRoutes(app) {
         return res.status(409).json({ error: "Il campo WordPress da modificare è cambiato dopo l'anteprima. Nessuna modifica applicata: rigenera l'anteprima.", code: "STALE_PREVIEW" });
 
       if (approval.isolatedQa) isolatedElementorQaPatch(base, approval.resource, approval.id, current);
+      else assertSeoPatchLengths(approval.changes);
       const result = await atomicWordPressWrite(base, headers, {
         resource: approval.resource, id: approval.id, changes: approval.changes,
         expectedCurrent: approval.before, operation: "apply",

@@ -1,0 +1,128 @@
+import { transformBrokenLinkAnchors } from "./brokenLinkHref.js";
+
+const clone = (value) => {
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+};
+
+export const BROKEN_LINK_CLEANUP_MODES = Object.freeze({
+  PRESERVE_TEXT: "unlink-preserve-text",
+  DELETE_ANCHOR_TEXT: "delete-anchor-text",
+});
+
+const cleanupModes = new Map();
+
+export function brokenExternalTarget(issue = {}) {
+  const raw = issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "";
+  try {
+    const url = new URL(String(raw).trim());
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+export function normalizeBrokenLinkCleanupMode(mode) {
+  return mode === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT
+    ? BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT
+    : BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+}
+
+export function setBrokenLinkCleanupMode(targetUrl, mode) {
+  const target = brokenExternalTarget({ targetUrl });
+  if (!target) return false;
+  const normalized = normalizeBrokenLinkCleanupMode(mode);
+  if (normalized === BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT) cleanupModes.delete(target);
+  else cleanupModes.set(target, normalized);
+  return true;
+}
+
+export function brokenLinkCleanupMode(targetUrl) {
+  const target = brokenExternalTarget({ targetUrl });
+  return target
+    ? normalizeBrokenLinkCleanupMode(cleanupModes.get(target))
+    : BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+}
+
+export function clearBrokenLinkCleanupMode(targetUrl) {
+  const target = brokenExternalTarget({ targetUrl });
+  if (target) cleanupModes.delete(target);
+}
+
+export function consumeBrokenLinkCleanupMode(targetUrl) {
+  const target = brokenExternalTarget({ targetUrl });
+  if (!target) return BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
+  const action = normalizeBrokenLinkCleanupMode(cleanupModes.get(target));
+  cleanupModes.delete(target);
+  return action;
+}
+
+export function removeExactAnchor(html, targetUrl, mode) {
+  const source = String(html || "");
+  const target = brokenExternalTarget({ targetUrl });
+  const action = mode === undefined
+    ? consumeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
+  if (!source || !target) return { value: source, count: 0, anchors: [], matches: [], action };
+  return {
+    ...transformBrokenLinkAnchors(source, target, action === BROKEN_LINK_CLEANUP_MODES.DELETE_ANCHOR_TEXT),
+    action,
+  };
+}
+
+export function prepareElementorBrokenExternalLink(rawElementorData, targetUrl, mode) {
+  if (rawElementorData === undefined || rawElementorData === null || rawElementorData === "") {
+    return { state: "absent", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
+  }
+
+  let data;
+  try {
+    data = typeof rawElementorData === "string" ? JSON.parse(rawElementorData) : clone(rawElementorData);
+  } catch {
+    return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
+  }
+  if (!Array.isArray(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action: normalizeBrokenLinkCleanupMode(mode) };
+
+  const action = mode === undefined
+    ? consumeBrokenLinkCleanupMode(targetUrl)
+    : normalizeBrokenLinkCleanupMode(mode);
+  let count = 0;
+  const anchors = [];
+  const matches = [];
+  let nodes = 0;
+  const walk = (value, depth = 0) => {
+    if (depth > 80 || nodes > 5000) return false;
+    if (Array.isArray(value)) {
+      for (const item of value) if (!walk(item, depth + 1)) return false;
+      return true;
+    }
+    if (!value || typeof value !== "object") return true;
+    nodes += 1;
+    if (nodes > 5000) return false;
+
+    for (const [key, child] of Object.entries(value)) {
+      if (typeof child === "string") {
+        const result = removeExactAnchor(child, targetUrl, action);
+        if (result.count) {
+          value[key] = result.value;
+          count += result.count;
+          anchors.push(...result.anchors);
+          matches.push(...result.matches);
+        }
+      } else if (child && typeof child === "object") {
+        if (!walk(child, depth + 1)) return false;
+      }
+    }
+    return true;
+  };
+
+  if (!walk(data)) return { state: "invalid", count: 0, serialized: "", anchors: [], action };
+  return {
+    state: "valid",
+    count,
+    serialized: JSON.stringify(data),
+    anchors,
+    matches,
+    action,
+  };
+}

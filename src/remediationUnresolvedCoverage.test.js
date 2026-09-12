@@ -16,7 +16,7 @@ test("title ed excerpt possono usare contesto ridotto senza allentare la protezi
 
 test("la meta description ritenta OpenAI con feedback e usa un fallback deterministico dopo tre tentativi", () => {
   assert.match(seoServer, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
-  assert.match(seoServer, /requestValue\(kind, issue, context, attempt > 0, qualityFeedback\)/);
+  assert.match(seoServer, /requestValue\(kind, issue, context, attempt > 0, qualityFeedback, generationSignal\)/);
   assert.match(seoServer, /qualityFeedback = quality\.errors\.join\(" "\)/);
   assert.match(seoServer, /deterministicMetaDescription/);
   assert.match(seoServer, /kind === "meta_description"/);

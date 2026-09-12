@@ -44,9 +44,17 @@ test('does not archive different link destinations, unknown resources, clients o
 test('blocked proposals expose the actual cause and issue-specific next step', () => {
   const reason = 'Ownership frontend non determinabile per "h1". Gli H1 pubblici non coincidono. Nessuna modifica è stata autorizzata.';
   const h1 = correctionPresentation({ status: 'ownership_error', issue: { type: 'h1' }, reason });
+  assert.equal(h1.title, 'Verifica origine H1 richiesta');
   assert.equal(h1.explanation, 'Gli H1 pubblici non coincidono.');
-  assert.match(h1.next, /quali titoli sono H1/);
+  assert.match(h1.next, /Verifica origine H1/);
+  assert.match(h1.next, /coverage in sola lettura/);
   const content = correctionPresentation({ status: 'ownership_error', issue: { type: 'content' }, reason: 'Più widget candidati.' });
   assert.equal(content.explanation, 'Più widget candidati.');
   assert.match(content.next, /blocco di testo/);
+});
+test('OpenAI mancante è distinto da un problema non correggibile', () => {
+  const openai = correctionPresentation({ status: 'generation_error', reason: 'OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env.' });
+  assert.equal(openai.title, 'Configurazione OpenAI mancante');
+  assert.match(openai.next, /Configura OpenAI/);
+  assert.match(openai.next, /riutilizzare in memoria/);
 });

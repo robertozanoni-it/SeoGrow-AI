@@ -1,13 +1,60 @@
+const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
+
+const notifyStoredPage = (page) => {
+  const detail = { key: SELECTED_PAGE_KEY, newValue: JSON.stringify(page) };
+  const event = typeof StorageEvent === "function"
+    ? new StorageEvent("storage", detail)
+    : Object.assign(new Event("storage"), detail);
+  window.dispatchEvent(event);
+};
+
+export const activateNativePageState = (page) => {
+  if (typeof document === "undefined") return false;
+  const buttons = [...document.querySelectorAll(".sidebar > nav:not(.guided-nav) button")];
+  const target = buttons.find((button) => {
+    const label = button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "";
+    return label === page;
+  });
+  if (!target || target.disabled) return false;
+  target.click();
+  return true;
+};
+
+const notifyLocationChange = (oldURL = "") => {
+  const newURL = String(window.location?.href || "");
+  const hashEvent = typeof HashChangeEvent === "function"
+    ? new HashChangeEvent("hashchange", { oldURL: String(oldURL || ""), newURL })
+    : new Event("hashchange");
+  window.dispatchEvent(hashEvent);
+  window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+};
+
 export function navigatePage(page) {
   const next = `#${encodeURIComponent(page)}`;
   if (page === "Correzioni") {
     window.__seogrowCorrectionsMode = true;
     if (window.location.hash !== next) window.history.pushState(null, "", next);
+    notifyStoredPage(page);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
     return;
   }
-  if (window.location.hash !== next) window.location.hash = next;
-  else window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+
+  // The original App navigation owns the canonical React page state. The
+  // guided/card layers use the URL as their source of truth, so also trigger
+  // the hidden native control when it exists. This prevents a rapid reload or
+  // remount from leaving #Audit%20SEO in the URL while App still renders the
+  // previous page (for example Centro progetto).
+  activateNativePageState(page);
+
+  if (window.location.hash !== next) {
+    const oldURL = String(window.location?.href || "");
+    window.location.hash = next;
+    notifyStoredPage(page);
+    notifyLocationChange(oldURL);
+  } else {
+    notifyStoredPage(page);
+    window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+  }
 }
 
 export const isNavigationItemVisible = (label, advancedOnly, mode, currentPage) =>

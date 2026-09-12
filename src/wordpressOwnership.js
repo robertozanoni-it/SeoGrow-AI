@@ -161,6 +161,41 @@ const externalSharedReferences = (entity) => {
 
 const localElementorDocumentObserved = (entity) => ownership(entity).elementorLocalDocumentRendered === true;
 
+export function verifiedElementorH1SourceFrontend(entity, frontend) {
+  const evidence = ownership(entity)?.elementorImpactEvidence?.h1SourceEvidence;
+  if (!evidence || evidence.complete !== true || evidence.readOnly !== true || evidence.sharedWriteAllowed !== false) return null;
+  if (evidence.dynamicH1Unknown === true || Number(evidence.totalAuthoredH1) !== 1) return null;
+
+  const targetId = Number(entity?.id);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0 || Number(evidence.targetEntityId) !== targetId) return null;
+  const references = externalSharedReferences(entity);
+  const referenceIds = [];
+  for (const reference of references) {
+    const id = Number(reference?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    if (!referenceIds.includes(id)) referenceIds.push(id);
+  }
+  const expectedIds = new Set([targetId, ...referenceIds]);
+  const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  if (documents.length !== expectedIds.size) return null;
+  const actualIds = new Set();
+  for (const document of documents) {
+    const id = Number(document?.id);
+    if (!Number.isSafeInteger(id) || id <= 0 || !expectedIds.has(id) || document?.complete !== true || document?.dynamicH1Unknown === true) return null;
+    actualIds.add(id);
+  }
+  if (actualIds.size !== expectedIds.size || [...expectedIds].some((id) => !actualIds.has(id))) return null;
+
+  return {
+    ...(frontend && typeof frontend === "object" ? frontend : {}),
+    h1: 1,
+    verificationSafe: true,
+    requiresBrowserVerification: false,
+    h1SourceVerified: true,
+    h1VerificationSource: "elementor-authored-source-read-only",
+  };
+}
+
 export function hasElementorDocument(entity) {
   if (externalSharedReferences(entity).length || localElementorDocumentObserved(entity)) return true;
   const raw = elementorRaw(entity);
@@ -245,11 +280,13 @@ export function inspectEditableElementor(kind, entity) {
       reference,
     ])).values()];
     const finalImpact = impactFor(entity, uniqueSharedReferences);
+    const embeddedOrUnresolvedReferences = uniqueSharedReferences.filter((reference) => reference.type !== "rendered-document");
 
-    // Se il documento dipende da template/widget condivisi effettivamente renderizzati
-    // oppure da riferimenti interni a template/global widget, SeoGrow non può attribuire
-    // con certezza il markup pubblico a un singolo widget locale.
-    if (uniqueSharedReferences.length) {
+    // Header/footer/single esterni già identificati non rendono ambiguo un text-editor
+    // locale: la modifica resta confinata al documento corrente e ogni candidato viene
+    // comunque verificato sul frontend prima della proposta. Riferimenti incorporati
+    // (template/global widget) o ownership generica non risolta restano fail-closed.
+    if (uniqueSharedReferences.length && !(kind === "content" && embeddedOrUnresolvedReferences.length === 0)) {
       return {
         state: "valid",
         parsed: { data },
@@ -260,7 +297,14 @@ export function inspectEditableElementor(kind, entity) {
       };
     }
 
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact: finalImpact };
+    return {
+      state: "valid",
+      parsed: { data },
+      widgets,
+      hasDocument: data.length > 0,
+      sharedReferences: uniqueSharedReferences,
+      impact: finalImpact,
+    };
   } catch {
     return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: impactFor(entity, sharedReferences) };
   }
@@ -296,12 +340,15 @@ export function assessCoreOwnership(kind, entity, frontend) {
 
   if (hasElementorDocument(entity)) {
     const impact = impactFor(entity, externalSharedReferences(entity));
+    const verifiedH1Frontend = kind === "h1" ? verifiedElementorH1SourceFrontend(entity, frontend) : null;
     return {
       ok: false,
-      frontend,
+      frontend: verifiedH1Frontend || frontend,
       coreWords,
       impact,
-      reason: `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
+      reason: verifiedH1Frontend
+        ? "La sorgente Elementor read-only conferma un solo H1 complessivo tra documento locale e documenti condivisi effettivamente renderizzati; nessuna scrittura è necessaria."
+        : `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
     };
   }
 
@@ -337,14 +384,16 @@ export function chooseElementorContentCandidate(candidates, probeResults) {
   if (confirmed.length === 0) {
     return {
       candidate: null,
+      candidates: [],
       reason: "Nessun text-editor Elementor candidato è confermato in modo univoco nel frontend pubblico.",
     };
   }
 
-  if (confirmed.length === 1) return { candidate: confirmed[0], reason: "" };
+  if (confirmed.length === 1) return { candidate: confirmed[0], candidates: confirmed, reason: "" };
 
   return {
     candidate: null,
-    reason: "Più text-editor Elementor risultano confermati nel frontend: la sola lunghezza non è sufficiente per scegliere il widget da modificare.",
+    candidates: confirmed,
+    reason: "Più text-editor Elementor risultano confermati nel frontend: scegli esplicitamente il blocco da ampliare prima di generare la proposta.",
   };
 }

@@ -42,9 +42,14 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /"elementor-public-coverage-read-only"/);
   assert.match(bootstrap, /"wordpress-public-inventory-read-only"/);
   assert.match(bootstrap, /"elementor-coverage-attestation"/);
-  assert.match(bootstrap, /elementorImpactMode: "read-only-server-attested-coverage-no-shared-write"/);
-  assert.match(bootstrap, /elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write"/);
-  assert.match(bootstrap, /elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write"/);
+  assert.match(bootstrap, /"elementor-shared-link-preview"/);
+  assert.match(bootstrap, /"elementor-shared-link-apply"/);
+  assert.match(bootstrap, /"elementor-shared-link-rollback"/);
+  assert.match(bootstrap, /elementorImpactMode: "read-only-server-attested-coverage"/);
+  assert.match(bootstrap, /elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative"/);
+  assert.match(bootstrap, /elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match"/);
+  assert.match(bootstrap, /elementorSharedLinkMode: "unique-template-single-anchor-complete-public-impact-explicit-approval-stale-safe-auto-rollback"/);
+  assert.match(bootstrap, /elementorSharedLinkConnectorMinimum: "1\.3\.8"/);
   assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
@@ -58,7 +63,7 @@ test("il guard globale pinna ogni richiesta WordPress REST autenticata Basic anc
   assert.match(bootstrap, /\\\/wp-json\\\//i);
   assert.match(bootstrap, /isAuthenticatedWordPressRest/);
   assert.match(bootstrap, /isHttps && \(isSeoGrowRemediation \|\| isAuthenticatedWordPressRest\)/);
-  assert.match(bootstrap, /if \(needsPinning\) return pinnedHttpsFetch\(url, options\)/);
+  assert.match(bootstrap, /if \(needsPinning\) return pinnedHttpsFetch\(url, routedOptions\)/);
 });
 
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {

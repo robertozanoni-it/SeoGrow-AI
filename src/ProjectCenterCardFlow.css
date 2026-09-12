@@ -1,0 +1,59 @@
+.project-center-card-hub:has(+ .project-center-detail-shell:not([hidden])) {
+  display: none;
+}
+
+.project-center-detail-shell:not([hidden]) {
+  animation: project-center-detail-in 160ms ease-out;
+}
+
+.project-center-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-center-card-status svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+
+/* Keep workflow areas visually distinct without depending on route timing.
+   The selectors are scoped to the Project Center detail surfaces and retain
+   only the approved blue/mint family. */
+.project-center-area-setup .project-setup {
+  background: #f4f9ff !important;
+}
+
+.project-center-area-fix .auto-fix-panel {
+  background: #ffffff !important;
+}
+
+.project-center-area-fix .workflow-source {
+  background: #eaf5ff !important;
+}
+
+.project-center-area-fix .workflow-selection {
+  background: #f0fbf8 !important;
+}
+
+.project-center-area-fix .workflow-verify {
+  background: #e5f7f1 !important;
+}
+
+.project-center-area-monitoring .project-monitoring {
+  background: #f6fbff !important;
+}
+
+.project-center-area-report .project-report {
+  background: #eff9f5 !important;
+}
+
+@keyframes project-center-detail-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-center-detail-shell:not([hidden]) { animation: none; }
+}

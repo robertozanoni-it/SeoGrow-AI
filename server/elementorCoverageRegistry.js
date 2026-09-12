@@ -1,6 +1,10 @@
 const DEFAULT_TTL_MS = 30 * 60_000;
 const MAX_ENTRIES = 2_000;
 const REGISTRY = new Map();
+const SUPPORTED_DISCOVERY_METHODS = new Set([
+  "crawl+sitemap-reconciled",
+  "recursive-html-crawl+sitemap+frontend-wordpress-inventory-reconciled",
+]);
 
 const safePositiveCount = (value) => {
   const number = Number(value);
@@ -63,7 +67,7 @@ export function registerElementorCoverageAttestation({
   if (complete !== true || verified !== true) {
     throw new Error("Solo crawl completi e verificati dal backend possono essere attestati.");
   }
-  if (discovery.method !== "crawl+sitemap-reconciled") {
+  if (!SUPPORTED_DISCOVERY_METHODS.has(discovery.method)) {
     throw new Error("L'attestazione richiede discovery crawl+sitemap riconciliata.");
   }
   if (!discovery.sitemapReconciled || !discovery.queueExhausted || discovery.truncated) {

@@ -1,0 +1,51 @@
+/* Final contrast pass requested after the 2026-09-10 visual review. */
+body[data-seogrow-ui-mode] .sidebar {
+  background: #dfe7ef !important;
+  border-right-color: #c5d0dc !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(odd) {
+  background: linear-gradient(135deg, #cfdeed 0%, #dae6f1 100%) !important;
+  border-color: #bccddd !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(even) {
+  background: linear-gradient(135deg, #d0e5dd 0%, #dcebe5 100%) !important;
+  border-color: #bbd7cd !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+  color: #294965 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+  color: #426b91 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label,
+body[data-seogrow-ui-mode="simple"] .sidebar .guided-nav-label {
+  color: #38536d !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button:hover {
+  background: rgba(255, 255, 255, .58) !important;
+  color: #183f66 !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] {
+  background: #1d568d !important;
+  color: #ffffff !important;
+  box-shadow: inset 4px 0 #0e79ef, 0 5px 15px rgba(24, 63, 102, .15) !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg {
+  color: #ffffff !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle,
+body[data-seogrow-ui-mode] .sidebar .side-foot {
+  background: rgba(255, 255, 255, .44) !important;
+  border-color: #c1ccd8 !important;
+}

@@ -1,3 +1,5 @@
+import { observedPageCount } from "./observedAuditData.js";
+import { isLegalPage } from "./legalPageScope.js";
 import {
   correctionEvent,
   deriveProblemState,
@@ -7,22 +9,35 @@ import {
   latestAudit,
   normalizeClientId,
   normalizeHttpUrl,
+  safeHttpHref,
   taskEvent,
 } from "./reliabilityModel.js";
 
 const timestamp = (value) => Date.parse(value || 0) || 0;
 
 const pageKindFromUrl = (value) => {
+  if (isLegalPage(value)) return "gdpr";
   try {
     const segments = new URL(value).pathname.toLowerCase().split("/").filter(Boolean);
     const first = segments[0] || "";
     if (/^(?:category|categoria|tag|author|autore|date)$/.test(first) || (first === "page" && /^\d+$/.test(segments[1] || ""))) return "archive";
     if (/^(?:contatti?|contact|contacts)$/.test(first)) return "utility";
-    if (/^(?:privacy(?:-policy)?|cookie(?:-policy)?|gdpr|termini(?:-e-condizioni)?|terms(?:-and-conditions)?|legal)$/.test(first)) return "gdpr";
     return "content";
   } catch {
     return "unknown";
   }
+};
+
+const issueSourceUrl = (issue, auditUrl = "") => {
+  const type = String(issue?.type || "").toLowerCase();
+  const brokenLink = /broken-(?:external-)?link/.test(type);
+  return issue?.sourceUrl || issue?.url || (!brokenLink ? issue?.targetUrl : "") || auditUrl || "";
+};
+
+const issueBrokenTarget = (issue) => {
+  const type = String(issue?.type || "").toLowerCase();
+  if (!/broken-(?:external-)?link/.test(type)) return "";
+  return safeHttpHref(issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "");
 };
 
 const severity = (value) => {
@@ -81,6 +96,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   title: issue?.label || issue?.type || record.issueLabel || record.issueType || "Problema SEO",
   issueType: issue?.type || record.issueType || "",
   sourceUrl,
+  targetUrls: new Set(),
   detail: issue?.detail || "",
   severity: severity(issue?.severity || record.severity),
   priority: "unknown",
@@ -94,6 +110,9 @@ const createGroup = (record, issue, sourceUrl) => ({
   technicalError: false,
   auditScopes: new Set(),
   quality: null,
+  latestAuditAt: "",
+  auditClearedAt: "",
+  auditClearedScope: "",
 });
 
 const attachAlias = (groups, aliasMap, group, aliases) => {
@@ -127,6 +146,68 @@ const addSource = (group, source) => {
   });
 };
 
+const locallyClearableAuditTypes = new Set([
+  "h1",
+  "title",
+  "description",
+  "meta_description",
+  "canonical",
+  "canonical-invalid",
+  "canonical-external",
+  "canonical-different",
+  "image",
+  "metadata-tags",
+]);
+
+const comparableUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
+
+const auditObservedUrl = (scope, item, sourceUrl) => {
+  const wanted = comparableUrl(sourceUrl);
+  if (!wanted) return false;
+  if (scope === "page") return comparableUrl(item?.url) === wanted;
+  if (scope !== "site") return false;
+  return (Array.isArray(item?.pages) ? item.pages : []).some((page) =>
+    comparableUrl(page?.url) === wanted && page?.ok !== false,
+  );
+};
+
+const auditStillContainsGroup = (group, item) =>
+  (Array.isArray(item?.issues) ? item.issues : []).some((issue) => {
+    const sourceUrl = issueSourceUrl(issue, item?.url || "");
+    const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
+    return identityCandidates(record).some((alias) => group.aliases.has(alias));
+  });
+
+const reconcileAuditClearance = (groups, audits) => {
+  for (const group of groups.values()) {
+    const issueType = String(group.issueType || "").trim().toLowerCase();
+    if (!group.latestAuditAt || !locallyClearableAuditTypes.has(issueType)) continue;
+    const clearingAudit = audits
+      .filter(({ scope, item }) => {
+        const at = item?.analyzedAt || item?.startedAt || "";
+        return timestamp(at) > timestamp(group.latestAuditAt) &&
+          auditObservedUrl(scope, item, group.sourceUrl) &&
+          !auditStillContainsGroup(group, item);
+      })
+      .toSorted((a, b) =>
+        timestamp(b.item?.analyzedAt || b.item?.startedAt) -
+        timestamp(a.item?.analyzedAt || a.item?.startedAt),
+      )[0];
+    if (!clearingAudit) continue;
+    const at = clearingAudit.item?.analyzedAt || clearingAudit.item?.startedAt || "";
+    group.auditClearedAt = at;
+    group.auditClearedScope = clearingAudit.scope;
+    group.auditScopes.add(clearingAudit.scope);
+    addSource(group, {
+      label: clearingAudit.scope === "site" ? "Audit sito" : "Audit pagina",
+      kind: "audit-clearance",
+      at,
+      detail: "La stessa URL è stata ricontrollata da un audit più recente e questo problema non è più stato rilevato.",
+      nature: "verified",
+    });
+  }
+};
+
 export function buildUnifiedProblems({
   clientId,
   siteHistory = [],
@@ -151,24 +232,35 @@ export function buildUnifiedProblems({
   for (const { scope, item } of audits) {
     const at = item?.analyzedAt || item?.startedAt || "";
     for (const issue of Array.isArray(item?.issues) ? item.issues : []) {
-      const sourceUrl = issue?.targetUrl || issue?.url || item?.url || "";
+      const sourceUrl = issueSourceUrl(issue, item?.url || "");
+      if (isLegalPage(sourceUrl)) continue;
       const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
       const group = findOrCreate(groups, aliasMap, record, issue, sourceUrl);
+      const brokenTarget = issueBrokenTarget(issue);
+      if (brokenTarget) group.targetUrls.add(brokenTarget);
       const intentional = issue?.intentional === true;
       group.events.push({ kind: intentional ? "audit_intentional" : "audit_detected", at, source: "audit", scope });
       group.auditScopes.add(scope);
-      if (!group.detail || timestamp(at) >= timestamp(group.latestAuditAt)) group.detail = issue?.detail || group.detail;
-      if (severity(issue?.severity) !== "unknown") group.severity = severity(issue?.severity);
-      group.latestAuditAt = timestamp(at) >= timestamp(group.latestAuditAt) ? at : group.latestAuditAt;
+      const newestAudit = !group.latestAuditAt || timestamp(at) >= timestamp(group.latestAuditAt);
+      if (newestAudit) {
+        group.title = issue?.label || issue?.type || group.title;
+        group.detail = issue?.detail || group.detail;
+        const currentSeverity = severity(issue?.severity);
+        if (currentSeverity !== "unknown") group.severity = currentSeverity;
+        group.latestAuditAt = at || group.latestAuditAt;
+      }
+      const targetDetail = brokenTarget ? ` · Destinazione: ${brokenTarget}` : "";
       addSource(group, {
         label: scope === "site" ? "Audit sito" : "Audit pagina",
         kind: "audit",
         at,
-        detail: issue?.detail || issue?.label || "Rilevazione audit",
+        detail: `${issue?.detail || issue?.label || "Rilevazione audit"}${targetDetail}`,
         nature: "observed",
       });
     }
   }
+
+  reconcileAuditClearance(groups, audits);
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
     if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
@@ -177,12 +269,17 @@ export function buildUnifiedProblems({
       continue;
     }
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
-    const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl };
+    if (isLegalPage(sourceUrl)) continue;
+    const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
     if (!group.detail) group.detail = task?.detail || task?.notes || "";
+    if (/broken-(?:external-)?link/.test(String(task?.kind || "").toLowerCase())) {
+      const target = safeHttpHref(task?.targetUrl || "");
+      if (target && target !== normalizeHttpUrl(sourceUrl, { stripSlash: false })) group.targetUrls.add(target);
+    }
     addSource(group, {
       label: "Task SeoGrow",
       kind: "task",
@@ -195,6 +292,7 @@ export function buildUnifiedProblems({
   for (const correction of Array.isArray(corrections) ? corrections : []) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
     const sourceUrl = correction?.sourceUrl || "";
+    if (isLegalPage(sourceUrl)) continue;
     const record = {
       ...correction,
       issueType: correction?.issueType,
@@ -221,8 +319,16 @@ export function buildUnifiedProblems({
 
   const rows = [...groups.values()].map((group) => {
     const state = deriveProblemState(group.events);
+    const clearanceAt = group.auditClearedAt || "";
+    const clearanceTime = timestamp(clearanceAt);
+    const invalidatedAfterClearance = clearanceTime > 0 && group.events.some((event) =>
+      timestamp(event?.at) > clearanceTime && ["audit_detected", "correction_applied", "rollback"].includes(event?.kind),
+    );
+    const clearedByNewerAudit = clearanceTime > timestamp(group.latestAuditAt) && !invalidatedAfterClearance;
+    const problemState = clearedByNewerAudit ? "resolved" : state.problemState;
+    const verifiedAt = clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
-    const observedAt = state.lastAuditAt || latestSource?.at || "";
+    const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;
     const confidence = issueConfidence(
       { type: group.issueType, label: group.title, detail: group.detail },
@@ -237,10 +343,11 @@ export function buildUnifiedProblems({
       title: group.title,
       issueType: group.issueType,
       sourceUrl: group.sourceUrl,
+      targetUrls: [...group.targetUrls],
       detail: group.detail || "Dettaglio non disponibile.",
       severity: group.severity,
       priority: group.priority,
-      problemState: state.problemState,
+      problemState,
       interventionState: state.interventionState,
       correctability: issueCorrectability(
         { type: group.issueType, label: group.title, detail: group.detail },
@@ -248,9 +355,9 @@ export function buildUnifiedProblems({
       ),
       confidence,
       observedAt,
-      verifiedAt: state.verifiedAt,
+      verifiedAt,
       stale: !Number.isFinite(ageMs) || ageMs > 7 * 24 * 60 * 60_000,
-      regression: state.problemState === "reappeared",
+      regression: problemState === "reappeared",
       ownershipBlocked: group.ownershipBlocked,
       technicalError: group.technicalError,
       fields: group.fields,
@@ -260,6 +367,7 @@ export function buildUnifiedProblems({
       auditScopes: [...group.auditScopes],
       quality: group.quality,
       pageKind: group.pageKind,
+      resolvedByAudit: clearedByNewerAudit,
     };
   }).toSorted((a, b) => {
     const stateWeight = { reappeared: 0, open: 1, needs_verification: 2, intentional: 3, resolved: 4 };
@@ -274,7 +382,7 @@ export function buildUnifiedProblems({
     warnings: [...new Set(warnings)],
     coverage: {
       siteAuditAt: site?.analyzedAt || site?.startedAt || "",
-      sitePages: Number(site?.pagesChecked || site?.pages?.length || 0),
+      sitePages: site ? observedPageCount(site) : null,
       pageAudits: pageAudits.length,
     },
   };

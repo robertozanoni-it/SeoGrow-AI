@@ -1,3 +1,8 @@
+import { publicHeadMetadata } from "./publicHeadMetadata.js";
+import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
+import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
+import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
+import { canonicalCount, stripAlwaysHiddenMarkup, visibleH1Count } from "./frontendVerificationHook.js";
 import { isLegalPage } from "../src/legalPageScope.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
@@ -537,16 +542,9 @@ async function fetchStatusWithRetry(url, attempts = 2, signal) {
 }
 
 function pageSignals(html, url, status, responseMs, depth, headers) {
-  const title = firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const description =
-    firstMatch(
-      html,
-      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i,
-    ) ||
-    firstMatch(
-      html,
-      /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i,
-    );
+  const metadata = publicHeadMetadata(html);
+  const title = metadata.title;
+  const description = metadata.metaDescription;
   const canonicalRaw =
     firstMatch(
       html,
@@ -565,7 +563,7 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
       html,
       /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']robots["']/i,
     );
-  const h1 = count(html, /<h1\b[^>]*>/gi);
+  const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
   const images = count(html, /<img\b[^>]*>/gi);
   const missingAlt = count(html, /<img\b(?![^>]*\balt\s*=)[^>]*>/gi);
   const text = html
@@ -595,10 +593,16 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
   return {
     url,
     status,
+    ok: status >= 200 && status < 300,
+    isHtml: true,
+    wordpressDocumentId: wordpressDocumentId(html),
+    canonicalCount: canonicalCount(html),
     title,
-    titleLength: title.length,
+    titleLength: seoCharacterCount(title),
+    titleCount: metadata.titleCount,
+    metaDescriptionCount: metadata.metaDescriptionCount,
     description,
-    descriptionLength: description.length,
+    descriptionLength: seoCharacterCount(description),
     canonical,
     canonicalError,
     robots,
@@ -626,12 +630,13 @@ function technicalIssues(
   const push = (type, severity, label, page, detail = "") =>
     issues.push({ type, severity, label, url: page.url, detail });
   for (const page of pages) {
+    if (page.titleCount > 1 || page.metaDescriptionCount > 1) push("metadata-tags", "alta", "Tag SEO duplicati nella pagina", page, `${page.titleCount} title e ${page.metaDescriptionCount} meta description nel codice HTML: verifica plugin e template prima di modificare il testo.`);
     if (!page.title) push("title", "alta", "Title mancante", page);
     else if (page.titleLength < 20 || page.titleLength > 70)
       push("title", "media", `Title di ${page.titleLength} caratteri`, page);
     if (!page.description)
       push("description", "alta", "Meta description mancante", page);
-    else if (page.descriptionLength < 70 || page.descriptionLength > 180)
+    else if (page.descriptionLength < 70 || page.descriptionLength > SEO_TEXT_LIMITS.meta_description)
       push(
         "description",
         "media",
@@ -699,21 +704,22 @@ function technicalIssues(
     if (page.depth > 3)
       push("depth", "media", `Profondità di navigazione ${page.depth}`, page);
   }
+  const aliasSeen = new Set();
   const duplicates = (field, type, label) => {
-    const groups = new Map();
-    for (const page of pages)
-      if (page[field])
-        groups.set(page[field], [...(groups.get(page[field]) || []), page]);
-    for (const group of groups.values())
-      if (group.length > 1)
-        for (const page of group)
-          push(
-            type,
-            "alta",
-            label,
-            page,
-            group.map((item) => item.url).join(" | "),
-          );
+    const result = metadataDuplicateGroups(pages, field);
+    for (const group of result.duplicates) for (const page of group)
+      push(type, "alta", label, page, group.map(item => item.url).join(" | "));
+    for (const url of result.conflicts) {
+      issues.push({ type: "metadata-observation-conflict", severity: "bassa", label: "Osservazioni SEO discordanti", sourceUrl: url, url,
+        detail: `Il campo ${field} della stessa URL ha valori discordanti nell’insieme analizzato. Ripeti il controllo prima di correggere un presunto duplicato.`, diagnosisState: "needs-confirmation" });
+    }
+    for (const alias of result.aliases) {
+      if (aliasSeen.has(alias.sourceUrl)) continue;
+      aliasSeen.add(alias.sourceUrl);
+      issues.push({ type: "url-alias", severity: "bassa", label: "Due URL dello stesso contenuto WordPress", sourceUrl: alias.sourceUrl, url: alias.sourceUrl,
+        detail: `Le due URL hanno lo stesso ID WordPress e una sola canonical coerente (${alias.canonicalUrl}). Cambiare title o meta description modifica entrambe: verifica i link interni e l'eventuale redirect, non generare testi diversi per la stessa risorsa.`,
+        canonicalUrl: alias.canonicalUrl, wordpressDocumentId: alias.wordpressDocumentId, diagnosisState: "needs-confirmation" });
+    }
   };
   duplicates("title", "duplicate-title", "Title duplicato");
   duplicates(
@@ -1029,16 +1035,11 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
     if (!response.ok)
       throw new Error(`Il sito ha risposto con ${response.status}`);
     const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
-    const title = firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const description =
-      firstMatch(
-        html,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i,
-      ) ||
-      firstMatch(
-        html,
-        /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i,
-      );
+    const contentType = response.headers.get("content-type") || "";
+    if (!/(?:text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("La risorsa non è una pagina HTML: nessun punteggio SEO è stato calcolato.");
+    const metadata = publicHeadMetadata(html);
+    const title = metadata.title;
+    const description = metadata.metaDescription;
     const canonical =
       firstMatch(
         html,
@@ -1048,10 +1049,11 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
         html,
         /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i,
       );
-    const h1 = count(html, /<h1\b[^>]*>/gi);
+    const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
     const images = count(html, /<img\b[^>]*>/gi);
     const missingAlt = count(html, /<img\b(?![^>]*\balt=)[^>]*>/gi);
     const issues = [];
+    if (metadata.titleCount > 1 || metadata.metaDescriptionCount > 1) issues.push({type:"metadata-tags",severity:"alta",label:"Tag SEO duplicati nella pagina",detail:`${metadata.titleCount} title e ${metadata.metaDescriptionCount} meta description nel codice HTML.`});
     if (!title) issues.push({ severity: "alta", label: "Title mancante" });
     else if (title.length < 20 || title.length > 70)
       issues.push({
@@ -1060,10 +1062,10 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
       });
     if (!description)
       issues.push({ severity: "alta", label: "Meta description mancante" });
-    else if (description.length < 70 || description.length > 180)
+    else if (seoCharacterCount(description) < 70 || seoCharacterCount(description) > SEO_TEXT_LIMITS.meta_description)
       issues.push({
         severity: "media",
-        label: `Meta description di ${description.length} caratteri`,
+        label: `Meta description di ${seoCharacterCount(description)} caratteri`,
       });
     if (h1 !== 1) issues.push({ severity: "alta", label: `${h1} H1 rilevati` });
     if (!canonical)
@@ -1093,9 +1095,11 @@ app.post("/api/audit", crawlLimit, async (req, res) => {
       fetchedAt: new Date().toISOString(),
       score,
       title,
-      titleLength: title.length,
+      titleLength: seoCharacterCount(title),
+    titleCount: metadata.titleCount,
+    metaDescriptionCount: metadata.metaDescriptionCount,
       description,
-      descriptionLength: description.length,
+      descriptionLength: seoCharacterCount(description),
       canonical,
       h1,
       images,
@@ -1203,6 +1207,12 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
         if (pages.some((page) => page.url === finalCanonical)) {
           await response.body?.cancel();
           await new Promise((resolve) => setTimeout(resolve, 75));
+          continue;
+        }
+        if (pages.some(page => page.url === response.url)) {
+          // A redirect can bring two queued URLs to the very same document.
+          // Count and analyse the final URL once, not as two duplicate pages.
+          await response.body?.cancel();
           continue;
         }
         const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
@@ -1356,7 +1366,7 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
         Math.max(0, penalty - strongestPenalty) / Math.sqrt(Math.max(1, pages.length)),
     );
     const failurePenalty = Math.min(40, failures.length * 4 + (pages.length ? 0 : 60));
-    const score = Math.max(0, Math.min(100, 100 - normalizedPenalty - failurePenalty));
+    const score = pages.length ? Math.max(0, Math.min(100, 100 - normalizedPenalty - failurePenalty)) : null;
     const suggestions = [];
     const ignoredTokens = new Set([
       "questo", "questa", "quello", "quella", "anche", "della", "delle",
@@ -2568,13 +2578,12 @@ async function dataForSeoUsage() {
   }
 }
 
-async function assertDataForSeoBudget() {
+async function dataForSeoBudgetStatus() {
   const usage = await dataForSeoUsage();
   const budget = Number(process.env.DATAFORSEO_MONTHLY_BUDGET_USD || 25);
   if (!Number.isFinite(budget) || budget < 0)
     throw new Error("DATAFORSEO_MONTHLY_BUDGET_USD non è valido");
-  if (budget > 0 && usage.cost >= budget)
-    throw new Error(`Budget DataForSEO mensile di $${budget.toFixed(2)} raggiunto`);
+  // Reading an exhausted budget is allowed. Paid reservations still enforce it.
   return { usage, budget };
 }
 
@@ -2656,7 +2665,7 @@ async function dataForSeoCall(endpoint, payload, externalSignal) {
 
 app.get("/api/dataforseo/status", async (_req, res) => {
   try {
-    const { usage, budget } = await assertDataForSeoBudget();
+    const { usage, budget } = await dataForSeoBudgetStatus();
     res.json({
       configured: dataForSeoConfigured(),
       monthlyCost: usage.cost,

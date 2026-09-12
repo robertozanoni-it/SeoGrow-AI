@@ -1,3 +1,4 @@
+import { observedScoreDelta } from "./observedAuditData.js";
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
@@ -116,8 +117,8 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
     const enriched = {
       ...result,
       ...diff,
-      scoreDelta: previous?.score != null ? Number(result.score || 0) - Number(previous.score || 0) : 0,
-      hasPrevious: previous?.score != null,
+      scoreDelta: observedScoreDelta(result, previous),
+      hasPrevious: observedScoreDelta(result, previous) !== null,
     };
     writeJson(SITE_HISTORY_KEY, {
       ...current,

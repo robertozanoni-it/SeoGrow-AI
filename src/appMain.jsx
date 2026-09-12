@@ -3,20 +3,46 @@ import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './writeRecovery';
 import './locationEvents';
+import './GuidedNavigationBridge';
+import './PageRouteReconciler';
 import './seoResponseIntegrity';
+import './taskClientIdIntegrity';
 import './uiIntegrityFixes';
+import './WizardStepNavigation';
+import './AutomaticProposalNavigation';
+import './RemediationFocusReplay';
+import './PageStartHierarchy';
+import './CardWorkspaceRecovery';
+import './ExternalLinkDestinationUx';
+import './ResolvedExternalLinkStateUx';
+import './BrokenLinkCleanupChoiceUx';
+import './SharedElementorBrokenLinkUx';
+import './ProviderBudgetUx';
+import './ProposalBeforeAfterLinks';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import GuidedUxLayer from './GuidedUxLayer';
+import WizardCongruenceLayer from './WizardCongruenceLayer';
+import CardWorkspaceLayer from './CardWorkspaceLayer';
+import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProblemsNavBridge from './ProblemsNavBridge';
-import ProblemsWorkspace from './ProblemsWorkspace';
+import ProblemsWorkspaceMount from './ProblemsWorkspaceMount';
+import ProblemResolutionPage from './ProblemResolutionPage';
+import AutomaticProposalPage from './AutomaticProposalPage';
 import AuditWorkspace from './AuditWorkspace';
 import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
+import './SidebarReadabilityFix.css';
+import './CardWorkspaceVisibilityFix.css';
+import './ProjectCenterCardFlow.css';
+import './ReadableTypographyAndSidebar.css';
+import './GuidedWizardSurface.css';
+import './ExternalLinkDestinationUx.css';
+import './SidebarContrastFinal.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -46,8 +72,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <GuidedUxLayer />
+      <WizardCongruenceLayer />
+      <CardWorkspaceLayer />
+      <ProjectSelectionGuard />
       <ProblemsNavBridge />
-      <ProblemsWorkspace />
+      <ProblemsWorkspaceMount />
+      <ProblemResolutionPage />
+      <AutomaticProposalPage />
       <AuditWorkspace />
       <RemediationRuntime />
       <CorrectionsWorkspace />

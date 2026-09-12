@@ -1,0 +1,54 @@
+/* Distinguish the full guided-workflow section from the rest of each page.
+   Cards keep their blue/mint alternation; the outer wizard surface uses a
+   stronger neutral grey for clearer visual separation. */
+body[data-seogrow-ui-mode] .guided-page-wizard {
+  background: #d7dde3 !important;
+  border-color: #b4bec8 !important;
+  box-shadow: 0 10px 28px rgba(20, 42, 68, 0.065) !important;
+}
+
+body[data-seogrow-ui-mode] .guided-wizard-head,
+body[data-seogrow-ui-mode] .guided-wizard-footer,
+body[data-seogrow-ui-mode] .guided-wizard-cards {
+  background: transparent !important;
+}
+
+body[data-seogrow-ui-mode] .guided-wizard-footer {
+  border-top-color: #c0c8d0 !important;
+}
+
+body[data-seogrow-ui-mode] .guided-step-card {
+  box-shadow: none !important;
+}
+
+body[data-seogrow-ui-mode] .guided-step-card.active {
+  box-shadow: 0 0 0 2px rgba(18, 104, 243, 0.18) !important;
+}
+
+/* The page H1 and its named guided path are the only section headings before
+   operational cards. Remove the redundant “X · card operative” layer. */
+body[data-seogrow-ui-mode] .card-workspace-title {
+  display: none !important;
+}
+
+/* Dedicated proposal pages are rendered inside the same main element used by
+   the Correzioni card workspace. The card-first compatibility layer may mark
+   newly mounted siblings as original content and move them off-screen. When a
+   proposal is active it must always win over hub/detail hiding rules. */
+html body[data-seogrow-automatic-proposal="true"][data-seogrow-ui-mode="simple"] .workspace main > .automatic-proposal-page,
+html body[data-seogrow-automatic-proposal="true"][data-seogrow-ui-mode="simple"] .workspace main > .automatic-proposal-page[data-seogrow-card-original="true"] {
+  display: block !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: min(1540px, 100%) !important;
+  max-width: 1540px !important;
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 1 !important;
+}

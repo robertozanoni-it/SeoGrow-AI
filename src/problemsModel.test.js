@@ -102,16 +102,42 @@ test("task legacy senza ID cliente non viene associata per nome", () => {
   assert.equal(result.warnings.length, 1);
 });
 
-test("più link rotti sulla stessa pagina restano separati", () => {
+test("più link rotti sulla stessa pagina restano separati e mantengono pagina sorgente e target", () => {
   const result = buildUnifiedProblems({
     clientId: 1,
     siteHistory: [{
       analyzedAt: "2026-09-05T10:00:00Z",
       issues: [
-        { type: "broken-external-link", label: "Link esterno non raggiungibile (404)", url: "https://example.it/pagina", targetUrl: "https://a.example/manca", severity: "alta" },
-        { type: "broken-external-link", label: "Link esterno non raggiungibile (404)", url: "https://example.it/pagina", targetUrl: "https://b.example/manca", severity: "alta" },
+        { type: "broken-external-link", label: "Link esterno non raggiungibile (404)", sourceUrl: "https://example.it/pagina", targetUrl: "https://a.example/manca", severity: "alta", detail: "HTTP 404" },
+        { type: "broken-external-link", label: "Link esterno non raggiungibile (404)", sourceUrl: "https://example.it/pagina", targetUrl: "https://b.example/manca", severity: "alta", detail: "HTTP 404" },
       ],
     }],
   });
   assert.equal(result.rows.length, 2);
+  assert.ok(result.rows.every((row) => row.sourceUrl === "https://example.it/pagina"));
+  assert.deepEqual(result.rows.flatMap((row) => row.targetUrls).toSorted(), ["https://a.example/manca", "https://b.example/manca"]);
+  assert.ok(result.rows.every((row) => row.evidence.some((entry) => /Destinazione: https:\/\//.test(entry.detail))));
+});
+
+test("un audit più vecchio non sovrascrive gravità e dettaglio di quello più recente", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    siteHistory: [{ analyzedAt: "2026-09-05T12:00:00Z", issues: [{ type: "title", label: "Title critico", sourceUrl: "https://example.it/a/", severity: "alta", detail: "Dato recente" }] }],
+    pageHistory: [{ analyzedAt: "2026-09-05T10:00:00Z", url: "https://example.it/a/", issues: [{ type: "title", label: "Title vecchio", sourceUrl: "https://example.it/a/", severity: "bassa", detail: "Dato vecchio" }] }],
+  });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].severity, "high");
+  assert.equal(result.rows[0].title, "Title critico");
+  assert.equal(result.rows[0].detail, "Dato recente");
+});
+
+test("le pagine GDPR non entrano nel centro problemi SEO", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    siteHistory: [{ analyzedAt: "2026-09-05T12:00:00Z", issues: [
+      { type: "title", label: "Title privacy", sourceUrl: "https://example.it/privacy-policy/", severity: "alta" },
+      { type: "title", label: "Title contenuto", sourceUrl: "https://example.it/corso/", severity: "media" },
+    ] }],
+  });
+  assert.deepEqual(result.rows.map((row) => row.title), ["Title contenuto"]);
 });

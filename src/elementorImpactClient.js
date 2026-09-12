@@ -108,14 +108,20 @@ const coverageCredentialKey = (credentials) => [
   String(credentials?.username || "").trim(),
 ].join("|");
 
-export async function requestElementorCoverageAttestation(credentials) {
+const coverageDiagnosticReason = (data) =>
+  data?.error || data?.reconciliation?.reason || data?.inventory?.reason || data?.publicCoverage?.reconciliation?.reason || data?.publicCoverage?.note || "Coverage Elementor non attestabile con le prove disponibili.";
+
+async function loadElementorCoverageAttestation(credentials, { force = false } = {}) {
   const url = String(credentials?.url || "").trim();
   const username = String(credentials?.username || "").trim();
   const applicationPassword = String(credentials?.applicationPassword || "");
-  if (!url || !username || !applicationPassword) return null;
+  if (!url || !username || !applicationPassword) {
+    return { verified: false, candidateUrls: [], coverageProof: null, error: "Collega WordPress prima di verificare la coverage Elementor." };
+  }
 
   const key = coverageCredentialKey(credentials);
   const now = Date.now();
+  if (force) coverageAttestationCache.delete(key);
   const cached = coverageAttestationCache.get(key);
   if (cached && cached.expiresAt > now) return cached.promise;
 
@@ -131,14 +137,30 @@ export async function requestElementorCoverageAttestation(credentials) {
         }),
       });
       const data = await response.json();
-      if (!response.ok || data?.verified !== true) return null;
+      if (!response.ok || data?.verified !== true) {
+        return {
+          ...(data && typeof data === "object" ? data : {}),
+          verified: false,
+          candidateUrls: [],
+          coverageProof: null,
+          error: coverageDiagnosticReason(data),
+        };
+      }
       const candidateUrls = Array.isArray(data?.candidateUrls) ? data.candidateUrls : [];
       const totalUrls = Number(data?.totalUrls);
       const provenanceId = String(data?.provenanceId || "").trim();
       if (!candidateUrls.length || !Number.isSafeInteger(totalUrls) || totalUrls !== candidateUrls.length || !provenanceId) {
-        return null;
+        return {
+          ...data,
+          verified: false,
+          candidateUrls: [],
+          coverageProof: null,
+          error: "Attestazione Elementor ricevuta ma set URL/provenienza non coerenti.",
+        };
       }
       return {
+        ...data,
+        verified: true,
         candidateUrls,
         coverageProof: {
           source: "verified-complete-crawl",
@@ -148,14 +170,34 @@ export async function requestElementorCoverageAttestation(credentials) {
           provenanceId,
         },
         expiresAt: Number(data?.expiresAt) || 0,
+        error: "",
       };
-    } catch {
-      return null;
+    } catch (error) {
+      return {
+        verified: false,
+        candidateUrls: [],
+        coverageProof: null,
+        error: error instanceof Error ? error.message : "Coverage Elementor non disponibile.",
+      };
     }
   })();
 
   coverageAttestationCache.set(key, { promise, expiresAt: now + COVERAGE_ATTESTATION_TTL_MS });
   return promise;
+}
+
+export async function inspectElementorCoverageAttestation(credentials, options = {}) {
+  return loadElementorCoverageAttestation(credentials, options);
+}
+
+export async function requestElementorCoverageAttestation(credentials, options = {}) {
+  const diagnostic = await loadElementorCoverageAttestation(credentials, options);
+  if (diagnostic?.verified !== true) return null;
+  return {
+    candidateUrls: diagnostic.candidateUrls,
+    coverageProof: diagnostic.coverageProof,
+    expiresAt: diagnostic.expiresAt,
+  };
 }
 
 export async function requestElementorReferenceImpact(credentials) {

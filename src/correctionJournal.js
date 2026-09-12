@@ -1,5 +1,9 @@
 import { saveCorrection } from "./remediationStore.js";
 
+const stableValue = value => JSON.stringify(value, (_key, item) =>
+  item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
+
 export async function applyJournaledCorrection(record, write, persist = saveCorrection) {
   if (!record?.id || !record.fields?.length || record.fields.some(field =>
     record.before?.[field] === undefined || record.after?.[field] === undefined)) {
@@ -16,13 +20,21 @@ export async function applyJournaledCorrection(record, write, persist = saveCorr
   });
   try {
     const patch = await write();
-    if (record.fields.some(field => (patch?.before || record.before)?.[field] === undefined ||
-      (patch?.after || record.after)?.[field] === undefined)) {
-      throw new Error("Risposta WordPress incompleta: snapshot iniziale conservato.");
+    if (record.fields.some(field => !Object.hasOwn(patch?.before || {}, field) || !Object.hasOwn(patch?.after || {}, field) ||
+      stableValue(patch.before[field]) !== stableValue(record.before[field]) ||
+      stableValue(patch.after[field]) !== stableValue(record.after[field]))) {
+      throw new Error("Risposta WordPress incompleta o diversa dall'anteprima approvata: snapshot iniziale conservato.");
     }
-    return await persist({ ...record, ...patch, id: record.id, clientId: record.clientId, status: "Da verificare", writeConfirmed: true });
+    return await persist({ ...record, ...patch, id: record.id, clientId: record.clientId, status: "Da verificare", writeConfirmed: true,
+      frontendConfirmed: false, verifiedAt: "" });
   } catch (cause) {
-    if (["ATOMIC_WRITE_UNAVAILABLE", "STALE_CONFLICT", "STALE_PREVIEW", "EXPECTED_CURRENT_REQUIRED"].includes(cause.code)) {
+    if ([
+      "ATOMIC_WRITE_UNAVAILABLE",
+      "STALE_CONFLICT",
+      "STALE_PREVIEW",
+      "EXPECTED_CURRENT_REQUIRED",
+      "SHARED_LINK_FRONTEND_ROLLED_BACK",
+    ].includes(cause.code)) {
       await persist({ ...record, status: "Bloccato", writeConfirmed: false, frontendConfirmed: false, verificationNote: cause.message });
       throw new Error(cause.message, { cause });
     }

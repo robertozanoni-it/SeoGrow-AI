@@ -16,6 +16,8 @@ export function rollbackRequest(record, { username = "", applicationPassword = "
   return {
     siteUrl: record?.siteUrl || record?.sourceUrl || "",
     targetUrl: record?.sourceUrl || "",
+    brokenTargetUrl: record?.brokenTargetUrl || record?.linkCleanup?.targetUrl || "",
+    cleanupMode: record?.cleanupMode || record?.linkCleanup?.action || "",
     username: username || record?.username || "",
     applicationPassword,
     resource: record?.resource || record?.wordpressResource || "",

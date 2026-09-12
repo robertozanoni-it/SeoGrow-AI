@@ -1,5 +1,8 @@
+import { coverageIdentityUrl, verifiedCoverageRedirects } from "./elementorCoverageRedirects.js";
+
 const MAX_AUTHORITATIVE_RESOURCES = 2000;
 const ALLOWED_STATUSES = new Set(["publish"]);
+const NON_PUBLIC_FRONTEND_POST_TYPES = new Set(["elementor_library", "e-floating-buttons", "attachment"]);
 
 const normalizedHost = (hostname) => String(hostname || "").toLowerCase().replace(/^www\./, "");
 
@@ -16,6 +19,10 @@ function normalizePublicUrl(value, siteUrl) {
   }
 }
 
+function comparisonKey(value, siteUrl) {
+  return coverageIdentityUrl(value, siteUrl);
+}
+
 function safePositiveInt(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : null;
@@ -29,6 +36,11 @@ function normalizeResource(item, siteUrl) {
   const url = normalizePublicUrl(item.url, siteUrl);
   if (!id || !postType || !ALLOWED_STATUSES.has(status) || !url) return null;
   return { id, postType, status, url };
+}
+
+export function coverageRelevantInventoryResources(inventory) {
+  return (Array.isArray(inventory?.resources) ? inventory.resources : [])
+    .filter((item) => item && !NON_PUBLIC_FRONTEND_POST_TYPES.has(String(item.postType || "").toLowerCase()));
 }
 
 export function validateAuthoritativeWordPressInventory(payload, { siteUrl, maxResources = MAX_AUTHORITATIVE_RESOURCES } = {}) {
@@ -124,41 +136,80 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
     return {
       verified: false,
       status: "evidence-incomplete",
-      reason: "Servono sia inventario WordPress autorevole sia coverage pubblica riconciliata.",
+      reason: inventory?.verified !== true
+        ? `Inventario WordPress non verificato: ${inventory?.reason || "evidenza assente"}`
+        : `Coverage pubblica non verificata: ${publicCoverage?.reconciliation?.reason || publicCoverage?.note || "evidenza assente"}${
+          (publicCoverage?.failures || []).slice(0, 3).map((failure) => ` ${failure.url}: ${failure.reason}`).join("")
+        }`,
       publicUrlsOutsideInventory: [],
       inventoryUrlsMissingFromPublicCoverage: [],
       sharedWriteAllowed: false,
     };
   }
 
-  const inventoryUrls = new Set((inventory.resources || []).map((item) => item.url));
-  const publicUrls = new Set(Array.isArray(publicCoverage.sitemapUrls) ? publicCoverage.sitemapUrls : []);
-  const publicUrlsOutsideInventory = [...publicUrls].filter((url) => !inventoryUrls.has(url)).toSorted();
-  const inventoryUrlsMissingFromPublicCoverage = [...inventoryUrls].filter((url) => !publicUrls.has(url)).toSorted();
-  const exactMatch = publicUrlsOutsideInventory.length === 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+  const siteUrl = publicCoverage?.siteUrl || inventory?.resources?.[0]?.url || "";
+  const relevantResources = coverageRelevantInventoryResources(inventory);
+  const inventoryByKey = new Map(relevantResources.map((item) => [comparisonKey(item.url, siteUrl), item.url]));
+  const coverageSource = Array.isArray(publicCoverage.coverageUrls)
+    ? publicCoverage.coverageUrls
+    : Array.isArray(publicCoverage.crawledUrls)
+      ? publicCoverage.crawledUrls
+      : Array.isArray(publicCoverage.sitemapUrls)
+        ? publicCoverage.sitemapUrls
+        : [];
+  const publicByKey = new Map(coverageSource.map((url) => [comparisonKey(url, siteUrl), url]));
 
-  let status = "verified-complete";
-  let reason = "Inventario WordPress autorevole e coverage pubblica coincidono esattamente.";
-  if (publicUrlsOutsideInventory.length > 0) {
-    status = "public-routes-outside-post-type-inventory";
-    reason = "La coverage pubblica contiene URL che non appartengono all’inventario dei post type pubblici/queryable. Possono includere tassonomie, archivi o route custom: la completezza globale resta non attestabile.";
-  } else if (inventoryUrlsMissingFromPublicCoverage.length > 0) {
-    status = "inventory-routes-missing-from-public-coverage";
-    reason = "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica riconciliata.";
+  const aliases = verifiedCoverageRedirects(publicCoverage, siteUrl);
+  const inventoryRedirectsVerified = [];
+  const resolvedInventoryKeys = new Set(inventoryByKey.keys());
+  for (const [key] of inventoryByKey) {
+    if (publicByKey.has(key)) continue;
+    const alias = aliases.get(key);
+    if (!alias || !publicByKey.has(alias.finalUrl)) continue;
+    resolvedInventoryKeys.add(alias.finalUrl);
+    inventoryRedirectsVerified.push(alias);
+  }
+  const publicUrlsOutsideInventory = [...publicByKey.entries()]
+    .filter(([key]) => key && !resolvedInventoryKeys.has(key))
+    .map(([, url]) => url)
+    .toSorted();
+  const inventoryUrlsMissingFromPublicCoverage = [...inventoryByKey.entries()]
+    .filter(([key]) => key && !publicByKey.has(key) && !inventoryRedirectsVerified.some((alias) => alias.requestedUrl === key))
+    .map(([, url]) => url)
+    .toSorted();
+
+  const invalidUrlEvidence = inventoryByKey.has("") || publicByKey.has("");
+  const verified = !invalidUrlEvidence && publicByKey.size > 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+
+  let status = verified ? "verified-complete" : "inventory-routes-missing-from-public-coverage";
+  let reason = verified
+    ? "Inventario WordPress rilevante per il frontend e coverage pubblica ispezionata sono riconciliati."
+    : `URL WordPress senza pagina HTML ispezionata o redirect verificato (${inventoryUrlsMissingFromPublicCoverage.length}): ${inventoryUrlsMissingFromPublicCoverage.slice(0, 5).join(", ")}`;
+  if (invalidUrlEvidence) {
+    status = "invalid-coverage-url";
+    reason = "Inventario o coverage contengono URL non valide per il sito: attestazione bloccata.";
+  }
+  if (verified && publicUrlsOutsideInventory.length > 0) {
+    status = "verified-public-superset";
+    reason = "La coverage pubblica verificata include anche route non appartenenti ai contenuti WordPress frontend o pagine HTML aggiuntive scoperte dal crawl. Sono già comprese nel set controllato.";
   }
 
   return {
-    verified: exactMatch,
+    verified,
     status,
     reason,
-    totalUrls: inventoryUrls.size,
-    publicUrlCount: publicUrls.size,
+    totalUrls: publicByKey.size,
+    publicUrlCount: publicByKey.size,
     publicUrlsOutsideInventory,
     inventoryUrlsMissingFromPublicCoverage,
+    inventoryRedirectsVerified,
+    excludedInventoryPostTypes: [...NON_PUBLIC_FRONTEND_POST_TYPES].toSorted(),
+    relevantInventoryResources: relevantResources.length,
     scope: {
-      inventory: "all-public-queryable-post-types",
-      publicCoverage: "sitemap-and-crawl-public-routes",
-      globallyComplete: exactMatch,
+      inventory: "public-frontend-content-resources",
+      publicCoverage: "sitemap-and-recursive-html-crawl-public-routes",
+      globallyComplete: verified,
+      publicSuperset: publicUrlsOutsideInventory.length > 0,
     },
     sharedWriteAllowed: false,
   };

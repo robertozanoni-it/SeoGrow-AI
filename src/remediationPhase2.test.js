@@ -13,8 +13,10 @@ const store = await readFile(new URL("./remediationStore.js", import.meta.url), 
 
 test("bulk preview V2 lavora sui soli problemi attivi e non sull'intero storico audit", () => {
   assert.match(live, /const activeIssues = issues\.filter/);
-  assert.match(live, /const selected = all \? context\.activeIssues/);
-  assert.doesNotMatch(live, /const selected = all \? context\.issues/);
+  assert.match(live, /selected = all \? context\.activeIssues\.slice\(0, AUTO_FIX_LIMIT\)/);
+  assert.doesNotMatch(live, /selected = all \? context\.issues/);
+  assert.match(live, /explicitItem\?\.issue/);
+  assert.match(live, /selected = context\.activeIssues\.filter/);
 });
 
 test("il bulk live non transazionale è stato sostituito da approvazione singola", () => {
