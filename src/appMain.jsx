@@ -12,6 +12,7 @@ import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
 import './RemediationFocusReplay';
 import './PageStartHierarchy';
+import './CardWorkspaceRecovery';
 import './ExternalLinkDestinationUx';
 import './BrokenLinkCleanupChoiceUx';
 import './SharedElementorBrokenLinkUx';
