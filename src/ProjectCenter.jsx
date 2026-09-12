@@ -4,19 +4,25 @@ import AutoFixPanel from "./AutoFixPanel.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
 import { useEffect, useRef, useState } from "react";
 import {
+  Activity,
   ArrowLeft,
+  BarChart3,
   BookOpen,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  ExternalLink,
   Clock3,
   FileText,
   FlaskConical,
+  Globe2,
   ScanSearch,
+  Settings,
   Target,
 } from "lucide-react";
 import { reportSections, reportTemplate } from "./projectPlanning.js";
 import "./ProjectCenterCards.css";
+import "./ProjectCenterReference.css";
 
 const validDate = (value) => {
   if (!value) return "";
@@ -48,6 +54,20 @@ const isElementorQaProject = (url) => {
   } catch {
     return false;
   }
+};
+
+const formatMetric = (value) => Number.isFinite(Number(value)) ? new Intl.NumberFormat("it-IT").format(Number(value)) : "—";
+const trendPoints = (rows = []) => {
+  const values = rows.map((row) => Number(row.clicks || row.impressions || 0)).filter(Number.isFinite);
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(1, max - min);
+  return values.map((value, index) => {
+    const x = (index / (values.length - 1)) * 100;
+    const y = 36 - ((value - min) / span) * 30;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
 };
 
 const statusFromMonitor = (record, enabled) => {
@@ -274,50 +294,66 @@ export default function ProjectCenter({
     });
   };
 
+  const score = Number.isFinite(Number(analysis?.score)) ? Number(analysis.score) : null;
+  const top10 = (dataset?.queries || []).filter((row) => Number(row.position) > 0 && Number(row.position) <= 10).length;
+  const criticalIssues = issues.filter((issue) => String(issue.severity || "").toLowerCase() === "high").length;
+  const contentIssues = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue.type || ""} ${issue.label || ""}`)).length;
+  const topPages = [...(dataset?.pages || [])].toSorted((a, b) => Number(b.clicks || 0) - Number(a.clicks || 0)).slice(0, 5);
+  const trend = trendPoints(dataset?.graph || []);
+  const projectActions = [
+    criticalIssues ? { title: `Correggi ${criticalIssues} problemi critici`, detail: `${issues.length} problemi nell’ultimo audit`, page: "Problemi", level: "Alto" } : null,
+    top10 ? { title: `Monitora ${top10} keyword in Top 10`, detail: `${dataset?.queries?.length || 0} keyword importate`, page: "Posizionamenti", level: "Medio" } : null,
+    contentIssues ? { title: `Migliora ${contentIssues} contenuti`, detail: "Problemi editoriali o on-page rilevati", page: "Piano editoriale", level: "Medio" } : null,
+    !dataset ? { title: "Collega Search Console", detail: "Importa query, pagine e andamento organico", page: "Integrazioni", level: "Alto" } : null,
+    !verified ? { title: "Verifica WordPress", detail: "Controlla la connessione prima delle correzioni", page: "Integrazioni", level: "Basso" } : null,
+  ].filter(Boolean).slice(0, 5);
+  const activity = [
+    analysis?.analyzedAt && { label: "Audit completato", date: analysis.analyzedAt, Icon: ScanSearch },
+    dataset?.importedAt && { label: "Dati Search Console aggiornati", date: dataset.importedAt, Icon: BarChart3 },
+    currentConnection?.verifiedAt && { label: "WordPress verificato", date: currentConnection.verifiedAt, Icon: CheckCircle2 },
+    settings.report?.updatedAt && { label: "Report aggiornato", date: settings.report.updatedAt, Icon: FileText },
+  ].filter(Boolean).toSorted((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 5);
+
   return (
     <>
-      <div className="page-title">
-        <div>
-          <h1>Centro progetto — {client.name}</h1>
-          <p>Apri una card alla volta. Ogni sezione mostra informazioni, stato e soluzioni nello stesso spazio.</p>
-        </div>
-      </div>
-
-      <section className="project-center-card-hub" aria-labelledby="project-center-card-hub-title">
-        <div className="project-center-card-hub-head">
-          <div>
-            <h2 id="project-center-card-hub-title">Sezioni del progetto</h2>
-            <p>Non devi più scorrere tutti i pannelli. Ogni card apre una sola pagina operativa con le informazioni relative.</p>
-          </div>
-          <span>{areas.length} sezioni</span>
-        </div>
-        <div className="project-center-section-grid">
-          {areas.map((area, index) => {
-            const Icon = area.Icon;
-            return (
-              <button
-                type="button"
-                key={area.id}
-                className={`project-center-section-card tone-${index % 2 ? "mint" : "blue"}`}
-                onClick={() => openArea(area.id)}
-                aria-controls="project-center-detail"
-              >
-                <span className="project-center-card-top">
-                  <span className="project-center-card-number">{index + 1}</span>
-                  <span className="project-center-card-icon"><Icon /></span>
-                </span>
-                <span className="project-center-card-date"><CalendarDays /> {formatDate(area.date)}</span>
-                <h3>{area.title}</h3>
-                <p>{area.summary}</p>
-                <span className="project-center-card-foot">
-                  <span className={`project-center-card-status ${area.positive ? "ok" : ""}`}>{area.positive && <CheckCircle2 />}{area.status}</span>
-                  <span className="project-center-card-open">Apri <ChevronRight /></span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <section className="reference-project-identity">
+        <div className="reference-project-mark"><img src="/favicon.svg" alt="" aria-hidden="true" /></div>
+        <div className="reference-project-title"><span>Centro progetto</span><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}<ExternalLink /></a><p>{objective.trim() || "Definisci l’obiettivo principale del progetto per mantenere allineate analisi e azioni."}</p></div>
+        <div className="reference-project-controls"><span className="reference-project-active"><i /> Attivo</span><a className="secondary" href={client.url} target="_blank" rel="noreferrer"><Globe2 /> Visita sito</a><button className="secondary" onClick={() => openArea("setup")}><Settings /> Impostazioni progetto</button><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Nuovo audit</button></div>
       </section>
+
+      <section className="reference-project-kpis">
+        <article className="score"><div className="reference-project-score-ring"><strong>{score ?? "—"}</strong><small>{score != null ? "/100" : ""}</small></div><span><small>SEO Score</small><strong>{score == null ? "Da analizzare" : score >= 80 ? "Ottimo" : score >= 60 ? "Da migliorare" : "Prioritario"}</strong><em>{analysis ? `Ultimo audit ${formatDate(analysis.analyzedAt || analysis.startedAt)}` : "Nessun audit disponibile"}</em></span></article>
+        <article><BarChart3 /><span><small>Keyword in Top 10</small><strong>{top10}</strong><em>su {dataset?.queries?.length || 0} monitorate</em></span></article>
+        <article><Activity /><span><small>Traffico organico</small><strong>{dataset ? formatMetric(dataset.totals?.clicks) : "—"}</strong><em>{dataset ? "Click nel periodo Search Console" : "Search Console da collegare"}</em></span></article>
+        <article><Target /><span><small>Problemi critici</small><strong>{criticalIssues}</strong><em>su {issues.length} totali</em></span></article>
+        <article><FileText /><span><small>Contenuti da migliorare</small><strong>{contentIssues}</strong><em>segnali on-page/editoriali</em></span></article>
+      </section>
+
+      <nav className="reference-project-tabs" aria-label="Aree del progetto">
+        {["Panoramica", "Problemi", "Posizionamenti", "Piano editoriale", "Link interni", "Audit SEO", "Storico"].map((label, index) => <button type="button" className={index === 0 ? "active" : ""} key={label} onClick={() => label !== "Panoramica" && onNavigate(label)}>{label}</button>)}
+      </nav>
+
+      <section className="reference-project-main-grid">
+        <article className="reference-project-status-panel"><header><h2>Stato del progetto</h2><span>{setupCompleted === 4 ? "Sito analizzato" : `${setupCompleted}/4 configurato`}</span></header><div><CheckCircle2 className={verified ? "ok" : "pending"}/><span>Connessione WordPress</span><strong>{verified ? "Attiva" : "Da verificare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Search Console</span><strong>{dataset ? "Collegata" : "Da collegare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Dati keyword</span><strong>{dataset ? "Aggiornati" : "Non disponibili"}</strong></div><div><CheckCircle2 className={analysis ? "ok" : "pending"}/><span>Ultimo audit</span><strong>{analysis ? formatDate(analysis.analyzedAt || analysis.startedAt) : "Da eseguire"}</strong></div><footer><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Esegui nuovo audit</button><button className="secondary" onClick={() => onNavigate("Storico")}><Clock3 /> Vedi storico</button></footer></article>
+        <article className="reference-project-trend"><header><h2>Andamento SEO</h2><span>{dataset?.graph?.length ? `${dataset.graph.length} giorni` : "Dati non disponibili"}</span></header>{trend ? <div className="reference-project-trend-chart"><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="Andamento dei clic Search Console"><polyline points={trend} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg><div className="reference-project-chart-grid" /></div> : <div className="reference-project-empty-chart"><BarChart3 /><span>Importa Search Console per vedere l’andamento.</span></div>}</article>
+        <article className="reference-project-actions"><header><h2>Prossime azioni</h2><button onClick={() => onNavigate("Task")}>Vedi tutte →</button></header>{projectActions.length ? projectActions.map((item, index) => <button key={item.title} onClick={() => onNavigate(item.page)}><b>{index + 1}</b><span><strong>{item.title}</strong><small>{item.detail}</small></span><em className={item.level.toLowerCase()}>{item.level}</em></button>) : <div className="reference-project-no-actions"><CheckCircle2 /><span><strong>Nessuna urgenza</strong><small>Il progetto non presenta azioni prioritarie nei dati disponibili.</small></span></div>}</article>
+      </section>
+
+      <section className="reference-project-secondary-grid">
+        <article className="reference-project-pages"><header><h2>Pagine principali</h2><button onClick={() => onNavigate("Posizionamenti")}>Vedi tutte →</button></header>{topPages.length ? <div className="reference-project-pages-table"><div className="head"><span>URL</span><span>Posizione</span><span>Click</span></div>{topPages.map((row) => <a href={row.dimension} target="_blank" rel="noreferrer" key={row.dimension}><span>{new URL(row.dimension).pathname || "/"}<small>{row.dimension.replace(/^https?:\/\//, "")}</small></span><strong>{Number(row.position || 0).toFixed(1)}</strong><b>{formatMetric(row.clicks)}</b></a>)}</div> : <p className="reference-project-muted">Nessuna pagina Search Console disponibile.</p>}</article>
+        <article className="reference-project-activity"><header><h2>Ultime attività</h2><button onClick={() => onNavigate("Storico")}>Vedi tutte →</button></header>{activity.length ? activity.map(({ label, date, Icon }) => <div key={`${label}-${date}`}><span><Icon /></span><p><strong>{label}</strong><small>{formatDate(date)}</small></p></div>) : <p className="reference-project-muted">Le attività del progetto compariranno qui.</p>}</article>
+        <article className="reference-project-growth"><Target /><h2>Il tuo progetto cresce con dati e azioni verificabili.</h2><p>Usa audit, opportunità, correzioni e monitoraggio nello stesso flusso.</p><button className="primary" onClick={() => onNavigate("Opportunità")}>Vedi opportunità →</button></article>
+      </section>
+
+      <details className="reference-project-operations">
+        <summary>Gestione operativa avanzata</summary>
+        <p>Configurazione, remediation, monitoraggio, report e strumenti tecnici già presenti nel progetto.</p>
+        <section className="project-center-card-hub" aria-labelledby="project-center-card-hub-title">
+          <div className="project-center-card-hub-head"><div><h2 id="project-center-card-hub-title">Sezioni operative</h2><p>Apri una funzione tecnica senza perdere il contesto del progetto.</p></div><span>{areas.length} sezioni</span></div>
+          <div className="project-center-section-grid">{areas.map((area, index) => { const Icon = area.Icon; return <button type="button" key={area.id} className={`project-center-section-card tone-${index % 2 ? "mint" : "blue"}`} onClick={() => openArea(area.id)} aria-controls="project-center-detail"><span className="project-center-card-top"><span className="project-center-card-number">{index + 1}</span><span className="project-center-card-icon"><Icon /></span></span><span className="project-center-card-date"><CalendarDays /> {formatDate(area.date)}</span><h3>{area.title}</h3><p>{area.summary}</p><span className="project-center-card-foot"><span className={`project-center-card-status ${area.positive ? "ok" : ""}`}>{area.positive && <CheckCircle2 />}{area.status}</span><span className="project-center-card-open">Apri <ChevronRight /></span></span></button>; })}</div>
+        </section>
+      </details>
 
       <section
         id="project-center-detail"
