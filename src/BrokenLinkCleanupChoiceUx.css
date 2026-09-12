@@ -1,0 +1,44 @@
+.seogrow-link-cleanup-choice {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #d8e2ef;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.seogrow-link-cleanup-choice > h4 {
+  margin: 0 0 6px;
+  color: #102743;
+  font-size: 16px;
+}
+
+.seogrow-link-cleanup-choice > p {
+  margin: 0;
+  color: #52657c;
+  line-height: 1.5;
+}
+
+.seogrow-link-cleanup-actions {
+  margin-top: 12px;
+}
+
+.seogrow-link-cleanup-actions button[aria-pressed="true"] {
+  outline: 3px solid rgba(53, 107, 178, 0.18);
+  outline-offset: 2px;
+}
+
+.seogrow-link-cleanup-warning {
+  margin-top: 12px !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7e8;
+  color: #7b5310 !important;
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  .seogrow-link-cleanup-actions,
+  .seogrow-link-cleanup-actions button {
+    width: 100%;
+  }
+}
