@@ -32,6 +32,7 @@ import {
 } from "./reliabilityModel";
 import "./ProblemsWorkspace.css";
 import "./ProblemsWorkspaceRuntime.css";
+import "./ProblemsReference.css";
 
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
@@ -453,28 +454,33 @@ export default function ProblemsWorkspace() {
   if (!active || !mainTarget) return null;
 
   const content = !selectedClientId || !client ? (
-    <div className="problems-workspace-root">
+    <div className="problems-workspace-root reference-problems-page">
       <div className="page-title problems-title"><div><span className="problems-eyebrow">Centro operativo</span><h1>Problemi</h1><p>Seleziona un progetto valido per leggere audit, task e correzioni.</p></div></div>
       <section className="panel problems-blocking-state" role="alert"><AlertTriangle /><div><h2>Nessun progetto valido selezionato</h2><p>SeoGrow non seleziona automaticamente il primo cliente quando l’identità del progetto è ambigua. Torna a Clienti e seleziona esplicitamente il progetto.</p></div></section>
     </div>
   ) : (
-    <div className="problems-workspace-root">
-      <div className="page-title problems-title">
-        <div>
-          <span className="problems-eyebrow">Centro operativo</span>
-          <h1>Problemi — {client.name}</h1>
-          <p>Una sola lista operativa con stato del problema, stato dell’intervento, correggibilità, prova e freschezza.</p>
-        </div>
-        <div className="problems-view-toggle" aria-label="Tipo di visualizzazione">
-          <button aria-pressed={view === "compact"} className={view === "compact" ? "active" : ""} onClick={() => setView("compact")}><LayoutList /> Compatta</button>
-          <button aria-pressed={view === "detailed"} className={view === "detailed" ? "active" : ""} onClick={() => setView("detailed")}><ListTree /> Dettagliata</button>
-        </div>
+    <div className="problems-workspace-root reference-problems-page">
+      <section className="reference-problems-project">
+        <div className="reference-problems-mark"><img src="/favicon.svg" alt="" aria-hidden="true" /></div>
+        <div><small>Centro progetto · Problemi</small><h1>{client.name}</h1><a href={safeHttpHref(client.url)} target="_blank" rel="noopener noreferrer">{client.url}<ExternalLink /></a><p>Tutti i problemi rilevati sul sito, ordinati per priorità e stato operativo.</p></div>
+        <div className="reference-problems-project-actions"><span><i /> Attivo</span><a className="secondary" href={safeHttpHref(client.url)} target="_blank" rel="noopener noreferrer">Visita sito <ExternalLink /></a><button className="primary" onClick={() => navigate("Audit SEO")}><CircleGauge /> Nuovo audit</button></div>
+      </section>
+      <div className="page-title problems-title reference-problems-title">
+        <div><h1>Problemi</h1><p>Seleziona uno o più elementi per analizzarli, correggerli e verificarli.</p></div>
+        <div className="problems-view-toggle" aria-label="Tipo di visualizzazione"><button aria-pressed={view === "compact"} className={view === "compact" ? "active" : ""} onClick={() => setView("compact")}><LayoutList /> Compatta</button><button aria-pressed={view === "detailed"} className={view === "detailed" ? "active" : ""} onClick={() => setView("detailed")}><ListTree /> Dettagliata</button></div>
       </div>
 
       <section className="problems-coverage" aria-label="Copertura audit">
         <div><small>Ultimo crawl sito</small><strong>{model.coverage?.siteAuditAt ? formatDate(model.coverage.siteAuditAt) : "Non disponibile"}</strong><span>{model.coverage?.sitePages ?? "—"} pagine</span></div>
         <div><small>Audit pagina conservati</small><strong>{model.coverage?.pageAudits || 0}</strong><span>non sostituiscono il crawl sito</span></div>
         <div><small>Storico correzioni</small><strong>{correctionsState.loading ? "…" : corrections.length}</strong><span>fonte: IndexedDB</span></div>
+      </section>
+
+      <section className="reference-problems-kpis" aria-label="Riepilogo problemi">
+        <article className="critical"><AlertTriangle /><span><strong>{counts.high}</strong><b>Critici</b><small>Richiedono maggiore attenzione</small></span></article>
+        <article className="open"><CircleGauge /><span><strong>{counts.active}</strong><b>Da risolvere</b><small>Problemi ancora aperti</small></span></article>
+        <article className="verify"><ShieldCheck /><span><strong>{counts.verify}</strong><b>Da verificare</b><small>Correzioni o segnali da confermare</small></span></article>
+        <article className="resolved"><CheckCircle2 /><span><strong>{counts.resolved}</strong><b>Risolti</b><small>Con verifica disponibile</small></span></article>
       </section>
 
       {(storeErrors.length > 0 || correctionsState.error || model.warnings.length > 0) && (
@@ -492,6 +498,7 @@ export default function ProblemsWorkspace() {
         <button aria-pressed={filters.state === "all"} onClick={() => setFilters((value) => ({ ...value, state: "all", severity: "", special: "" }))}><strong>{rows.length}</strong><span>Tutti</span></button>
       </section>
 
+      <div className="reference-problems-layout"><div className="reference-problems-main">
       <section className="panel problems-filters" aria-label="Filtri avanzati">
         <label className="problem-search"><span><Search /> Cerca URL o problema</span><input value={filters.query} onChange={(event) => setFilters((value) => ({ ...value, query: event.target.value }))} placeholder="Es. canonical, /yoga-blog/…" /></label>
         <label><span>Tipo</span><select value={filters.type} onChange={(event) => setFilters((value) => ({ ...value, type: event.target.value }))}><option value="">Tutti</option>{typeOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -533,6 +540,12 @@ export default function ProblemsWorkspace() {
           <div className="problems-empty"><CheckCircle2 /><h2>Nessun problema in questo filtro</h2><p>Cambia filtro oppure esegui un nuovo audit per aggiornare la situazione.</p><button className="secondary" onClick={() => navigate("Audit SEO")}><CircleGauge /> Apri Audit SEO</button></div>
         )}
       </section>
+      </div>
+      <aside className="reference-problems-aside">
+        <section><h2>Stato generale</h2><div className="reference-problems-ring"><strong>{counts.active}</strong><small>aperti</small></div><p>{counts.resolved} risolti · {counts.verify} da verificare</p></section>
+        <section><h2>Distribuzione problemi</h2><div className="reference-problem-bars"><p><span>Alta gravità</span><i><b style={{ width: `${rows.length ? Math.round((counts.high / rows.length) * 100) : 0}%` }} /></i><strong>{counts.high}</strong></p><p><span>Aperti</span><i><b style={{ width: `${rows.length ? Math.round((counts.active / rows.length) * 100) : 0}%` }} /></i><strong>{counts.active}</strong></p><p><span>Da verificare</span><i><b style={{ width: `${rows.length ? Math.round((counts.verify / rows.length) * 100) : 0}%` }} /></i><strong>{counts.verify}</strong></p><p><span>Risolti</span><i><b style={{ width: `${rows.length ? Math.round((counts.resolved / rows.length) * 100) : 0}%` }} /></i><strong>{counts.resolved}</strong></p></div></section>
+        <section className="reference-problems-tip"><Sparkles /><h2>Suggerimento</h2><p>Affronta prima i problemi ad alta gravità e usa la correzione batch soltanto sui target compatibili e verificabili.</p><button onClick={() => setFilters((value) => ({ ...value, state: "active", severity: "high", special: "" }))}>Mostra critici →</button></section>
+      </aside></div>
 
       <ProblemDrawer
         problem={selected}

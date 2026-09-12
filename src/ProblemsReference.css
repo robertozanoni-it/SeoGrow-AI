@@ -1,0 +1,134 @@
+.reference-problems-page { display: grid; gap: 14px; }
+.reference-problems-project {
+  display: grid;
+  grid-template-columns: 78px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+.reference-problems-mark { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(145deg,#061632,#123e78); box-shadow: 0 10px 28px rgba(12,50,100,.15); }
+.reference-problems-mark img { width: 50px; height: 50px; }
+.reference-problems-project > div:nth-child(2) small { color: #7486a0; font-weight: 800; }
+.reference-problems-project h1 { margin: 3px 0 4px; color: #07183d; font-size: 32px !important; }
+.reference-problems-project a { display: inline-flex; align-items: center; gap: 5px; color: #0862ee; text-decoration: none; }
+.reference-problems-project a svg { width: 14px; height: 14px; }
+.reference-problems-project p { margin: 7px 0 0; color: #637895; }
+.reference-problems-project-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reference-problems-project-actions > span { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; color: #087f49; background: #e7faef; font-weight: 850; }
+.reference-problems-project-actions > span i { width: 8px; height: 8px; border-radius: 50%; background: #0fac61; }
+.reference-problems-project-actions :where(a,button) { min-height: 40px; }
+.reference-problems-title { margin: 0 !important; align-items: center; }
+.reference-problems-title h1 { margin-bottom: 2px !important; }
+.reference-problems-title p { margin: 0; }
+.reference-problems-title .problems-view-toggle { margin-left: auto; }
+.reference-problems-page .problems-coverage { margin: 0; border: 1px solid #e2eaf4; border-radius: 12px; background: #f8fbff; }
+.reference-problems-page .problems-coverage > div { background: transparent; }
+.reference-problems-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.reference-problems-kpis article { min-height: 104px; display: flex; align-items: center; gap: 13px; padding: 15px; border: 1px solid #dce6f2; border-radius: 14px; background: #fff; }
+.reference-problems-kpis article > svg { flex: 0 0 48px; width: 48px; height: 48px; padding: 12px; border-radius: 13px; }
+.reference-problems-kpis article.critical > svg { color: #ed3856; background: #fff0f3; }
+.reference-problems-kpis article.open > svg { color: #f1a009; background: #fff6e6; }
+.reference-problems-kpis article.verify > svg { color: #1782f7; background: #edf6ff; }
+.reference-problems-kpis article.resolved > svg { color: #0ba961; background: #e9faf2; }
+.reference-problems-kpis article span { display: grid; gap: 2px; }
+.reference-problems-kpis article strong { color: #07183d; font-size: 27px !important; line-height: 1; }
+.reference-problems-kpis article b { color: #263e68; font-size: 12px !important; }
+.reference-problems-kpis article small { color: #74869e; font-size: 10px !important; }
+.reference-problems-page .problems-overview { min-height: 48px; display: flex; align-items: end; gap: 6px; padding: 0 10px; border: 1px solid #dfe7f2; border-radius: 12px; background: #fff; overflow-x: auto; }
+.reference-problems-page .problems-overview button { min-height: 46px; display: inline-flex; align-items: center; gap: 7px; padding: 0 13px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: #536986; }
+.reference-problems-page .problems-overview button[aria-pressed="true"] { border-bottom-color: #126df7; color: #075de1; background: transparent; }
+.reference-problems-page .problems-overview button strong { font-size: 13px !important; }
+.reference-problems-page .problems-overview button span { font-size: 11px !important; font-weight: 750; }
+.reference-problems-layout { display: grid; grid-template-columns: minmax(0,1fr) 270px; gap: 14px; align-items: start; }
+.reference-problems-main { min-width: 0; display: grid; gap: 10px; }
+.reference-problems-page .problems-filters { margin: 0; padding: 10px; display: grid; grid-template-columns: minmax(230px,1.5fr) repeat(5,minmax(120px,.8fr)); gap: 8px; }
+.reference-problems-page .problems-filters label { min-width: 0; }
+.reference-problems-page .problems-filters label > span { font-size: 9px !important; color: #71839b; }
+.reference-problems-page .problems-filters :where(input,select) { min-height: 38px; }
+.reference-problems-page .problems-toolbar { margin: 0; padding: 4px 2px; color: #657b96; }
+.reference-problems-page .problems-source-note { font-size: 10px !important; }
+.reference-problems-page .batch-remediation { margin: 0; border: 1px solid #dbe6f3; border-radius: 12px; background: #fff; padding: 10px; }
+.reference-problems-page .batch-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reference-problems-page .batch-toolbar > label { margin-right: auto; }
+.reference-problems-page .batch-toolbar :where(button,select) { min-height: 36px; }
+.reference-problems-page .batch-note { margin: 7px 0 0; color: #70839a; font-size: 10px !important; }
+.reference-problems-page .problems-list { display: block !important; margin: 0; border: 1px solid #dce6f2; border-radius: 12px; overflow: hidden; background: #fff; }
+.reference-problems-page .problem-row { min-height: 68px !important; display: grid !important; grid-template-columns: 34px minmax(240px,1.7fr) 120px 110px 120px 130px 100px 36px; gap: 10px; align-items: center; padding: 8px 10px !important; border: 0 !important; border-bottom: 1px solid #edf1f6 !important; border-radius: 0 !important; background: #fff !important; box-shadow: none !important; }
+.reference-problems-page .problem-row:last-child { border-bottom: 0 !important; }
+.reference-problems-page .problem-row:hover { background: #fbfdff !important; }
+.reference-problems-page .problem-batch-select { grid-column: 1; font-size: 0 !important; }
+.reference-problems-page .problem-batch-select input { width: 18px; height: 18px; }
+.reference-problems-page .card-record-date { display: none !important; }
+.reference-problems-page .problem-severity { grid-column: 4; justify-self: start; }
+.reference-problems-page .problem-main { grid-column: 2; grid-row: 1; min-width: 0; }
+.reference-problems-page .problem-main button { padding: 0; border: 0; background: transparent; color: #0f2649; text-align: left; }
+.reference-problems-page .problem-main button strong { font-size: 12px !important; }
+.reference-problems-page .problem-main small { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6e8199; font-size: 10px !important; }
+.reference-problems-page .problem-source { grid-column: 3; color: #426185; font-size: 10px !important; }
+.reference-problems-page .problem-source svg { display: none; }
+.reference-problems-page .problem-source small { display: block; color: #8594a8; font-size: 9px !important; }
+.reference-problems-page .problem-state { grid-column: 5; justify-self: start; padding: 5px 8px; border-radius: 7px; background: #eef4fc; color: #315981; font-size: 10px !important; font-weight: 800; }
+.reference-problems-page .problem-state.resolved { color: #087e49; background: #e8f9ef; }
+.reference-problems-page .problem-state.reappeared { color: #c64d2b; background: #fff0e8; }
+.reference-problems-page .problem-batch-facts { grid-column: 6; color: #425f82; font-size: 10px !important; }
+.reference-problems-page .problem-batch-facts small { display: block; color: #7c8da3; font-size: 9px !important; }
+.reference-problems-page .problem-correctability { grid-column: 7; justify-self: start; padding: 5px 8px; border-radius: 7px; font-size: 10px !important; font-weight: 800; }
+.reference-problems-page .problem-correctability.automatic { color: #087d49; background: #e8f9ef; }
+.reference-problems-page .problem-correctability.assisted { color: #075de1; background: #edf5ff; }
+.reference-problems-page .problem-correctability.manual { color: #b76d00; background: #fff2dd; }
+.reference-problems-page .problem-correctability.not_supported { color: #7b6b88; background: #f3eff7; }
+.reference-problems-page .problem-flag { position: absolute; }
+.reference-problems-page .card-record-open { grid-column: 8; width: 34px; height: 34px; display: grid !important; place-items: center; padding: 0; border: 1px solid #d7e2ef; border-radius: 8px; color: #075de1; background: #fff; font-size: 0 !important; }
+.reference-problems-page .card-record-open svg { width: 15px; height: 15px; }
+.reference-problems-page .problem-main p { grid-column: 1 / -1; margin: 4px 0 0; color: #607590; font-size: 10px; }
+.reference-problems-aside { display: grid; gap: 12px; }
+.reference-problems-aside > section { padding: 15px; border: 1px solid #dce6f2; border-radius: 14px; background: #fff; }
+.reference-problems-aside h2 { margin: 0 0 12px; color: #07183d; font-size: 16px !important; }
+.reference-problems-ring { width: 126px; height: 126px; margin: 6px auto 10px; display: grid; place-items: center; align-content: center; border: 15px solid #13ae65; border-right-color: #dae5f2; border-radius: 50%; }
+.reference-problems-ring strong { color: #07183d; font-size: 32px !important; line-height: 1; }
+.reference-problems-ring small { color: #71849d; }
+.reference-problems-aside section:first-child > p { margin: 0; color: #667d98; text-align: center; }
+.reference-problem-bars { display: grid; gap: 11px; }
+.reference-problem-bars p { margin: 0; display: grid; grid-template-columns: 88px minmax(0,1fr) 24px; align-items: center; gap: 7px; }
+.reference-problem-bars span { color: #536a88; font-size: 10px; }
+.reference-problem-bars i { height: 8px; overflow: hidden; border-radius: 999px; background: #edf2f8; }
+.reference-problem-bars i b { display: block; height: 100%; border-radius: inherit; background: #1b83f6; }
+.reference-problem-bars p:first-child i b { background: #ee3f5a; }
+.reference-problem-bars p:last-child i b { background: #11aa61; }
+.reference-problem-bars strong { color: #183659; font-size: 10px !important; text-align: right; }
+.reference-problems-tip { background: linear-gradient(160deg,#fffaf0,#fff6dc) !important; }
+.reference-problems-tip > svg { color: #f0a00b; }
+.reference-problems-tip p { color: #576d8a; line-height: 1.5; }
+.reference-problems-tip button { padding: 0; border: 0; background: transparent; color: #075de1; font-weight: 850; }
+@media (max-width: 1380px) {
+  .reference-problems-layout { grid-template-columns: 1fr; }
+  .reference-problems-aside { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .reference-problems-page .problems-filters { grid-template-columns: repeat(3,minmax(140px,1fr)); }
+  .reference-problems-page .problem-row { grid-template-columns: 34px minmax(230px,1.8fr) 110px 90px 110px 110px 34px; }
+  .reference-problems-page .problem-batch-facts { display: none; }
+  .reference-problems-page .problem-correctability { grid-column: 6; }
+  .reference-problems-page .card-record-open { grid-column: 7; }
+}
+@media (max-width: 900px) {
+  .reference-problems-project { grid-template-columns: 64px minmax(0,1fr); }
+  .reference-problems-mark { width: 64px; height: 64px; }
+  .reference-problems-mark img { width: 42px; height: 42px; }
+  .reference-problems-project-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .reference-problems-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .reference-problems-aside { grid-template-columns: 1fr; }
+  .reference-problems-page .problem-row { grid-template-columns: 34px minmax(0,1fr) 90px 34px; }
+  .reference-problems-page .problem-source,
+  .reference-problems-page .problem-batch-facts,
+  .reference-problems-page .problem-correctability { display: none; }
+  .reference-problems-page .problem-severity { grid-column: 3; }
+  .reference-problems-page .problem-state { display: none; }
+  .reference-problems-page .card-record-open { grid-column: 4; }
+}
+@media (max-width: 620px) {
+  .reference-problems-kpis { grid-template-columns: 1fr; }
+  .reference-problems-page .problems-filters { grid-template-columns: 1fr; }
+  .reference-problems-page .batch-toolbar { align-items: stretch; flex-direction: column; }
+  .reference-problems-page .batch-toolbar > * { width: 100%; }
+  .reference-problems-page .problem-row { grid-template-columns: 28px minmax(0,1fr) 34px; }
+  .reference-problems-page .problem-severity { display: none; }
+  .reference-problems-page .card-record-open { grid-column: 3; }
+}
