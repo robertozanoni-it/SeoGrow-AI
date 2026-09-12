@@ -12,6 +12,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!function_exists('mb_substr')) {
+    function mb_substr($string, $start, $length = null, $encoding = null) {
+        unset($encoding);
+        return $length === null ? substr((string) $string, (int) $start) : substr((string) $string, (int) $start, (int) $length);
+    }
+}
+
 require_once __DIR__ . '/seogrow-connector-core.inc';
 require_once __DIR__ . '/elementor-reference-read.php';
 require_once __DIR__ . '/wordpress-public-inventory-paged.php';
