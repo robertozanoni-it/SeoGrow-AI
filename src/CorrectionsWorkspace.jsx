@@ -10,6 +10,8 @@ import {
   History,
   RefreshCw,
   RotateCcw,
+  Search,
+  Wrench,
   ShieldCheck,
 } from "lucide-react";
 import { apiFetch } from "./api";
@@ -25,6 +27,7 @@ import {
 import { correctionCredentials } from "./correctionCredentials.js";
 import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
+import "./CorrectionsReference.css";
 import { historyText, historyFieldLabel } from "./correctionHistoryText.js";
 
 const fetch = apiFetch;
@@ -60,6 +63,7 @@ export default function CorrectionsWorkspace() {
   const [rows, setRows] = useState([]);
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(() => new Set());
   const [passwordEntry, setPasswordEntry] = useState(null);
   const [message, setMessage] = useState("");
@@ -148,11 +152,13 @@ export default function CorrectionsWorkspace() {
   }), [batchRows]);
 
   const filteredRows = useMemo(() => batchRows.filter((record) => {
+    const matchesQuery = `${record.issueLabel || ""} ${record.sourceUrl || ""} ${(record.fields || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase());
+    if (!matchesQuery) return false;
     if (statusFilter === "verified") return isVerified(record);
     if (statusFilter === "pending") return isPending(record);
     if (statusFilter === "rolled") return isRolledBack(record);
     return true;
-  }), [batchRows, statusFilter]);
+  }), [batchRows, statusFilter, query]);
 
   const toggleExpanded = (id) => {
     setExpanded((current) => {
@@ -258,95 +264,62 @@ export default function CorrectionsWorkspace() {
     navTarget,
   ) : null;
 
+  const totalForRing = Math.max(1, stats.total);
+  const verifiedDeg = (stats.verified / totalForRing) * 360;
+  const pendingDeg = (stats.pending / totalForRing) * 360;
   const page = active && mainTarget ? createPortal(
-    <div className="corrections-workspace-root">
-      <div className="page-title corrections-title">
-        <div>
-          <h1>Correzioni</h1>
-          <p>Qui vedi cosa è stato scritto in WordPress, cosa è realmente visibile sul sito e quali Task possono essere chiuse.</p>
-        </div>
-        <div className="corrections-filter">
-          <button type="button" className={!showAll ? "primary" : "secondary"} onClick={() => setShowAll(false)}>Ultimo batch</button>
-          <button type="button" className={showAll ? "primary" : "secondary"} onClick={() => setShowAll(true)}>Tutto lo storico</button>
-        </div>
-      </div>
-
-      <section className="panel corrections-guide"><h2>Come verificare una correzione</h2><ol><li>Trova il problema nell’ultimo gruppo di modifiche o in “Tutto lo storico”.</li><li>Premi “Riverifica” e leggi l’esito nella scheda.</li><li>Se risulta verificato, puoi chiudere il task collegato. Se il problema persiste, apri la pagina e controlla il risultato.</li><li>Per tornare indietro, usa “Ripristina versione precedente” nella scheda. “Vedi Prima / Dopo” mostra il confronto dei contenuti.</li></ol></section>
-      <section className="corrections-logic panel">
-        <div><span>1</span><strong>Salvato in WordPress</strong><small>REST conferma la scrittura</small></div>
-        <i>→</i>
-        <div><span>2</span><strong>Visibile sul sito</strong><small>confronto con il frontend</small></div>
-        <i>→</i>
-        <div><span>3</span><strong>Problema SEO risolto</strong><small>nuovo controllo SeoGrow</small></div>
-        <i>→</i>
-        <div><span>4</span><strong>Task chiusa</strong><small>solo dopo conferma</small></div>
+    <div className="corrections-workspace-root reference-corrections-page">
+      <section className="reference-corrections-head">
+        <div className="reference-corrections-title"><span><Wrench /></span><div><h1>Correzioni</h1><p>Risolvi i problemi SEO con correzioni guidate, verificabili e ripristinabili.</p></div></div>
+        <div className="reference-corrections-head-actions"><button className="secondary" onClick={() => setShowAll((value) => !value)}>{showAll ? "Ultimo batch" : "Tutto lo storico"}</button></div>
       </section>
 
-      <div className="corrections-stats" aria-label="Filtra correzioni per stato">
-        <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><strong>{stats.total}</strong><span>Tutte</span></button>
-        <button type="button" className={`verified ${statusFilter === "verified" ? "active" : ""}`} onClick={() => setStatusFilter("verified")}><strong>{stats.verified}</strong><span>Verificate</span></button>
-        <button type="button" className={`pending ${statusFilter === "pending" ? "active" : ""}`} onClick={() => setStatusFilter("pending")}><strong>{stats.pending}</strong><span>Da verificare</span></button>
-        <button type="button" className={`rolled ${statusFilter === "rolled" ? "active" : ""}`} onClick={() => setStatusFilter("rolled")}><strong>{stats.rolledBack}</strong><span>Ripristinate</span></button>
-      </div>
-
-      <section className="panel corrections-security">
-        <div><ShieldCheck /><span><strong>Ripristino della versione precedente</strong><small>Per ripristinare inserisci la password applicativa qui sotto. SeoGrow controlla che i contenuti non siano stati modificati dopo la correzione; in quel caso il ripristino viene bloccato.</small></span></div>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" aria-label="Password applicativa WordPress del cliente selezionato" />
+      <section className="reference-correction-tabs" aria-label="Filtra correzioni per stato">
+        <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>Tutte <span>{stats.total}</span></button>
+        <button className={statusFilter === "pending" ? "active" : ""} onClick={() => setStatusFilter("pending")}>Da verificare <span>{stats.pending}</span></button>
+        <button className={statusFilter === "verified" ? "active" : ""} onClick={() => setStatusFilter("verified")}>Verificate <span>{stats.verified}</span></button>
+        <button className={statusFilter === "rolled" ? "active" : ""} onClick={() => setStatusFilter("rolled")}>Ripristinate <span>{stats.rolledBack}</span></button>
       </section>
 
-      {message && <p className="integration-result corrections-message">{message}</p>}
+      <section className="reference-correction-kpis">
+        <article className="red"><AlertTriangle /><span><strong>{stats.pending}</strong><small>Da verificare</small><em>Scritture non ancora chiuse</em></span></article>
+        <article className="green"><CheckCircle2 /><span><strong>{stats.verified}</strong><small>Correzioni verificate</small><em>Frontend e SEO confermati</em></span></article>
+        <article className="blue"><History /><span><strong>{stats.total}</strong><small>Correzioni registrate</small><em>{showAll ? "Tutto lo storico" : "Ultimo batch"}</em></span></article>
+        <article className="orange"><RotateCcw /><span><strong>{stats.rolledBack}</strong><small>Ripristinate</small><em>Rollback completati</em></span></article>
+      </section>
 
-      <div className="corrections-list">
-        {filteredRows.map((record) => {
-          const open = expanded.has(record.id);
-          const verified = isVerified(record);
-          const pending = isPending(record);
-          return (
-            <article className={`panel correction-card ${open ? "open" : ""}`} key={record.id}>
-              <button type="button" className="correction-summary" onClick={() => toggleExpanded(record.id)} aria-expanded={open}>
-                <span className={`correction-status ${statusClass(record.status)}`}>{verified ? <CheckCircle2 /> : pending ? <AlertTriangle /> : <RotateCcw />}{record.status}</span>
-                <span className="correction-summary-main">
-                  <strong>{record.issueLabel}</strong>
-                  <small>{record.fields?.map(historyFieldLabel).join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small>
-                </span>
-                <span className="correction-quick-state">
-                  <span className={record.writeConfirmed === false ? "wait" : "ok"}>1 WordPress{record.writeConfirmed === false ? " da controllare" : ""}</span>
-                  <span className={record.frontendConfirmed ? "ok" : "wait"}>2 Frontend</span>
-                  <span className={verified ? "ok" : "wait"}>3 SEO</span>
-                  <span className={verified ? "ok" : "wait"}>4 Task</span>
-                </span>
-                <ChevronDown className="correction-chevron" />
-              </button>
+      <div className="reference-corrections-layout">
+        <main className="reference-corrections-main">
+          <section className="reference-corrections-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca problema o URL…" /></label><span>{filteredRows.length} risultati</span></section>
+          {message && <p className="integration-result corrections-message">{message}</p>}
+          <div className="corrections-list reference-corrections-list">
+            {filteredRows.map((record) => {
+              const open = expanded.has(record.id);
+              const verified = isVerified(record);
+              const pending = isPending(record);
+              return (
+                <article className={`panel correction-card ${open ? "open" : ""}`} key={record.id}>
+                  <button type="button" className="correction-summary" onClick={() => toggleExpanded(record.id)} aria-expanded={open}>
+                    <span className={`correction-status ${statusClass(record.status)}`}>{verified ? <CheckCircle2 /> : pending ? <AlertTriangle /> : <RotateCcw />}{record.status}</span>
+                    <span className="correction-summary-main"><strong>{record.issueLabel}</strong><small>{record.fields?.map(historyFieldLabel).join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small><small>{record.sourceUrl || "URL non disponibile"}</small></span>
+                    <span className="correction-quick-state"><span className={record.writeConfirmed === false ? "wait" : "ok"}>WordPress</span><span className={record.frontendConfirmed ? "ok" : "wait"}>Frontend</span><span className={verified ? "ok" : "wait"}>SEO</span></span>
+                    <ChevronDown className="correction-chevron" />
+                  </button>
+                  <div className="correction-summary-actions"><a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a><button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button><button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi" : "Prima / Dopo"}</button><button type="button" className="secondary mini correction-rollback" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina"}</button></div>
+                  <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{(isRolledBack(record) ? record.rollbackNote : record.verificationNote) || "Modifica registrata."}</p>
+                  {open && <div className="correction-details"><div className="correction-diff-grid"><section className="before"><strong>Prima</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.before?.[field]),1200)}</p>{(field === "meta._elementor_data" || String(record.before?.[field] || "").length > 300) && <details><summary>Dati completi</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section><section className="after"><strong>Dopo</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.after?.[field]),1200)}</p>{(field === "meta._elementor_data" || String(record.after?.[field] || "").length > 300) && <details><summary>Dati completi</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section></div><div className="correction-footer"><div><strong>{isRolledBack(record) ? "Versione precedente ripristinata" : record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong><span>{isRolledBack(record) ? "Lo storico conserva la modifica annullata." : record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato." : "La scrittura WordPress da sola non basta: serve la verifica."}</span></div></div></div>}
+                </article>
+              );
+            })}
+            {!filteredRows.length && <section className="panel corrections-empty"><History /><h2>Nessuna correzione in questo filtro</h2><p>Cambia filtro oppure esegui una nuova remediation.</p></section>}
+          </div>
+        </main>
 
-              <div className="correction-summary-actions">
-                <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
-                <button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
-                <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
-              </div>
-
-              <button type="button" className="secondary correction-rollback" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
-              <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{(isRolledBack(record) ? record.rollbackNote : record.verificationNote) || "Modifica registrata."}</p>
-
-              {open && (
-                <div className="correction-details">
-                  <div className="correction-diff-grid">
-                    <section className="before"><strong>Prima — versione precedente</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.before?.[field]), 1200)}</p>{(field === "meta._elementor_data" || String(record.before?.[field] || "").length > 300) && <details><summary>Mostra dati completi / dettagli tecnici</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section>
-                    <section className="after"><strong>Dopo — versione inviata a WordPress</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.after?.[field]), 1200)}</p>{(field === "meta._elementor_data" || String(record.after?.[field] || "").length > 300) && <details><summary>Mostra dati completi / dettagli tecnici</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section>
-                  </div>
-
-                  <div className="correction-footer">
-                    <div>
-                      <strong>{isRolledBack(record) ? "Versione precedente ripristinata" : record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
-                      <span>{isRolledBack(record) ? "Il confronto conserva lo storico della modifica annullata. Non occorre ripristinare di nuovo." : record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
-                    </div>
-                    
-                  </div>
-                </div>
-              )}
-            </article>
-          );
-        })}
-        {!filteredRows.length && <section className="panel corrections-empty"><History /><h2>Nessuna correzione in questo filtro</h2><p>Cambia filtro oppure esegui una nuova remediation.</p></section>}
+        <aside className="reference-corrections-aside">
+          <section><h2>Stato correzioni</h2><div className="reference-correction-ring" style={{"--verified":`${verifiedDeg}deg`,"--pending":`${pendingDeg}deg`}}><span><strong>{stats.total}</strong><small>correzioni</small></span></div><ul><li><i className="green" />Verificate <strong>{stats.verified}</strong></li><li><i className="blue" />Da verificare <strong>{stats.pending}</strong></li><li><i className="orange" />Ripristinate <strong>{stats.rolledBack}</strong></li></ul></section>
+          <section className="reference-correction-security"><ShieldCheck /><h2>Ripristino sicuro</h2><p>Il rollback viene eseguito solo dopo controllo stale-state.</p><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" aria-label="Password applicativa WordPress del cliente selezionato" /><button className="secondary" disabled={!password}>Credenziale pronta</button></section>
+          <section className="reference-correction-guide"><h2>Flusso verificato</h2><ol><li>Scrittura WordPress</li><li>Controllo frontend</li><li>Verifica SEO</li><li>Task chiudibile</li></ol></section>
+        </aside>
       </div>
     </div>,
     mainTarget,
