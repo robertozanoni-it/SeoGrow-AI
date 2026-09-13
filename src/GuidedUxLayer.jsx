@@ -310,23 +310,35 @@ function useUiSnapshot() {
 
   useEffect(() => {
     let frame = 0;
-    let attempts = 0;
     let cancelled = false;
+    let scheduled = false;
     const syncTargets = () => {
+      scheduled = false;
       if (cancelled) return;
       const next = {
         sidebar: document.querySelector(".sidebar"),
         topbar: document.querySelector(".topbar"),
         main: document.querySelector(".app main"),
       };
-      setTargets(next);
-      if ((!next.sidebar || !next.topbar || !next.main) && attempts < 120) {
-        attempts += 1;
-        frame = window.requestAnimationFrame(syncTargets);
-      }
+      setTargets((current) =>
+        current.sidebar === next.sidebar && current.topbar === next.topbar && current.main === next.main
+          ? current
+          : next,
+      );
     };
-    frame = window.requestAnimationFrame(syncTargets);
-    return () => { cancelled = true; window.cancelAnimationFrame(frame); };
+    const scheduleSync = () => {
+      if (cancelled || scheduled) return;
+      scheduled = true;
+      frame = window.requestAnimationFrame(syncTargets);
+    };
+    const observer = new MutationObserver(scheduleSync);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    scheduleSync();
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
