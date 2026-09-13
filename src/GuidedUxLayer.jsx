@@ -311,9 +311,7 @@ function useUiSnapshot() {
   useEffect(() => {
     let frame = 0;
     let cancelled = false;
-    let scheduled = false;
     const syncTargets = () => {
-      scheduled = false;
       if (cancelled) return;
       const next = {
         sidebar: document.querySelector(".sidebar"),
@@ -327,17 +325,23 @@ function useUiSnapshot() {
       );
     };
     const scheduleSync = () => {
-      if (cancelled || scheduled) return;
-      scheduled = true;
+      window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(syncTargets);
     };
-    const observer = new MutationObserver(scheduleSync);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
     scheduleSync();
+    const interval = window.setInterval(syncTargets, 300);
+    window.addEventListener("hashchange", scheduleSync);
+    window.addEventListener("popstate", scheduleSync);
+    window.addEventListener("seogrow-locationchange", scheduleSync);
+    window.addEventListener("seogrow-storage-ok", scheduleSync);
     return () => {
       cancelled = true;
-      observer.disconnect();
+      window.clearInterval(interval);
       window.cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", scheduleSync);
+      window.removeEventListener("popstate", scheduleSync);
+      window.removeEventListener("seogrow-locationchange", scheduleSync);
+      window.removeEventListener("seogrow-storage-ok", scheduleSync);
     };
   }, []);
 
