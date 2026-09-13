@@ -1616,130 +1616,59 @@ function AuditResults({ data, views, onSaveViews }) {
 
 function Opportunities({ dataset, openIntegrations, onCreateTask, tasks, clientId, onOpenTask }) {
   const [tab, setTab] = useState("quickWins");
+  const [query, setQuery] = useState("");
   const groups = opportunityGroups(dataset);
   const tabs = [
-    ["quickWins", "Posizioni 4–20"],
+    ["quickWins", "Quick Wins"],
     ["lowCtr", "CTR basso"],
     ["losses", "In calo"],
     ["cannibalizations", "Cannibalizzazioni"],
   ];
-  const rows = dataset ? groups[tab] : [];
+  const unique = new Map();
+  for (const [type, items] of Object.entries(groups)) {
+    for (const row of items || []) {
+      const text = String(row.dimension || row.query || "");
+      unique.set(`${type}:${text.toLocaleLowerCase("it")}`, { type, row });
+    }
+  }
+  const rows = (dataset ? groups[tab] : []).filter((row) => `${row.dimension || row.query || ""} ${(row.pages || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const activeTypes = Object.values(groups).filter((items) => items?.length).length;
+  const quickWins = groups.quickWins || [];
+  const totalTraffic = quickWins.reduce((sum,row) => sum + Number(row.clicks || 0), 0);
+  const createOrOpen = (row, sourceTab = tab) => {
+    const taskValues = opportunityTask(row, dataset, sourceTab);
+    const existingTask = findExistingTask(tasks, taskValues, clientId);
+    if (existingTask) onOpenTask(existingTask.id); else onCreateTask(taskValues);
+  };
   return (
-    <>
-      <EmptyTitle
-        title="Opportunità"
-        text={
-          dataset
-            ? "Analisi delle query reali. Le pagine suggerite sono distinte dalle associazioni presenti nei dati Google."
-            : "Importa Search Console per ottenere opportunità reali."
-        }
-      />
-      {dataset ? (
-        <div className="source-banner">
-          <Check />
-          Google Search Console · {formatPeriodDate(dataset.dateFrom)} –{" "}
-          {formatPeriodDate(dataset.dateTo)}
-        </div>
-      ) : (
-        <button className="import-callout" onClick={openIntegrations}>
-          <Upload />
-          Importa i dati Search Console
-        </button>
-      )}
-      <div className="tabs">
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            className={tab === id ? "active" : ""}
-            onClick={() => setTab(id)}
-          >
-            {label}
-            <span>{dataset ? groups[id].length : "—"}</span>
-          </button>
-        ))}
-      </div>
-      {tab === "quickWins" && <p className="block-note">Query in posizione 4–20 con almeno 10 impressioni; massimo 50 risultati, ordinati per impressioni.</p>}
-      <section className="panel opportunity-table">
-        <div className="table-scroll">
-          <table>
-            <caption className="sr-only">Opportunità SEO ricavate da Search Console</caption>
-            <thead>
-              <tr>
-                <th>Query</th>
-                <th>Pagina</th>
-                <th>Posizione</th>
-                <th>Impressioni</th>
-                <th>Azione</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length ? (
-                rows.map((row, index) => {
-                  const queryText = row.dimension || row.query;
-                  const taskValues = opportunityTask(row, dataset, tab);
-                  const existingTask = findExistingTask(tasks, taskValues, clientId);
-                  const pageUrl = taskValues.sourceUrl;
-                  return (
-                    <tr key={`${queryText}-${index}`}>
-                      <td>
-                        <strong>{queryText}</strong>
-                        {row.pages?.length > 1 && (
-                          <small className="block-note">
-                            {row.pages.length} URL competono
-                          </small>
-                        )}
-                      </td>
-                      <td>
-                        {pageUrl ? (
-                          <a
-                            className="task-link"
-                            href={pageUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <ExternalLink />
-                            {taskValues.associationStatus === "verified" ? "Apri pagina associata" : "Apri pagina suggerita"}
-                          </a>
-                        ) : (
-                          <span className="task-detail">
-                            Pagina non disponibile nei dati importati
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {Number(row.position || 0)
-                          .toFixed(2)
-                          .replace(".", ",")}
-                      </td>
-                      <td>{formatInteger(row.impressions)}</td>
-                      <td>
-                        <button
-                          className="secondary mini"
-                          disabled={!dataset}
-                          onClick={() =>
-                            existingTask ? onOpenTask(existingTask.id) : onCreateTask(taskValues)
-                          }
-                        >
-                          {existingTask ? "Apri task" : "Crea task"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="5" className="empty-row">
-                    {tab === "cannibalizations" && !dataset?.queryPages
-                      ? "Questo controllo richiede dati query–pagina: collega Search Console tramite API."
-                      : "Nessuna opportunità rilevata con questi criteri."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+    <div className="reference-opportunities-page">
+      <section className="reference-opportunities-head">
+        <div className="reference-opportunities-title"><span><Target /></span><div><h1>Opportunità</h1><p>Scopri le opportunità di crescita ricavate dai dati reali Search Console.</p></div></div>
+        <div className="reference-opportunities-actions"><button className="secondary" onClick={openIntegrations}>Search Console</button></div>
       </section>
-    </>
+
+      {!dataset && <button className="import-callout" onClick={openIntegrations}><Upload /> Importa i dati Search Console</button>}
+      <section className="reference-opportunity-tabs">{tabs.map(([id,label]) => <button key={id} className={tab===id?"active":""} onClick={() => setTab(id)}>{label}<span>{dataset ? groups[id].length : "—"}</span></button>)}</section>
+
+      <section className="reference-opportunity-kpis">
+        <article className="green"><BarChart3 /><span><strong>{dataset ? unique.size : "—"}</strong><small>Opportunità rilevate</small><em>{activeTypes} categorie con dati</em></span></article>
+        <article className="orange"><Sparkles /><span><strong>{dataset ? quickWins.length : "—"}</strong><small>Quick Wins</small><em>Query tra posizione 4–20</em></span></article>
+        <article className="red"><AlertTriangle /><span><strong>{dataset ? groups.losses.length : "—"}</strong><small>In calo</small><em>Segnali da monitorare</em></span></article>
+        <article className="blue"><Activity /><span><strong>{dataset ? formatInteger(totalTraffic) : "—"}</strong><small>Click dei Quick Wins</small><em>Valore osservato, non stimato</em></span></article>
+      </section>
+
+      <div className="reference-opportunity-layout">
+        <section className="reference-opportunity-table panel">
+          <div className="reference-opportunity-toolbar"><div><h2>Opportunità di crescita</h2><p>{dataset ? `${formatPeriodDate(dataset.dateFrom)} – ${formatPeriodDate(dataset.dateTo)}` : "Dati non disponibili"}</p></div><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca opportunità…" /></label></div>
+          <div className="table-scroll"><table><caption className="sr-only">Opportunità SEO Search Console</caption><thead><tr><th>Opportunità</th><th>Pagina</th><th>Posizione</th><th>Impressioni</th><th>Priorità</th><th>Azione</th></tr></thead><tbody>{rows.length ? rows.map((row,index) => { const queryText=row.dimension || row.query; const taskValues=opportunityTask(row,dataset,tab); const existingTask=findExistingTask(tasks,taskValues,clientId); const position=Number(row.position || 0); const priority=position > 10 && position <= 20 ? "Alta" : position > 20 ? "Media" : "Alta"; return <tr key={`${queryText}-${index}`}><td><strong>{queryText}</strong>{row.pages?.length > 1 && <small className="block-note">{row.pages.length} URL competono</small>}</td><td>{taskValues.sourceUrl ? <a href={taskValues.sourceUrl} target="_blank" rel="noreferrer">{taskValues.sourceUrl.replace(/^https?:\/\/[^/]+/,"") || "/"}</a> : "Non disponibile"}</td><td>{position ? position.toFixed(2).replace(".",",") : "—"}</td><td>{formatInteger(row.impressions || 0)}</td><td><span className={`reference-opportunity-priority ${priority.toLowerCase()}`}>{priority}</span></td><td><button className="secondary mini" onClick={() => existingTask ? onOpenTask(existingTask.id) : onCreateTask(taskValues)}>{existingTask ? "Apri task" : "Crea task"}</button></td></tr>; }) : <tr><td colSpan="6" className="empty-row">{tab === "cannibalizations" && !dataset?.queryPages ? "Questo controllo richiede dati query–pagina: collega Search Console tramite API." : "Nessuna opportunità rilevata con questi criteri."}</td></tr>}</tbody></table></div>
+        </section>
+
+        <aside className="reference-opportunity-aside">
+          <section><h2>Distribuzione per segnale</h2><div className="reference-opportunity-donut"><span><strong>{unique.size}</strong><small>segnali</small></span></div><ul>{tabs.map(([id,label],index) => <li key={id}><i className={`tone-${index}`} /><span>{label}</span><strong>{groups[id].length}</strong></li>)}</ul></section>
+          <section><div className="reference-panel-title"><div><h2>Quick Wins</h2><p>Azioni rapide basate su query reali.</p></div></div>{quickWins.slice(0,5).map((row,index) => <button key={`${row.dimension}-${index}`} onClick={() => createOrOpen(row,"quickWins")}><Target /><span><strong>{row.dimension || row.query}</strong><small>Pos. {Number(row.position || 0).toFixed(1)} · {formatInteger(row.impressions || 0)} impressioni</small></span>›</button>)}{!quickWins.length && <p className="reference-empty-copy">Nessun Quick Win rilevato.</p>}</section>
+        </aside>
+      </div>
+    </div>
   );
 }
 
