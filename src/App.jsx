@@ -3295,13 +3295,21 @@ function SettingsPage({
     setSaved(true);
     setTimeout(() => setSaved(false), 2200);
   };
+  const wordpressConfigured = Boolean(wordpressProfiles?.[selectedClient]);
   return (
-    <>
-      <EmptyTitle
-        title="Impostazioni"
-        text="Personalizza l’app, le notifiche e la protezione dei dati locali."
-      />
-      <div className="settings-layout">
+    <div className="reference-settings-page">
+      <section className="reference-settings-head">
+        <div className="reference-settings-title"><span><Settings /></span><div><h1>Impostazioni</h1><p>Personalizza SeoGrow AI, le automazioni e la protezione dei dati locali.</p></div></div>
+        <button className="primary" type="button" onClick={() => document.querySelector('.settings-form button.primary')?.click()}><Check /> Salva modifiche</button>
+      </section>
+      <nav className="reference-settings-tabs" aria-label="Sezioni impostazioni"><span className="active">Generali</span><span>SEO</span><span>AI & Modelli</span><span>WordPress</span><span>Notifiche</span><span>Aspetto</span><span>Privacy</span></nav>
+      <section className="reference-settings-summary">
+        <div><Users /><span><strong>Profilo locale</strong><small>{preferences.name || "Amministratore"}</small></span></div>
+        <div><Globe2 /><span><strong>WordPress</strong><small>{wordpressConfigured ? "Profilo configurato" : "Da configurare"}</small></span></div>
+        <div><Bell /><span><strong>Notifiche</strong><small>{preferences.notifications ? "Attive" : "Disattivate"}</small></span></div>
+        <div><Database /><span><strong>Copie locali</strong><small>{snapshots.length} disponibili</small></span></div>
+      </section>
+      <div className="settings-layout reference-settings-layout">
         <form className="panel settings-form" onSubmit={savePreferences}>
           <h2>Preferenze e automazioni</h2>
           <label>
@@ -3501,7 +3509,8 @@ function SettingsPage({
           )}
         </section>
       </div>
-    </>
+      <section className="reference-settings-note"><ShieldCheck /><div><h2>Privacy e dati</h2><p>I backup cifrati, le copie locali e le preferenze continuano a usare i meccanismi di sicurezza già presenti nell’app.</p></div></section>
+    </div>
   );
 }
 

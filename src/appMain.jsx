@@ -54,6 +54,7 @@ import './AgentReference.css';
 import './GeoReference.css';
 import './SeoGrowAiReference.css';
 import './IntegrationsReference.css';
+import './SettingsReference.css';
 import './RankingsReference.css';
 import './LinksReference.css';
 import './OpportunitiesReference.css';
