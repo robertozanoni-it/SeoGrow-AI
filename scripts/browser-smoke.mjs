@@ -150,7 +150,7 @@ const clickSidebar = async (label) => {
   })()`);
   if (!clicked) throw new Error(`Voce sidebar visibile non trovata: ${label}`);
   if (await evaluate("innerWidth <= 760")) {
-    await waitFor("document.querySelector('.sidebar')?.getBoundingClientRect().right <= 0", "mobile navigation closes after selection");
+    await waitFor("!document.querySelector('.sidebar')?.classList.contains('open') && document.querySelector('.sidebar')?.getBoundingClientRect().right <= 1", "mobile navigation closes after selection");
   }
 };
 
