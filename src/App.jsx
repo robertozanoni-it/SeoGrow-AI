@@ -227,114 +227,39 @@ function useStoredState(key, fallback) {
 
 function HistoryPage({ history, client, onAnalyze }) {
   const current = history[0];
+  const oldest = history.at(-1);
+  const scoreDelta = current?.score != null && oldest?.score != null ? current.score - oldest.score : null;
+  const resolvedTotal = history.reduce((sum, item) => sum + (item.resolvedIssues?.length || 0), 0);
+  const issueTotal = history.reduce((sum, item) => sum + (item.issues?.length || 0), 0);
   return (
-    <>
-      <EmptyTitle
-        title={`Storico analisi — ${client.name}`}
-        text="Confronta scansioni, problemi nuovi e correzioni confermate."
-        action="Nuova analisi"
-        onAction={onAnalyze}
-      />
-      {current ? (
-        <>
-          <div className="stats history-stats">
-            <Stat
-              label="Punteggio attuale"
-              value={`${current.score ?? "—"}/100`}
-              meta={
-                current.hasPrevious
-                  ? `${current.scoreDelta > 0 ? "+" : ""}${current.scoreDelta} punti`
-                  : "Prima scansione disponibile"
-              }
-              tone={current.scoreDelta < 0 ? "red" : "green"}
-              Icon={CircleGauge}
-            />
-            <Stat
-              label="Problemi"
-              value={current.issues?.length || 0}
-              meta={`${current.newIssues?.length || 0} nuovi`}
-              tone="red"
-              Icon={AlertTriangle}
-            />
-            <Stat
-              label="Risolti"
-              value={current.resolvedIssues?.length || 0}
-              meta="rispetto al crawl precedente"
-              tone="green"
-              Icon={Check}
-            />
-            <Stat
-              label="Pagine"
-              value={current.pagesChecked || 0}
-              meta={`${current.linksChecked || 0} link controllati`}
-              tone="blue"
-              Icon={Globe2}
-            />
-          </div>
-          <section className="panel history-list">
-            <div className="panel-head">
-              <h2>Scansioni salvate</h2>
-              <button
-                className="secondary small-button"
-                onClick={() =>
-                  downloadCsv(
-                    history.map((item) => ({
-                      data: item.analyzedAt,
-                      score: item.score,
-                      pagine: item.pagesChecked,
-                      problemi: item.issues?.length || 0,
-                      nuovi: item.newIssues?.length || 0,
-                      risolti: item.resolvedIssues?.length || 0,
-                    })),
-                    `storico-${client.name}.csv`,
-                  )
-                }
-              >
-                <Download />
-                CSV
-              </button>
-            </div>
-            <div className="table-scroll">
-              <table>
-                <caption className="sr-only">Storico delle analisi SEO del progetto</caption>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Punteggio</th>
-                    <th>Pagine</th>
-                    <th>Problemi</th>
-                    <th>Nuovi</th>
-                    <th>Risolti</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((item, index) => (
-                    <tr key={`${item.analyzedAt || "missing"}-${index}`}>
-                      <td>
-                        {new Date(item.analyzedAt).toLocaleString("it-IT")}
-                      </td>
-                      <td>
-                        <strong>{item.score ?? "—"}/100</strong>
-                      </td>
-                      <td>{item.pagesChecked}</td>
-                      <td>{item.issues?.length || 0}</td>
-                      <td>{item.newIssues?.length || 0}</td>
-                      <td>{item.resolvedIssues?.length || 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
-      ) : (
-        <EmptyState
-          text="Non ci sono ancora scansioni per questo progetto."
-          action="Avvia la prima analisi"
-          onAction={onAnalyze}
-        />
-      )}
-    </>
+    <div className="reference-history-page">
+      <section className="reference-history-project">
+        <div className="reference-history-mark"><img src="/favicon.svg" alt="" /></div>
+        <div><small>Storico progetto</small><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}</a><p>Tutti gli audit salvati del progetto in ordine cronologico.</p></div>
+        <div className="reference-history-actions"><button className="secondary" onClick={() => downloadCsv(history.map((item) => ({ data:item.analyzedAt, score:item.score, pagine:item.pagesChecked, problemi:item.issues?.length || 0, risolti:item.resolvedIssues?.length || 0 })), `storico-${client.name}.csv`)}><Download /> Esporta CSV</button><button className="primary" onClick={onAnalyze}><Plus /> Nuovo audit</button></div>
+      </section>
+      <section className="reference-history-kpis">
+        <article className="blue"><Search /><span><strong>{history.length}</strong><small>Audit eseguiti</small><em>Storico locale disponibile</em></span></article>
+        <article className="green"><Target /><span><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta}`}</strong><small>Miglioramento SEO</small><em>Dal primo all’ultimo audit</em></span></article>
+        <article className="blue"><BarChart3 /><span><strong>{resolvedTotal}</strong><small>Problemi risolti</small><em>Registrati negli audit</em></span></article>
+        <article className="green"><FileText /><span><strong>{current?.pagesChecked || 0}</strong><small>Pagine ultimo audit</small><em>{issueTotal} segnalazioni nello storico</em></span></article>
+      </section>
+      <nav className="reference-history-tabs" aria-label="Filtri storico"><span className="active">Tutti</span><span>Audit</span><span>Correzioni</span><span>Contenuti</span><span>Link interni</span><span>Note</span></nav>
+      <div className="reference-history-layout">
+        <section className="reference-history-table">
+          <div className="table-scroll"><table><caption className="sr-only">Storico degli audit SEO del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Principali risultati</th><th>Azioni</th></tr></thead><tbody>{history.length ? history.map((item,index) => {
+            const previous = history[index + 1];
+            const delta = previous?.score != null && item.score != null ? item.score - previous.score : null;
+            return <tr key={`${item.analyzedAt || "missing"}-${index}`}><td><strong>{item.analyzedAt ? new Date(item.analyzedAt).toLocaleDateString("it-IT") : "—"}</strong><small>{item.analyzedAt ? new Date(item.analyzedAt).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"}) : ""}</small></td><td><span className="reference-history-type"><Search />Audit</span></td><td><strong>{index === 0 ? "Audit completo" : `Audit #${history.length - index}`}</strong><small>{item.pagesChecked || 0} pagine controllate</small></td><td><span className={`reference-history-score ${Number(item.score || 0) >= 80 ? "good" : Number(item.score || 0) >= 60 ? "medium" : "low"}`}>{item.score ?? "—"}</span>{delta != null && <em className={delta >= 0 ? "green" : "red"}>{delta >= 0 ? "+" : ""}{delta}</em>}</td><td><strong>{item.issues?.length || 0} problemi</strong><small>{item.resolvedIssues?.length || 0} risolti · {item.newIssues?.length || 0} nuovi</small></td><td><button className="secondary mini" onClick={onAnalyze}>Nuovo confronto</button></td></tr>;
+          }) : <tr><td colSpan="6" className="empty-row">Nessun audit salvato per questo progetto.</td></tr>}</tbody></table></div>
+        </section>
+        <aside className="reference-history-aside">
+          <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>
+          <section className="reference-history-progress"><Target /><h2>Il tuo progresso</h2><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta} punti`}</strong><p>{resolvedTotal} problemi risultano risolti nello storico disponibile.</p></section>
+          <section><Download /><h2>Esporta storico</h2><p>Scarica gli audit in formato CSV.</p><button className="secondary" onClick={() => downloadCsv(history, `storico-${client.name}.csv`)}>Esporta CSV</button></section>
+        </aside>
+      </div>
+    </div>
   );
 }
 
@@ -380,20 +305,6 @@ function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
 
       <section className="reference-broken-links panel"><div className="reference-panel-title"><div><h2>Link interrotti</h2><p>Pagine sorgenti e destinazioni rilevate dal crawl.</p></div><span>{broken.length}</span></div>{broken.length ? broken.slice(0,10).map((link) => <div className="reference-broken-row" key={link.url}><AlertTriangle /><span><strong>{link.url}</strong><small>{(link.sources || []).length} pagine sorgenti</small></span><button className="secondary mini" onClick={() => onCreateTask({ title:`Correggi link interrotto: ${link.url}`, sourceUrl:link.sources?.[0] || "", targetUrl:link.url, detail:`${link.error || `HTTP ${link.status}`}\nPagine sorgenti:\n${(link.sources || []).map((source) => `- ${source}`).join("\n")}\nDestinazione interrotta: ${link.url}`, priority:"Alta", kind:"broken-link" })}>Crea task</button></div>) : <div className="reference-link-success"><Check /><span><strong>Nessun link interrotto rilevato</strong><small>{analysis ? "Ultimo crawl senza errori di linking confermati." : "Avvia una nuova analisi completa."}</small></span></div>}</section>
     </div>
-  );
-}
-
-function EmptyState({ text, action, onAction }) {
-  return (
-    <section className="panel empty-state">
-      <CircleGauge />
-      <h2>{text}</h2>
-      {action && (
-        <button className="primary" onClick={onAction}>
-          {action}
-        </button>
-      )}
-    </section>
   );
 }
 
@@ -708,21 +619,6 @@ function Header({
         )}
       </div>
     </header>
-  );
-}
-
-function Stat({ label, value, meta, tone, Icon }) {
-  return (
-    <div className="stat">
-      <div>
-        <span>{label}</span>
-        <strong className={tone}>{value}</strong>
-        <small>{meta}</small>
-      </div>
-      <div className={`stat-icon ${tone}`}>
-        <Icon />
-      </div>
-    </div>
   );
 }
 
