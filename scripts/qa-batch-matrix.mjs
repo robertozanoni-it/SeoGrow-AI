@@ -71,7 +71,7 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
     await click('Approva e avvia correzione batch');
     await waitFor("document.querySelector('.batch-entry.state-resolved_verified') && document.querySelector('.batch-entry.state-stale_target')",'verified and stale partial result');
     assert.deepEqual(await evaluate('window.__batchFixture.writes'),[701]);
-    assert.equal(await evaluate("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Scarica report JSON' && !b.disabled)"),true);
+    await waitFor("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Scarica report JSON' && !b.disabled)",'batch report actions enabled');
     const secret=await evaluate("(async()=>{const m=await import('/src/batchRemediationStore.js'); return JSON.stringify(await m.listBatchRuns(9001));})()");
     assert.ok(!secret.includes('fixture-only')&&!secret.includes('approvalToken'));
     await screenshot('batch-partial-result');

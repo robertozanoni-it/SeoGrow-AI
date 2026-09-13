@@ -131,3 +131,189 @@ body[data-seogrow-ui-mode] .reference-task-layout > .reference-task-aside {
     grid-row: auto !important;
   }
 }
+
+/* Large-type pass requested after live review. */
+body[data-seogrow-ui-mode] .workspace main :is(
+  p, li, label, button, input, select, textarea, td, a,
+  summary, legend, strong, span, em, b, dt, dd
+) {
+  font-size: 24px !important;
+  line-height: 1.45 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main :is(small, th) {
+  font-size: 20px !important;
+  line-height: 1.4 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main h1 {
+  font-size: clamp(56px, 4vw, 72px) !important;
+  line-height: 1.04 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main h2 {
+  font-size: 36px !important;
+  line-height: 1.15 !important;
+}
+
+body[data-seogrow-ui-mode] .workspace main h3 {
+  font-size: 30px !important;
+  line-height: 1.2 !important;
+}
+
+body[data-seogrow-ui-mode] .topbar :is(
+  button, input, select, label, span, strong, small, a
+) {
+  font-size: 20px !important;
+  line-height: 1.3 !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-scroll .guided-nav-group + .guided-nav-group {
+  margin-top: 12px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid rgba(166, 195, 232, .28) !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label,
+body[data-seogrow-ui-mode="simple"] .sidebar .guided-nav-label {
+  padding: 8px 12px 8px !important;
+  color: #a9bfdc !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  letter-spacing: .09em !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label::after {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 2px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(44, 224, 200, .72);
+}
+
+@media (min-width: 1025px) {
+  body[data-seogrow-ui-mode] .sidebar {
+    width: 340px !important;
+    padding: 22px 14px 16px !important;
+  }
+
+  body[data-seogrow-ui-mode] .workspace {
+    width: calc(100% - 340px) !important;
+    margin-left: 340px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button,
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+    font-size: 26px !important;
+    line-height: 1.2 !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+    min-height: 60px !important;
+    padding: 8px 14px !important;
+    gap: 14px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 28px !important;
+    height: 28px !important;
+    flex: 0 0 28px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+    min-height: 88px !important;
+    padding: 14px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong {
+    font-size: 20px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
+    font-size: 16px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .side-foot strong {
+    font-size: 20px !important;
+  }
+
+  body[data-seogrow-ui-mode] .sidebar .side-foot small {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  body[data-seogrow-ui-mode] .workspace main :is(
+    p, li, label, button, input, select, textarea, td, a,
+    summary, legend, strong, span, em, b, dt, dd
+  ) { font-size: 20px !important; }
+
+  body[data-seogrow-ui-mode] .workspace main :is(small, th) {
+    font-size: 17px !important;
+  }
+}
+
+/* Reflow for the doubled typography: preserve readability without clipping. */
+body[data-seogrow-ui-mode] .workspace main :is(
+  p, li, label, td, a, strong, span, em, b, dt, dd
+) {
+  overflow-wrap: anywhere;
+}
+
+body[data-seogrow-ui-mode] .workspace main :is(
+  button, input:not([type="checkbox"]):not([type="radio"]), select, textarea
+) {
+  min-height: 52px !important;
+}
+
+body[data-seogrow-ui-mode] .topbar {
+  height: 82px !important;
+  min-height: 82px !important;
+}
+
+body[data-seogrow-ui-mode] .guided-project-context {
+  min-height: 54px !important;
+}
+
+body[data-seogrow-ui-mode] .reference-overview-grid,
+body[data-seogrow-ui-mode] .reference-client-kpis,
+body[data-seogrow-ui-mode] .reference-task-kpis,
+body[data-seogrow-ui-mode] .reference-editorial-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body[data-seogrow-ui-mode] .reference-problems-kpis,
+body[data-seogrow-ui-mode] .reference-history-kpis,
+body[data-seogrow-ui-mode] .reference-links-kpis,
+body[data-seogrow-ui-mode] .reference-opportunity-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body[data-seogrow-ui-mode] .reference-overview-card {
+  min-height: 240px !important;
+}
+
+body[data-seogrow-ui-mode] .reference-card-numbers {
+  flex-wrap: wrap !important;
+  row-gap: 14px !important;
+}
+
+body[data-seogrow-ui-mode] .reference-health-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body[data-seogrow-ui-mode] .reference-health-title {
+  grid-column: 1 / -1 !important;
+}
+
+body[data-seogrow-ui-mode] .table-scroll table {
+  min-width: 1280px;
+}
+
+body[data-seogrow-ui-mode] .reference-dashboard-actions,
+body[data-seogrow-ui-mode] .reference-task-actions,
+body[data-seogrow-ui-mode] .reference-editorial-actions {
+  gap: 14px !important;
+  flex-wrap: wrap !important;
+}
