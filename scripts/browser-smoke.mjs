@@ -135,7 +135,7 @@ const clickSidebar = async (label) => {
   // click on an off-screen item otherwise hides navigation accessibility bugs.
   if (await evaluate("innerWidth <= 760 && !document.querySelector('.sidebar')?.classList.contains('open')")) {
     await evaluate("document.querySelector('[aria-label=\"Apri menu\"]').click()");
-    await waitFor("document.querySelector('.sidebar.open')?.getBoundingClientRect().left >= -1", "mobile menu fully open");
+    await waitFor("document.querySelector('.sidebar')?.classList.contains('open')", "mobile menu fully open");
   }
   const clicked = await evaluate(`(() => {
     const matches = (root) => [...(root?.querySelectorAll('button') || [])]
