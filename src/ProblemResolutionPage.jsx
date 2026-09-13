@@ -116,6 +116,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
 
   const path = resolutionPath(problem, latestCorrection);
+  const canStartAutomatic = problem.correctability === "automatic" && problem.problemState === "open" && !problem.ownershipBlocked && !["applied", "verified"].includes(problem.interventionState);
 
   const openCorrectionHistory = () => {
     try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* The route still remains read-only. */ }
@@ -157,6 +158,10 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     } finally {
       setWorking(false);
     }
+  };
+
+  const startAutomaticResolution = () => {
+    openProblemResolution(problem, client.id, "problem-card", { forceAutomatic: true });
   };
 
   const askAgent = () => {
@@ -283,14 +288,18 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
 
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
 
-          <button className="primary" type="button" disabled={working} onClick={() => {
+          {canStartAutomatic && <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={startAutomaticResolution}><Sparkles /> Risolvi automaticamente</button>}
+
+          {(!canStartAutomatic || path.action !== "prepare") && <button className={canStartAutomatic ? "secondary" : "primary"} type="button" disabled={working} onClick={() => {
             if (path.action === "history") openCorrectionHistory();
             else if (path.action === "verify") verifyNow();
             else if (path.action === "agent") askAgent();
             else if (path.action === "manual" && href) window.open(href, "_blank", "noopener,noreferrer");
             else if (path.action === "audit") navigatePage("Audit SEO");
             else openIntervention();
-          }}>{working ? "Verifica…" : path.label}</button>
+          }}>{working ? "Verifica…" : path.label}</button>}
+
+          {canStartAutomatic && problem.stale && <p className="problem-resolution-auto-note">Il problema è obsoleto: SeoGrow apre il flusso automatico, ma richiede un audit aggiornato prima di qualsiasi scrittura.</p>}
 
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>

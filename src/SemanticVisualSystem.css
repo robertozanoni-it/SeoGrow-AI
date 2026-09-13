@@ -546,3 +546,163 @@ body[data-seogrow-ui-mode] .reference-correction-guide li {
   .reference-problems-page .problem-row .problem-correctability { grid-column: 6 !important; }
   .reference-problems-page .problem-row .card-record-open { grid-column: 7 !important; }
 }
+
+/* Automatic resolution CTA + stable action column for Problems. */
+.reference-problems-page .problem-row {
+  grid-template-columns: 30px 72px minmax(260px, 1.75fr) minmax(105px, .72fr) 92px minmax(150px, .95fr) 112px 156px !important;
+  overflow: visible !important;
+}
+.reference-problems-page .problem-row .problem-row-action {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 42px !important;
+  height: auto !important;
+  padding: 8px 10px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #b9d2ef !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  color: #1167d8 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-align: center;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+}
+.reference-problems-page .problem-row .problem-row-action svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.reference-problems-page .problem-row .problem-row-action.automatic {
+  border-color: #0ca15e !important;
+  background: #12a866 !important;
+  color: #fff !important;
+  box-shadow: 0 5px 12px rgba(18, 168, 102, .14);
+}
+.reference-problems-page .problem-row .problem-row-action.automatic:hover {
+  background: #0d965a !important;
+  border-color: #0d8e56 !important;
+}
+.reference-problems-page .problem-row .problem-flag {
+  right: 166px !important;
+  top: 7px !important;
+}
+.problem-resolution-actions .problem-resolution-auto {
+  background: #12a866 !important;
+  border-color: #0ca15e !important;
+  color: #fff !important;
+}
+.problem-resolution-actions .problem-resolution-auto:hover { background: #0d965a !important; }
+.problem-resolution-auto-note {
+  margin: -2px 0 4px !important;
+  padding: 9px 10px;
+  border: 1px solid #f1d49a;
+  border-radius: 9px;
+  background: #fff8e8;
+  color: #72511a !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+@media (max-width: 1500px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 30px 70px minmax(230px, 1.7fr) 105px 92px 110px 150px !important;
+  }
+  .reference-problems-page .problem-row .problem-batch-facts { display: none !important; }
+  .reference-problems-page .problem-row .problem-correctability { grid-column: 6 !important; }
+  .reference-problems-page .problem-row .card-record-open { grid-column: 7 !important; }
+  .reference-problems-page .problem-row .problem-flag { right: 160px !important; }
+}
+@media (max-width: 1180px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 30px 68px minmax(220px, 1fr) 92px 108px 150px !important;
+  }
+  .reference-problems-page .problem-row .problem-source { display: none !important; }
+  .reference-problems-page .problem-row .problem-state { grid-column: 4 !important; }
+  .reference-problems-page .problem-row .problem-correctability { grid-column: 5 !important; }
+  .reference-problems-page .problem-row .card-record-open { grid-column: 6 !important; }
+}
+@media (max-width: 900px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 28px 70px minmax(0, 1fr) !important;
+    align-items: start !important;
+  }
+  .reference-problems-page .problem-row .problem-main,
+  .reference-problems-page .problem-row .problem-state,
+  .reference-problems-page .problem-row .problem-correctability,
+  .reference-problems-page .problem-row .card-record-open { grid-column: 3 !important; grid-row: auto !important; }
+  .reference-problems-page .problem-row .problem-state,
+  .reference-problems-page .problem-row .problem-correctability { margin-top: 5px; }
+  .reference-problems-page .problem-row .problem-row-action {
+    width: fit-content !important;
+    max-width: 100%;
+    justify-self: start;
+    margin-top: 6px;
+  }
+  .reference-problems-page .problem-row .problem-flag {
+    position: static !important;
+    grid-column: 3 !important;
+    justify-self: start;
+    margin-top: 4px;
+  }
+}
+
+/* Final Problems card reflow: action has its own stable column; metadata moves below. */
+.reference-problems-page .problem-row {
+  grid-template-columns: 30px 72px minmax(230px, 1.7fr) 110px 92px 112px 160px !important;
+  grid-template-rows: auto auto !important;
+  min-height: 112px !important;
+}
+.reference-problems-page .problem-row .problem-batch-select { grid-column: 1 !important; grid-row: 1 / span 2 !important; }
+.reference-problems-page .problem-row .problem-severity { grid-column: 2 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-main { grid-column: 3 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-source { grid-column: 4 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-state { grid-column: 5 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-correctability { grid-column: 6 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .card-record-open { grid-column: 7 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-batch-facts {
+  grid-column: 3 / 7 !important;
+  grid-row: 2 !important;
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: #506887;
+  font-size: 10px !important;
+}
+.reference-problems-page .problem-row .problem-batch-facts small { display: inline !important; font-size: 10px !important; }
+.reference-problems-page .problem-row .problem-flag {
+  position: static !important;
+  grid-column: 7 !important;
+  grid-row: 2 !important;
+  justify-self: start;
+  align-self: start;
+  margin: 0 !important;
+}
+@media (max-width: 1280px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 30px 68px minmax(210px, 1fr) 92px 110px 150px !important;
+  }
+  .reference-problems-page .problem-row .problem-source { display: none !important; }
+  .reference-problems-page .problem-row .problem-state { grid-column: 4 !important; }
+  .reference-problems-page .problem-row .problem-correctability { grid-column: 5 !important; }
+  .reference-problems-page .problem-row .card-record-open { grid-column: 6 !important; }
+  .reference-problems-page .problem-row .problem-batch-facts { grid-column: 3 / 6 !important; }
+  .reference-problems-page .problem-row .problem-flag { grid-column: 6 !important; }
+}
+@media (max-width: 900px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 28px 70px minmax(0, 1fr) !important;
+    grid-template-rows: none !important;
+    min-height: 0 !important;
+  }
+  .reference-problems-page .problem-row .problem-batch-select { grid-column: 1 !important; grid-row: 1 / span 6 !important; }
+  .reference-problems-page .problem-row .problem-severity { grid-column: 2 !important; grid-row: 1 !important; }
+  .reference-problems-page .problem-row .problem-main,
+  .reference-problems-page .problem-row .problem-state,
+  .reference-problems-page .problem-row .problem-correctability,
+  .reference-problems-page .problem-row .problem-batch-facts,
+  .reference-problems-page .problem-row .card-record-open,
+  .reference-problems-page .problem-row .problem-flag { grid-column: 3 !important; grid-row: auto !important; }
+  .reference-problems-page .problem-row .problem-batch-facts { display: flex !important; }
+}

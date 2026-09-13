@@ -522,6 +522,7 @@ export default function ProblemsWorkspace() {
       <section className={`problems-list card-record-grid native-problem-cards ${view}`} aria-live="polite">
         {filtered.length ? filtered.map((problem, index) => {
           const href = safeHttpHref(problem.sourceUrl);
+          const autoResolvable = problem.correctability === "automatic" && problem.problemState === "open" && !problem.ownershipBlocked && !["applied", "verified"].includes(problem.interventionState);
           return (
             <article className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} onClick={event => { if (!event.target.closest("a,button,input,label") && !batchBusy) openProblemResolution(problem, selectedClientId, "problem-row"); }}>
               <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={batchSelection.clientId === client.id && batchSelection.keys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
@@ -533,7 +534,7 @@ export default function ProblemsWorkspace() {
               <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
-              <span className="card-record-open">{problemEntryLabel(problem)} <ChevronRight /></span>
+              <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{autoResolvable ? "Risolvi automaticamente" : problemEntryLabel(problem)} <ChevronRight /></button>
             </article>
           );
         }) : (

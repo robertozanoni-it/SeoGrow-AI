@@ -9,6 +9,7 @@ export const PROPOSAL_ROUTE_PAGE = "Correzioni";
 export const PROPOSAL_FOCUS_KEY = "seogrow-problem-proposal-v1";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 export const RESOLUTION_FOCUS_KEY = "seogrow-problem-resolution-v1";
+export const AUTO_RESOLVE_INTENT_KEY = "seogrow-auto-resolve-intent-v1";
 const VALID_OPEN_SOURCES = new Set(["automatic-badge", "problem-row", "problem-card", "audit-row", "project-problem"]);
 
 const currentPage = () => {
@@ -56,6 +57,25 @@ export const readAutomaticProposalFocus = () => {
   }
 };
 
+
+export const rememberAutomaticResolutionIntent = (focus) => {
+  if (!focus || typeof sessionStorage === "undefined") return false;
+  try {
+    sessionStorage.setItem(AUTO_RESOLVE_INTENT_KEY, JSON.stringify({ ...focus, createdAt: Date.now() }));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readAutomaticResolutionIntent = () => {
+  if (typeof sessionStorage === "undefined") return null;
+  try { return JSON.parse(sessionStorage.getItem(AUTO_RESOLVE_INTENT_KEY) || "null"); } catch { return null; }
+};
+
+const clearAutomaticResolutionIntent = () => {
+  try { sessionStorage.removeItem(AUTO_RESOLVE_INTENT_KEY); } catch { /* optional session helper */ }
+};
 export const clearAutomaticProposalFocus = () => {
   try {
     sessionStorage.removeItem(PROPOSAL_FOCUS_KEY);
@@ -64,13 +84,15 @@ export const clearAutomaticProposalFocus = () => {
   }
 };
 
-export const openProblemResolution = (problem, clientId, openedFrom = "problem-card", { controlledPreview = false } = {}) => {
+export const openProblemResolution = (problem, clientId, openedFrom = "problem-card", { controlledPreview = false, forceAutomatic = false } = {}) => {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
   if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
   const controlled = controlledPreview === true && canOpenControlledLinkPreview(problem);
   if (controlled) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
-  const automatic = shouldOpenAutomaticProposal(problem) || controlled;
+  const forcedAutomatic = forceAutomatic === true && problem?.correctability === "automatic";
+  if (forcedAutomatic) focus.forcedAutomaticFlow = true;
+  const automatic = shouldOpenAutomaticProposal(problem) || controlled || forcedAutomatic;
   try {
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
@@ -107,10 +129,27 @@ const clearFocusOutsideProposalRoute = () => {
   }
 };
 
+const resumeAutomaticResolutionAfterAudit = (event) => {
+  if (!["seogrow-page-audit-history-v2", "seogrow-analyses-v2"].includes(event?.detail?.key)) return;
+  const intent = readAutomaticResolutionIntent();
+  if (!intent) return;
+  if (Date.now() - Number(intent.createdAt || 0) > 30 * 60 * 1000 || normalizeClientId(intent.clientId) !== selectedClientId()) {
+    clearAutomaticResolutionIntent();
+    return;
+  }
+  window.setTimeout(() => {
+    const current = readAutomaticResolutionIntent();
+    if (!current) return;
+    clearAutomaticResolutionIntent();
+    openProblemResolution({ ...current, correctability: "automatic", stale: false }, current.clientId, current.openedFrom || "problem-card", { forceAutomatic: true });
+  }, 80);
+};
+
 if (typeof document !== "undefined") {
   // Capture phase: l'intera riga di un problema automatico apre direttamente
   // la proposta prima del drawer legacy. Manuali e non supportati restano nel dettaglio.
   document.addEventListener("click", interceptAutomaticClick, true);
   window.addEventListener("hashchange", clearFocusOutsideProposalRoute);
   window.addEventListener("seogrow-locationchange", clearFocusOutsideProposalRoute);
+  window.addEventListener("seogrow-storage-ok", resumeAutomaticResolutionAfterAudit);
 }

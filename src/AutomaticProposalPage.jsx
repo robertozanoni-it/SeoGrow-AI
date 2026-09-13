@@ -16,6 +16,7 @@ import {
   PROPOSAL_ROUTE_PAGE,
   clearAutomaticProposalFocus,
   readAutomaticProposalFocus,
+  rememberAutomaticResolutionIntent,
 } from "./AutomaticProposalNavigation.js";
 import "./AutomaticProposalPage.css";
 
@@ -24,6 +25,7 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const TASKS_KEY = "seogrow-tasks-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
+const REMEDIATION_FOCUS_KEY = "seogrow-remediation-focus-v1";
 
 const currentPage = () => {
   try {
@@ -221,6 +223,22 @@ export default function AutomaticProposalPage() {
   const previewAllowed = controlledPreviewAllowed(problem, focus);
   const nextResolution = problem ? resolutionPath(problem, latestCorrection) : null;
 
+  const refreshAuditForAutomaticResolution = () => {
+    if (!problem || !client) return;
+    rememberAutomaticResolutionIntent(focus);
+    const request = {
+      clientId: client.id,
+      issueKey: problem.key,
+      issueType: problem.issueType,
+      sourceUrl: problem.sourceUrl,
+    };
+    try { sessionStorage.setItem(REMEDIATION_FOCUS_KEY, JSON.stringify(request)); } catch { /* Audit can still be opened manually. */ }
+    clearAutomaticProposalFocus();
+    window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
+    navigatePage("Audit SEO");
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-remediation-focus", { detail: request })), 0);
+  };
+
   const closeAndGo = (page) => {
     clearAutomaticProposalFocus();
     window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
@@ -304,8 +322,9 @@ export default function AutomaticProposalPage() {
             </div>
             {!previewAllowed ? (
               <div className="automatic-proposal-warning" role="alert">
-                <strong>{nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong>
-                <p>{nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>
+                <strong>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "Aggiorna l’audit per continuare con la correzione automatica." : nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong>
+                <p>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "SeoGrow conserva l’intento di risoluzione: dopo un audit aggiornato riaprirà automaticamente la proposta, senza applicare alcuna scrittura prima dell’anteprima e della tua approvazione." : nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>
+                {focus.forcedAutomaticFlow && problem.correctability === "automatic" && <button type="button" className="primary" onClick={refreshAuditForAutomaticResolution}>Aggiorna audit e continua</button>}
                 <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
               </div>
             ) : problem.problemState === "resolved" ? (
