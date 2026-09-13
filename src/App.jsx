@@ -2100,179 +2100,63 @@ function RankingsPage({
       setLoading(false);
     }
   };
+  const [rankingView, setRankingView] = useState("all");
+  const [rankingQuery, setRankingQuery] = useState("");
+  const currentRankings = current?.rankings || [];
+  const validRankings = currentRankings.filter((item) => !item.error && Number(item.position) > 0);
+  const top3 = validRankings.filter((item) => Number(item.position) <= 3).length;
+  const top10 = validRankings.filter((item) => Number(item.position) <= 10).length;
+  const top100 = validRankings.filter((item) => Number(item.position) <= 100).length;
+  const deltas = validRankings.map((item) => {
+    const old = previousMap.get(String(item.keyword || "").toLocaleLowerCase("it"));
+    return { ...item, delta: item.position && old ? old - item.position : null };
+  });
+  const growing = deltas.filter((item) => Number(item.delta) > 0).length;
+  const declining = deltas.filter((item) => Number(item.delta) < 0).length;
+  const visibleRankings = deltas.filter((item) => {
+    const text = `${item.keyword || ""} ${item.url || ""}`.toLowerCase();
+    if (!text.includes(rankingQuery.trim().toLowerCase())) return false;
+    if (rankingView === "growth") return Number(item.delta) > 0;
+    if (rankingView === "decline") return Number(item.delta) < 0;
+    if (rankingView === "top10") return Number(item.position) <= 10;
+    if (rankingView === "optimize") return Number(item.position) > 10;
+    return true;
+  });
+  const trendRuns = (history || []).slice(0, 8).toReversed().map((runItem) => ({
+    date: runItem.checkedAt,
+    total: (runItem.rankings || []).filter((item) => !item.error && Number(item.position) > 0).length,
+    top10: (runItem.rankings || []).filter((item) => !item.error && Number(item.position) > 0 && Number(item.position) <= 10).length,
+    top3: (runItem.rankings || []).filter((item) => !item.error && Number(item.position) > 0 && Number(item.position) <= 3).length,
+  }));
+  const maxTrend = Math.max(1, ...trendRuns.map((item) => item.total));
   return (
-    <>
-      <EmptyTitle
-        title={`Posizionamenti — ${client.name}`}
-        text="Posizioni organiche reali rilevate tramite DataForSEO per Google Italia."
-      />
-      <div className="ranking-layout">
-        <form className="panel ranking-form" onSubmit={run}>
-          <label>
-            Keyword, una per riga
-            <textarea
-              value={keywords}
-              onChange={(event) => setKeywords(event.target.value)}
-              required
-            />
-          </label>
-          <div className="form-row two">
-            <label>
-              Profondità
-              <select
-                value={depth}
-                onChange={(event) => setDepth(Number(event.target.value))}
-              >
-                <option value="10">Top 10</option>
-                <option value="20">Top 20</option>
-                <option value="50">Top 50</option>
-                <option value="100">Top 100</option>
-              </select>
-            </label>
-            <label>
-              Dispositivo
-              <select
-                value={device}
-                onChange={(event) => setDevice(event.target.value)}
-              >
-                <option value="desktop">Desktop</option>
-                <option value="mobile">Mobile</option>
-              </select>
-            </label>
-          </div>
-          <div className="form-row two">
-            <label>
-              Codice località DataForSEO
-              <input
-                type="number"
-                min="1"
-                value={locationCode}
-                onChange={(event) => setLocationCode(Number(event.target.value))}
-              />
-            </label>
-            <label>
-              Lingua
-              <select value={languageCode} onChange={(event) => setLanguageCode(event.target.value)}>
-                <option value="it">Italiano</option>
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="fr">Français</option>
-                <option value="es">Español</option>
-              </select>
-            </label>
-          </div>
-          <div className="integration-note">
-            <AlertTriangle />
-            Ogni keyword genera una richiesta a pagamento. Un controllo più
-            profondo può costare di più.
-          </div>
-          <button className="primary" disabled={loading}>
-            {loading
-              ? "Controllo…"
-              : dataForSeo.configured
-                ? "Controlla posizioni"
-                : "Configura DataForSEO"}
-          </button>
-          {error && <p className="error" role="alert">{error}</p>}
-        </form>
-        <section className="panel ranking-results">
-          <div className="panel-head">
-            <div>
-              <h2>Ultimo controllo</h2>
-              <p>
-                {current
-                  ? `${new Date(current.checkedAt).toLocaleString("it-IT")} · ${current.device || "dispositivo non registrato"} · costo $${Number(current.cost || 0).toFixed(4)}`
-                  : "Nessun controllo ancora eseguito."}
-              </p>
-            </div>
-          </div>
-          {current && (
-            <div className="table-scroll">
-              <table>
-                <caption className="sr-only">Posizionamenti delle keyword monitorate</caption>
-                <thead>
-                  <tr>
-                    <th>Keyword</th>
-                    <th>Posizione</th>
-                    <th>Variazione</th>
-                    <th>URL posizionata</th>
-                    <th>Azione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {current.rankings.map((item) => {
-                    const old = previousMap.get(String(item.keyword || "").toLocaleLowerCase("it"));
-                    const delta =
-                      item.position && old ? old - item.position : null;
-                    return (
-                      <tr key={item.keyword}>
-                        <td>
-                          <strong>{item.keyword}</strong>
-                          {item.error && (
-                            <small className="block-note error">
-                              Errore API: {item.error}
-                            </small>
-                          )}
-                        </td>
-                        <td>
-                          {item.error
-                            ? "Non verificata"
-                            : item.position || `Oltre ${current.depth}`}
-                        </td>
-                        <td
-                          className={
-                            delta > 0 ? "green" : delta < 0 ? "red" : ""
-                          }
-                        >
-                          {delta == null
-                            ? "—"
-                            : `${delta > 0 ? "+" : ""}${delta}`}
-                        </td>
-                        <td>
-                          {item.url ? (
-                            <a
-                              className="task-link"
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <ExternalLink />
-                              Apri pagina
-                            </a>
-                          ) : (
-                            "Non trovata"
-                          )}
-                        </td>
-                        <td>
-                          <button
-                            className="secondary mini"
-                            disabled={Boolean(item.error)}
-                            onClick={() =>
-                              onCreateTask({
-                                title: `Migliora posizione: ${item.keyword}`,
-                                sourceUrl: item.url,
-                                detail: `Posizione DataForSEO: ${item.position || `oltre ${current.depth}`}\nDispositivo: ${current.device}\nLocalità: ${current.locationCode}\nVerificata: ${current.checkedAt}`,
-                                priority:
-                                  !item.position || item.position > 20
-                                    ? "Alta"
-                                    : "Media",
-                              })
-                            }
-                          >
-                            Crea task
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
-    </>
+    <div className="reference-rankings-page">
+      <section className="reference-rankings-head">
+        <div className="reference-rankings-title"><span><BarChart3 /></span><div><h1>Posizionamenti</h1><p>Monitora l’andamento delle keyword e scopri nuove opportunità di crescita.</p></div></div>
+        <div className="reference-rankings-actions"><button className="secondary" onClick={() => onNavigate("Integrazioni")}>DataForSEO</button><button className="primary" onClick={() => document.getElementById("rankings-check-form")?.scrollIntoView({ behavior: "smooth" })}><RefreshCw /> Aggiorna posizioni</button></div>
+      </section>
+
+      <section className="reference-ranking-kpis">
+        <article className="blue"><Target /><span><small>Keyword monitorate</small><strong>{currentRankings.length || "—"}</strong><em>{current ? "Ultimo controllo salvato" : "Nessun controllo"}</em></span></article>
+        <article className="green"><Check /><span><small>In Top 3</small><strong>{current ? top3 : "—"}</strong><em>{current && currentRankings.length ? `${Math.round((top3/currentRankings.length)*100)}% delle keyword` : "—"}</em></span></article>
+        <article className="orange"><CircleGauge /><span><small>In Top 10</small><strong>{current ? top10 : "—"}</strong><em>{current && currentRankings.length ? `${Math.round((top10/currentRankings.length)*100)}% delle keyword` : "—"}</em></span></article>
+        <article className="purple"><BarChart3 /><span><small>In Top 100</small><strong>{current ? top100 : "—"}</strong><em>{current && currentRankings.length ? `${Math.round((top100/currentRankings.length)*100)}% delle keyword` : "—"}</em></span></article>
+      </section>
+
+      <section className="reference-rankings-overview">
+        <article className="reference-ranking-trend"><div className="reference-panel-title"><div><h2>Andamento posizionamenti</h2><p>Dati reali delle ultime verifiche DataForSEO.</p></div><span>{trendRuns.length} controlli</span></div>{trendRuns.length ? <div className="reference-ranking-bars">{trendRuns.map((item, index) => <div key={`${item.date}-${index}`} title={`${item.top10} keyword Top 10 su ${item.total}`}><i style={{height:`${Math.max(8,(item.total/maxTrend)*100)}%`}} /><b style={{height:`${Math.max(5,(item.top10/maxTrend)*100)}%`}} /><small>{item.date ? new Date(item.date).toLocaleDateString("it-IT", {day:"2-digit",month:"short"}) : "—"}</small></div>)}</div> : <p className="reference-empty-copy">Esegui almeno un controllo per costruire il trend.</p>}</article>
+        <article className="reference-ranking-distribution"><h2>Distribuzione posizioni</h2><div className="reference-ranking-ring" style={{"--top3":`${currentRankings.length ? (top3/currentRankings.length)*360 : 0}deg`,"--top10":`${currentRankings.length ? ((top10-top3)/currentRankings.length)*360 : 0}deg`}}><span><strong>{currentRankings.length || 0}</strong><small>keyword</small></span></div><ul><li><i className="green" /> Top 3 <strong>{top3}</strong></li><li><i className="blue" /> 4–10 <strong>{Math.max(0,top10-top3)}</strong></li><li><i className="purple" /> 11–100 <strong>{Math.max(0,top100-top10)}</strong></li><li><i className="gray" /> Oltre / non trovate <strong>{Math.max(0,currentRankings.length-top100)}</strong></li></ul></article>
+      </section>
+
+      <section className="reference-ranking-table panel">
+        <div className="reference-ranking-toolbar"><div className="reference-ranking-tabs">{[["all","Tutte le keyword"],["growth",`In crescita (${growing})`],["decline",`In calo (${declining})`],["top10","Top 10"],["optimize","Da ottimizzare"]].map(([value,label]) => <button key={value} className={rankingView===value?"active":""} onClick={() => setRankingView(value)}>{label}</button>)}</div><label><Search /><input value={rankingQuery} onChange={(event) => setRankingQuery(event.target.value)} placeholder="Cerca keyword…" /></label></div>
+        {current ? <div className="table-scroll"><table><caption className="sr-only">Posizionamenti keyword</caption><thead><tr><th>Keyword</th><th>Posizione</th><th>Var.</th><th>URL</th><th>Ultimo aggiornamento</th><th>Azioni</th></tr></thead><tbody>{visibleRankings.map((item) => <tr key={item.keyword}><td><strong>{item.keyword}</strong></td><td><strong>{item.position || `>${current.depth}`}</strong></td><td className={item.delta > 0 ? "green" : item.delta < 0 ? "red" : ""}>{item.delta == null ? "—" : `${item.delta > 0 ? "+" : ""}${item.delta}`}</td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.url.replace(/^https?:\/\/[^/]+/,"") || "/"}</a> : "Non trovata"}</td><td>{current.checkedAt ? new Date(current.checkedAt).toLocaleString("it-IT") : "—"}</td><td><button className="secondary mini" onClick={() => onCreateTask({ title:`Migliora posizione: ${item.keyword}`, sourceUrl:item.url, detail:`Posizione DataForSEO: ${item.position || `oltre ${current.depth}`}\nDispositivo: ${current.device}\nLocalità: ${current.locationCode}\nVerificata: ${current.checkedAt}`, priority:!item.position || item.position > 20 ? "Alta" : "Media" })}>Analizza</button></td></tr>)}{!visibleRankings.length && <tr><td colSpan="6" className="empty-row">Nessuna keyword per questo filtro.</td></tr>}</tbody></table></div> : <p className="reference-empty-copy">Nessun controllo posizioni salvato. Configura DataForSEO e avvia il primo controllo.</p>}
+      </section>
+
+      <details className="reference-ranking-config" id="rankings-check-form"><summary>Configura e avvia un nuovo controllo DataForSEO</summary><form className="panel ranking-form" onSubmit={run}><label>Keyword, una per riga<textarea value={keywords} onChange={(event) => setKeywords(event.target.value)} required /></label><div className="form-row two"><label>Profondità<select value={depth} onChange={(event) => setDepth(Number(event.target.value))}><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option><option value="100">Top 100</option></select></label><label>Dispositivo<select value={device} onChange={(event) => setDevice(event.target.value)}><option value="desktop">Desktop</option><option value="mobile">Mobile</option></select></label></div><div className="form-row two"><label>Codice località DataForSEO<input type="number" min="1" value={locationCode} onChange={(event) => setLocationCode(Number(event.target.value))} /></label><label>Lingua<select value={languageCode} onChange={(event) => setLanguageCode(event.target.value)}><option value="it">Italiano</option><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option></select></label></div><div className="integration-note"><AlertTriangle /> Ogni keyword genera una richiesta a pagamento. Un controllo più profondo può costare di più.</div><button className="primary" disabled={loading}>{loading ? "Controllo…" : dataForSeo.configured ? "Controlla posizioni" : "Configura DataForSEO"}</button>{error && <p className="error" role="alert">{error}</p>}</form></details>
+    </div>
   );
+
 }
 
 function ContentPage({

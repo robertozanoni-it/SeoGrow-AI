@@ -1,0 +1,75 @@
+.reference-rankings-page { display: grid; gap: 14px; }
+.reference-rankings-head { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.reference-rankings-title { display:flex; align-items:center; gap:14px; }
+.reference-rankings-title > span { width:62px; height:62px; display:grid; place-items:center; border-radius:14px; background:#edf4ff; color:#176cf4; }
+.reference-rankings-title svg { width:30px; height:30px; }
+.reference-rankings-title h1 { margin:0 0 4px; color:#07183d; font-size:32px !important; }
+.reference-rankings-title p { margin:0; color:#5e7390; }
+.reference-rankings-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.reference-rankings-actions button { min-height:40px; display:inline-flex; align-items:center; gap:6px; }
+.reference-ranking-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.reference-ranking-kpis article { min-height:108px; display:flex; align-items:center; gap:14px; padding:16px; border:1px solid #dce6f2; border-radius:14px; background:#fff; }
+.reference-ranking-kpis article > svg { width:52px; height:52px; padding:13px; border-radius:14px; }
+.reference-ranking-kpis article.blue > svg { color:#1476ef; background:#eaf4ff; }
+.reference-ranking-kpis article.green > svg { color:#08a85b; background:#e8faf2; }
+.reference-ranking-kpis article.orange > svg { color:#ee9700; background:#fff3df; }
+.reference-ranking-kpis article.purple > svg { color:#ee3d65; background:#fff0f3; }
+.reference-ranking-kpis article span { display:grid; gap:3px; }
+.reference-ranking-kpis small { color:#304c72; font-weight:800; }
+.reference-ranking-kpis strong { color:#07183d; font-size:28px !important; line-height:1; }
+.reference-ranking-kpis em { color:#667b97; font-size:10px; font-style:normal; }
+.reference-rankings-overview { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(300px,.7fr); gap:12px; }
+.reference-rankings-overview > article { min-height:240px; border:1px solid #dce6f2; border-radius:14px; background:#fff; padding:16px; }
+.reference-panel-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.reference-panel-title h2, .reference-ranking-distribution h2 { margin:0; color:#07183d; font-size:16px !important; }
+.reference-panel-title p { margin:4px 0 0; color:#667b97; }
+.reference-panel-title > span { color:#5e7390; font-weight:800; }
+.reference-ranking-bars { height:160px; display:flex; align-items:flex-end; gap:12px; padding:18px 8px 0; border-bottom:1px solid #e5edf6; }
+.reference-ranking-bars > div { flex:1; height:100%; display:flex; align-items:flex-end; justify-content:center; gap:3px; position:relative; padding-bottom:24px; }
+.reference-ranking-bars i, .reference-ranking-bars b { width:9px; min-height:5px; border-radius:5px 5px 0 0; }
+.reference-ranking-bars i { background:linear-gradient(#8d66f0,#6f43da); }
+.reference-ranking-bars b { background:linear-gradient(#2c8ff4,#1268e9); }
+.reference-ranking-bars small { position:absolute; bottom:2px; color:#73859e; font-size:8px !important; white-space:nowrap; }
+.reference-ranking-distribution { display:grid; grid-template-columns:148px 1fr; align-items:center; gap:14px; }
+.reference-ranking-distribution h2 { grid-column:1 / -1; }
+.reference-ranking-ring { width:144px; height:144px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(#10aa62 0 var(--top3), #1d8cf5 var(--top3) calc(var(--top3) + var(--top10)), #9368ef calc(var(--top3) + var(--top10)) 300deg, #d7dfeb 300deg 360deg); position:relative; }
+.reference-ranking-ring::after { content:""; position:absolute; inset:26px; border-radius:50%; background:#fff; }
+.reference-ranking-ring span { position:relative; z-index:1; display:grid; text-align:center; }
+.reference-ranking-ring strong { color:#07183d; font-size:24px !important; }
+.reference-ranking-ring small { color:#5f7390; }
+.reference-ranking-distribution ul { list-style:none; margin:0; padding:0; display:grid; gap:11px; }
+.reference-ranking-distribution li { display:grid; grid-template-columns:10px 1fr auto; align-items:center; gap:8px; color:#425f82; }
+.reference-ranking-distribution li i { width:9px; height:9px; border-radius:50%; }
+.reference-ranking-distribution li i.green { background:#10aa62; }
+.reference-ranking-distribution li i.blue { background:#1d8cf5; }
+.reference-ranking-distribution li i.purple { background:#9368ef; }
+.reference-ranking-distribution li i.gray { background:#b8c4d8; }
+.reference-ranking-table { margin:0 !important; border-radius:14px !important; box-shadow:none !important; overflow:hidden; }
+.reference-ranking-toolbar { min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:8px 12px; border-bottom:1px solid #e5edf6; }
+.reference-ranking-tabs { display:flex; gap:3px; min-width:0; overflow-x:auto; }
+.reference-ranking-tabs button { min-height:40px; padding:0 12px; border:0; border-bottom:3px solid transparent; background:transparent; color:#496584; font-weight:800; white-space:nowrap; }
+.reference-ranking-tabs button.active { color:#075fe3; border-bottom-color:#176cf4; }
+.reference-ranking-toolbar label { min-width:240px; display:flex; align-items:center; gap:7px; border:1px solid #d8e4f0; border-radius:9px; padding:0 10px; background:#fff; }
+.reference-ranking-toolbar label svg { width:15px; color:#7085a0; }
+.reference-ranking-toolbar input { min-height:38px; width:100%; border:0 !important; padding:0 !important; box-shadow:none !important; }
+.reference-ranking-table table th { background:#f6f9fd !important; }
+.reference-ranking-table table td { min-height:52px; }
+.reference-ranking-table table td a { color:#075fe3; text-decoration:none; }
+.reference-ranking-table table td a:hover { text-decoration:underline; }
+.reference-empty-copy { color:#6c809a; padding:18px 4px; }
+.reference-ranking-config { border:1px solid #dce6f2; border-radius:13px; background:#fff; overflow:hidden; }
+.reference-ranking-config > summary { min-height:50px; display:flex; align-items:center; padding:0 16px; color:#17385f; font-weight:850; cursor:pointer; }
+.reference-ranking-config[open] > summary { border-bottom:1px solid #e6edf5; }
+.reference-ranking-config .ranking-form { margin:0; border:0 !important; border-radius:0 !important; box-shadow:none !important; }
+@media (max-width:1100px) {
+  .reference-ranking-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .reference-rankings-overview { grid-template-columns:1fr; }
+}
+@media (max-width:760px) {
+  .reference-rankings-head { align-items:flex-start; flex-direction:column; }
+  .reference-ranking-kpis { grid-template-columns:1fr; }
+  .reference-ranking-toolbar { align-items:stretch; flex-direction:column; }
+  .reference-ranking-toolbar label { min-width:0; width:100%; }
+  .reference-ranking-distribution { grid-template-columns:1fr; }
+  .reference-ranking-ring { justify-self:center; }
+}
