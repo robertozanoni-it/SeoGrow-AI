@@ -394,7 +394,7 @@ try {
 
   // Regression: create -> save -> reload -> open the same persisted task.
   await clickSidebar("Opportunità");
-  const opportunityButton = "document.querySelector('.opportunity-table tbody tr button')";
+  const opportunityButton = "document.querySelector('.reference-opportunity-table tbody tr button, .opportunity-table tbody tr button')";
   await waitFor(opportunityButton + "?.textContent.trim() === 'Crea task'", "opportunità yoga senza task");
   await evaluate("(() => { const button = " + opportunityButton + "; button.click(); button.click(); button.click(); })()");
   await waitFor(opportunityButton + "?.textContent.trim() === 'Apri task'", "stato opportunità aggiornato dopo creazione");
