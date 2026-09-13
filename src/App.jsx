@@ -337,125 +337,45 @@ function HistoryPage({ history, client, onAnalyze }) {
 function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
   const suggestions = analysis?.internalLinkSuggestions || [];
   const broken = analysis?.brokenLinks || [];
+  const linksChecked = Number(analysis?.linksChecked || 0);
+  const orphanPages = Array.isArray(analysis?.orphanPages) ? analysis.orphanPages : [];
+  const anchorRows = suggestions
+    .map((item) => String(item.anchor || "").trim())
+    .filter(Boolean)
+    .reduce((map, anchor) => map.set(anchor, (map.get(anchor) || 0) + 1), new Map());
+  const topAnchors = [...anchorRows.entries()].toSorted((a,b) => b[1] - a[1]).slice(0, 5);
+  const structureItems = suggestions.slice(0, 6);
   return (
-    <>
-      <EmptyTitle
-        title={`Link interni — ${client.name}`}
-        text="Collegamenti interrotti verificati e nuove connessioni suggerite dal crawl."
-        action="Nuova analisi"
-        onAction={onAnalyze}
-      />
-      {analysis && (
-        <div className="source-banner">
-          <Check />
-          Ultimo crawl: {new Date(analysis.analyzedAt).toLocaleString(
-            "it-IT",
-          )}{" "}
-          · {analysis.linksChecked || 0} link controllati
+    <div className="reference-links-page">
+      <section className="reference-links-head">
+        <div className="reference-links-title"><span><Link2 /></span><div><h1>Link interni</h1><p>Analizza la struttura di linking interno del sito e trasforma i suggerimenti in azioni verificabili.</p></div></div>
+        <div className="reference-links-actions"><button className="secondary" onClick={onAnalyze}><RefreshCw /> Aggiorna analisi</button></div>
+      </section>
+
+      <section className="reference-links-kpis">
+        <article><Link2 /><span><strong>{analysis ? formatInteger(linksChecked) : "—"}</strong><small>Link controllati</small><em>{analysis ? "Ultimo crawl salvato" : "Audit richiesto"}</em></span></article>
+        <article><FileText /><span><strong>{analysis ? orphanPages.length : "—"}</strong><small>Pagine orfane</small><em>{Array.isArray(analysis?.orphanPages) ? "Rilevate dal crawl" : "Dato non disponibile"}</em></span></article>
+        <article><Target /><span><strong>{analysis ? suggestions.length : "—"}</strong><small>Opportunità</small><em>Link suggeriti da verificare</em></span></article>
+        <article><AlertTriangle /><span><strong>{analysis ? broken.length : "—"}</strong><small>Link rotti</small><em>{broken.length ? "Richiedono intervento" : "Nessun errore noto"}</em></span></article>
+      </section>
+
+      <section className="reference-links-grid">
+        <article className="reference-link-map">
+          <div className="reference-panel-title"><div><h2>Struttura di linking del sito</h2><p>Vista sintetica delle opportunità principali.</p></div><span>{client?.name}</span></div>
+          <div className="reference-link-network"><div className="reference-link-home"><Home /><strong>Home</strong></div>{structureItems.map((item,index) => <div className={`reference-link-node node-${index+1}`} key={`${item.sourceUrl}-${item.targetUrl}-${index}`}><Link2 /><span><strong>{item.anchor || `Link ${index+1}`}</strong><small>{(() => { try { return item.targetUrl ? new URL(item.targetUrl).pathname : "Destinazione"; } catch { return item.targetUrl || "Destinazione"; } })()}</small></span></div>)}</div>
+          <div className="reference-link-legend"><span><i className="blue" />Pagina principale</span><span><i className="green" />Opportunità</span><span><i className="red" />Link rotto</span></div>
+        </article>
+
+        <div className="reference-links-side">
+          <article><h2>Distribuzione link</h2><div className="reference-link-donut" style={{"--good":`${linksChecked ? Math.max(0,((linksChecked-broken.length)/linksChecked)*360) : 0}deg`}}><span><strong>{linksChecked}</strong><small>controllati</small></span></div><ul><li><i className="green" />Validi / non segnalati <strong>{Math.max(0,linksChecked-broken.length)}</strong></li><li><i className="red" />Rotti <strong>{broken.length}</strong></li><li><i className="blue" />Suggeriti <strong>{suggestions.length}</strong></li></ul></article>
+          <article><h2>Anchor text suggerite</h2>{topAnchors.length ? topAnchors.map(([anchor,count]) => <div className="reference-anchor-row" key={anchor}><span>{anchor}</span><i><b style={{width:`${Math.min(100,20+count*18)}%`}} /></i><strong>{count}</strong></div>) : <p className="reference-empty-copy">Nessuna anchor suggerita disponibile.</p>}</article>
         </div>
-      )}
-      <div className="split-panels">
-        <section className="panel link-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Link interrotti</h2>
-              <p>Tutte le pagine sorgenti rilevate.</p>
-            </div>
-            <span className="count-badge red">{broken.length}</span>
-          </div>
-          {broken.length ? (
-            broken.map((link) => (
-              <div className="link-row" key={link.url}>
-                <div>
-                  <strong>{link.status || "Errore"}</strong>
-                  <a href={link.url} target="_blank" rel="noreferrer">
-                    {link.url}
-                  </a>
-                  {(link.sources || []).map((source) => (
-                    <a
-                      className="source-link"
-                      key={source}
-                      href={source}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Da: {source}
-                    </a>
-                  ))}
-                </div>
-                <button
-                  className="secondary mini"
-                  onClick={() =>
-                    onCreateTask({
-                      title: `Correggi link interrotto: ${link.url}`,
-                      sourceUrl: link.sources?.[0] || "",
-                      targetUrl: link.url,
-                      detail: `${link.error || `HTTP ${link.status}`}\nPagine sorgenti:\n${(link.sources || []).map((source) => `- ${source}`).join("\n")}\nDestinazione interrotta: ${link.url}`,
-                      priority: "Alta",
-                      kind: "broken-link",
-                    })
-                  }
-                >
-                  Crea task
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="empty-copy">
-              {analysis
-                ? "Nessun link interrotto rilevato nell’ultima analisi."
-                : "Avvia una nuova analisi completa per controllare i link."}
-            </p>
-          )}
-        </section>
-        <section className="panel link-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Link suggeriti</h2>
-              <p>Suggerimenti da verificare editorialmente.</p>
-            </div>
-            <span className="count-badge">{suggestions.length}</span>
-          </div>
-          {suggestions.length ? (
-            suggestions.map((link, index) => (
-              <div
-                className="link-row"
-                key={`${link.sourceUrl}-${link.targetUrl}-${index}`}
-              >
-                <div>
-                  <a href={link.sourceUrl} target="_blank" rel="noreferrer">
-                    Pagina sorgente
-                  </a>
-                  <a href={link.targetUrl} target="_blank" rel="noreferrer">
-                    Destinazione: {link.targetUrl}
-                  </a>
-                  <strong>Anchor: “{link.anchor}”</strong>
-                </div>
-                <button
-                  className="secondary mini"
-                  onClick={() =>
-                    onCreateTask({
-                      title: `Inserisci link interno: “${link.anchor}”`,
-                      sourceUrl: link.sourceUrl,
-                      targetUrl: link.targetUrl,
-                      detail: `${link.reason}\nPagina sorgente: ${link.sourceUrl}\nDestinazione: ${link.targetUrl}\nAnchor consigliata: ${link.anchor}`,
-                      priority: "Media",
-                      kind: "internal-link",
-                    })
-                  }
-                >
-                  Crea task
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="empty-copy">
-              Avvia un crawl completo per generare suggerimenti.
-            </p>
-          )}
-        </section>
-      </div>
-    </>
+      </section>
+
+      <section className="reference-link-opportunities panel"><div className="reference-panel-title"><div><h2>Pagine con opportunità di link</h2><p>Suggerimenti editoriali da validare prima dell’applicazione.</p></div><span>{suggestions.length} opportunità</span></div>{suggestions.length ? <div className="table-scroll"><table><caption className="sr-only">Opportunità di linking interno</caption><thead><tr><th>Pagina sorgente</th><th>Anchor</th><th>Destinazione</th><th>Azione</th></tr></thead><tbody>{suggestions.slice(0, 12).map((link,index) => <tr key={`${link.sourceUrl}-${link.targetUrl}-${index}`}><td><a href={link.sourceUrl} target="_blank" rel="noreferrer">{link.sourceUrl}</a></td><td><strong>{link.anchor || "Non disponibile"}</strong></td><td><a href={link.targetUrl} target="_blank" rel="noreferrer">{link.targetUrl}</a></td><td><button className="secondary mini" onClick={() => onCreateTask({ title:`Inserisci link interno: “${link.anchor}”`, sourceUrl:link.sourceUrl, targetUrl:link.targetUrl, detail:`${link.reason}\nPagina sorgente: ${link.sourceUrl}\nDestinazione: ${link.targetUrl}\nAnchor consigliata: ${link.anchor}`, priority:"Media", kind:"internal-link" })}>Crea task</button></td></tr>)}</tbody></table></div> : <p className="reference-empty-copy">Avvia un crawl completo per generare suggerimenti.</p>}</section>
+
+      <section className="reference-broken-links panel"><div className="reference-panel-title"><div><h2>Link interrotti</h2><p>Pagine sorgenti e destinazioni rilevate dal crawl.</p></div><span>{broken.length}</span></div>{broken.length ? broken.slice(0,10).map((link) => <div className="reference-broken-row" key={link.url}><AlertTriangle /><span><strong>{link.url}</strong><small>{(link.sources || []).length} pagine sorgenti</small></span><button className="secondary mini" onClick={() => onCreateTask({ title:`Correggi link interrotto: ${link.url}`, sourceUrl:link.sources?.[0] || "", targetUrl:link.url, detail:`${link.error || `HTTP ${link.status}`}\nPagine sorgenti:\n${(link.sources || []).map((source) => `- ${source}`).join("\n")}\nDestinazione interrotta: ${link.url}`, priority:"Alta", kind:"broken-link" })}>Crea task</button></div>) : <div className="reference-link-success"><Check /><span><strong>Nessun link interrotto rilevato</strong><small>{analysis ? "Ultimo crawl senza errori di linking confermati." : "Avvia una nuova analisi completa."}</small></span></div>}</section>
+    </div>
   );
 }
 
