@@ -1,6 +1,6 @@
 import { agentModeLabels, agentModeHelp, agentStatusLabel, agentCostLabel } from "./agentPresentation.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Circle, LoaderCircle, Play, ShieldCheck } from "lucide-react";
+import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
@@ -75,8 +75,16 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     catch (error) { setActionError(error?.message || "Non è stato possibile registrare la decisione."); }
     finally { operationLock.current = false; setRunning(false); }
   };
-  return <>
-    <div className="page-title"><div><h1>SEO Agent — {client.name}</h1><p>Definisci un obiettivo: l’agente pianifica e usa soltanto i dati necessari.</p></div><span className="status-badge"><ShieldCheck aria-hidden="true" /> {agentModeLabels[mode]}</span></div>
+  return <div className="reference-agent-page">
+    <section className="reference-agent-hero">
+      <div className="reference-agent-heading"><span><Sparkles /></span><div><h1>SEO Agent</h1><p>Il tuo assistente AI per analizzare, ottimizzare e far crescere {client.name}.</p></div></div>
+      <div className="reference-agent-hero-copy"><strong>Dati in azioni.<br/>Risultati reali.</strong><span><ShieldCheck /> {agentModeLabels[mode]}</span></div>
+    </section>
+    <div className="reference-agent-tabs"><span className="active">Assistente</span><span>Analisi AI</span><span>Strategie</span><span>Contenuti</span><span>Monitoraggio</span></div>
+    <section className="reference-agent-command-card">
+      <div><h2>Scrivi cosa vuoi fare…</h2><p>Descrivi un obiettivo concreto: l’agente usa solo i dati necessari del progetto.</p></div>
+      <div className="reference-agent-shortcuts"><span><Search /> Analizza un sito</span><span><Target /> Trova opportunità</span><span><FileText /> Crea contenuti</span><span><BarChart3 /> Ottimizza pagine</span><span><Link2 /> Link interni</span></div>
+    </section>
     <section className="panel agent-console">
       <div className="agent-form-field"><label htmlFor="seo-agent-mode">Modalità</label><select id="seo-agent-mode" aria-describedby="seo-agent-mode-help" disabled={running} value={mode} onChange={(event) => setMode(event.target.value)}><option value={AgentMode.READ_ONLY}>Sola lettura</option><option value={AgentMode.ASSISTED}>Assistita</option><option value={AgentMode.AUTONOMOUS}>Autonoma con limiti</option></select><p id="seo-agent-mode-help" className="agent-help">{agentModeHelp[mode]}</p></div>
       <div className="agent-form-field"><label htmlFor="seo-agent-goal">Cosa vuoi ottenere?</label><textarea id="seo-agent-goal" disabled={running} rows="3" value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Es. Trova le 10 migliori opportunità SEO" /></div>
@@ -99,5 +107,5 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
       <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>Azione:</strong> {item.recommendation}</p>
       <div className="agent-recommendation-footer"><small>Confidenza {item.confidence ?? "—"}% · Fonti: {Array.isArray(item.sources) && item.sources.length ? item.sources.join(", ") : "non disponibili"}</small><button className="secondary" onClick={() => onCreateTask({ title: item.recommendation || "Rivedi raccomandazione SEO", priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media", kind: "seo-agent", targetUrl: item.page, detail: `${item.interpretation || ""}\n\nEvidenza: ${(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ")}\nFonti: ${(Array.isArray(item.sources) ? item.sources : []).join(", ")}` })}>Crea task</button></div>
     </article>)}</section>}
-  </>;
+  </div>;
 }
