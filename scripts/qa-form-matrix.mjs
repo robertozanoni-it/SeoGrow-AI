@@ -44,7 +44,7 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     const created = (await read('seogrow-clients')).find(c => c.name === 'QA Fields');
     await revisit('Clienti');
     await waitFor("[...document.querySelectorAll('.client-card')].some(c => c.textContent.includes('QA Fields'))", 'Client survives reload');
-    await evaluate("[...[...document.querySelectorAll('.client-card')].find(c => c.textContent.includes('QA Fields')).querySelectorAll('button')].find(b => b.textContent.trim() === 'Modifica').click()");
+    await evaluate("[...document.querySelectorAll('.client-card')].find(c => c.textContent.includes('QA Fields')).querySelector('button[aria-label^=\"Modifica \"]').click()");
     await set('[role=dialog]', 'Nome cliente', 'QA Fields Edited');
     await submit('[role=dialog] form');
     await saved('seogrow-clients', `value?.some(c => c.id === ${q(created.id)} && c.name === 'QA Fields Edited')`);
