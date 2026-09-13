@@ -1,0 +1,386 @@
+/* Semantic visual system derived from the approved overview reference. */
+body[data-seogrow-ui-mode] {
+  --sv-red-bg: #fff1f3;
+  --sv-red-line: #ffc8d0;
+  --sv-blue-bg: #eef7ff;
+  --sv-blue-line: #b9dcff;
+  --sv-green-bg: #ecfbf3;
+  --sv-green-line: #bcebd0;
+  --sv-purple-bg: #f4efff;
+  --sv-purple-line: #d9c9ff;
+  --sv-orange-bg: #fff4e8;
+  --sv-orange-line: #ffd3a4;
+  --sv-neutral-bg: #ffffff;
+  --sv-neutral-soft: #f8fbff;
+  --sv-ink: #0a1740;
+  --sv-muted: #607292;
+  --sv-line: #dce6f2;
+  background: #fff !important;
+}
+
+body[data-seogrow-ui-mode] .workspace,
+body[data-seogrow-ui-mode] .workspace main {
+  background: #fff !important;
+}
+
+body[data-seogrow-ui-mode] .topbar {
+  height: 60px !important;
+  min-height: 60px !important;
+  background: #fff !important;
+  border-bottom: 1px solid #e4ebf3 !important;
+}
+/* Compact proportional typography: approximately 50% of the previous live scale. */
+body[data-seogrow-ui-mode] .workspace main :is(
+  p, li, label, button, input, select, textarea, td, a,
+  summary, legend, strong, span, em, b, dt, dd
+) {
+  font-size: 13px !important;
+  line-height: 1.42 !important;
+}
+body[data-seogrow-ui-mode] .workspace main :is(small, th) {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+body[data-seogrow-ui-mode] .workspace main h1 {
+  font-size: clamp(32px, 2.4vw, 40px) !important;
+  line-height: 1.06 !important;
+}
+body[data-seogrow-ui-mode] .workspace main h2 {
+  font-size: 19px !important;
+  line-height: 1.2 !important;
+}
+body[data-seogrow-ui-mode] .workspace main h3 {
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+}
+body[data-seogrow-ui-mode] .topbar :is(button,input,select,label,span,strong,small,a) {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+}
+body[data-seogrow-ui-mode] .workspace main :is(button,input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  min-height: 38px !important;
+}
+/* Sidebar: clear functional grouping without visual heaviness. */
+@media (min-width: 1025px) {
+  body[data-seogrow-ui-mode] .sidebar {
+    width: 236px !important;
+    padding: 16px 10px 14px !important;
+  }
+  body[data-seogrow-ui-mode] .workspace {
+    width: calc(100% - 236px) !important;
+    margin-left: 236px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button,
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+    min-height: 40px !important;
+    padding: 0 11px !important;
+    gap: 10px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px !important;
+  }
+}
+body[data-seogrow-ui-mode] .guided-nav-group {
+  margin: 0 0 12px !important;
+  padding: 8px 6px 9px !important;
+  border: 1px solid rgba(184, 204, 231, .12) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.025) !important;
+}
+body[data-seogrow-ui-mode] .guided-nav-group + .guided-nav-group {
+  margin-top: 14px !important;
+  position: relative;
+}
+body[data-seogrow-ui-mode] .guided-nav-group + .guided-nav-group::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: -8px;
+  height: 1px;
+  background: rgba(174, 201, 232, .2);
+}
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label,
+body[data-seogrow-ui-mode="simple"] .sidebar .guided-nav-label {
+  padding: 2px 8px 7px !important;
+  color: #b8c9df !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  letter-spacing: .1em !important;
+  font-weight: 850 !important;
+}
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label::after {
+  content: none !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button:hover {
+  background: rgba(255,255,255,.075) !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] {
+  background: #1f6ff5 !important;
+  box-shadow: 0 6px 16px rgba(16, 81, 191, .24) !important;
+}
+/* Panoramica: one semantic background per logical section. */
+.reference-overview-card.problems {
+  background: var(--sv-red-bg) !important;
+  border-color: var(--sv-red-line) !important;
+}
+.reference-overview-card.ranking,
+.reference-overview-card.google {
+  background: var(--sv-blue-bg) !important;
+  border-color: var(--sv-blue-line) !important;
+}
+.reference-overview-card.content {
+  background: var(--sv-purple-bg) !important;
+  border-color: var(--sv-purple-line) !important;
+}
+.reference-health-strip {
+  background: var(--sv-green-bg) !important;
+  border-color: var(--sv-green-line) !important;
+  grid-template-columns: repeat(4,minmax(0,1fr)) !important;
+}
+.reference-health-title {
+  grid-column: 1 / -1 !important;
+  background: transparent !important;
+}
+.reference-health-strip > div { background: transparent !important; }
+.reference-priority-panel {
+  background: var(--sv-orange-bg) !important;
+  border-color: var(--sv-orange-line) !important;
+}
+.reference-dashboard-lower > :first-child {
+  background: var(--sv-blue-bg) !important;
+  border-color: var(--sv-blue-line) !important;
+}
+.reference-dashboard-lower > :last-child {
+  background: var(--sv-purple-bg) !important;
+  border-color: var(--sv-purple-line) !important;
+}
+/* Clienti / Centro progetto / Storico. */
+.reference-client-kpis article:nth-child(1),
+.reference-client-kpis article:nth-child(2),
+.reference-client-grid .reference-client-card {
+  background: var(--sv-blue-bg) !important;
+  border-color: var(--sv-blue-line) !important;
+}
+.reference-client-kpis article:nth-child(3) {
+  background: var(--sv-orange-bg) !important;
+  border-color: var(--sv-orange-line) !important;
+}
+.reference-client-kpis article:nth-child(4) {
+  background: var(--sv-red-bg) !important;
+  border-color: var(--sv-red-line) !important;
+}
+.reference-clients-aside > section:first-child { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-clients-tip { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-project-status-panel { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-project-trend,
+.reference-project-pages { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-project-activity { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-project-growth,
+.reference-project-no-actions { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-project-operations { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-history-table { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-history-aside > section:nth-child(1) { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-history-progress { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-history-aside > section:nth-child(3) { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+/* Problemi / Audit / Posizionamenti / Link interni / Opportunità. */
+.reference-problems-main { background: var(--sv-red-bg) !important; border: 1px solid var(--sv-red-line) !important; border-radius: 14px; padding: 10px; }
+.reference-problems-aside > section:nth-child(1),
+.reference-problems-aside > section:nth-child(2) { background: var(--sv-red-bg) !important; border-color: var(--sv-red-line) !important; }
+.reference-problems-tip { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-audit-score,
+.reference-audit-summary,
+.reference-audit-categories { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-audit-growth { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-audit-launcher { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-ranking-trend,
+.reference-ranking-distribution,
+.reference-ranking-table,
+.reference-ranking-config { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-link-map,
+.reference-link-donut { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-links-side > :nth-child(2) { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-link-opportunities,
+.reference-link-success { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-broken-links { background: var(--sv-red-bg) !important; border-color: var(--sv-red-line) !important; }
+.reference-opportunity-table { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-opportunity-aside > :first-child { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-opportunity-aside > :nth-child(2) { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+/* Correzioni / Task / Piano editoriale. */
+.reference-corrections-main { background: var(--sv-blue-bg) !important; border: 1px solid var(--sv-blue-line) !important; border-radius: 14px; padding: 10px; }
+.reference-corrections-aside > :first-child { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-correction-security { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-correction-guide { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-task-layout > .tasks-panel { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-task-aside > section:nth-child(1) { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-task-aside > section:nth-child(2) { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-task-aside > section:nth-child(3) { background: var(--sv-red-bg) !important; border-color: var(--sv-red-line) !important; }
+.reference-editorial-page > :is(.editorial-calendar,.planner,.content-layout),
+.reference-editorial-page .planner { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-editorial-page .generator { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-editorial-page .workflow-strip { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-editorial-kpis article:nth-child(1) { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-editorial-kpis article:nth-child(2) { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-editorial-kpis article:nth-child(3) { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-editorial-kpis article:nth-child(4) { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+/* SEO Agent / GEO AI / SeoGrow AI. */
+.reference-agent-hero,
+.reference-agent-command-card,
+.reference-agent-page .agent-console { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-agent-page .agent-history { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-agent-page .agent-run { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-geo-hero,
+.reference-geo-page > section:not(.reference-geo-kpis) { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-geo-kpis article:nth-child(1) { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-geo-kpis article:nth-child(2) { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-geo-kpis article:nth-child(3) { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-geo-kpis article:nth-child(4) { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-seogrow-hero,
+.reference-seogrow-chart { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-seogrow-distribution { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-seogrow-actions { background: var(--sv-orange-bg) !important; border-color: var(--sv-orange-line) !important; }
+.reference-seogrow-projects { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-seogrow-activity { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-seogrow-ai-card { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+/* Integrazioni / Impostazioni and shared neutral controls. */
+.reference-integrations-summary,
+.reference-integration-grid > * { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-integrations-safe { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+.reference-settings-summary { background: var(--sv-purple-bg) !important; border-color: var(--sv-purple-line) !important; }
+.reference-settings-layout > * { background: var(--sv-blue-bg) !important; border-color: var(--sv-blue-line) !important; }
+.reference-settings-note { background: var(--sv-green-bg) !important; border-color: var(--sv-green-line) !important; }
+
+body[data-seogrow-ui-mode] :is(
+  .reference-dashboard-actions,
+  .reference-clients-head,
+  .reference-project-identity,
+  .reference-problems-project,
+  .reference-audit-head,
+  .reference-rankings-head,
+  .reference-links-head,
+  .reference-opportunities-head,
+  .reference-corrections-head,
+  .reference-task-head,
+  .reference-editorial-head,
+  .reference-integrations-head,
+  .reference-settings-head
+) {
+  background: transparent !important;
+}
+
+body[data-seogrow-ui-mode] :is(.panel,article,section)[class*="reference-"] {
+  box-shadow: none !important;
+}
+/* Remove residual large-type reflow from the previous pass. */
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+  min-height: 56px !important;
+  padding: 9px 10px !important;
+}
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong {
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+}
+body[data-seogrow-ui-mode] .sidebar .side-foot strong { font-size: 12px !important; }
+body[data-seogrow-ui-mode] .sidebar .side-foot small { font-size: 10px !important; }
+body[data-seogrow-ui-mode] .guided-project-context { min-height: 38px !important; }
+body[data-seogrow-ui-mode] .workspace main :is(p,li,label,td,a,strong,span,em,b,dt,dd) {
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+body[data-seogrow-ui-mode] .table-scroll table {
+  min-width: 900px !important;
+}
+body[data-seogrow-ui-mode] .reference-overview-card {
+  min-height: 150px !important;
+}
+body[data-seogrow-ui-mode] .reference-health-strip {
+  grid-template-columns: repeat(4,minmax(0,1fr)) !important;
+}
+/* KPI colors use the same meaning across pages. */
+.reference-project-kpis > :nth-child(1),
+.reference-history-kpis > :nth-child(1),
+.reference-ranking-kpis > :nth-child(1),
+.reference-links-kpis > :nth-child(1),
+.reference-correction-kpis > :nth-child(3),
+.reference-task-kpis > :nth-child(1),
+.reference-audit-kpis > :nth-child(3),
+.reference-opportunity-kpis > :nth-child(4) {
+  background: var(--sv-blue-bg) !important;
+  border-color: var(--sv-blue-line) !important;
+}
+.reference-project-kpis > :nth-child(2),
+.reference-history-kpis > :nth-child(2),
+.reference-ranking-kpis > :nth-child(2),
+.reference-links-kpis > :nth-child(3),
+.reference-correction-kpis > :nth-child(2),
+.reference-audit-kpis > :nth-child(4),
+.reference-opportunity-kpis > :nth-child(1) {
+  background: var(--sv-green-bg) !important;
+  border-color: var(--sv-green-line) !important;
+}
+.reference-project-kpis > :nth-child(4),
+.reference-history-kpis > :nth-child(3),
+.reference-ranking-kpis > :nth-child(4),
+.reference-links-kpis > :nth-child(4),
+.reference-correction-kpis > :nth-child(1),
+.reference-task-kpis > :nth-child(2),
+.reference-audit-kpis > :nth-child(1),
+.reference-opportunity-kpis > :nth-child(3) {
+  background: var(--sv-red-bg) !important;
+  border-color: var(--sv-red-line) !important;
+}
+.reference-project-kpis > :nth-child(5),
+.reference-history-kpis > :nth-child(4),
+.reference-ranking-kpis > :nth-child(3),
+.reference-links-kpis > :nth-child(2),
+.reference-correction-kpis > :nth-child(4),
+.reference-task-kpis > :nth-child(4),
+.reference-audit-kpis > :nth-child(2),
+.reference-opportunity-kpis > :nth-child(2) {
+  background: var(--sv-orange-bg) !important;
+  border-color: var(--sv-orange-line) !important;
+}
+.reference-project-kpis > :nth-child(3),
+.reference-task-kpis > :nth-child(3) {
+  background: var(--sv-purple-bg) !important;
+  border-color: var(--sv-purple-line) !important;
+}
+
+.reference-integrations-summary > *,
+.reference-settings-summary > * {
+  background: var(--sv-blue-bg) !important;
+  border-color: var(--sv-blue-line) !important;
+}
+.reference-settings-summary > :nth-child(1),
+.reference-settings-summary > :nth-child(4) {
+  background: var(--sv-purple-bg) !important;
+  border-color: var(--sv-purple-line) !important;
+}
+
+@media (max-width: 900px) {
+  body[data-seogrow-ui-mode] .reference-health-strip { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  body[data-seogrow-ui-mode] .table-scroll table { min-width: 760px !important; }
+}
+/* Ordered correction flow must remain a normal readable list. */
+body[data-seogrow-ui-mode] .reference-correction-guide ol {
+  display: grid !important;
+  gap: 7px !important;
+  padding-left: 22px !important;
+}
+body[data-seogrow-ui-mode] .reference-correction-guide li {
+  display: list-item !important;
+  grid-template-columns: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
