@@ -309,13 +309,24 @@ function useUiSnapshot() {
   const [pageHosts, setPageHosts] = useState({ wizard: null, dashboard: null, help: null });
 
   useEffect(() => {
-    const syncTargets = () => setTargets({
-      sidebar: document.querySelector(".sidebar"),
-      topbar: document.querySelector(".topbar"),
-      main: document.querySelector(".app main"),
-    });
-    const frame = window.requestAnimationFrame(syncTargets);
-    return () => window.cancelAnimationFrame(frame);
+    let frame = 0;
+    let attempts = 0;
+    let cancelled = false;
+    const syncTargets = () => {
+      if (cancelled) return;
+      const next = {
+        sidebar: document.querySelector(".sidebar"),
+        topbar: document.querySelector(".topbar"),
+        main: document.querySelector(".app main"),
+      };
+      setTargets(next);
+      if ((!next.sidebar || !next.topbar || !next.main) && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(syncTargets);
+      }
+    };
+    frame = window.requestAnimationFrame(syncTargets);
+    return () => { cancelled = true; window.cancelAnimationFrame(frame); };
   }, []);
 
   useEffect(() => {
