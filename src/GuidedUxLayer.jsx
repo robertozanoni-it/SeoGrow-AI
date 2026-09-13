@@ -69,6 +69,7 @@ const groups = [
   {
     label: "SeoGrow AI",
     items: [
+      ["SeoGrow AI", Sparkles],
       ["SEO Agent", WandSparkles],
       ["GEO AI", Sparkles, true],
     ],
@@ -187,6 +188,15 @@ const PAGE_GUIDES = {
       ["Brief", "Definisci intento, pagina e indicazioni."],
       ["Produci", "Crea o aggiorna il contenuto."],
       ["Misura", "Controlla pubblicazione e risultati."],
+    ],
+  },
+  "SeoGrow AI": {
+    intro: "Usa una vista unica per passare dai dati alle azioni principali.",
+    steps: [
+      ["Stato", "Controlla analisi, task, keyword e progetti disponibili."],
+      ["Andamento", "Leggi i dati organici reali del progetto selezionato."],
+      ["Azione", "Apri audit, opportunità, contenuti o correzioni."],
+      ["AI", "Passa al SEO Agent per un obiettivo assistito."],
     ],
   },
   "SEO Agent": {
