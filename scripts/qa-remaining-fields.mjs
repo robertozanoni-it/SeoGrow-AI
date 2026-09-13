@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { normalizeStoredTasks } from '../src/platform.js';
 
-export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:recordScenario,set,field,button,submit,read,saved,revisit,mock,request,resetRequests}) {
+export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:recordScenario,set,field,button,submit,read,saved,revisit,mock,request,resetRequests,command}) {
+  await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await evaluate("window.scrollTo({top:0,behavior:'instant'})");
   const failures=[];
   const record=async(id,action)=>{try{await recordScenario(id,action);}catch(error){failures.push(id+': '+error.message.slice(0,220));console.error(failures.at(-1));await evaluate(`document.querySelector('[role=dialog] button[aria-label="Chiudi finestra"]')?.click()`).catch(()=>{});}};
   await record('FIELDS-AGENT',async()=>{

@@ -161,7 +161,7 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     await revisit('Integrazioni'); await waitFor("document.querySelector('.wordpress-integration')",'Connection reload');
     assert.equal(await evaluate(`${field('.wordpress-integration','Password applicativa')}.value`),'');
   });
-  await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
+  await runRemainingFields({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests,command});
   await runAutoFix({evaluate,waitFor,clickSidebar,record,button,set,read,revisit,mock,resetRequests,screenshot,command});
   await runResolutionPaths({evaluate,waitFor,record,button,set,read,revisit,mock,resetRequests,screenshot,command});
   await runFieldBoundaries({evaluate,waitFor,clickSidebar,record,set,field,button,submit,read,saved,revisit,mock,request,resetRequests});
