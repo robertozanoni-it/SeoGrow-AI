@@ -8,6 +8,14 @@ const notifyStoredPage = (page) => {
   window.dispatchEvent(event);
 };
 
+const closeMobileNavigation = () => {
+  if (typeof document === "undefined") return;
+  const sidebar = document.querySelector(".sidebar.open");
+  if (!sidebar) return;
+  const close = sidebar.querySelector('button[aria-label="Chiudi menu"]');
+  close?.click();
+};
+
 export const activateNativePageState = (page) => {
   if (typeof document === "undefined") return false;
   const buttons = [...document.querySelectorAll(".sidebar > nav:not(.guided-nav) button")];
@@ -36,6 +44,7 @@ export function navigatePage(page) {
     if (window.location.hash !== next) window.history.pushState(null, "", next);
     notifyStoredPage(page);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+    closeMobileNavigation();
     return;
   }
 
@@ -55,6 +64,7 @@ export function navigatePage(page) {
     notifyStoredPage(page);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
   }
+  closeMobileNavigation();
 }
 
 export const isNavigationItemVisible = (label, advancedOnly, mode, currentPage) =>
