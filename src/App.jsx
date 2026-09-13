@@ -358,6 +358,9 @@ function Sidebar({ page, setPage, open, setOpen, displayName }) {
       role={open ? "dialog" : undefined}
       aria-modal={open || undefined}
       aria-label={open ? "Menu principale" : undefined}
+      onClick={(event) => {
+        if (event.target.closest("nav button")) setOpen(false);
+      }}
     >
       <div className="side-head">
         <Logo />
