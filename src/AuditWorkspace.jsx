@@ -7,11 +7,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  BarChart3,
   Check,
+  CircleGauge,
   ExternalLink,
   FileText,
   Globe2,
   ListChecks,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -31,6 +34,7 @@ import {
 } from "./reliabilityModel";
 import { normalizeSiteAnalysis } from "./seoResponseIntegrity";
 import "./AuditWorkspace.css";
+import "./AuditReference.css";
 
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
@@ -279,21 +283,32 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const reviewItems = Array.isArray(result?.reviewItems) ? result.reviewItems : [];
   const actionable = issues.filter((issue) => ["automatic", "assisted"].includes(issueCorrectability(issue, { pageKind: pageKindFromUrl(resultSourceUrl(issue, result, client)) })));
   const manualCount = issues.length - actionable.length;
+  const highCount = issues.filter((issue) => ["high", "alta", "critical", "critica"].includes(String(issue.severity || "").toLowerCase())).length;
+  const categoryCount = (pattern) => issues.filter((issue) => pattern.test(`${issue.type || ""} ${issue.label || ""}`)).length;
+  const categoryStats = [
+    ["Tecnica", categoryCount(/crawl|http|redirect|canonical|robots|index|status/i), "technical"],
+    ["Contenuti", categoryCount(/content|contenut|title|meta|h1|image|immagin/i), "content"],
+    ["Link", categoryCount(/link/i), "links"],
+    ["Altri segnali", Math.max(0, issues.length - categoryCount(/crawl|http|redirect|canonical|robots|index|status|content|contenut|title|meta|h1|image|immagin|link/i)), "other"],
+  ];
+  const categoryMax = Math.max(1, ...categoryStats.map(([, value]) => value));
 
   return (
     <div className="audit-enhancer-root">
-      <div className="page-title">
-        <div>
-          <h1>Audit SEO — {client.name}</h1>
-          <p>Analizza una pagina o il sito. I problemi confermati restano separati dai segnali che richiedono interpretazione.</p>
-        </div>
-        <button type="button" className="secondary" onClick={() => {
-          window.history.pushState(null, "", `#${encodeURIComponent("Problemi")}`);
-          window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
-        }}><ListChecks /> Centro Problemi</button>
-      </div>
+      <section className="reference-audit-head">
+        <div className="reference-audit-icon"><CircleGauge /></div>
+        <div><small>{client.name}</small><h1>Audit SEO</h1><p>Analisi completa del tuo sito. Scopri cosa funziona e cosa migliorare.</p></div>
+        <div className="reference-audit-actions"><button type="button" className="secondary" onClick={() => setHistoryOpen((value) => !value)}><RefreshCw /> Storico</button><button type="button" className="secondary" onClick={() => { window.history.pushState(null, "", `#${encodeURIComponent("Problemi")}`); window.dispatchEvent(new CustomEvent("seogrow-locationchange")); }}><ListChecks /> Problemi</button><button type="button" className="primary" onClick={() => document.querySelector('.reference-audit-launcher')?.scrollIntoView({ behavior: 'smooth' })}>Nuovo audit</button></div>
+      </section>
+      <nav className="reference-audit-tabs" aria-label="Sezioni audit"><button className="active">Panoramica</button><button onClick={() => { window.history.pushState(null, '', `#${encodeURIComponent('Problemi')}`); window.dispatchEvent(new CustomEvent('seogrow-locationchange')); }}>Problemi</button><button onClick={() => setHistoryOpen(true)}>Cronologia</button><button onClick={() => document.querySelector('.audit-details')?.scrollIntoView({ behavior: 'smooth' })}>Dati tecnici</button></nav>
+      {result && <section className="reference-audit-summary">
+        <article className="reference-audit-score"><div className="score-ring" style={{ "--score": `${Number(result.score || 0) * 3.6}deg` }}><span>{result.score ?? "—"}<small>/100</small></span></div><div><small>SEO Score</small><strong>{result.score >= 80 ? "Ottimo" : result.score >= 60 ? "Da migliorare" : "Prioritario"}</strong><p>{result.scoreMethodology || "Indice interno SeoGrow basato sui controlli disponibili."}</p><span>{Number.isFinite(Date.parse(resultTimestamp(result))) ? `Ultimo audit: ${new Date(resultTimestamp(result)).toLocaleString("it-IT")}` : "Data audit non disponibile"}</span></div></article>
+        <article className="reference-audit-categories"><h2>Stato categorie SEO</h2>{categoryStats.map(([label,value,tone]) => <div key={label}><span>{label}</span><i><b className={tone} style={{ width: `${Math.round((value/categoryMax)*100)}%` }} /></i><strong>{value}</strong></div>)}</article>
+        <article className="reference-audit-growth"><BarChart3 /><h2>{highCount ? `${highCount} priorità alte` : "Il sito è sotto controllo"}</h2><strong>{actionable.length}</strong><p>interventi preparabili con flusso controllato</p><button onClick={() => document.querySelector('.audit-issues-list')?.scrollIntoView({ behavior: 'smooth' })}>Vedi problemi →</button></article>
+      </section>}
+      {result && <section className="reference-audit-kpis"><article className="critical"><AlertTriangle /><span><strong>{highCount}</strong><b>Problemi critici</b></span></article><article className="warning"><ShieldCheck /><span><strong>{reviewItems.length}</strong><b>Da confermare</b></span></article><article className="info"><Sparkles /><span><strong>{actionable.length}</strong><b>Preparabili</b></span></article><article className="success"><Check /><span><strong>{Math.max(0, issues.length - highCount)}</strong><b>Altri controlli</b></span></article></section>}
 
-      <section className="panel audit-launcher">
+      <section className="panel audit-launcher reference-audit-launcher">
         <div className="panel-head">
           <div><h2>Nuovo audit</h2><p>Scegli il perimetro prima di avviare il controllo.</p></div>
           {loading && <span className="live"><i />Analisi in corso</span>}
