@@ -2248,12 +2248,21 @@ function ContentPage({
     );
     editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  const scheduledCount = Object.values(editorialSchedule || {}).filter(Boolean).length;
+  const hasDraft = Boolean(content.trim());
   return (
-    <>
-      <EmptyTitle
-        title={`Piano editoriale — ${client.name}`}
-        text="Priorità mensili, brief e bozze basati sui dati del progetto."
-      />
+    <div className="reference-editorial-page">
+      <section className="reference-editorial-head">
+        <div className="reference-editorial-title"><span><FileText /></span><div><h1>Piano editoriale</h1><p>Pianifica, crea e monitora i contenuti di {client.name}.</p></div></div>
+        <div className="reference-editorial-actions"><button className="secondary" disabled={!plan.length} onClick={() => downloadCsv(plan, `piano-editoriale-${client.name}.csv`)}><Download /> Esporta piano</button><button className="primary" onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}><Plus /> Nuovo contenuto</button></div>
+      </section>
+      <section className="reference-editorial-kpis">
+        <article className="blue"><FileText /><span><strong>{plan.length}</strong><small>Attività pianificate</small><em>Dati reali del piano</em></span></article>
+        <article className="green"><Check /><span><strong>{scheduledCount}</strong><small>Con scadenza</small><em>Calendario editoriale</em></span></article>
+        <article className="orange"><Clock3 /><span><strong>{hasDraft ? 1 : 0}</strong><small>Bozza corrente</small><em>{hasDraft ? `${content.trim().split(/\s+/).length} parole` : "Nessuna bozza"}</em></span></article>
+        <article className="purple"><Target /><span><strong>{topicalItems.length}</strong><small>Idee topical</small><em>Da dati disponibili</em></span></article>
+      </section>
+      <div className="reference-editorial-tabs"><span className="active">Calendario</span><span>Lista</span><span>Idee keyword</span><span>Cluster tematici</span><span>Analisi competitor</span></div>
       <EditorialCalendar plan={plan} saved={editorialSchedule} onSave={onSaveSchedule} clientId={client.id} />
       <TopicalMapPanel
         dataset={dataset}
@@ -2541,7 +2550,7 @@ function ContentPage({
           )}
         </section>
       </div>
-    </>
+    </div>
   );
 }
 
