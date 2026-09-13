@@ -350,7 +350,7 @@ try {
 
   // Product features are exercised on an isolated QA profile; no remote audits enabled.
   await clickSidebar("Centro progetto");
-  await waitFor("document.querySelector('main h1')?.textContent.includes('Centro progetto')", "Centro progetto");
+  await waitFor("document.querySelector('.reference-project-identity h1')?.textContent.includes('Browser QA')", "Centro progetto reference");
   await waitFor("document.querySelector('.wizard-steps') && document.querySelector('.report-option')", "wizard e modello report");
   await evaluate("[...document.querySelectorAll('.workspace-tools button')].find(button => button.textContent.startsWith('Comandi')).click()");
   await waitFor("document.querySelector('.command-dialog')?.open", "palette comandi aperta");
