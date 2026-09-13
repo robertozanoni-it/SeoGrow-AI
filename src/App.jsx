@@ -43,6 +43,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Target,
   Trash2,
@@ -2783,13 +2784,16 @@ function Integrations({
       event.target.value = "";
     }
   };
+  const activeIntegrations = [Boolean(dataset || google.connected), Boolean(wordpressConnection), Boolean(dataForSeo.configured), Boolean(aiConfigured)].filter(Boolean).length;
   return (
-    <>
-      <EmptyTitle
-        title="Integrazioni"
-        text={`Collega gli strumenti di ${selectedClient.name}.`}
-      />
-      <div className="integration-grid">
+    <div className="reference-integrations-page">
+      <section className="reference-integrations-head">
+        <div className="reference-integrations-title"><span><Plug /></span><div><h1>Integrazioni</h1><p>Collega gli strumenti di {selectedClient.name} per analizzare, monitorare e automatizzare la crescita SEO.</p></div></div>
+        <div className="reference-integrations-badge"><strong>{activeIntegrations}</strong><span>integrazioni attive</span></div>
+      </section>
+      <nav className="reference-integrations-tabs" aria-label="Categorie integrazioni"><span className="active">Tutte</span><span>SEO & Analytics</span><span>AI & Contenuti</span><span>Siti Web</span><span>Produttività</span></nav>
+      <section className="reference-integrations-summary"><div><ShieldCheck /><span><strong>Stato integrazioni</strong><small>{activeIntegrations} provider configurati o collegati</small></span></div><div><Database /><span><strong>Credenziali protette</strong><small>Le chiavi non vengono mostrate nell’interfaccia</small></span></div><div><RefreshCw /><span><strong>Verifica reale</strong><small>Usa i test di connessione già presenti nelle card</small></span></div></section>
+      <div className="integration-grid reference-integration-grid">
         <section className="panel integration gsc-integration">
           <div className="integration-head">
             <div className="google-mark">G</div>
@@ -3083,7 +3087,8 @@ function Integrations({
           )}
         </section>
       </div>
-    </>
+      <section className="reference-integrations-safe"><ShieldCheck /><div><h2>I tuoi dati sono al sicuro</h2><p>Le credenziali sensibili restano nei flussi protetti già esistenti. SeoGrow non mostra API key complete in questa pagina.</p></div></section>
+    </div>
   );
 }
 
