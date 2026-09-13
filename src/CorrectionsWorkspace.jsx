@@ -83,7 +83,7 @@ export default function CorrectionsWorkspace() {
     let attempts = 0;
     const syncTargets = () => {
       const nav = document.querySelector(".sidebar nav");
-      const main = document.querySelector(".app main");
+      const main = document.querySelector(".workspace main") || document.querySelector(".app main");
       setNavTarget((current) => current === nav ? current : nav);
       setMainTarget((current) => current === main ? current : main);
       const nextActive = currentHash() === "Correzioni";
@@ -100,11 +100,17 @@ export default function CorrectionsWorkspace() {
       frame = window.requestAnimationFrame(syncTargets);
     };
     frame = window.requestAnimationFrame(syncTargets);
+    const interval = window.setInterval(syncTargets, 300);
     window.addEventListener("hashchange", refreshNavigation);
+    window.addEventListener("popstate", refreshNavigation);
+    window.addEventListener("storage", refreshNavigation);
     window.addEventListener("seogrow-locationchange", refreshNavigation);
     return () => {
       window.cancelAnimationFrame(frame);
+      window.clearInterval(interval);
       window.removeEventListener("hashchange", refreshNavigation);
+      window.removeEventListener("popstate", refreshNavigation);
+      window.removeEventListener("storage", refreshNavigation);
       window.removeEventListener("seogrow-locationchange", refreshNavigation);
     };
   }, []);
@@ -137,7 +143,7 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     if (!mainTarget) return undefined;
-    const main = document.querySelector(".app main");
+    const main = document.querySelector(".workspace main") || document.querySelector(".app main");
     if (!main) return undefined;
     if (active) main.dataset.correctionsOpen = "true";
     else delete main.dataset.correctionsOpen;
