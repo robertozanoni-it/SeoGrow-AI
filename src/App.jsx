@@ -180,9 +180,22 @@ function useStoredState(key, fallback) {
     }
   });
   useEffect(() => {
-    const save = async () => {
+    try {
+      // Aggiorna subito il mirror in memoria: un reload immediato non deve
+      // perdere l’ultimo valore React mentre il commit IndexedDB è in debounce.
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Impossibile salvare ${key}:`, error);
+      window.dispatchEvent(
+        new CustomEvent("seogrow-storage-error", {
+          detail: { key, message: error.message },
+        }),
+      );
+      return undefined;
+    }
+
+    const flush = async () => {
       try {
-        localStorage.setItem(key, JSON.stringify(value));
         await flushWorkspace();
         window.dispatchEvent(new CustomEvent("seogrow-storage-ok", { detail: { key } }));
       } catch (error) {
@@ -194,11 +207,11 @@ function useStoredState(key, fallback) {
         );
       }
     };
-    const timer = window.setTimeout(save, 120);
-    window.addEventListener("pagehide", save);
+    const timer = window.setTimeout(flush, 120);
+    window.addEventListener("pagehide", flush);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("pagehide", save);
+      window.removeEventListener("pagehide", flush);
     };
   }, [key, value]);
   useEffect(() => {
@@ -256,7 +269,7 @@ function HistoryPage({ history, client, onAnalyze }) {
         <aside className="reference-history-aside">
           <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>
           <section className="reference-history-progress"><Target /><h2>Il tuo progresso</h2><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta} punti`}</strong><p>{resolvedTotal} problemi risultano risolti nello storico disponibile.</p></section>
-          <section><Download /><h2>Esporta storico</h2><p>Scarica gli audit in formato CSV.</p><button className="secondary" onClick={() => downloadCsv(history, `storico-${client.name}.csv`)}>Esporta CSV</button></section>
+          <section><Download /><h2>Esporta storico</h2><p>Scarica gli audit in formato CSV.</p><button className="secondary" onClick={() => downloadCsv(history.map((item) => ({ data:item.analyzedAt, score:item.score, pagine:item.pagesChecked, problemi:item.issues?.length || 0, risolti:item.resolvedIssues?.length || 0 })), `storico-${client.name}.csv`)}>Esporta CSV</button></section>
         </aside>
       </div>
     </div>
@@ -960,7 +973,7 @@ function TaskTable({
   );
 }
 
-function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveViews, openTaskId, onTaskOpened }) {
+function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveViews, openTaskId, onTaskOpened, onOpenTask }) {
   const active = tasks.filter((task) => !task.stale);
   const counts = {
     total: active.length,
@@ -997,7 +1010,7 @@ function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveView
         <aside className="reference-task-aside">
           <section><h2>Distribuzione task</h2><div className="reference-task-ring" style={{"--todo":`${todoDeg}deg`,"--progress":`${progressDeg}deg`,"--review":`${reviewDeg}deg`}}><span><strong>{counts.total}</strong><small>task</small></span></div><ul><li><i className="red" />Da fare <strong>{counts.todo}</strong></li><li><i className="blue" />In corso <strong>{counts.progress}</strong></li><li><i className="purple" />In revisione <strong>{counts.review}</strong></li><li><i className="green" />Completati <strong>{counts.done}</strong></li></ul></section>
           <section><h2>Priorità</h2>{Object.entries(priorities).map(([label,value]) => <div className="reference-task-priority" key={label}><span>{label}</span><i><b className={label.toLowerCase()} style={{width:`${counts.total ? Math.max(4,value/counts.total*100) : 0}%`}} /></i><strong>{value}</strong></div>)}</section>
-          <section><div className="reference-panel-title"><div><h2>Task in scadenza</h2><p>Prime attività pianificate.</p></div></div>{due.length ? due.map((task) => <button key={task.id} onClick={() => { window.dispatchEvent(new CustomEvent("seogrow-task-open", { detail:{ id:task.id } })); }}><span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span><strong>{task.title}</strong><small>{new Date(`${task.due}T00:00:00`).toLocaleDateString("it-IT")}</small></span></button>) : <p className="reference-empty-copy">Nessuna scadenza impostata.</p>}</section>
+          <section><div className="reference-panel-title"><div><h2>Task in scadenza</h2><p>Prime attività pianificate.</p></div></div>{due.length ? due.map((task) => <button key={task.id} onClick={() => onOpenTask?.(task.id)}><span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span><strong>{task.title}</strong><small>{new Date(`${task.due}T00:00:00`).toLocaleDateString("it-IT")}</small></span></button>) : <p className="reference-empty-copy">Nessuna scadenza impostata.</p>}</section>
         </aside>
       </div>
     </div>
@@ -1428,7 +1441,7 @@ function ClientsPage({
     <div className="reference-clients-page">
       <section className="reference-clients-head">
         <div><span>Bentornato 👋</span><h1>Clienti</h1><p>Gestisci clienti, siti e stato SEO in un’unica vista.</p></div>
-        <div className="reference-clients-tools"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca cliente o dominio…" /></label><button className="secondary">Filtri</button><button className="primary" onClick={() => setOpen(true)}><Plus /> Nuovo cliente</button></div>
+        <div className="reference-clients-tools"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca cliente o dominio…" /></label><button className="primary" onClick={() => setOpen(true)}><Plus /> Nuovo cliente</button></div>
       </section>
       <section className="reference-client-kpis">
         <article><Users /><span><small>Clienti totali</small><strong>{clients.length}</strong><em>Progetti nel workspace</em></span></article>
@@ -4290,7 +4303,7 @@ export default function App() {
   const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
   const searchResults = allSearchResults.slice(0, 10);
   const projectSettings = preferences.projectSettings?.[selectedClient] || {};
-  const saveProjectSettings = settings => setPreferences(current => ({ ...current, projectSettings: { ...current.projectSettings, [selectedClient]: settings } }));
+  const saveProjectSettings = updater => setPreferences(current => { const previous = current.projectSettings?.[selectedClient] || {}; const next = typeof updater === "function" ? updater(previous) : { ...previous, ...updater }; return { ...current, projectSettings: { ...current.projectSettings, [selectedClient]: next } }; });
   const content = (() => {
     // These pages render through their dedicated portals.
     if (["Problemi", "Correzioni"].includes(page)) return null;
@@ -4485,6 +4498,7 @@ export default function App() {
           onSaveViews={views => saveViews("tasks", views)}
           openTaskId={requestedTask?.id}
           onTaskOpened={() => setRequestedTask(null)}
+          onOpenTask={(id) => setRequestedTask({ id, nonce: Date.now() })}
         />
       );
     if (page === "Integrazioni")

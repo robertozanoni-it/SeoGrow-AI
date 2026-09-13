@@ -60,6 +60,7 @@ import './DetailReference.css';
 import './RankingsReference.css';
 import './LinksReference.css';
 import './OpportunitiesReference.css';
+import './ReferenceFidelityFinal.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {

@@ -1,7 +1,11 @@
+import { workspaceStorage } from "./workspaceDatabase.js";
+
 const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
 
 const notifyStoredPage = (page) => {
-  const detail = { key: SELECTED_PAGE_KEY, newValue: JSON.stringify(page) };
+  const serialized = JSON.stringify(page);
+  try { workspaceStorage.setItem(SELECTED_PAGE_KEY, serialized); } catch { /* Runtime event still keeps navigation usable outside browser storage. */ }
+  const detail = { key: SELECTED_PAGE_KEY, newValue: serialized };
   const event = typeof StorageEvent === "function"
     ? new StorageEvent("storage", detail)
     : Object.assign(new Event("storage"), detail);
@@ -41,9 +45,10 @@ export function navigatePage(page) {
   const next = `#${encodeURIComponent(page)}`;
   if (page === "Correzioni") {
     window.__seogrowCorrectionsMode = true;
+    const oldURL = String(window.location?.href || "");
     if (window.location.hash !== next) window.history.pushState(null, "", next);
     notifyStoredPage(page);
-    window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+    notifyLocationChange(oldURL);
     closeMobileNavigation();
     return;
   }

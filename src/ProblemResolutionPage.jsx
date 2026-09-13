@@ -311,25 +311,29 @@ export default function ProblemResolutionPage() {
   const [correctionsError, setCorrectionsError] = useState("");
 
   useEffect(() => {
-    let frame = 0;
-    let attempts = 0;
+    if (!active) return undefined;
+    let cancelled = false;
+    let timer = 0;
     let mountedHost = null;
-    const findMain = () => {
+    const install = () => {
+      if (cancelled) return;
       const workspace = document.querySelector(".workspace");
-      if (workspace) {
-        const target = document.createElement("div");
-        target.className = "problem-resolution-root-host";
-        workspace.appendChild(target);
-        mountedHost = target;
-        setMainTarget(target);
-        return;
-      }
-      attempts += 1;
-      if (attempts < 120) frame = window.requestAnimationFrame(findMain);
+      if (!workspace) return;
+      if (mountedHost?.isConnected && mountedHost.parentElement === workspace) return;
+      mountedHost?.remove();
+      mountedHost = document.createElement("div");
+      mountedHost.className = "problem-resolution-root-host";
+      workspace.appendChild(mountedHost);
+      setMainTarget(mountedHost);
     };
-    frame = window.requestAnimationFrame(findMain);
-    return () => { window.cancelAnimationFrame(frame); mountedHost?.remove(); };
-  }, []);
+    install();
+    timer = window.setInterval(install, 100);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      mountedHost?.remove();
+    };
+  }, [active]);
 
   useEffect(() => {
     const refresh = () => {

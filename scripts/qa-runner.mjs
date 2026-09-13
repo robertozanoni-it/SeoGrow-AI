@@ -17,7 +17,7 @@ const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-pa
 const children = [];
 const runtimes = [];
 let temporary;
-async function run(name, args, cwd = root, env = process.env) {
+async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000) {
   const started = Date.now();
   const log = path.join(output, name + ".log");
   let text = "";
@@ -25,13 +25,13 @@ async function run(name, args, cwd = root, env = process.env) {
   const child = spawn(process.execPath, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", value => { text += value; });
   child.stderr.on("data", value => { text += value; });
-  const timeout = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, 120000);
+  const timeout = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, timeoutMs);
   const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", resolve); });
   clearTimeout(timeout);
   await writeFile(log, text);
   report.steps.push({ name, exitCode: code, signal: child.signalCode, timedOut, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
-  if (code !== 0) throw new Error(name + (timedOut ? " exceeded 120000ms deadline: " : " failed: ") + text.slice(-1800));
+  if (code !== 0) throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + text.slice(-1800));
 }
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer(); server.on("error", reject);
@@ -66,7 +66,8 @@ try {
   const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: tmpdir(), PORT: String(apiPort),
     APP_ORIGIN: "http://127.0.0.1:" + uiPort, APP_API_TOKEN: "qa-token-".repeat(8),
     CREDENTIAL_ENCRYPTION_KEY: "qa-key-".repeat(10), NODE_ENV: "development",
-    QA_MODE: mode, QA_OUTPUT: output, QA_RUN_ID: report.runId, QA_COMMIT: report.commit, CHROME_BIN: process.env.CHROME_BIN || "" };
+    QA_MODE: mode, QA_OUTPUT: output, QA_RUN_ID: report.runId, QA_COMMIT: report.commit, CHROME_BIN: process.env.CHROME_BIN || "",
+    QA_CAPTURE_REFERENCE_OUTPUT: process.env.QA_CAPTURE_REFERENCE_OUTPUT || "" };
   for (const [name, args] of [
     ["api", ["--import=" + path.join(temporary, "server/remediationBootstrap.js"), path.join(temporary, "server/index.js")]],
     ["vite", [path.join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"]],
@@ -90,7 +91,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!ready) throw new Error("QA runtime health check failed");
-  await run("browser", [path.join(temporary, "scripts/browser-smoke.mjs"), url], temporary, env);
+  await run("browser", [path.join(temporary, "scripts/browser-smoke.mjs"), url], temporary, env, 240000);
   const browser = JSON.parse(await readFile(path.join(output, "browser-report.json"), "utf8"));
   validateBrowserEvidence(browser, report, requiredScenarios(mode));
   report.matrix = qaMatrix;

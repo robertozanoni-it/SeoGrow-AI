@@ -16,7 +16,11 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
     const audit = { url:client.url, analyzedAt:'2099-01-01T00:00:00Z', issues:[...Array.from({length:12},(_,i)=>({type:'meta description',label:'QA Auto Fix description '+i,url:client.url})),{type:'canonical',label:'QA canonical',url:client.url}] };
     try {
       await write(siteKey,{...sites,[clientId]:[audit]}); await write(pageKey,{...pages,[clientId]:[]});
-      await revisit('Centro progetto'); await button('Analizza e correggi');
+      await revisit('Centro progetto');
+      await waitFor("[...document.querySelectorAll('.project-center-section-card')].some(card => card.querySelector('h3')?.textContent.trim() === 'Analizza e correggi')", 'Auto Fix project card');
+      await evaluate("[...document.querySelectorAll('.project-center-section-card')].find(card => card.querySelector('h3')?.textContent.trim() === 'Analizza e correggi').click()");
+      await waitFor("document.querySelector('.project-center-area-fix:not([hidden])')", 'Auto Fix area visible');
+      await button('Analizza e correggi', '.project-center-area-fix');
       await waitFor("document.querySelectorAll('.auto-fix-item').length===13",'Auto Fix real audit inventory');
       assert.equal(await evaluate("document.querySelectorAll('.auto-fix-item input:disabled').length"),1);
       assert.equal(await evaluate("document.querySelector('.auto-fix-item.manual').textContent.includes('Cosa fare:')"),true,'Manual problems explain the next action');
@@ -70,7 +74,7 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
       await evaluate("document.querySelector('.wp-live-remediation-v2').scrollIntoView()"); await screenshot('auto-fix-ready');
       await command('Emulation.setDeviceMetricsOverride',{width:390,height:900,deviceScaleFactor:1,mobile:false});
       await waitFor('document.documentElement.scrollWidth <= innerWidth + 1','Proposal mobile overflow');
-      await waitFor("document.querySelector('.sidebar').getBoundingClientRect().right <= 1",'Proposal mobile drawer transition');
+      await waitFor("!document.querySelector('.sidebar')?.classList.contains('open')",'Proposal mobile drawer transition');
       await evaluate("document.querySelector('.wp-live-preview-row').scrollIntoView()");
       await screenshot('auto-fix-ready-mobile');
       await command('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:false});

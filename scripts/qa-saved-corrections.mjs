@@ -17,7 +17,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     const audit = { url:client.url, analyzedAt:'2026-09-10T08:00:00.000Z', score:80, issues:[issue] };
     const publicResponse = { ok:true, url:targetUrl, status:200, isHtml:true, titleCount:1, metaDescriptionCount:1, title:'Pagina test', metaDescription:after, wordpressDocumentId:123, h1:1, words:300 };
     const receipt = '.automatic-proposal-page .saved-correction-details[data-correction-id]';
-    const snapshotValues = scope => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(scope)});return [...(r?.querySelectorAll('.saved-correction-field .saved-correction-diff pre')||[])].map(n=>n.textContent)})()`);
+    const snapshotValues = scope => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(scope)});const saved=[...(r?.querySelectorAll('.saved-correction-field .saved-correction-diff pre')||[])].map(n=>n.textContent);if(saved.length)return saved;const before=[...(r?.querySelectorAll('.correction-diff-grid .before p')||[])].map(n=>n.textContent);const after=[...(r?.querySelectorAll('.correction-diff-grid .after p')||[])].map(n=>n.textContent);return [...before,...after]})()`);
     const visibleClick = async selector => {
       await waitFor(`document.querySelector(${JSON.stringify(selector)})`, 'Visible target '+selector);
       const point = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({behavior:'instant',block:'center'});const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(e.disabled||s.display==='none'||s.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Control is not visible');return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
@@ -29,7 +29,12 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await write(siteKey,{...sites,[clientId]:[audit]});
       await write(pageKey,{...pages,[clientId]:[]});
       await write(profileKey,{...profiles,[clientId]:{url:client.url,username:'qa-receipt'}});
-      await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(oldRecords.filter(row=>Number(row.clientId)!==Number(clientId)))});const s=await import('/src/wordpressSession.js');s.forgetWordPressSession(${clientId},${JSON.stringify(client.url)});const n=await import('/src/AutomaticProposalNavigation.js');sessionStorage.setItem(n.PROPOSAL_FOCUS_KEY,JSON.stringify({title:${JSON.stringify(issue.label)},sourceUrl:${JSON.stringify(targetUrl)},clientId:${clientId},openedFrom:'problem-row',createdAt:Date.now()}));const nav=await import('/src/navigationUx.js');nav.navigatePage('Correzioni');window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-open'));window.confirm=()=>true})()`);
+      await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(oldRecords.filter(row=>Number(row.clientId)!==Number(clientId)))});return true})()`);
+      await evaluate(`(async()=>{const s=await import('/src/wordpressSession.js');s.forgetWordPressSession(${clientId},${JSON.stringify(client.url)});return true})()`);
+      await evaluate(`sessionStorage.setItem('seogrow-problem-proposal-v1',JSON.stringify({title:${JSON.stringify(issue.label)},sourceUrl:${JSON.stringify(targetUrl)},clientId:${clientId},openedFrom:'problem-row',createdAt:Date.now()}));window.confirm=()=>true;true`);
+      await evaluate(`import('/src/navigationUx.js').then(m=>{window.__qaNavigatePage=m.navigatePage;return true})`);
+      await evaluate(`window.__qaNavigatePage('Correzioni');window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-open'));true`);
+      const routeDiag = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');return {hash:decodeURIComponent(location.hash.slice(1)),bodyPage:document.body.dataset.seogrowPage,rawFocus:sessionStorage.getItem('seogrow-problem-proposal-v1'),storedClient:JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'null'),storedPage:JSON.parse(m.workspaceStorage.getItem('seogrow-selected-page-v1')||'null'),domClient:document.querySelector('.client-select select')?.value||null,host:!!document.querySelector('.automatic-proposal-root-host'),proposal:!!document.querySelector('.automatic-proposal-page'),corrections:!!document.querySelector('.corrections-workspace-root')}})()`);
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials') && document.querySelector('.proposal-remediation-slot .wp-live-remediation-v2')",'Dedicated proposal with real controls');
       assert.equal(await evaluate("decodeURIComponent(location.hash.slice(1))==='Correzioni' && document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'"),true);
       for (const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-receipt','Password applicativa':'qa-only'})) await set('.proposal-remediation-slot .audit-unified-credentials',label,value);
@@ -66,14 +71,14 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await waitFor("document.body.dataset.seogrowAutomaticProposal !== 'true'",'Exit dedicated proposal');
       // Deliberately empty the lightweight index: the actual card list must read IndexedDB.
       await write('seogrow-remediation-history-v1',[]);
-      const card = `.card-record[data-correction-id="${correctionId}"]`;
-      await visibleClick(card);
-      const detail = '.card-horizontal-detail .saved-correction-details[data-correction-id]';
-      await waitFor(`document.querySelector(${JSON.stringify(detail)})?.textContent.includes(${JSON.stringify(after)})`,'Card reads full saved snapshots without tools toggle');
+      const card = `.correction-card[data-correction-id="${correctionId}"]`;
+      await visibleClick(`${card} .correction-summary`);
+      const detail = card;
+      await waitFor(`document.querySelector(${JSON.stringify(card + ' .correction-details')})?.textContent.includes(${JSON.stringify(after)})`,'Reference correction card reads full saved snapshots');
       assert.deepEqual(await snapshotValues(detail),[before,after]);
       await revisit('Correzioni');
-      await visibleClick(card);
-      await waitFor(`document.querySelector(${JSON.stringify(detail)})?.textContent.includes(${JSON.stringify(after)})`,'Full comparison survives browser reload');
+      await visibleClick(`${card} .correction-summary`);
+      await waitFor(`document.querySelector(${JSON.stringify(card + ' .correction-details')})?.textContent.includes(${JSON.stringify(after)})`,'Full comparison survives browser reload');
       assert.deepEqual(await snapshotValues(detail),[before,after]);
       await mock('/api/wordpress/verify-frontend',{error:'QA verification unavailable'},400);
       await button('Riverifica',detail);

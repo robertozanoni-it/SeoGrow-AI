@@ -116,24 +116,24 @@ export default function ProjectCenter({
   const reportSelected = Object.values(template.sections).filter(Boolean).length;
 
   const saveSetup = (patch) =>
-    onSave({
-      ...settings,
+    onSave((current) => ({
+      ...current,
       ...patch,
       centerActivity: {
-        ...(settings.centerActivity || {}),
+        ...(current.centerActivity || {}),
         setup: new Date().toISOString(),
       },
-    });
+    }));
 
   const updateTemplate = (patch) =>
-    onSave({
-      ...settings,
-      report: { ...template, ...patch, updatedAt: new Date().toISOString() },
+    onSave((current) => ({
+      ...current,
+      report: { ...reportTemplate(current.report), ...patch, updatedAt: new Date().toISOString() },
       centerActivity: {
-        ...(settings.centerActivity || {}),
+        ...(current.centerActivity || {}),
         report: new Date().toISOString(),
       },
-    });
+    }));
 
   const setupCompleted = [Boolean(objective.trim()), Boolean(dataset), Boolean(analysis), verified].filter(Boolean).length;
   const setupDate = latestDate(

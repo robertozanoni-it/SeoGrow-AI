@@ -144,21 +144,16 @@ export default function AutomaticProposalPage() {
   useEffect(() => {
     if (!active) return undefined;
     let cancelled = false;
-    let frame = 0;
-    let attempts = 0;
+    let timer = 0;
     let mountedHost = null;
 
     const install = () => {
       if (cancelled) return;
       const workspace = document.querySelector(".workspace");
-      if (!workspace) {
-        if (attempts < 120) {
-          attempts += 1;
-          frame = window.requestAnimationFrame(install);
-        }
-        return;
-      }
+      if (!workspace) return;
+      if (mountedHost?.isConnected && mountedHost.parentElement === workspace) return;
 
+      mountedHost?.remove();
       mountedHost = document.createElement("div");
       mountedHost.className = "automatic-proposal-root-host";
       mountedHost.setAttribute("data-seogrow-dedicated-page", "proposal");
@@ -166,10 +161,11 @@ export default function AutomaticProposalPage() {
       setHost(mountedHost);
     };
 
-    frame = window.requestAnimationFrame(install);
+    install();
+    timer = window.setInterval(install, 100);
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
       mountedHost?.remove();
     };
   }, [active]);

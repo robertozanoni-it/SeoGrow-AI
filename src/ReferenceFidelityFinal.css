@@ -1,0 +1,133 @@
+/* Final visual fidelity layer against the approved Restyling screenshots. */
+body[data-seogrow-ui-mode] .sidebar {
+  background: linear-gradient(180deg, #0b2346 0%, #0c2b55 58%, #0a2141 100%) !important;
+  border-right: 0 !important;
+  color: #fff !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav-group,
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(odd),
+body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(even) {
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar .guided-nav-label,
+body[data-seogrow-ui-mode="simple"] .sidebar .guided-nav-label {
+  display: block !important;
+  padding: 6px 12px 4px !important;
+  color: #91a8c8 !important;
+  font-size: 10px !important;
+  letter-spacing: .08em !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+  color: #dce7f7 !important;
+  background: transparent !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg { color: #afc3df !important; }
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button:hover {
+  background: rgba(255,255,255,.07) !important;
+  color: #fff !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] {
+  background: linear-gradient(135deg, #1268f3, #245af0) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 18px rgba(23,103,246,.28) !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg { color: #fff !important; }
+
+body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  color: #dce7f7 !important;
+}
+body[data-seogrow-ui-mode] .sidebar .side-foot {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+/* Reference pages start immediately below the shared topbar. */
+body[data-seogrow-ui-mode] .workspace > .workspace-tools,
+body[data-seogrow-ui-mode] .workspace > .freshness-notice,
+body[data-seogrow-ui-mode] .workspace > .audit-update-notice,
+body[data-seogrow-ui-mode] .guided-page-wizard-host,
+body[data-seogrow-ui-mode] .guided-page-help-host,
+body[data-seogrow-ui-mode] .wizard-context-host {
+  display: none !important;
+}
+
+body[data-seogrow-ui-mode="simple"] .workspace main {
+  padding-top: 24px !important;
+}
+
+@media (min-width: 1025px) {
+  body[data-seogrow-ui-mode] .sidebar {
+    width: 224px !important;
+    padding: 18px 10px 14px !important;
+  }
+  body[data-seogrow-ui-mode] .workspace {
+    width: calc(100% - 224px) !important;
+    margin-left: 224px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button,
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button > span {
+    font-size: 13px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
+    min-height: 40px !important;
+    padding: 0 12px !important;
+    gap: 11px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar nav.guided-nav button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle {
+    min-height: 64px !important;
+    padding: 10px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle strong,
+  body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle small {
+    font-size: 11px !important;
+  }
+  body[data-seogrow-ui-mode] .sidebar .side-foot strong { font-size: 12px !important; }
+  body[data-seogrow-ui-mode] .sidebar .side-foot small { font-size: 10px !important; }
+}
+
+/* Problems reference keeps the table and batch CTA visible without extra legacy blocks. */
+body[data-seogrow-ui-mode] .reference-problems-page .problems-coverage,
+body[data-seogrow-ui-mode] .reference-problems-page .batch-note,
+body[data-seogrow-ui-mode] .reference-problems-page .batch-history {
+  display: none !important;
+}
+body[data-seogrow-ui-mode] .reference-problems-page .batch-remediation {
+  padding: 8px 10px !important;
+}
+body[data-seogrow-ui-mode] .reference-problems-page .batch-toolbar {
+  gap: 7px !important;
+}
+body[data-seogrow-ui-mode] .reference-problems-page .batch-toolbar button,
+body[data-seogrow-ui-mode] .reference-problems-page .batch-toolbar select {
+  min-height: 34px !important;
+}
+
+/* Keep the reference Task workspace in its intended two-column composition. */
+body[data-seogrow-ui-mode] .reference-task-layout > .tasks-panel {
+  grid-row: auto !important;
+  grid-column: 1 !important;
+}
+body[data-seogrow-ui-mode] .reference-task-layout > .reference-task-aside {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+@media (max-width: 1180px) {
+  body[data-seogrow-ui-mode] .reference-task-layout > .reference-task-aside {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+}

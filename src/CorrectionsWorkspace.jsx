@@ -304,7 +304,7 @@ export default function CorrectionsWorkspace() {
               const verified = isVerified(record);
               const pending = isPending(record);
               return (
-                <article className={`panel correction-card ${open ? "open" : ""}`} key={record.id}>
+                <article className={`panel correction-card ${open ? "open" : ""}`} data-correction-id={record.id} key={record.id}>
                   <button type="button" className="correction-summary" onClick={() => toggleExpanded(record.id)} aria-expanded={open}>
                     <span className={`correction-status ${statusClass(record.status)}`}>{verified ? <CheckCircle2 /> : pending ? <AlertTriangle /> : <RotateCcw />}{record.status}</span>
                     <span className="correction-summary-main"><strong>{record.issueLabel}</strong><small>{record.fields?.map(historyFieldLabel).join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small><small>{record.sourceUrl || "URL non disponibile"}</small></span>

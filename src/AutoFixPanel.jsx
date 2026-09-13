@@ -19,9 +19,11 @@ export default function AutoFixPanel({ client, onNavigate }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!plan) return undefined;
-    const check = () => {
-      const key = plan.auditType === 'page' ? 'seogrow-page-audit-history-v2' : 'seogrow-analyses-v2';
-      const audits = normalizeAnalysisHistory(read(key, {})[client.id]);
+    const auditKey = plan.auditType === 'page' ? 'seogrow-page-audit-history-v2' : 'seogrow-analyses-v2';
+    const check = (event) => {
+      const changedKey = event?.key ?? event?.detail?.key ?? null;
+      if (event && changedKey && changedKey !== auditKey) return;
+      const audits = normalizeAnalysisHistory(read(auditKey, {})[client.id]);
       const matches = audits.filter(a => (a?.analyzedAt || a?.startedAt || '') === plan.analyzedAt);
       if (matches.length === 1 && JSON.stringify(matches[0]) === plan.fingerprint && client.url === plan.siteUrl) return;
       setMessage('Il progetto o i dati dell’audit sono cambiati. Analizza nuovamente prima di continuare.');

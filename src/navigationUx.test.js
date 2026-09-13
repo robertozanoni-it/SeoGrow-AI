@@ -35,7 +35,7 @@ test("overlay navigation enables corrections before notifying route listeners", 
   globalThis.window = { location: { hash: "#Panoramica" }, history: { pushState: (_state, _title, hash) => events.push(hash) }, dispatchEvent: event => events.push([event.type, globalThis.window.__seogrowCorrectionsMode]) };
   try {
     navigatePage("Correzioni");
-    assert.deepEqual(events, ["#Correzioni", ["storage", true], ["seogrow-locationchange", true]]);
+    assert.deepEqual(events, ["#Correzioni", ["storage", true], ["hashchange", true], ["seogrow-locationchange", true]]);
   } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
 });
 

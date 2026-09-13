@@ -20,10 +20,17 @@ async function screenshot(name) {
   const result = await command("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   await writeFile(output + "/" + name + ".png", Buffer.from(result.data, "base64"));
 }
+const visualOutput = process.env.QA_CAPTURE_REFERENCE_OUTPUT || "";
+async function visualScreenshot(name) {
+  if (!visualOutput) return;
+  await mkdir(visualOutput, { recursive: true });
+  const result = await command("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
+}
 async function reload() {
   await evaluate("window.__qaOldDocument = true");
   await command("Page.reload", {});
-  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.task-filters')", "new document hydrated after reload");
+  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
 }
 
 const candidates = [
@@ -106,13 +113,23 @@ const command = (method, params = {}) => new Promise((resolve, reject) => {
 });
 
 const evaluate = async (expression) => {
-  const result = await command("Runtime.evaluate", {
-    expression,
-    awaitPromise: true,
-    returnByValue: true,
-  });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Errore JavaScript browser.");
-  return result.result?.value;
+  let transientError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await command("Runtime.evaluate", {
+        expression,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Errore JavaScript browser.");
+      return result.result?.value;
+    } catch (error) {
+      if (!/Promise was collected/i.test(String(error?.message || error))) throw error;
+      transientError = error;
+      await sleep(40 * (attempt + 1));
+    }
+  }
+  throw transientError;
 };
 
 async function waitFor(expression, label, timeoutMs = 12_000) {
@@ -189,7 +206,16 @@ const assertViewportVisibility = async (width, expectedId, label) => {
     mobile: width < 768,
   });
   await command("Page.navigate", { url: `data:text/html;charset=utf-8,${encodeURIComponent(responsiveFixture)}` });
-  await waitFor("document.body?.dataset.visibilityFixtureReady === 'true'", `fixture responsive ${label}`);
+  await waitFor("document.readyState === 'complete' && document.querySelector('#desktop-only') && document.querySelector('#runtime-target')", `fixture responsive ${label}`);
+  await evaluate(`(() => {
+    if (!document.querySelector('#runtime-visible')) {
+      const node = document.createElement('span');
+      node.id = 'runtime-visible';
+      node.textContent = 'runtime visible';
+      document.querySelector('#runtime-target').append(node);
+    }
+    document.body.dataset.visibilityFixtureReady = 'true';
+  })()`);
   const state = await evaluate(`(() => {
     const visible = (selector) => {
       const node = document.querySelector(selector);
@@ -422,6 +448,35 @@ try {
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");
   await runBatchMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
+  if (visualOutput) {
+    const visualPages = [
+      ["Panoramica", "panoramica", 1672, 941],
+      ["Clienti", "clienti", 1672, 941],
+      ["Centro progetto", "centro-progetto", 1536, 1024],
+      ["Problemi", "problemi", 1536, 1024],
+      ["Audit SEO", "audit-seo", 1536, 1024],
+      ["Posizionamenti", "posizionamenti", 1536, 1024],
+      ["Link interni", "link-interni", 1536, 1024],
+      ["Opportunità", "opportunita", 1536, 1024],
+      ["Correzioni", "correzioni", 1536, 1024],
+      ["Task", "task", 1536, 1024],
+      ["Piano editoriale", "piano-editoriale", 1536, 1024],
+      ["SEO Agent", "seo-agent", 1536, 1024],
+      ["GEO AI", "geo-ai", 1536, 1024],
+      ["SeoGrow AI", "seogrow-ai", 1536, 1024],
+      ["Integrazioni", "integrazioni", 1536, 1024],
+      ["Impostazioni", "impostazioni", 1536, 1024],
+      ["Storico", "storico", 1536, 1024],
+    ];
+    for (const [page, file, width, height] of visualPages) {
+      await command("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+      await evaluate(`(async()=>{const nav=await import('/src/navigationUx.js');nav.navigatePage(${JSON.stringify(page)});window.scrollTo(0,0)})()`);
+      await waitFor(`decodeURIComponent(location.hash.slice(1)) === ${JSON.stringify(page)}`, `visual route ${page}`);
+      await sleep(450);
+      await evaluate("window.scrollTo(0,0)");
+      await visualScreenshot(file);
+    }
+  }
   await clickSidebar("Audit SEO");
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");

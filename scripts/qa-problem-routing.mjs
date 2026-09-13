@@ -22,9 +22,9 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
     const click = async selector => {
       await waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return !e.disabled&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0})()`,selector+' actionable');
-      // Scrolling a newly opened card can still be animated by its parent.
-      // Wait for a stable, hit-testable target before sending any mouse event.
-      const point=await evaluate(`(async()=>{const selector=${JSON.stringify(selector)};let element=document.querySelector(selector);element.scrollIntoView({behavior:'instant',block:'center'});let previous='',stable=0;for(let frame=0;frame<90;frame++){await new Promise(requestAnimationFrame);const e=document.querySelector(selector);if(!e||!e.isConnected)continue;if(e!==element){element=e;e.scrollIntoView({behavior:'instant',block:'center'});previous='';stable=0;}const r=e.getBoundingClientRect(),style=getComputedStyle(e);const key=[r.x,r.y,r.width,r.height,scrollX,scrollY].map(v=>Math.round(v*10)).join('|');stable=key===previous?stable+1:0;previous=key;if(stable<8)continue;if(e.disabled||style.display==='none'||style.visibility==='hidden'||r.width<=0||r.height<=0)throw new Error('Not visible: '+selector);const x=r.x+r.width/2,y=r.y+r.height/2;const hit=document.elementFromPoint(x,y);if(hit!==e&&!e.contains(hit))throw new Error('Covered control: '+selector);return {x,y};}throw new Error('Pointer target did not settle: '+selector)})()`);
+      await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({behavior:'instant',block:'center'})`);
+      await waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.isConnected)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(e.disabled||s.display==='none'||s.visibility==='hidden'||r.width<=0||r.height<=0)return false;const x=r.x+r.width/2,y=r.y+r.height/2;const hit=document.elementFromPoint(x,y);return hit===e||e.contains(hit)})()`,selector+' hit-testable');
+      const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
       await command('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
       await command('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
       await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
@@ -39,7 +39,8 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await click('.problems-overview button:nth-child(2)');
       await waitFor("document.querySelectorAll('.native-problem-cards .problem-card').length===3",'High-severity filter affects the actual card list');
       await click('.problems-overview button:nth-child(5)');
-      await click('.card-record[data-issue-type=\"duplicate-title\"]');
+      await waitFor("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"duplicate-title\"] .problem-main button')",'Title problem action');
+      await evaluate("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"duplicate-title\"] .problem-main button').click()");
       await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Problem card opens specific proposal, not list');
       assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
       assert.equal(await evaluate("Boolean(document.querySelector('.problem-drawer-scrim'))"),false);
@@ -86,7 +87,8 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('esattamente un tag')`,'Duplicate title tags cannot verify a correction');
       await mock('/api/wordpress/verify-frontend',{...publicState,title:newTitle,titleCount:1});
       await button('Torna ai problemi','.automatic-proposal-header');
-      await click('.card-record[data-issue-type=\"duplicate-description\"]');
+      await waitFor("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"duplicate-description\"] .problem-main button')",'Description problem action');
+      await evaluate("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"duplicate-description\"] .problem-main button').click()");
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials')",'Description proposal controls');
       for(const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-routing','Password applicativa':'qa-only'})) await set(scope+' .audit-unified-credentials',label,value);
       await mock('/api/wordpress/generate-seo-value-v2',{value:'x'.repeat(161),publishable:true});
@@ -98,7 +100,8 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await screenshot('description-routing-correct-field');
       assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-preview|live-apply/.test(r.path))"),false);
       await button('Torna ai problemi','.automatic-proposal-header');
-      await click('.card-record[data-issue-type=\"url-alias\"]');
+      await waitFor("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"] .problem-main button')",'URL alias problem action');
+      await evaluate("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"] .problem-main button').click()");
       await waitFor("document.body.dataset.seogrowProblemResolution==='true' && document.querySelector('.problem-resolution-heading h1')?.textContent.includes('Due URL')",'Manual diagnosis opens its specific full page');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.problem-resolution-root-host')).display"),'block');
       assert.equal(await evaluate("(()=>{const e=document.querySelector('.problem-resolution-content section');const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&!!e.textContent.trim()})()"),true,'Nested diagnostic sections are visible and contain real problem data');
@@ -109,17 +112,16 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(await evaluate("[...document.querySelectorAll('.problem-resolution-targets a')].some(a=>a.href.includes('first-link'))"),false,'Never substitute the first problem on the same source page');
       await screenshot('external-problem-specific');
       await button('Apri Correzioni','.problem-resolution-actions');
-      await waitFor("document.body.dataset.seogrowProblemResolution!=='true' && document.querySelector('.app main .page-title h1')?.textContent.includes('Correzioni')",'Manual resolution exits to actual correction history');
+      await waitFor("document.body.dataset.seogrowProblemResolution!=='true' && document.querySelector('.corrections-workspace-root h1')?.textContent.includes('Correzioni')",'Manual resolution exits to actual correction history');
       await revisit('Audit SEO');
-      console.error('AUDIT_REVISIT_DIAGNOSTIC '+JSON.stringify(await evaluate("(async()=>{const m=await import('/src/workspaceDatabase.js');const main=document.querySelector('.app main');const original=[...document.querySelectorAll('.sidebar > nav:not(.guided-nav) button')].map(b=>({text:b.textContent.trim(),active:b.classList.contains('active')}));const guided=[...document.querySelectorAll('.guided-nav button')].map(b=>({text:b.textContent.trim(),active:b.classList.contains('active')}));return{hash:location.hash,mainPage:main?.dataset?.page||'',mainClass:main?.className||'',workspacePage:m.workspaceStorage.getItem('seogrow-selected-page-v1'),cardMode:document.body.dataset.seogrowCardMode||'',cardHostCount:document.querySelectorAll('.card-workspace-host').length,cardWorkspaceCount:document.querySelectorAll('.card-workspace').length,auditRootCount:document.querySelectorAll('.audit-enhancer-root').length,original,guided,bridgeRequested:document.body.dataset.seogrowGuidedBridgeRequested||'',bridgeRendered:document.body.dataset.seogrowGuidedBridgeRenderedPage||'',bridgeNativeActive:document.body.dataset.seogrowGuidedBridgeNativeActive||'',reconcilerInstalled:Boolean(window.__seogrowPageRouteReconcilerInstalled),recoveryInstalled:Boolean(window.__seogrowCardWorkspaceRecoveryInstalled)}})()")));
-      await click('.card-record[data-audit-card=\"true\"]');
-      await click('.card-horizontal-detail .audit-problem-open');
-      await waitFor("document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'",'Individual audit issue opens same specific proposal');
-      assert.equal(await evaluate("document.querySelector('.automatic-proposal-header small')?.textContent"),url);
+      await waitFor("[...document.querySelectorAll('.audit-issues-list > div')].some(row => row.querySelector('strong')?.textContent === 'Title duplicato' && row.querySelector('.audit-agent-action'))",'Title issue available in reference Audit UI');
+      await evaluate("[...document.querySelectorAll('.audit-issues-list > div')].find(row => row.querySelector('strong')?.textContent === 'Title duplicato').querySelector('.audit-agent-action').click()");
+      await waitFor("document.querySelector('.audit-unified-remediation') && document.querySelector('.audit-issue-select select')?.selectedOptions[0]?.textContent.includes('Title duplicato')",'Individual audit issue opens controlled remediation for the same problem');
+      assert.equal(await evaluate("document.querySelector('.audit-unified-issue a')?.href"),url);
       for(const width of [1440,390]) {
         await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
-        await evaluate("document.querySelector('.automatic-proposal-header').scrollIntoView({behavior:'instant',block:'start'})");
-        await waitFor('document.documentElement.scrollWidth<=innerWidth+1','Proposal navigation responsive');
+        await evaluate("document.querySelector('.audit-unified-remediation').scrollIntoView({behavior:'instant',block:'start'})");
+        await waitFor('document.documentElement.scrollWidth<=innerWidth+1','Audit remediation responsive');
         await screenshot('problem-routing-'+width);
       }
     } catch(error) {

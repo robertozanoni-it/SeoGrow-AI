@@ -45,11 +45,11 @@ const groups = [
       ["Panoramica", CircleGauge],
       ["Clienti", Users],
       ["Centro progetto", ClipboardCheck],
-      ["Storico", History, true],
+      ["Storico", History],
     ],
   },
   {
-    label: "Analizza",
+    label: "Analisi SEO",
     items: [
       ["Problemi", ListChecks],
       ["Audit SEO", CircleGauge],
@@ -63,7 +63,7 @@ const groups = [
       ["Opportunità", Target],
       ["Correzioni", CheckCircle2],
       ["Task", ClipboardCheck],
-      ["Piano editoriale", FileText, true],
+      ["Piano editoriale", FileText],
     ],
   },
   {
@@ -71,7 +71,7 @@ const groups = [
     items: [
       ["SeoGrow AI", Sparkles],
       ["SEO Agent", WandSparkles],
-      ["GEO AI", Sparkles, true],
+      ["GEO AI", Sparkles],
     ],
   },
   {

@@ -20,6 +20,8 @@ import {
 } from "./elementorImpactClient";
 import { buildElementorImpactCandidateUrls } from "./elementorImpactCandidates";
 import { navigatePage } from "./navigationUx.js";
+import { annotateExternalLinkDestinations } from "./ExternalLinkDestinationUx.js";
+import { annotateBrokenLinkCleanupChoices } from "./BrokenLinkCleanupChoiceUx.js";
 import { normalizeAnalysisHistory } from "./platform";
 import { listCorrections, setLastBatch, stableIssueKey } from "./remediationStore";
 import {
@@ -90,18 +92,23 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
   const [requestedAudit, setRequestedAudit] = useState(batchPlan);
 
   useEffect(() => {
-    if (target) return undefined;
-    let frame = 0;
-    let attempts = 0;
-    const find = () => {
+    let timer = 0;
+    let disposed = false;
+    const scan = () => {
+      if (disposed) return;
       const next = resolveTarget();
-      if (next) { setTarget(next); return; }
-      attempts += 1;
-      if (attempts < 120) frame = window.requestAnimationFrame(find);
+      setTarget((current) => {
+        if (current === next && (!current || current.isConnected)) return current;
+        return next;
+      });
+      timer = window.setTimeout(scan, 100);
     };
-    find();
-    return () => window.cancelAnimationFrame(frame);
-  }, [target]);
+    scan();
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const open = (event) => {
@@ -119,6 +126,16 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
 
   const previews = useMemo(() => results.filter((item) => item.status === "preview"), [results]);
   const conflicts = useMemo(() => detectPreviewConflicts(previews), [previews]);
+
+  useEffect(() => {
+    if (!target?.isConnected || !results.length) return undefined;
+    const timer = window.setTimeout(() => {
+      annotateExternalLinkDestinations();
+      annotateBrokenLinkCleanupChoices();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [results, target]);
+
   if (!target) return null;
 
   const currentContext = async () => {

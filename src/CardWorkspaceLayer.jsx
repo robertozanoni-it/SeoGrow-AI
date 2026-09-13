@@ -24,7 +24,7 @@ import "./CardWorkspaceLayer.css";
 
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
-const CARD_EXCLUDED_PAGES = new Set(["Centro progetto", "Problemi"]);
+const CARD_EXCLUDED_PAGES = new Set(["Centro progetto", "Problemi", "Audit SEO"]);
 
 const readJson = (key, fallback) => {
   try {

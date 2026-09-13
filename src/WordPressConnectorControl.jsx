@@ -14,18 +14,22 @@ export default function WordPressConnectorControl() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    let frame = 0;
-    let attempts = 0;
+    let timer = 0;
+    let disposed = false;
     const scan = () => {
+      if (disposed) return;
       const next = resolveTarget();
-      setTarget((current) => current === next ? current : next);
-      if (!next && attempts < 120) {
-        attempts += 1;
-        frame = window.requestAnimationFrame(scan);
-      }
+      setTarget((current) => {
+        if (current === next && (!current || current.isConnected)) return current;
+        return next;
+      });
+      timer = window.setTimeout(scan, 100);
     };
     scan();
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   if (!target) return null;
