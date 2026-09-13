@@ -244,12 +244,20 @@ export default function GeoPage({
   const highIssues = issues.filter((item) => item.severity === "Alta").length;
 
   return (
-    <>
-      <div className="page-title geo-title">
-        <div>
-          <h1>GEO AI — {client.name}</h1>
-          <p>Prepara il sito a essere compreso e citato dai motori generativi.</p>
-        </div>
+    <div className="reference-geo-page">
+      <section className="reference-geo-hero">
+        <div className="reference-geo-heading"><span><Radar /></span><div><h1>GEO AI</h1><p>Ottimizza la visibilità di {client.name} nelle risposte AI e nei motori generativi.</p></div></div>
+        <div className="reference-geo-copy"><strong>Essere trovati<br/>anche nelle AI.</strong><Bot /></div>
+      </section>
+      <div className="reference-geo-tabs"><span className="active">Panoramica</span><span>Ricerche AI</span><span>Brand Mentions</span><span>Competitor</span><span>Strategie</span><span>Report</span></div>
+      <section className="reference-geo-kpis">
+        <article className="blue"><FileQuestion /><span><strong>{questions.length}</strong><small>Ricerche monitorate</small><em>Domande reali del progetto</em></span></article>
+        <article className="green"><Check /><span><strong>{simulationResults.length}</strong><small>Risposte simulate</small><em>{simulation ? "Ultima simulazione" : "Da eseguire"}</em></span></article>
+        <article className="purple"><Radar /><span><strong>{audit?.score ?? "—"}</strong><small>Preparazione GEO</small><em>{audit ? "/100" : "Audit da eseguire"}</em></span></article>
+        <article className="orange"><AlertTriangle /><span><strong>{highIssues}</strong><small>Problemi prioritari</small><em>Controlli verificati</em></span></article>
+      </section>
+      <div className="page-title geo-title reference-geo-actions-only">
+        <div><h2>Controlli GEO</h2><p>Audit tecnico e simulazioni restano separati e verificabili.</p></div>
         <div className="geo-title-actions">
           <button
             className="secondary"
@@ -508,6 +516,6 @@ export default function GeoPage({
           </div>
         </section>
       ) : null}
-    </>
+    </div>
   );
 }
