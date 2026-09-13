@@ -30,7 +30,7 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
         await command('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
         await evaluate("document.querySelector('.auto-fix-panel').scrollIntoView()");
         await waitFor('document.documentElement.scrollWidth <= innerWidth + 1','Auto Fix responsive overflow');
-        if(width < 600) await waitFor("document.querySelector('.sidebar').getBoundingClientRect().right <= 1",'Mobile drawer transition finished');
+        if(width < 600) await waitFor("!document.querySelector('.sidebar')?.classList.contains('open')",'Mobile drawer transition finished');
         await screenshot('auto-fix-'+width);
       }
       await command('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:false});
