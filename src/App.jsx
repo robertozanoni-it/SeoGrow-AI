@@ -24,9 +24,11 @@ import {
   Bell,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronDown,
   CircleGauge,
   ClipboardCheck,
+  Clock3,
   Database,
   Download,
   ExternalLink,
@@ -772,6 +774,11 @@ function TaskTable({
     () => tasks.find((item) => item.id === openTaskId) || null,
   );
   const [savedViewId, setSavedViewId] = useState("");
+  useEffect(() => {
+    const createTask = () => setEditing({ title: "", priority: "Media", due: "", status: "Da fare", targetUrl: client?.url || "", sourceUrl: "", detail: "", notes: "", sourceClientId: client?.id, client: client?.name });
+    window.addEventListener("seogrow-task-create", createTask);
+    return () => window.removeEventListener("seogrow-task-create", createTask);
+  }, [client]);
   const [taskQuery, setTaskQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tutti");
   useEffect(() => {
@@ -1049,6 +1056,50 @@ function TaskTable({
         />
       )}
     </section>
+  );
+}
+
+function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveViews, openTaskId, onTaskOpened }) {
+  const active = tasks.filter((task) => !task.stale);
+  const counts = {
+    total: active.length,
+    todo: active.filter((task) => task.status === "Da fare").length,
+    progress: active.filter((task) => task.status === "In corso").length,
+    review: active.filter((task) => task.status === "In revisione").length,
+    done: active.filter((task) => task.status === "Completato").length,
+  };
+  const priorities = {
+    Alta: active.filter((task) => task.priority === "Alta").length,
+    Media: active.filter((task) => task.priority === "Media").length,
+    Bassa: active.filter((task) => task.priority === "Bassa").length,
+  };
+  const due = active.filter((task) => task.status !== "Completato" && /^\d{4}-\d{2}-\d{2}$/.test(task.due || "")).toSorted((a,b) => Date.parse(a.due) - Date.parse(b.due)).slice(0,5);
+  const totalRing = Math.max(1, counts.total);
+  const todoDeg = counts.todo / totalRing * 360;
+  const progressDeg = counts.progress / totalRing * 360;
+  const reviewDeg = counts.review / totalRing * 360;
+  return (
+    <div className="reference-task-page">
+      <section className="reference-task-head">
+        <div className="reference-task-title"><span><ClipboardCheck /></span><div><h1>Task</h1><p>Organizza, assegna e monitora tutte le attività SEO del progetto.</p></div></div>
+        <div className="reference-task-actions"><button className="secondary" onClick={() => downloadCsv(tasks, `task-${client?.name || "progetto"}.csv`)}><Download /> Esporta task</button><button className="primary" onClick={() => window.dispatchEvent(new CustomEvent("seogrow-task-create"))}><Plus /> Nuovo task</button></div>
+      </section>
+      <section className="reference-task-tabs">{[["Tutte",counts.total],["Da fare",counts.todo],["In corso",counts.progress],["In revisione",counts.review],["Completate",counts.done]].map(([label,value]) => <span key={label}>{label}<b>{value}</b></span>)}</section>
+      <section className="reference-task-kpis">
+        <article className="blue"><ClipboardCheck /><span><strong>{counts.total}</strong><small>Task totali</small><em>Progetto attivo</em></span></article>
+        <article className="red"><Clock3 /><span><strong>{counts.todo}</strong><small>Da fare</small><em>In attesa di avvio</em></span></article>
+        <article className="cyan"><RefreshCw /><span><strong>{counts.progress}</strong><small>In corso</small><em>Attualmente attivi</em></span></article>
+        <article className="orange"><CheckCircle2 /><span><strong>{counts.done}</strong><small>Completati</small><em>Storico verificato</em></span></article>
+      </section>
+      <div className="reference-task-layout">
+        <TaskTable tasks={tasks} setTasks={setTasks} client={client} clients={clients} views={views} onSaveViews={onSaveViews} openTaskId={openTaskId} onTaskOpened={onTaskOpened} />
+        <aside className="reference-task-aside">
+          <section><h2>Distribuzione task</h2><div className="reference-task-ring" style={{"--todo":`${todoDeg}deg`,"--progress":`${progressDeg}deg`,"--review":`${reviewDeg}deg`}}><span><strong>{counts.total}</strong><small>task</small></span></div><ul><li><i className="red" />Da fare <strong>{counts.todo}</strong></li><li><i className="blue" />In corso <strong>{counts.progress}</strong></li><li><i className="purple" />In revisione <strong>{counts.review}</strong></li><li><i className="green" />Completati <strong>{counts.done}</strong></li></ul></section>
+          <section><h2>Priorità</h2>{Object.entries(priorities).map(([label,value]) => <div className="reference-task-priority" key={label}><span>{label}</span><i><b className={label.toLowerCase()} style={{width:`${counts.total ? Math.max(4,value/counts.total*100) : 0}%`}} /></i><strong>{value}</strong></div>)}</section>
+          <section><div className="reference-panel-title"><div><h2>Task in scadenza</h2><p>Prime attività pianificate.</p></div></div>{due.length ? due.map((task) => <button key={task.id} onClick={() => { window.dispatchEvent(new CustomEvent("seogrow-task-open", { detail:{ id:task.id } })); }}><span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span><strong>{task.title}</strong><small>{new Date(`${task.due}T00:00:00`).toLocaleDateString("it-IT")}</small></span></button>) : <p className="reference-empty-copy">Nessuna scadenza impostata.</p>}</section>
+        </aside>
+      </div>
+    </div>
   );
 }
 
@@ -4438,25 +4489,17 @@ export default function App() {
       );
     if (page === "Task")
       return (
-        <>
-          <EmptyTitle
-            title={`Task — ${selectedClientRecord.name}`}
-            text="Sono mostrate soltanto le attività del progetto selezionato."
-            action="Nuova analisi"
-            onAction={() => setQuickAudit(true)}
-          />
-          <TaskTable
-            key={selectedClient}
-            tasks={selectedTasks}
-            setTasks={changeTasks}
-            client={selectedClientRecord}
-            clients={clients}
-            views={preferences.savedViews?.[selectedClient]?.tasks}
-            onSaveViews={views => saveViews("tasks", views)}
-            openTaskId={requestedTask?.id}
-            onTaskOpened={() => setRequestedTask(null)}
-          />
-        </>
+        <TaskReferencePage
+          key={selectedClient}
+          tasks={selectedTasks}
+          setTasks={changeTasks}
+          client={selectedClientRecord}
+          clients={clients}
+          views={preferences.savedViews?.[selectedClient]?.tasks}
+          onSaveViews={views => saveViews("tasks", views)}
+          openTaskId={requestedTask?.id}
+          onTaskOpened={() => setRequestedTask(null)}
+        />
       );
     if (page === "Integrazioni")
       return (
