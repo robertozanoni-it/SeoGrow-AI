@@ -56,6 +56,7 @@ import './SeoGrowAiReference.css';
 import './IntegrationsReference.css';
 import './SettingsReference.css';
 import './HistoryReference.css';
+import './DetailReference.css';
 import './RankingsReference.css';
 import './LinksReference.css';
 import './OpportunitiesReference.css';
