@@ -48,7 +48,7 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
     await select(status, "Completato");
     await persisted(`tasks.some(t => t.id === ${id} && t.status === 'Completato')`);
     await clickSidebar("Opportunità");
-    await waitFor("document.querySelector('.opportunity-table button')?.textContent.trim() === 'Crea task'", "completed task no longer matches active opportunity");
+    await waitFor("document.querySelector('.reference-opportunity-table button, .opportunity-table button')?.textContent.trim() === 'Crea task'", "completed task no longer matches active opportunity");
     await clickSidebar("Task");
     await click("Annulla ultima modifica task");
     await persisted(`tasks.some(t => t.id === ${id} && t.status === 'In corso')`);
