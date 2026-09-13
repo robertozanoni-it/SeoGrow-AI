@@ -384,3 +384,165 @@ body[data-seogrow-ui-mode] .reference-correction-guide li {
   overflow-wrap: normal !important;
   word-break: normal !important;
 }
+
+/* 2026-09-13 UX fix: overview problem totals + readable problem cards. */
+.reference-problem-total {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: -12px 0 14px !important;
+  color: #d93652 !important;
+}
+.reference-problem-total strong {
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+.reference-problem-total { font-size: 12px !important; font-weight: 750; }
+
+.reference-problems-page .problems-list {
+  display: grid !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+.reference-problems-page .problem-row {
+  position: relative;
+  min-height: 96px !important;
+  grid-template-columns: 30px 86px minmax(260px, 2fr) minmax(120px, .8fr) minmax(105px, .7fr) minmax(165px, 1fr) minmax(115px, .8fr) 42px !important;
+  gap: 10px 12px !important;
+  align-items: center !important;
+  padding: 14px 14px !important;
+  border: 1px solid #d8e7f6 !important;
+  border-radius: 14px !important;
+  background: #f5faff !important;
+  box-shadow: 0 4px 14px rgba(39, 91, 150, .045) !important;
+  overflow: hidden !important;
+}
+.reference-problems-page .problem-row:nth-child(even) {
+  background: #f2fbf7 !important;
+  border-color: #d6eee3 !important;
+}
+.reference-problems-page .problem-row:has(.problem-severity.high) {
+  background: #fff4f6 !important;
+  border-color: #ffcbd5 !important;
+}
+.reference-problems-page .problem-row:has(.problem-state.needs_verification) {
+  background: #f6f2ff !important;
+  border-color: #dfd1ff !important;
+}
+.reference-problems-page .problem-row:has(.problem-state.resolved) {
+  background: #eefaf4 !important;
+  border-color: #c9ecd9 !important;
+}
+.reference-problems-page .problem-row > * { min-width: 0; }
+.reference-problems-page .problem-main,
+.reference-problems-page .problem-main button,
+.reference-problems-page .problem-main small,
+.reference-problems-page .problem-source,
+.reference-problems-page .problem-batch-facts,
+.reference-problems-page .problem-correctability,
+.reference-problems-page .problem-state {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+}
+.reference-problems-page .problem-main button strong {
+  display: block;
+  font-size: 13px !important;
+  line-height: 1.3 !important;
+}
+.reference-problems-page .problem-main small {
+  margin-top: 3px;
+  line-height: 1.35 !important;
+}
+.reference-problems-page .problem-source,
+.reference-problems-page .problem-batch-facts {
+  line-height: 1.35 !important;
+}
+.reference-problems-page .problem-state,
+.reference-problems-page .problem-correctability,
+.reference-problems-page .problem-severity {
+  justify-self: start;
+  align-self: center;
+}
+.reference-problems-page .problem-flag {
+  top: 6px !important;
+  right: 54px !important;
+  left: auto !important;
+}
+.reference-problems-page .card-record-open {
+  justify-self: end;
+  align-self: center;
+}
+.reference-problems-page .problem-row:hover {
+  transform: translateY(-1px);
+  border-color: #9fc7f4 !important;
+  box-shadow: 0 8px 20px rgba(34, 94, 160, .08) !important;
+}
+
+@media (max-width: 1280px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 30px 80px minmax(240px, 1.8fr) minmax(110px, .8fr) minmax(100px, .7fr) minmax(145px, 1fr) 40px !important;
+  }
+  .reference-problems-page .problem-batch-facts { display: none !important; }
+  .reference-problems-page .problem-correctability { grid-column: 6 !important; }
+  .reference-problems-page .card-record-open { grid-column: 7 !important; }
+}
+
+@media (max-width: 900px) {
+  .reference-problems-page .problem-row {
+    grid-template-columns: 30px 78px minmax(0, 1fr) 40px !important;
+    align-items: start !important;
+  }
+  .reference-problems-page .problem-main { grid-column: 3 !important; }
+  .reference-problems-page .problem-source,
+  .reference-problems-page .problem-state,
+  .reference-problems-page .problem-correctability {
+    grid-column: 3 !important;
+    display: block !important;
+    margin-top: 4px;
+  }
+  .reference-problems-page .card-record-open { grid-column: 4 !important; grid-row: 1 / span 4 !important; }
+}
+
+/* Problems list: one readable full-width problem per row. */
+.reference-problems-page .problems-list.card-record-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.reference-problems-page .problem-row .problem-batch-select { grid-column: 1 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-severity { grid-column: 2 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-main { grid-column: 3 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-source { grid-column: 4 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-state { grid-column: 5 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-batch-facts { grid-column: 6 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .problem-correctability { grid-column: 7 !important; grid-row: 1 !important; }
+.reference-problems-page .problem-row .card-record-open { grid-column: 8 !important; grid-row: 1 !important; }
+
+.reference-problems-page .problem-row .problem-batch-select {
+  align-self: center;
+  font-size: 0 !important;
+}
+.reference-problems-page .problem-row .problem-batch-select input {
+  width: 18px;
+  height: 18px;
+}
+.reference-problems-page .problem-row .problem-main > button,
+.reference-problems-page .problem-row .problem-main > small {
+  max-width: 100%;
+}
+.reference-problems-page .problem-row .problem-main a {
+  display: inline;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1280px) {
+  .reference-problems-page .problem-row .problem-batch-select { grid-column: 1 !important; }
+  .reference-problems-page .problem-row .problem-severity { grid-column: 2 !important; }
+  .reference-problems-page .problem-row .problem-main { grid-column: 3 !important; }
+  .reference-problems-page .problem-row .problem-source { grid-column: 4 !important; }
+  .reference-problems-page .problem-row .problem-state { grid-column: 5 !important; }
+  .reference-problems-page .problem-row .problem-correctability { grid-column: 6 !important; }
+  .reference-problems-page .problem-row .card-record-open { grid-column: 7 !important; }
+}

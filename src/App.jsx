@@ -12,6 +12,7 @@ import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
+import { buildUnifiedProblems } from "./problemsModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
@@ -1329,6 +1330,7 @@ function Dashboard({
   dataset,
   previousDataset,
   analysis,
+  analysisHistory = [],
   selectedClient,
   gscData,
   onOpenClient,
@@ -1337,9 +1339,45 @@ function Dashboard({
   const client = clients.find((item) => item.id === selectedClient) || clients[0];
   const clientTasks = tasks.filter((task) => task.sourceClientId === selectedClient || (!task.sourceClientId && task.client === client?.name));
   const activeTasks = clientTasks.filter((task) => !task.stale && task.status !== "Completato");
-  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
-  const critical = issues.filter((issue) => String(issue.severity || "").toLowerCase() === "high").length;
-  const warnings = issues.filter((issue) => String(issue.severity || "").toLowerCase() === "medium").length;
+  const [problemSummary, setProblemSummary] = useState({ active: 0, high: 0, verify: 0 });
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const corrections = await listCorrections({ clientId: selectedClient });
+        const pageStore = JSON.parse(localStorage.getItem("seogrow-page-audit-history-v2") || "{}");
+        const pageHistory = pageStore[selectedClient] || pageStore[String(selectedClient)] || [];
+        const model = buildUnifiedProblems({
+          clientId: selectedClient,
+          siteHistory: analysisHistory.length ? analysisHistory : analysis ? [analysis] : [],
+          pageHistory,
+          tasks,
+          corrections,
+        });
+        if (cancelled) return;
+        setProblemSummary({
+          active: model.rows.filter((row) => !["resolved", "intentional"].includes(row.problemState)).length,
+          high: model.rows.filter((row) => row.severity === "high" && !["resolved", "intentional"].includes(row.problemState)).length,
+          verify: model.rows.filter((row) => row.problemState === "needs_verification").length,
+        });
+      } catch {
+        if (!cancelled) setProblemSummary({ active: 0, high: 0, verify: 0 });
+      }
+    };
+    refresh();
+    const rerun = () => refresh();
+    window.addEventListener("seogrow-remediation-history", rerun);
+    window.addEventListener("seogrow-remediation-applied", rerun);
+    window.addEventListener("seogrow-storage-ok", rerun);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("seogrow-remediation-history", rerun);
+      window.removeEventListener("seogrow-remediation-applied", rerun);
+      window.removeEventListener("seogrow-storage-ok", rerun);
+    };
+  }, [analysis, analysisHistory, selectedClient, tasks]);
+  const critical = problemSummary.high;
+  const warnings = Math.max(0, problemSummary.active - problemSummary.high);
   const opportunities = dataset ? opportunityQueries(dataset) : [];
   const top10 = dataset?.queries?.filter((item) => Number(item.position) <= 10).length || 0;
   const comparison = compareDatasets(dataset, previousDataset);
@@ -1362,7 +1400,7 @@ function Dashboard({
         </div>
       </section>
       <section className="reference-overview-grid">
-        <button className="reference-overview-card problems" onClick={() => setPage("Problemi")}><AlertTriangle /><div><h2>Problemi</h2><div className="reference-card-numbers"><span><strong>{critical}</strong><small>Critici</small></span><span><strong>{warnings}</strong><small>Avvisi</small></span><span><strong>{opportunities.length}</strong><small>Opportunità</small></span></div></div><b>›</b></button>
+        <button className="reference-overview-card problems" onClick={() => setPage("Problemi")}><AlertTriangle /><div><h2>Problemi</h2><p className="reference-problem-total"><strong>{problemSummary.active}</strong> problemi aperti</p><div className="reference-card-numbers"><span><strong>{critical}</strong><small>Critici</small></span><span><strong>{warnings}</strong><small>Altri aperti</small></span><span><strong>{problemSummary.verify}</strong><small>Da verificare</small></span></div></div><b>›</b></button>
         <button className="reference-overview-card ranking" onClick={() => setPage("Posizionamenti")}><BarChart3 /><div><h2>Posizionamento</h2><div className="reference-card-numbers"><span><strong>{top10}</strong><small>Top 10</small></span><span><strong>{dataset?.queries?.length || 0}</strong><small>Monitorate</small></span></div></div><b>›</b></button>
         <button className="reference-overview-card google" onClick={() => setPage("Posizionamenti")}><Database /><div><h2>Google</h2><div className="reference-card-numbers"><span><strong>{dataset ? formatInteger(dataset.totals.clicks) : "—"}</strong><small>Click</small></span><span><strong>{dataset ? formatInteger(dataset.totals.impressions) : "—"}</strong><small>Impression</small></span><span><strong>{dataset ? `${dataset.totals.ctr.toFixed(1)}%` : "—"}</strong><small>CTR</small></span></div></div><b>›</b></button>
         <button className="reference-overview-card content" onClick={() => setPage("Piano editoriale")}><FileText /><div><h2>Contenuti</h2><div className="reference-card-numbers"><span><strong>{contentTasks}</strong><small>Da migliorare</small></span><span><strong>{activeTasks.length}</strong><small>Task aperte</small></span></div></div><b>›</b></button>
@@ -4318,6 +4356,7 @@ export default function App() {
           dataset={selectedDataset}
           previousDataset={selectedHistory[1]}
           analysis={selectedAnalysis}
+          analysisHistory={selectedAnalysisHistory}
           selectedClient={selectedClient}
           gscData={gscData}
           wordpressConnections={wordpressConnections}
