@@ -15,8 +15,13 @@ import { buildConnectorArchive } from './connectorPackage.js';
 
 const sentence = 'Scopri come integrare lo yoga in una routine equilibrata con posizioni, consigli pratici e indicazioni utili per iniziare in modo graduale e consapevole.';
 
-test('meta description 160-character policy counts punctuation, spaces, NFC and code points', () => {
+test('SEO title and meta description length policy enforces shared character caps', () => {
   assert.equal(seoCharacterCount('e\u0301 🧘.'), 4);
+
+  for (const size of [69, 70]) assert.doesNotThrow(() => assertSeoTextLength('seo_title', 'x'.repeat(size)));
+  assert.throws(() => assertSeoTextLength('seo_title', 'x'.repeat(71)), e => e.code === 'SEO_TEXT_LIMIT_EXCEEDED' && e.maxCharacters === 70);
+  assert.equal(validateSeoSuggestion('seo_title', 'x'.repeat(71)).errors.some(error => error.includes('70 caratteri')), true);
+
   for (const size of [159, 160]) assert.doesNotThrow(() => assertSeoTextLength('meta_description', 'x'.repeat(size)));
   for (const size of [161, 175, 180]) {
     assert.throws(() => assertSeoTextLength('meta_description', 'x'.repeat(size)), e => e.code === 'SEO_TEXT_LIMIT_EXCEEDED' && e.maxCharacters === 160);
