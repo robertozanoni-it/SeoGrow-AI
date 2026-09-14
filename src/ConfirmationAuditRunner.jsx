@@ -32,11 +32,15 @@ const writeJson = (key, value) => {
   window.dispatchEvent(new CustomEvent("seogrow-storage-ok", { detail: { key, value: serialized } }));
 };
 const selectedClientId = () => Number(readJson(SELECTED_CLIENT_KEY, 0));
+const explicitConfirmationReady = (record) => Boolean(record?.id && record.status === "Da verificare" && record.lastVerificationAttemptAt && record.frontendFailure !== true && !record.confirmationAuditVerifiedAt);
 
 export function requestConfirmationAudit(record, { navigate = true } = {}) {
+  const explicit = navigate === true;
+  if (!explicit && !confirmationAuditReady(record)) return false;
+  if (explicit && !explicitConfirmationReady(record)) return false;
   const intent = confirmationAuditIntent(record);
   if (!intent || typeof window === "undefined") return false;
-  const payload = { ...intent, navigate };
+  const payload = { ...intent, navigate, explicit };
   try { sessionStorage.setItem(CONFIRMATION_AUDIT_KEY, JSON.stringify(payload)); } catch { return false; }
   if (navigate) navigatePage("Audit SEO");
   window.dispatchEvent(new CustomEvent(CONFIRMATION_AUDIT_EVENT, { detail: payload }));
@@ -44,34 +48,19 @@ export function requestConfirmationAudit(record, { navigate = true } = {}) {
 }
 
 const saveAudit = (intent, data, client) => {
-  const normalized = normalizeSiteAnalysis({
-    ...data,
-    auditMode: intent.mode,
-    analyzedAt: data.analyzedAt || new Date().toISOString(),
-  });
+  const normalized = normalizeSiteAnalysis({ ...data, auditMode: intent.mode, analyzedAt: data.analyzedAt || new Date().toISOString() });
   if (intent.mode === "page") {
     const current = readJson(PAGE_HISTORY_KEY, {});
-    writeJson(PAGE_HISTORY_KEY, {
-      ...current,
-      [intent.clientId]: [normalized, ...(current[intent.clientId] || [])].slice(0, 30),
-    });
+    writeJson(PAGE_HISTORY_KEY, { ...current, [intent.clientId]: [normalized, ...(current[intent.clientId] || [])].slice(0, 30) });
     return normalized;
   }
-
   const current = readJson(SITE_HISTORY_KEY, {});
   const previousHistory = normalizeAnalysisHistory(current[intent.clientId]);
   const previous = previousHistory[0];
   const diff = analysisDiff(normalized, previous);
-  const enriched = {
-    ...normalized,
-    ...diff,
-    scoreDelta: observedScoreDelta(normalized, previous),
-    hasPrevious: observedScoreDelta(normalized, previous) !== null,
-  };
-  writeJson(SITE_HISTORY_KEY, {
-    ...current,
-    [intent.clientId]: [enriched, ...previousHistory].slice(0, 20),
-  });
+  const scoreDelta = observedScoreDelta(normalized, previous);
+  const enriched = { ...normalized, ...diff, scoreDelta, hasPrevious: scoreDelta !== null };
+  writeJson(SITE_HISTORY_KEY, { ...current, [intent.clientId]: [enriched, ...previousHistory].slice(0, 20) });
   if (client) {
     const tasks = readJson(TASKS_KEY, []);
     const generated = tasksFromAnalysis(enriched, client);
@@ -94,24 +83,8 @@ export default function ConfirmationAuditRunner() {
       const outcome = confirmationAuditOutcome(current, result, intent.mode);
       const at = result.analyzedAt || new Date().toISOString();
       const patch = outcome.confirmed
-        ? {
-            status: "Verificato",
-            frontendConfirmed: true,
-            frontendFailure: false,
-            verifiedAt: at,
-            confirmationAuditVerifiedAt: at,
-            confirmationAuditState: "verified",
-            confirmationAuditType: intent.mode,
-            verificationNote: policy.successNote,
-          }
-        : {
-            status: "Da verificare",
-            verifiedAt: "",
-            confirmationAuditState: outcome.inconclusive ? "inconclusive" : "completed",
-            confirmationAuditType: intent.mode,
-            confirmationAuditLastAt: at,
-            verificationNote: outcome.inconclusive ? `${outcome.reason} La correzione resta Da verificare.` : policy.stillPresentNote,
-          };
+        ? { status: "Verificato", frontendConfirmed: true, frontendFailure: false, verifiedAt: at, confirmationAuditVerifiedAt: at, confirmationAuditState: "verified", confirmationAuditType: intent.mode, verificationNote: policy.successNote }
+        : { status: "Da verificare", verifiedAt: "", confirmationAuditState: outcome.inconclusive ? "inconclusive" : "completed", confirmationAuditType: intent.mode, confirmationAuditLastAt: at, verificationNote: outcome.inconclusive ? `${outcome.reason} La correzione resta Da verificare.` : policy.stillPresentNote };
       const updated = await updateCorrection(current.id, patch);
       if (updated?.status === "Verificato") removeVerifiedTask(updated);
       window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: current.id, confirmationAudit: true } }));
@@ -122,15 +95,12 @@ export default function ConfirmationAuditRunner() {
       if (disposed || !intent?.correctionId || running.current.has(intent.correctionId)) return;
       if (selectedClientId() !== Number(intent.clientId)) return;
       const record = await readCorrection(intent.correctionId);
-      if (!record || Number(record.clientId) !== Number(intent.clientId) || !confirmationAuditReady(record)) return;
+      const ready = intent.explicit === true ? explicitConfirmationReady(record) : confirmationAuditReady(record);
+      if (!record || Number(record.clientId) !== Number(intent.clientId) || !ready) return;
       running.current.add(record.id);
       const policy = confirmationAuditPolicy(record);
       try {
-        await updateCorrection(record.id, {
-          confirmationAuditState: "running",
-          confirmationAuditStartedAt: new Date().toISOString(),
-          verificationNote: policy.runningNote,
-        });
+        await updateCorrection(record.id, { confirmationAuditState: "running", confirmationAuditStartedAt: new Date().toISOString(), verificationNote: policy.runningNote });
         window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: record.id, confirmationAudit: "running" } }));
         const progressId = crypto.randomUUID();
         const response = await apiFetch(intent.mode === "site" ? "/api/site-analysis" : "/api/audit", {
@@ -149,13 +119,7 @@ export default function ConfirmationAuditRunner() {
       } catch (error) {
         const current = await readCorrection(intent.correctionId);
         if (current && Number(current.clientId) === Number(intent.clientId)) {
-          await updateCorrection(current.id, {
-            status: "Da verificare",
-            verifiedAt: "",
-            confirmationAuditState: "failed",
-            confirmationAuditErrorAt: new Date().toISOString(),
-            verificationNote: `Audit di conferma non completato: ${error.message}. Nessuna nuova modifica è stata applicata.`,
-          });
+          await updateCorrection(current.id, { status: "Da verificare", verifiedAt: "", confirmationAuditState: "failed", confirmationAuditErrorAt: new Date().toISOString(), verificationNote: `Audit di conferma non completato: ${error.message}. Nessuna nuova modifica è stata applicata.` });
           window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: current.id, confirmationAudit: "failed" } }));
         }
       } finally {
@@ -182,7 +146,7 @@ export default function ConfirmationAuditRunner() {
         .toSorted((a, b) => Date.parse(b.lastVerificationAttemptAt || 0) - Date.parse(a.lastVerificationAttemptAt || 0))[0];
       if (!candidate) return;
       const intent = confirmationAuditIntent(candidate);
-      if (intent) void runIntent({ ...intent, navigate: false });
+      if (intent) void runIntent({ ...intent, navigate: false, explicit: false });
     };
 
     const scheduleScan = () => {
