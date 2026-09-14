@@ -64,6 +64,7 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   if (controlledContext) {
     focus.controlledContextPreview = true;
     focus.reviewOnly = problem.reviewOnly === true;
+    if (problem.reviewOnly === true) focus.controlledReviewPreview = true;
   }
   const forcedAutomatic = forceAutomatic === true && problem?.correctability === "automatic";
   if (forcedAutomatic) focus.forcedAutomaticFlow = true;
