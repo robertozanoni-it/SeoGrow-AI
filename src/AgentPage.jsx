@@ -30,21 +30,21 @@ const problemPrompt = (detail) => {
 const problemFromRecommendation = (context, item) => {
   const title = String(context?.title || item?.query || "Problema SEO").trim();
   const inferredType = /meta\s*description.*(?:larga|snippet|920\s*px)|description.*serp/i.test(title) ? "description-serp-width" : "";
-  const issueType = String(context?.issueType || inferredType).trim();
-  const reviewOnly = context?.reviewOnly === true || issueType === "description-serp-width";
+  const issueType = String(context?.issueType || item?.issueType || inferredType).trim();
+  const reviewOnly = context?.reviewOnly === true || item?.reviewOnly === true || issueType === "description-serp-width";
   return {
-    key: context?.issueKey || "",
+    key: context?.issueKey || item?.issueKey || "",
     issueType,
     title,
     detail: context?.detail || item?.interpretation || "",
     sourceUrl: item?.page || context?.sourceUrl || "",
-    problemState: context?.problemStateCode || (reviewOnly ? "needs_verification" : "open"),
-    interventionState: context?.interventionStateCode || "not_prepared",
-    correctability: context?.correctability || (issueType === "description-serp-width" ? "not_supported" : "manual"),
+    problemState: context?.problemStateCode || item?.problemStateCode || (reviewOnly ? "needs_verification" : "open"),
+    interventionState: context?.interventionStateCode || item?.interventionStateCode || "not_prepared",
+    correctability: context?.correctability || item?.correctability || (issueType === "description-serp-width" ? "not_supported" : "manual"),
     reviewOnly,
-    ownershipBlocked: context?.ownershipBlocked === true,
-    stale: context?.stale === true,
-    targetUrls: Array.isArray(context?.targetUrls) ? context.targetUrls : [],
+    ownershipBlocked: context?.ownershipBlocked === true || item?.ownershipBlocked === true,
+    stale: context?.stale === true || item?.stale === true,
+    targetUrls: Array.isArray(context?.targetUrls) ? context.targetUrls : Array.isArray(item?.targetUrls) ? item.targetUrls : [],
   };
 };
 
