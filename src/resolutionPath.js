@@ -1,5 +1,6 @@
 import { safeHttpHref, normalizeHttpUrl } from "./reliabilityModel.js";
 const brokenTarget = record => record?.issue?.targetUrl || record?.issue?.brokenUrl || record?.brokenTargetUrl || record?.targetUrl || "";
+const serpWidthFinding = problem => String(problem?.issueType || "").trim().toLowerCase() === "description-serp-width";
 export function correctionMatchesProblem(problem, correction) {
   if (!problem || !correction || String(problem.issueType || "").toLowerCase() !== String(correction.issueType || "").toLowerCase()) return false;
   const source = normalizeHttpUrl(problem.sourceUrl || "", { stripSlash: false });
@@ -12,6 +13,7 @@ export function resolutionPath(problem = {}, correction = null) {
   const type = `${problem.issueType || ""} ${problem.title || ""}`.toLowerCase();
   if (/esito incerto|uncertain/i.test(String(correction?.status || "")) || /lost.response|recovery/i.test(type)) return { action: "history", label: "Controlla esito e ripristino", title: "Verifica la scrittura precedente", instructions: "Confronta lo stato attuale con Prima e Dopo nello storico. Non ripetere la scrittura finché l’esito non è determinato; se necessario usa il ripristino controllato." };
   if (problem.reviewOnly === true && problem.problemState === "needs_verification") {
+    if (serpWidthFinding(problem)) return { action: "prepare", label: "Prepara soluzione", title: "Genera una meta description più compatta", instructions: "SeoGrow può preparare una proposta più corta usando il contenuto reale della pagina. La proposta deve rispettare il limite caratteri e rientrare nella stima SERP; nessuna scrittura avviene senza anteprima e approvazione." };
     if (/url-alias|canonical|noindex|indexability|redirect/.test(type)) return { action: "audit", label: "Verifica URL e indicizzazione", title: "Conferma quale URL deve essere pubblica", instructions: "Riesegui l’audit della singola pagina e confronta URL finale, canonical, redirect e direttive di indicizzazione. Questo finding è un segnale da confermare, non una correzione già applicata." };
     return { action: "audit", label: "Verifica con un nuovo audit", title: "Conferma il segnale prima di correggere", instructions: "Riesegui l’audit della singola URL. I segnali da confermare non devono essere trattati come errori certi né come correzioni già applicate." };
   }
@@ -31,8 +33,11 @@ export function problemEntryLabel(problem) {
   return shouldOpenAutomaticProposal(problem) ? "Apri proposta" : "Apri risoluzione";
 }
 
-// Requesting this preview never grants write permission or changes correctability.
+// Requesting a controlled preview never grants write permission or changes correctability.
 export const canOpenControlledLinkPreview = problem => problem?.issueType === "broken-external-link" &&
   problem.targetUrls?.length === 1 && Boolean(safeHttpHref(problem.targetUrls[0])) && resolutionPath(problem).action === "prepare";
+export const canOpenControlledReviewPreview = problem => serpWidthFinding(problem) && problem?.reviewOnly === true &&
+  problem?.problemState === "needs_verification" && Boolean(safeHttpHref(problem?.sourceUrl)) && resolutionPath(problem).action === "prepare";
 export const controlledPreviewAllowed = (problem, focus) => shouldOpenAutomaticProposal(problem) ||
-  (focus?.controlledPreview === true && focus.targetUrl === problem?.targetUrls?.[0] && canOpenControlledLinkPreview(problem));
+  (focus?.controlledPreview === true && focus.targetUrl === problem?.targetUrls?.[0] && canOpenControlledLinkPreview(problem)) ||
+  (focus?.controlledReviewPreview === true && canOpenControlledReviewPreview(problem));
