@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
-import { canOpenControlledLinkPreview, controlledPreviewAllowed, shouldOpenAutomaticProposal, correctionMatchesProblem } from './resolutionPath.js';
+import { canOpenControlledLinkPreview, canOpenControlledReviewPreview, controlledPreviewAllowed, shouldOpenAutomaticProposal, correctionMatchesProblem } from './resolutionPath.js';
 import { selectFocusedRemediation, proposalSelectionKey } from './remediationSelection.js';
 const url='https://example.com/page/', target='https://broken.example/one';
 const problem={issueType:'broken-external-link',sourceUrl:url,title:'Link esterno 404',correctability:'assisted',targetUrls:[target]};
@@ -29,7 +29,7 @@ test('actual navigation stores the explicit target and opens the visible proposa
  const source=await readFile(new URL('./AutomaticProposalNavigation.js',import.meta.url),'utf8');
  const code=source.match(/export const openProblemResolution = [\s\S]*?(?=\nexport const openAutomaticProposal)/)[0].replace('export const','const');
  const storage=new Map(),events=[],routes=[];
- const open=runInNewContext(code+'\nopenProblemResolution',{window:{dispatchEvent:e=>events.push(e),alert:()=>assert.fail('storage error')},sessionStorage:{setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},problemNavigationFocus:p=>({...p,clientId:12}),selectedClientId:()=>12,VALID_OPEN_SOURCES:new Set(['problem-card']),shouldOpenAutomaticProposal,canOpenControlledLinkPreview,RESOLUTION_FOCUS_KEY:'resolution',PROPOSAL_FOCUS_KEY:'proposal',PROPOSAL_ROUTE_PAGE:'Correzioni',navigatePage:p=>routes.push(p),CustomEvent:class {constructor(type,opts){this.type=type;this.detail=opts.detail;}}});
+ const open=runInNewContext(code+'\nopenProblemResolution',{window:{dispatchEvent:e=>events.push(e),alert:()=>assert.fail('storage error')},sessionStorage:{setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},problemNavigationFocus:p=>({...p,clientId:12}),selectedClientId:()=>12,VALID_OPEN_SOURCES:new Set(['problem-card']),shouldOpenAutomaticProposal,canOpenControlledLinkPreview,canOpenControlledReviewPreview,RESOLUTION_FOCUS_KEY:'resolution',PROPOSAL_FOCUS_KEY:'proposal',PROPOSAL_ROUTE_PAGE:'Correzioni',navigatePage:p=>routes.push(p),CustomEvent:class {constructor(type,opts){this.type=type;this.detail=opts.detail;}}});
  assert.equal(open(problem,12,'problem-card',{controlledPreview:true}),true);
  assert.equal(JSON.parse(storage.get('proposal')).targetUrl,target);
  assert.equal(JSON.parse(storage.get('proposal')).correctability,'assisted');
