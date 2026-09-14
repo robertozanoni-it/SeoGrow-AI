@@ -62,6 +62,7 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   if (controlledLink) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
   if (controlledReview) focus.controlledReviewPreview = true;
   if (controlledContext) {
+    focus.controlledPreview = true;
     focus.controlledContextPreview = true;
     focus.reviewOnly = problem.reviewOnly === true;
     if (problem.reviewOnly === true) focus.controlledReviewPreview = true;
