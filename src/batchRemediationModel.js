@@ -11,13 +11,25 @@ export const BATCH_LABELS = {
 export const stableBatchJson = value => JSON.stringify(value, (_key, v) =>
   v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
 export const problemIssue = p => ({ type: p.issueType, label: p.title, detail: p.detail, sourceUrl: p.sourceUrl, targetUrl: p.targetUrls?.[0] || '' });
+const batchIssueType = problem => String(problem?.issueType || '').trim().toLowerCase();
+export const batchIssueKind = problem => batchIssueType(problem) === 'url-alias' ? 'url_alias' : remediationIssueKind(problemIssue(problem));
+const controlledReviewType = problem => ['canonical-different', 'description-serp-width', 'url-alias'].includes(batchIssueType(problem));
 export function batchCapability(problem) {
-  const kind = remediationIssueKind(problemIssue(problem));
+  const kind = batchIssueKind(problem);
   if (['resolved', 'intentional'].includes(problem.problemState)) return { state: 'SKIPPED', reason: 'Problema risolto o intenzionale.', kind };
   if (problem.ownershipBlocked) return { state: 'BLOCKED', reason: 'Ownership da chiarire nel flusso singolo.', kind };
   if (['applied', 'verified'].includes(problem.interventionState)) return { state: 'BLOCKED', reason: 'Esiste una modifica da verificare: non ripetere la scrittura.', kind };
+  if (['archive', 'gdpr'].includes(problem.pageKind)) return { state: 'MANUAL_REQUIRED', reason: 'Archivio o pagina legale: usa la revisione assistita.', kind };
+  if (controlledReviewType(problem)) {
+    const reason = batchIssueType(problem) === 'url-alias'
+      ? 'Verifica batch in sola lettura: se alias, ID WordPress e canonical sono coerenti il segnale viene chiuso senza scritture.'
+      : batchIssueType(problem) === 'canonical-different'
+        ? 'Verifica batch della canonical; se non è un alias intenzionale prepara una proposta self-canonical ad alto rischio da approvare.'
+        : 'La meta description può essere rigenerata in batch e richiede anteprima/approvazione prima della scrittura.';
+    return { state: 'PENDING', reason, kind };
+  }
   if (!kind || problem.correctability === 'not_supported') return { state: 'UNSUPPORTED', reason: 'Nessun adapter batch sicuro per questo problema.', kind };
-  if (['archive', 'gdpr'].includes(problem.pageKind) || ['manual', 'assisted'].includes(problem.correctability)) return { state: 'MANUAL_REQUIRED', reason: 'Usa la revisione assistita del problema.', kind };
+  if (['manual', 'assisted'].includes(problem.correctability)) return { state: 'MANUAL_REQUIRED', reason: 'Usa la revisione assistita del problema.', kind };
   return { state: 'PENDING', reason: 'Auto-fix con approvazione; disponibilità confermata dal preflight.', kind };
 }
 export function visibleBatchSelection(rows, keys) {
@@ -95,11 +107,12 @@ export const approvalFingerprint = run => stableBatchJson([run.clientId, run.sit
 export function batchSummary(run) {
   const counts = {};
   for (const entry of run.entries) counts[entry.state] = (counts[entry.state] || 0) + 1;
-  const operations = run.entries.filter(e => e.preview && !e.consolidatedInto);
+  const operations = run.entries.filter(e => e.preview?.data?.approvalToken && !e.consolidatedInto);
   const applied = operations.filter(e => ['RESOLVED_VERIFIED', 'APPLIED_UNVERIFIED', 'VERIFYING'].includes(e.state));
+  const resolved = run.entries.filter(e => e.state === 'RESOLVED_VERIFIED');
   return { ...counts, selected: run.entries.length, operations: operations.length,
     applied: applied.length, pagesModified: new Set(applied.map(e => e.preview.resourceIdentity)).size,
-    resolvedProblems: operations.filter(e => e.state === 'RESOLVED_VERIFIED').reduce((n, e) => n + e.problemKeys.length, 0),
+    resolvedProblems: resolved.reduce((n, e) => n + e.problemKeys.length, 0),
     highRisk: operations.filter(e => e.state === 'PREPARED' && e.highRisk).length };
 }
 export function verificationState(result) {
