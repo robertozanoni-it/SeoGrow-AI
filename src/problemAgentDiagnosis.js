@@ -86,6 +86,8 @@ export function buildProblemAgentRun({ goal, detail, analysis, projectId }) {
     decision: "COMPLETE",
     startedAt: now,
     completedAt: now,
+    pendingApproval: null,
+    approvalHistory: [],
     plan: {
       id: `plan-${runId}`,
       goal: String(goal || "").trim(),
