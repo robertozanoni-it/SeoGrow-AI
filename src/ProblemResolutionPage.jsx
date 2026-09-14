@@ -1,24 +1,14 @@
 import { resolutionPath, correctionMatchesProblem } from "./resolutionPath.js";
+import { problemResolutionPriority } from "./problemResolutionPriority.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { openProblemResolution, RESOLUTION_FOCUS_KEY, PROPOSAL_ROUTE_PAGE } from "./AutomaticProposalNavigation.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ExternalLink,
-  FileSearch,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, FileSearch, ShieldCheck, Sparkles } from "lucide-react";
 import { buildUnifiedProblems } from "./problemsModel";
 import { listCorrections } from "./remediationStore";
 import { recheckCorrectionById } from "./remediationIntegrity";
-import {
-  freshnessLabel,
-  normalizeClientId,
-  safeHttpHref,
-} from "./reliabilityModel";
+import { freshnessLabel, normalizeClientId, safeHttpHref } from "./reliabilityModel";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
 import "./ProblemResolutionPage.css";
@@ -34,77 +24,30 @@ const ANALYSES_KEY = "seogrow-analyses-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 
 const labelMap = {
-  problem: {
-    open: "Aperto",
-    needs_verification: "Da confermare",
-    resolved: "Risolto",
-    reappeared: "Ricomparso",
-    intentional: "Intenzionale",
-  },
-  intervention: {
-    not_prepared: "Da preparare",
-    prepared: "Pronto",
-    approved: "Approvato",
-    applied: "Applicato",
-    verified: "Verificato tecnicamente",
-    failed: "Fallito",
-    rolled_back: "Ripristinato",
-    task_completed: "Task completata",
-  },
-  correctability: {
-    automatic: "Automatica",
-    assisted: "Assistita",
-    manual: "Manuale",
-    not_supported: "Non supportata",
-  },
-  confidence: {
-    observed: "Osservato",
-    measured_html: "Misurato su HTML",
-    needs_confirmation: "Da confermare",
-  },
+  problem: { open: "Aperto", needs_verification: "Da confermare", resolved: "Risolto", reappeared: "Ricomparso", intentional: "Intenzionale" },
+  intervention: { not_prepared: "Da preparare", prepared: "Pronto", approved: "Approvato", applied: "Applicato", verified: "Verificato tecnicamente", failed: "Fallito", rolled_back: "Ripristinato", task_completed: "Task completata" },
+  correctability: { automatic: "Automatica", assisted: "Assistita", manual: "Manuale", not_supported: "Non supportata" },
+  confidence: { observed: "Osservato", measured_html: "Misurato su HTML", needs_confirmation: "Da confermare" },
   severity: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non classificata" },
   priority: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non assegnata" },
 };
 
 const currentPage = () => {
-  try {
-    return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica";
-  } catch {
-    return "Panoramica";
-  }
+  try { return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"; } catch { return "Panoramica"; }
 };
-
 const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
-
 const readFocus = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem(FOCUS_KEY) || "null");
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(sessionStorage.getItem(FOCUS_KEY) || "null"); } catch { return null; }
 };
-
 const formatDate = (value) => {
   if (!value) return "Data non disponibile";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Data non disponibile";
-  return date.toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date.toLocaleString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
-
 const sameProblemCorrection = correctionMatchesProblem;
-
 const matchesFocus = matchesProblemFocus;
 
 function ResolutionView({ problem, client, corrections, onRefresh }) {
@@ -116,34 +59,25 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
 
   const path = resolutionPath(problem, latestCorrection);
-  const canStartAutomatic = problem.correctability === "automatic" && problem.problemState === "open" && !problem.ownershipBlocked && !["applied", "verified"].includes(problem.interventionState);
+  const priority = problemResolutionPriority(problem, latestCorrection);
+  const canStartAutomatic = priority.mode === "automatic";
 
   const openCorrectionHistory = () => {
-    try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* The route still remains read-only. */ }
+    try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* route remains read-only */ }
     window.dispatchEvent(new CustomEvent("seogrow-problem-resolution-open"));
     navigatePage("Correzioni");
   };
 
   const openIntervention = () => {
     if (problem.issueType === "broken-external-link" && openProblemResolution(problem, client.id, "problem-card", { controlledPreview: true })) return;
-    const request = {
-      clientId: client.id,
-      issueKey: problem.key,
-      issueType: problem.issueType,
-      sourceUrl: problem.sourceUrl,
-    };
+    const request = { clientId: client.id, issueKey: problem.key, issueType: problem.issueType, sourceUrl: problem.sourceUrl };
     sessionStorage.setItem(REMEDIATION_FOCUS_KEY, JSON.stringify(request));
     navigatePage("Audit SEO");
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("seogrow-remediation-focus", { detail: request }));
-    }, 0);
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-remediation-focus", { detail: request })), 0);
   };
 
   const verifyNow = async () => {
-    if (!latestCorrection?.id) {
-      navigatePage("Audit SEO");
-      return;
-    }
+    if (!latestCorrection?.id) { navigatePage("Audit SEO"); return; }
     setWorking(true);
     setMessage("Riverifica specifica in corso…");
     try {
@@ -155,44 +89,62 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
       await onRefresh();
     } catch (error) {
       setMessage(`Riverifica non completata: ${error.message}`);
-    } finally {
-      setWorking(false);
-    }
+    } finally { setWorking(false); }
   };
 
-  const startAutomaticResolution = () => {
-    openProblemResolution(problem, client.id, "problem-card", { forceAutomatic: true });
+  const startAutomaticResolution = () => openProblemResolution(problem, client.id, "problem-card", { forceAutomatic: true });
+  const prepareApprovalSolution = () => openProblemResolution(problem, client.id, "problem-card", { controlledPreview: true });
+  const confirmContextAndPrepare = () => {
+    const text = priority.kind === "canonical"
+      ? `Confermi che ${problem.sourceUrl} debba avere canonical verso se stessa? La modifica verrà solo preparata: vedrai Prima/Dopo e dovrai approvarla prima della scrittura.`
+      : `Confermi che ${problem.sourceUrl} debba essere indicizzabile? La modifica verrà solo preparata: vedrai Prima/Dopo e dovrai approvarla prima della scrittura.`;
+    if (!window.confirm(text)) return;
+    openProblemResolution(problem, client.id, "problem-card", { controlledContextPreview: true });
   };
 
   const askAgent = () => {
     const detail = {
       clientId: client.id,
+      issueKey: problem.key,
+      issueType: problem.issueType,
       title: problem.title,
       sourceUrl: problem.sourceUrl,
       problemState: labelMap.problem[problem.problemState] || problem.problemState,
+      problemStateCode: problem.problemState,
+      interventionStateCode: problem.interventionState,
+      correctability: problem.correctability,
+      reviewOnly: problem.reviewOnly === true,
+      ownershipBlocked: problem.ownershipBlocked === true,
+      stale: problem.stale === true,
+      targetUrls: problem.targetUrls || [],
       evidence: problem.evidence,
       detail: problem.detail,
     };
     sessionStorage.setItem(AGENT_PREFILL_KEY, JSON.stringify(detail));
     navigatePage("SEO Agent");
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("seogrow-agent-prefill", { detail }));
-    }, 0);
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-agent-prefill", { detail })), 0);
+  };
+
+  const runPrimaryAction = () => {
+    if (priority.mode === "automatic") return startAutomaticResolution();
+    if (priority.mode === "approval") return prepareApprovalSolution();
+    if (priority.mode === "confirm") return confirmContextAndPrepare();
+    if (priority.mode === "verify") {
+      if (priority.action === "history") return openCorrectionHistory();
+      return verifyNow();
+    }
+    if (path.action === "audit") return navigatePage("Audit SEO");
+    if (priority.mode === "guided") return askAgent();
+    return openIntervention();
   };
 
   return (
     <div className="problem-resolution-root">
       <header className="problem-resolution-header">
-        <button type="button" className="secondary problem-resolution-back" onClick={() => navigatePage("Problemi")}>
-          <ArrowLeft /> Torna ai problemi
-        </button>
+        <button type="button" className="secondary problem-resolution-back" onClick={() => navigatePage("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div className="problem-resolution-heading">
           <span className={`problem-severity ${problem.severity}`}>Gravità {labelMap.severity[problem.severity]}</span>
-          <div>
-            <small>Risoluzione problema · {client.name}</small>
-            <h1>{problem.title}</h1>
-            <p>{problem.sourceUrl || "URL non disponibile"}</p>
-          </div>
+          <div><small>Risoluzione problema · {client.name}</small><h1>{problem.title}</h1><p>{problem.sourceUrl || "URL non disponibile"}</p></div>
         </div>
       </header>
 
@@ -208,8 +160,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
           <section className="problem-resolution-section tone-blue">
             <span className="problem-resolution-number">1</span>
             <div>
-              <h2>Che cosa è stato rilevato</h2>
-              <p>{problem.detail}</p>
+              <h2>Che cosa è stato rilevato</h2><p>{problem.detail}</p>
               {(problem.targetUrls || []).length > 0 && <div className="problem-resolution-targets"><strong>Link interessati</strong>{problem.targetUrls.map(target => safeHttpHref(target) ? <a key={target} href={safeHttpHref(target)} target="_blank" rel="noopener noreferrer">{target}</a> : null)}</div>}
               <dl className="problem-resolution-facts">
                 <div><dt>Tipo</dt><dd>{problem.issueType || "Non classificato"}</dd></div>
@@ -224,36 +175,15 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
 
           <section className="problem-resolution-section tone-mint">
             <span className="problem-resolution-number">2</span>
-            <div>
-              <h2>Qual è la prova</h2>
-              {problem.evidence.length ? (
-                <ol className="problem-resolution-evidence">
-                  {problem.evidence.map((item, index) => (
-                    <li key={`${item.source}-${item.at}-${index}`}>
-                      <FileSearch />
-                      <div><strong>{item.source}</strong><span>{item.detail}</span><small>{formatDate(item.at)} · {item.nature === "verified" ? "verifica tecnica" : item.nature === "observed" ? "dato osservato" : "dato operativo"}</small></div>
-                    </li>
-                  ))}
-                </ol>
-              ) : <p>Nessuna evidenza strutturata disponibile. Il problema resta da confermare.</p>}
-            </div>
+            <div><h2>Qual è la prova</h2>{problem.evidence.length ? <ol className="problem-resolution-evidence">{problem.evidence.map((item, index) => <li key={`${item.source}-${item.at}-${index}`}><FileSearch /><div><strong>{item.source}</strong><span>{item.detail}</span><small>{formatDate(item.at)} · {item.nature === "verified" ? "verifica tecnica" : item.nature === "observed" ? "dato osservato" : "dato operativo"}</small></div></li>)}</ol> : <p>Nessuna evidenza strutturata disponibile. Il problema resta da confermare.</p>}</div>
           </section>
 
           <section className="problem-resolution-section tone-blue">
             <span className="problem-resolution-number">3</span>
             <div>
               <h2>Che cosa propone SeoGrow</h2>
-              {problem.ownershipBlocked ? (
-                <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo o widget. Il blocco di sicurezza resta attivo.</p>
-              ) : (
-                <p>
-                  {problem.correctability === "automatic" && "SeoGrow può preparare una proposta automatica. La scrittura resta separata e richiede sempre anteprima e approvazione."}
-                  {problem.correctability === "assisted" && "Serve una verifica del contesto prima di autorizzare la modifica."}
-                  {problem.correctability === "manual" && "SeoGrow può guidare l'intervento, ma non deve applicarlo automaticamente."}
-                  {problem.correctability === "not_supported" && "Questo caso non dispone di un adapter automatico sicuro."}
-                </p>
-              )}
-              <div className="problem-resolution-guidance"><h3>{path.title}</h3><p>{path.instructions}</p></div>
+              {problem.ownershipBlocked ? <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo o widget. Il blocco di sicurezza resta attivo.</p> : <p>{priority.mode === "automatic" && "Prima priorità: SeoGrow usa l’adapter sicuro e prepara il percorso automatico."}{priority.mode === "approval" && "La modifica può essere preparata, ma richiede il tuo controllo del Prima/Dopo e l’approvazione."}{priority.mode === "confirm" && "Serve prima una tua decisione esplicita sull’intento; dopo la conferma SeoGrow prepara la soluzione da approvare."}{priority.mode === "guided" && "Non esiste ancora una scrittura sicura: SeoGrow prepara una soluzione guidata senza simulare modifiche automatiche."}{priority.mode === "verify" && "Esiste già uno stato da verificare: SeoGrow evita una nuova scrittura finché il risultato non è confermato."}</p>}
+              <div className="problem-resolution-guidance"><h3>{priority.title || path.title}</h3><p>{priority.instructions || path.instructions}</p></div>
               {problem.fields.length > 0 && <p><strong>Campi coinvolti:</strong> {problem.fields.join(", ")}</p>}
               {problem.adapters.length > 0 && <p><strong>Adapter:</strong> {problem.adapters.join(", ")}</p>}
               {problem.quality && <p><strong>Quality gate:</strong> {problem.quality.publishable === false ? "revisione richiesta" : "superato"}</p>}
@@ -263,47 +193,19 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
           <section className="problem-resolution-section tone-mint">
             <span className="problem-resolution-number">4</span>
             <div>
-              <h2>Dopo l’approvazione</h2>
-              <p>La modifica viene registrata come applicata. Solo una verifica frontend recente e, quando richiesto dal tipo di problema, un nuovo audit possono portare lo stato SEO a risolto.</p>
-              {latestCorrection && (
-                <div className="problem-resolution-correction">
-                  <ShieldCheck />
-                  <div>
-                    <strong>Ultima correzione collegata</strong>
-                    <span>{labelMap.intervention[latestCorrection.status] || latestCorrection.status || "Stato disponibile nello storico"}</span>
-                    <small>{formatDate(latestCorrection.verifiedAt || latestCorrection.appliedAt)}</small>
-                  </div>
-                </div>
-              )}
+              <h2>Dopo l’approvazione</h2><p>La modifica viene registrata come applicata. Solo una verifica frontend recente e, quando richiesto dal tipo di problema, un nuovo audit possono portare lo stato SEO a risolto.</p>
+              {latestCorrection && <div className="problem-resolution-correction"><ShieldCheck /><div><strong>Ultima correzione collegata</strong><span>{labelMap.intervention[latestCorrection.status] || latestCorrection.status || "Stato disponibile nello storico"}</span><small>{formatDate(latestCorrection.verifiedAt || latestCorrection.appliedAt)}</small></div></div>}
             </div>
           </section>
         </main>
 
         <aside className="problem-resolution-actions">
-          <div>
-            <small>Prossima azione</small>
-            <h2>Risolvi e verifica</h2>
-            <p>Procedi sul singolo problema senza perdere il contesto della pagina.</p>
-          </div>
-
+          <div><small>Prossima azione</small><h2>Risolvi e verifica</h2><p>SeoGrow prova prima la risoluzione automatica; quando serve una decisione, prepara la soluzione da approvare.</p></div>
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
-
-          {canStartAutomatic && <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={startAutomaticResolution}><Sparkles /> Risolvi automaticamente</button>}
-
-          {(!canStartAutomatic || path.action !== "prepare") && <button className={canStartAutomatic ? "secondary" : "primary"} type="button" disabled={working} onClick={() => {
-            if (path.action === "history") openCorrectionHistory();
-            else if (path.action === "verify") verifyNow();
-            else if (path.action === "agent") askAgent();
-            else if (path.action === "manual" && href) window.open(href, "_blank", "noopener,noreferrer");
-            else if (path.action === "audit") navigatePage("Audit SEO");
-            else openIntervention();
-          }}>{working ? "Verifica…" : path.label}</button>}
-
-          {canStartAutomatic && problem.stale && <p className="problem-resolution-auto-note">Il problema è obsoleto: SeoGrow apre il flusso automatico, ma richiede un audit aggiornato prima di qualsiasi scrittura.</p>}
-
+          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles /> {working ? "Verifica…" : priority.label}</button>
+          {path.action === "audit" && <button className="secondary" type="button" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>}
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>
-
           {message && <p className="problem-resolution-message" role="status">{message}</p>}
         </aside>
       </div>
@@ -337,11 +239,7 @@ export default function ProblemResolutionPage() {
     };
     install();
     timer = window.setInterval(install, 100);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      mountedHost?.remove();
-    };
+    return () => { cancelled = true; window.clearInterval(timer); mountedHost?.remove(); };
   }, [active]);
 
   useEffect(() => {
@@ -377,10 +275,7 @@ export default function ProblemResolutionPage() {
       if (!title || !sourceUrl || sourceUrl === "URL non disponibile") return;
       const selectedClientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
       if (!openProblemResolution({ title, sourceUrl, correctability: "manual" }, selectedClientId, "problem-row")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
-      // The data-driven destination is already open; never open an intermediate list.
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
     };
     document.addEventListener("click", interceptProblemRow, true);
     return () => document.removeEventListener("click", interceptProblemRow, true);
@@ -394,18 +289,8 @@ export default function ProblemResolutionPage() {
     if (!active || !selectedClientId) return undefined;
     let cancelled = false;
     listCorrections({ clientId: selectedClientId })
-      .then((rows) => {
-        if (!cancelled) {
-          setCorrections(rows);
-          setCorrectionsError("");
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setCorrections([]);
-          setCorrectionsError(`Storico correzioni non leggibile: ${error.message}`);
-        }
-      });
+      .then((rows) => { if (!cancelled) { setCorrections(rows); setCorrectionsError(""); } })
+      .catch((error) => { if (!cancelled) { setCorrections([]); setCorrectionsError(`Storico correzioni non leggibile: ${error.message}`); } });
     return () => { cancelled = true; };
   }, [active, selectedClientId, revision]);
 
@@ -421,13 +306,7 @@ export default function ProblemResolutionPage() {
   const tasks = readJson(TASKS_KEY, []);
   const analyses = readJson(ANALYSES_KEY, {});
   const pageHistory = readJson(PAGE_HISTORY_KEY, {});
-  const model = client ? buildUnifiedProblems({
-    clientId: client.id,
-    siteHistory: analyses[client.id] || analyses[String(client.id)] || [],
-    pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [],
-    tasks,
-    corrections,
-  }) : { rows: [] };
+  const model = client ? buildUnifiedProblems({ clientId: client.id, siteHistory: analyses[client.id] || analyses[String(client.id)] || [], pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [], tasks, corrections }) : { rows: [] };
   const problem = normalizeClientId(focus?.clientId) === selectedClientId ? model.rows.find((row) => matchesFocus(row, focus)) || null : null;
 
   const reloadCorrections = async () => {
@@ -440,11 +319,7 @@ export default function ProblemResolutionPage() {
   const content = !client || !problem ? (
     <div className="problem-resolution-root problem-resolution-missing">
       <button type="button" className="secondary problem-resolution-back" onClick={() => navigatePage("Problemi")}><ArrowLeft /> Torna ai problemi</button>
-      <section>
-        <h1>Problema non disponibile</h1>
-        <p>Il problema selezionato non è più presente nei dati correnti oppure il progetto attivo è cambiato.</p>
-        {correctionsError && <p role="alert">{correctionsError}</p>}
-      </section>
+      <section><h1>Problema non disponibile</h1><p>Il problema selezionato non è più presente nei dati correnti oppure il progetto attivo è cambiato.</p>{correctionsError && <p role="alert">{correctionsError}</p>}</section>
     </div>
   ) : <ResolutionView problem={problem} client={client} corrections={corrections} onRefresh={reloadCorrections} />;
 
