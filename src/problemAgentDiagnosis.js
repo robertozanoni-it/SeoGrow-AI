@@ -34,8 +34,8 @@ export function findProblemFinding(analysis, detail = {}) {
 
 const guidance = {
   canonical: {
-    interpretation: "La canonical osservata richiede una decisione di intent: una differenza non è automaticamente un errore.",
-    recommendation: "Confronta URL analizzato, URL finale e canonical. Se confermi che questa pagina deve essere canonica verso se stessa, SeoGrow può preparare il cambio da approvare; altrimenti mantieni la canonical intenzionale.",
+    interpretation: "L’audit ha rilevato una canonical diversa dall’URL analizzato. Serve una decisione di intent: la differenza non è automaticamente un errore.",
+    recommendation: "Riesegui l’audit della singola URL e confronta URL analizzato, URL finale e canonical. Se confermi che questa pagina deve essere canonica verso se stessa, SeoGrow può preparare il cambio da approvare; altrimenti mantieni la canonical intenzionale.",
   },
   indexability: {
     interpretation: "Il finding riguarda robots/noindex e non autorizza da solo a rendere indicizzabile la pagina.",
