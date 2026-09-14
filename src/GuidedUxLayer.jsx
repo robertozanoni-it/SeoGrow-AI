@@ -531,12 +531,14 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
   const opportunities = opportunityGroups(dataset).quickWins.length;
   const actions = [];
 
-  if (activeTasks.length) {
-    actions.push({ page: "Task", Icon: ClipboardCheck, tone: highTasks ? "urgent" : "normal", title: `${activeTasks.length} task aperte${highTasks ? ` · ${highTasks} ad alta priorità` : ""}`, text: "Lavora prima sulle attività con maggiore impatto." });
-  } else if (!analysis) {
+  if (!analysis) {
     actions.push({ page: "Audit SEO", Icon: CircleGauge, tone: "normal", title: "Manca una baseline tecnica", text: "Esegui un audit per avere problemi e priorità verificabili." });
   } else if (issues.length) {
     actions.push({ page: "Problemi", Icon: AlertTriangle, tone: "urgent", title: `${issues.length} problemi nell'ultimo audit`, text: "Apri il Centro Problemi e scegli cosa affrontare." });
+  }
+
+  if (activeTasks.length) {
+    actions.push({ page: "Task", Icon: ClipboardCheck, tone: highTasks ? "urgent" : "normal", title: `${activeTasks.length} task aperte${highTasks ? ` · ${highTasks} ad alta priorità` : ""}`, text: "Lavora prima sulle attività con maggiore impatto." });
   }
 
   if (pendingCorrections.length) {
