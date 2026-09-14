@@ -1,6 +1,6 @@
 import { openWorkspaceDb, guardWorkspaceTransaction } from "./workspaceDatabase.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
-import { issueIdentity } from "./reliabilityModel.js";
+import { exactProblemStatus, issueIdentity } from "./reliabilityModel.js";
 
 const STORE_NAME = "corrections";
 const CLIENTS_KEY = "seogrow-clients";
@@ -284,6 +284,8 @@ export function removeVerifiedTask(record) {
 }
 
 export function reopenTask(record) {
+  const issueType = String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
+  if (issueType === "qa-isolated" && exactProblemStatus(record?.status) === "rolled_back") return;
   const tasks = readJson(TASKS_KEY, []);
   const matchingIndex = tasks.findIndex((task) =>
     Number(task.sourceClientId) === Number(record.clientId) && sameIssue(record, taskRecord(task)),
