@@ -18,7 +18,9 @@ export function batchCapability(problem) {
   const kind = batchIssueKind(problem);
   if (['resolved', 'intentional'].includes(problem.problemState)) return { state: 'SKIPPED', reason: 'Problema risolto o intenzionale.', kind };
   if (problem.ownershipBlocked) return { state: 'BLOCKED', reason: 'Ownership da chiarire nel flusso singolo.', kind };
-  if (['applied', 'verified'].includes(problem.interventionState)) return { state: 'BLOCKED', reason: 'Esiste una modifica da verificare: non ripetere la scrittura.', kind };
+  const reobservedAfterVerification = problem.interventionState === 'verified' && ['needs_verification', 'reappeared'].includes(problem.problemState);
+  if (problem.interventionState === 'applied') return { state: 'BLOCKED', reason: 'Esiste una modifica da verificare: non ripetere la scrittura.', kind };
+  if (problem.interventionState === 'verified' && !reobservedAfterVerification) return { state: 'BLOCKED', reason: 'Il finding è già verificato e non dispone di una nuova osservazione da riesaminare.', kind };
   if (['archive', 'gdpr'].includes(problem.pageKind)) return { state: 'MANUAL_REQUIRED', reason: 'Archivio o pagina legale: usa la revisione assistita.', kind };
   if (controlledReviewType(problem)) {
     const reason = batchIssueType(problem) === 'url-alias'
