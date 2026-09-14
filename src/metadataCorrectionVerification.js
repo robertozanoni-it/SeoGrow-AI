@@ -1,5 +1,6 @@
 import { assertPublicObservation } from "./remediationEvidence.js";
 import { flattenCorrectionSnapshot } from "./correctionReceipt.js";
+import { confirmationAuditPolicy } from "./confirmationAuditPolicy.js";
 
 const fields = {
   "meta.rank_math_title": { publicField: "title", label: "titolo SEO" },
@@ -30,6 +31,7 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
   const exactMatch = normalizedText(observed) === normalizedText(target.expected);
   const caseOnlyMatch = !exactMatch && target.publicField === "title" && normalizedText(observed).toLocaleLowerCase("it") === normalizedText(target.expected).toLocaleLowerCase("it");
   const matches = exactMatch || caseOnlyMatch;
+  const policy = confirmationAuditPolicy(record);
   return {
     status: "Da verificare",
     verifiedAt: "",
@@ -38,7 +40,7 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
     frontendFailure: !matches,
     lastVerificationAttemptAt: at,
     verificationNote: matches
-      ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} Per confermare la risoluzione SEO, inclusa l’assenza di duplicati, esegui un nuovo audit delle pagine coinvolte.`
+      ? `${policy.frontendMatchedNote}${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""}`
       : `Il valore di ${target.label} sul sito non coincide con quello inviato a WordPress. Controlla cache e impostazioni del plugin SEO; la correzione non è confermata nel frontend.`,
     frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, expected: target.expected, checkedAt: at },
   };
