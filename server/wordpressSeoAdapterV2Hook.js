@@ -1,9 +1,6 @@
-import { SEO_TEXT_LIMITS } from "../src/seoTextPolicy.js";
+import { SEO_TEXT_LIMITS, metaDescriptionSerpWidthWarning } from "../src/seoTextPolicy.js";
 import { budgetedOpenAiFetch } from "./openAiBudget.js";
-import {
-  assertPublishableSeoSuggestion,
-  validateSeoSuggestion,
-} from "../src/editorialQuality.js";
+import { validateSeoSuggestion } from "../src/editorialQuality.js";
 import { deterministicDuplicateTitle } from "./deterministicSeoTitle.js";
 import { completeSourceDescription } from "./metaDescriptionFallback.js";
 import { assertCompletedModelResponse, collectFinalModelText, parseModelValue, canRetryGeneration } from "./remediationOutput.js";
@@ -29,6 +26,8 @@ const stripHtml = (value) => String(value || "")
   .replace(/\s+/g, " ")
   .trim();
 
+const serpWidthIssue = (issue) => String(issue?.type || issue?.issueType || "").trim().toLowerCase() === "description-serp-width";
+
 function instruction(kind, issue, retry = false, qualityFeedback = "") {
   const label = String(issue?.label || issue?.detail || "problema SEO").slice(0, 500);
   const retryNote = retry
@@ -37,10 +36,39 @@ function instruction(kind, issue, retry = false, qualityFeedback = "") {
   const feedback = qualityFeedback ? ` Correggi anche questi difetti: ${qualityFeedback.slice(0, 700)}` : "";
   if (kind === "seo_title")
     return `Genera un title SEO unico, naturale e specifico per risolvere: ${label}. Mantieni l'intento della pagina, evita clickbait e non inventare fatti. Punta a circa 45-60 caratteri quando possibile.${retryNote}${feedback}`;
-  if (kind === "meta_description")
-    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa. Usa 135-${SEO_TEXT_LIMITS.meta_description} caratteri. Il massimo di ${SEO_TEXT_LIMITS.meta_description}, inclusi spazi e punteggiatura, è OBBLIGATORIO: conta i caratteri, riscrivi se lo superi, non troncare parole o frasi.${retryNote}${feedback}`;
+  if (kind === "meta_description") {
+    const widthRule = serpWidthIssue(issue)
+      ? " Per questo finding la priorità è ridurre la larghezza SERP: punta indicativamente a 120-145 caratteri e usa parole compatte. La proposta deve rientrare anche nella stima massima di 920px; se è più larga, riscrivila più corta senza troncare la frase."
+      : ` Usa 135-${SEO_TEXT_LIMITS.meta_description} caratteri.`;
+    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti, evitare ripetizioni e terminare con una frase completa.${widthRule} Il massimo di ${SEO_TEXT_LIMITS.meta_description} caratteri, inclusi spazi e punteggiatura, è OBBLIGATORIO: conta i caratteri, riscrivi se lo superi, non troncare parole o frasi.${retryNote}${feedback}`;
+  }
   throw new Error("Tipo di valore SEO non supportato.");
 }
+
+const qualityFor = (kind, value, page, issue) => {
+  const quality = validateSeoSuggestion(kind, value, page);
+  if (kind !== "meta_description" || !serpWidthIssue(issue)) return quality;
+  const warning = metaDescriptionSerpWidthWarning(value);
+  if (!warning) return quality;
+  return {
+    ...quality,
+    publishable: false,
+    errors: [...quality.errors, `La meta description resta troppo larga nello snippet: circa ${warning.pixels}px su ${warning.maxPixels}px stimati.`],
+    metrics: { ...quality.metrics, serpPixels: warning.pixels, serpMaxPixels: warning.maxPixels },
+  };
+};
+
+const assertGeneratedQuality = (kind, value, page, issue) => {
+  const quality = qualityFor(kind, value, page, issue);
+  if (!quality.publishable) {
+    const error = new Error(`Proposta AI non pubblicabile automaticamente: ${quality.errors.join(" ")}`);
+    error.code = "EDITORIAL_REVIEW_REQUIRED";
+    error.quality = quality;
+    error.candidate = value;
+    throw error;
+  }
+  return quality;
+};
 
 // Responses output and choices[0].message.content use the same final-text reader.
 export function collectSeoOutputText(data) { return collectFinalModelText(data); }
@@ -128,7 +156,7 @@ async function generateValue(kind, issue, page, manualValue) {
   if (manualValue !== undefined) {
     if (typeof manualValue !== "string" || !manualValue.trim()) throw Object.assign(new Error("Inserisci una proposta testuale non vuota."), { code: "EDITORIAL_REVIEW_REQUIRED" });
     const value = manualValue.trim();
-    const quality = assertPublishableSeoSuggestion(kind, value, page);
+    const quality = assertGeneratedQuality(kind, value, page, issue);
     return { value, quality: { ...quality, source: "user-reviewed" }, manual: true };
   }
   const context = {
@@ -146,7 +174,7 @@ async function generateValue(kind, issue, page, manualValue) {
     if (kind === "meta_description") {
       const fallback = deterministicMetaDescription(page);
       if (fallback) {
-        const quality = assertPublishableSeoSuggestion(kind, fallback, page);
+        const quality = assertGeneratedQuality(kind, fallback, page, issue);
         return { value: fallback, quality, deterministicFallback: true };
       }
     }
@@ -159,7 +187,7 @@ async function generateValue(kind, issue, page, manualValue) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const value = await requestValue(kind, issue, context, attempt > 0, qualityFeedback, generationSignal);
-      const quality = validateSeoSuggestion(kind, value, page);
+      const quality = qualityFor(kind, value, page, issue);
       if (!quality.publishable) {
         qualityFeedback = quality.errors.join(" ");
         const error = new Error(`Proposta AI non pubblicabile: ${qualityFeedback}`);
@@ -185,7 +213,7 @@ async function generateValue(kind, issue, page, manualValue) {
   if (kind === "meta_description") {
     const fallback = deterministicMetaDescription(page);
     if (fallback) {
-      const quality = assertPublishableSeoSuggestion(kind, fallback, page);
+      const quality = assertGeneratedQuality(kind, fallback, page, issue);
       return { value: fallback, quality, deterministicFallback: true };
     }
   }

@@ -69,10 +69,11 @@ const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHis
   const wantedUrl = normalizedUrl(problem?.sourceUrl || focus.sourceUrl);
   const wantedTitle = String(problem?.title || focus.title || "").trim().toLowerCase();
   const wantedTarget = focus.targetUrl || (wantedType === "broken-external-link" && problem?.targetUrls?.length === 1 ? problem.targetUrls[0] : "");
+  const collection = focus.controlledReviewPreview === true ? "reviewItems" : "issues";
 
   for (const entry of candidates) {
-    const issues = Array.isArray(entry.item?.issues) ? entry.item.issues : [];
-    const issueIndex = issues.findIndex((issue) => {
+    const rows = Array.isArray(entry.item?.[collection]) ? entry.item[collection] : [];
+    const issueIndex = rows.findIndex((issue) => {
       const type = String(issue?.type || "").trim().toLowerCase();
       const title = String(issue?.label || issue?.title || issue?.type || "").trim().toLowerCase();
       const typeMatches = wantedType ? type === wantedType : title === wantedTitle;
@@ -86,6 +87,7 @@ const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHis
         issueIndex,
         auditType: entry.auditType,
         analyzedAt: auditTimestamp(entry.item),
+        collection,
       };
     }
   }
@@ -255,7 +257,7 @@ export default function AutomaticProposalPage() {
       <header className="automatic-proposal-header">
         <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
-          <span className="automatic-proposal-kicker"><WandSparkles /> {focus.controlledPreview ? "Correzione controllata" : "Correzione automatica"}</span>
+          <span className="automatic-proposal-kicker"><WandSparkles /> {focus.controlledReviewPreview ? "Soluzione controllata" : focus.controlledPreview ? "Correzione controllata" : "Correzione automatica"}</span>
           <h1>{PROPOSAL_PAGE}</h1>
           <p>{problem?.title || focus?.title || "Problema SEO"}</p>
           <small>{problem?.sourceUrl || focus?.sourceUrl || "URL non disponibile"}</small>
@@ -286,7 +288,7 @@ export default function AutomaticProposalPage() {
             <div><small>Problema</small><strong>{problem.title}</strong></div>
             <div><small>Gravità</small><strong>{label(problem.severity, labels.severity)}</strong></div>
             <div><small>Stato</small><strong>{label(problem.problemState, labels.state)}</strong></div>
-            <div><small>Correggibilità</small><strong>{label(problem.correctability, labels.correctability)}</strong></div>
+            <div><small>Correggibilità</small><strong>{focus.controlledReviewPreview ? "Assistita" : label(problem.correctability, labels.correctability)}</strong></div>
           </section>
 
           <section className="automatic-proposal-context">
@@ -316,7 +318,7 @@ export default function AutomaticProposalPage() {
               <ShieldCheck />
               <div>
                 <small>Proposta e approvazione</small>
-                <h2>Prepara la correzione del problema selezionato</h2>
+                <h2>{focus.controlledReviewPreview ? "Prepara la soluzione proposta" : "Prepara la correzione del problema selezionato"}</h2>
                 <p>{latestCorrection ? "Una correzione è già registrata: consulta il Prima/Dopo e usa Riverifica qui sopra prima di preparare un altro intervento." : "Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica."}</p>
               </div>
             </div>
