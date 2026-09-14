@@ -9,7 +9,7 @@ const serpCharacterWidth = (character) => {
   if ("mwMW@%&".includes(character)) return 9;
   if (/[A-ZÀ-ÖØ-Þ]/u.test(character)) return 8;
   if (/[0-9]/u.test(character)) return 7;
-  if (/[^\u0000-\u024f]/u.test(character)) return 12;
+  if ((character.codePointAt(0) || 0) > 0x024f) return 12;
   return 6.5;
 };
 
