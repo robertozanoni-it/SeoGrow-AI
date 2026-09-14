@@ -4,6 +4,7 @@ import { normalizeClientId } from "./reliabilityModel.js";
 import { apiFetch } from "./api";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { metadataVerificationTarget, metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
+import { runConfirmationAudit } from "./confirmationAudit.js";
 import {
   listCorrections,
   readCorrection,
@@ -27,9 +28,12 @@ const syncTaskWithVerification = (before, after) => {
     removeVerifiedTask(after);
     return;
   }
-  if (before?.status === "Verificato" && after.status !== "Verificato") {
-    reopenTask(after);
-  }
+  if (before?.status === "Verificato" && after.status !== "Verificato") reopenTask(after);
+};
+
+const currentClientId = () => {
+  try { return normalizeClientId(JSON.parse(workspaceStorage.getItem("seogrow-selected-client-v1") || "null")); }
+  catch { return null; }
 };
 
 async function updateAndSync(record, patch) {
@@ -41,14 +45,8 @@ async function updateAndSync(record, patch) {
   return updated;
 }
 
-const currentClientId = () => {
-  try { return normalizeClientId(JSON.parse(workspaceStorage.getItem("seogrow-selected-client-v1") || "null")); }
-  catch { return null; }
-};
 async function retainVerificationError(record, error, prefix) {
-  if (error?.code === "CORRECTION_CHANGED_DURING_VERIFICATION" || currentClientId() !== normalizeClientId(record.clientId)) {
-    return { changed: false, record, error };
-  }
+  if (error?.code === "CORRECTION_CHANGED_DURING_VERIFICATION" || currentClientId() !== normalizeClientId(record.clientId)) return { changed: false, record, error };
   try {
     const updated = await updateAndSync(record, verificationErrorPatch(record, error, prefix));
     return { changed: Boolean(updated), record: updated || record, error };
@@ -61,28 +59,14 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
   let credentials;
   try { credentials = correctionCredentials(record, providedCredentials); }
   catch (error) { return { changed: false, record, error }; }
-  if (!field || expected === undefined) {
-    const error = new Error("Storico tassonomia incompleto: campo o valore atteso non disponibili.");
-    return { changed: false, record, error };
-  }
-  if (!credentials.siteUrl || !credentials.username || !credentials.applicationPassword) {
-    const error = new Error("Inserisci la password applicativa WordPress per riverificare questa correzione di categoria/tag.");
-    return { changed: false, record, error };
-  }
+  if (!field || expected === undefined) return { changed: false, record, error: new Error("Storico tassonomia incompleto: campo o valore atteso non disponibili.") };
+  if (!credentials.siteUrl || !credentials.username || !credentials.applicationPassword) return { changed: false, record, error: new Error("Inserisci la password applicativa WordPress per riverificare questa correzione di categoria/tag.") };
 
   try {
     const response = await apiFetch("/api/wordpress/taxonomy-verify", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        siteUrl: credentials.siteUrl,
-        url: record.sourceUrl,
-        username: credentials.username,
-        applicationPassword: credentials.applicationPassword,
-        adapter: record.adapter,
-        field,
-        expected,
-      }),
+      body: JSON.stringify({ siteUrl: credentials.siteUrl, url: record.sourceUrl, username: credentials.username, applicationPassword: credentials.applicationPassword, adapter: record.adapter, field, expected }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica tassonomia non riuscita.");
@@ -99,12 +83,7 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
       verifiedAt: verified ? new Date().toISOString() : "",
       lastVerificationAttemptAt: new Date().toISOString(),
       verificationNote: note,
-      taxonomyVerification: {
-        storedMatch: data.storedMatch === true,
-        publicMatch: data.publicMatch === true,
-        current: data.current,
-        frontend: data.frontend || null,
-      },
+      taxonomyVerification: { storedMatch: data.storedMatch === true, publicMatch: data.publicMatch === true, current: data.current, frontend: data.frontend || null },
     });
     return { changed: true, record: updated, needsAudit };
   } catch (error) {
@@ -115,9 +94,7 @@ async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
 async function performRecheckCorrection(record, credentials = {}) {
   if (normalizeClientId(record?.clientId) !== currentClientId()) return { changed: false, record, error: new Error("Seleziona il progetto della correzione prima di riverificarla.") };
   if (!record?.sourceUrl || record.status === "Ripristinato") return { changed: false, record };
-  if (record.writeConfirmed === false || record.status === "Esito incerto") {
-    return { changed: false, record, error: new Error("Esito della scrittura incerto: verifica lo stato salvato in WordPress prima della riverifica SEO o del ripristino.") };
-  }
+  if (record.writeConfirmed === false || record.status === "Esito incerto") return { changed: false, record, error: new Error("Esito della scrittura incerto: verifica lo stato salvato in WordPress prima della riverifica SEO o del ripristino.") };
   if (record.resource === "taxonomy") return recheckTaxonomyCorrection(record, credentials);
 
   const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
@@ -148,33 +125,17 @@ async function performRecheckCorrection(record, credentials = {}) {
     }
 
     const coreTitleMatch = () => {
-      if (data.titleCount !== 1 || typeof data.title !== "string" || typeof record.after?.title !== "string") {
-        throw new Error("La verifica richiede esattamente un title pubblico e il valore applicato nello snapshot.");
-      }
+      if (data.titleCount !== 1 || typeof data.title !== "string" || typeof record.after?.title !== "string") throw new Error("La verifica richiede esattamente un title pubblico e il valore applicato nello snapshot.");
       const normalize = value => value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("it");
       return normalize(data.title) === normalize(record.after.title);
     };
+
     if (DUPLICATE_TITLE.test(text)) {
       const failedFrontend = !coreTitleMatch();
       const patch = failedFrontend
-        ? {
-            status: "Da verificare",
-            frontendConfirmed: false,
-            frontendFailure: true,
-            verificationNote: `WordPress ha modificato il titolo del contenuto, ma il <title> SEO pubblico è ancora “${data.title || "non rilevato"}”. La correzione del duplicato NON è confermata.`,
-          }
-        : {
-            status: "Da verificare",
-            frontendConfirmed: true,
-            frontendFailure: false,
-            verificationNote: "Il title frontend coincide con il valore inviato, ma un duplicato può essere dichiarato risolto solo dopo un nuovo crawl che confronti tutti i documenti coinvolti.",
-          };
-      const updated = await updateAndSync(record, {
-        ...patch,
-        verifiedAt: "",
-        lastVerificationAttemptAt: new Date().toISOString(),
-        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
-      });
+        ? { status: "Da verificare", frontendConfirmed: false, frontendFailure: true, verificationNote: `WordPress ha modificato il titolo del contenuto, ma il <title> SEO pubblico è ancora “${data.title || "non rilevato"}”. La correzione del duplicato NON è confermata.` }
+        : { status: "Da verificare", frontendConfirmed: true, frontendFailure: false, verificationNote: "Il title frontend coincide con il valore inviato, ma un duplicato può essere dichiarato risolto solo dopo un nuovo crawl che confronti tutti i documenti coinvolti." };
+      const updated = await updateAndSync(record, { ...patch, verifiedAt: "", lastVerificationAttemptAt: new Date().toISOString(), frontendSnapshot: { title: data.title, h1: data.h1, words: data.words } });
       return { changed: true, record: updated, needsAudit: true };
     }
 
@@ -195,14 +156,7 @@ async function performRecheckCorrection(record, credentials = {}) {
               : !modifiedContentVisible
                 ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
                 : "Il contenuto è visibile ma il quality gate editoriale non consente di dichiararlo verificato automaticamente.",
-        frontendSnapshot: {
-          title: data.title,
-          h1: data.h1,
-          words: data.words,
-          visibilityModel: data.visibilityModel,
-          visibilityConfidence: data.visibilityConfidence,
-          requiresBrowserVerification: data.requiresBrowserVerification === true,
-        },
+        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words, visibilityModel: data.visibilityModel, visibilityConfidence: data.visibilityConfidence, requiresBrowserVerification: data.requiresBrowserVerification === true },
       });
       return { changed: true, record: updated, needsBrowserVerification: !visibilitySafe };
     }
@@ -221,14 +175,7 @@ async function performRecheckCorrection(record, credentials = {}) {
           : h1CountCorrect
             ? "Il frontend contiene un solo H1, ma questo controllo non prova da solo che il problema SEO originale sia risolto. Esegui un nuovo audit della pagina per confermare."
             : `Frontend non corretto: risultano ${data.h1} H1.`,
-        frontendSnapshot: {
-          title: data.title,
-          h1: data.h1,
-          words: data.words,
-          visibilityModel: data.visibilityModel,
-          visibilityConfidence: data.visibilityConfidence,
-          requiresBrowserVerification: needsBrowserVerification,
-        },
+        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words, visibilityModel: data.visibilityModel, visibilityConfidence: data.visibilityConfidence, requiresBrowserVerification: needsBrowserVerification },
       });
       return { changed: true, record: updated, needsAudit: true, needsBrowserVerification };
     }
@@ -270,7 +217,44 @@ export async function recheckCorrectionById(id, credentials = {}) {
   const record = await readCorrection(id);
   if (!record) throw new Error("Correzione non trovata nello storico.");
   if (credentials.clientId != null && Number(credentials.clientId) !== Number(record.clientId)) throw new Error("La correzione appartiene a un altro progetto.");
-  return recheckCorrection(record, credentials);
+  const result = await recheckCorrection(record, credentials);
+  if (!result?.needsAudit || !result?.record?.frontendConfirmed || result?.needsBrowserVerification) return result;
+
+  try {
+    const confirmation = await runConfirmationAudit(result.record);
+    if (currentClientId() !== normalizeClientId(result.record.clientId)) return { ...result, confirmationAudit: confirmation };
+    const now = new Date().toISOString();
+    const updated = await updateAndSync(result.record, confirmation.resolved
+      ? {
+          status: "Verificato",
+          verifiedAt: now,
+          lastVerificationAttemptAt: now,
+          frontendFailure: false,
+          verificationNote: confirmation.note,
+          confirmationAudit: { mode: confirmation.mode, analyzedAt: confirmation.audit?.analyzedAt || now, resolved: true },
+        }
+      : {
+          status: "Da verificare",
+          verifiedAt: "",
+          lastVerificationAttemptAt: now,
+          verificationNote: confirmation.note,
+          confirmationAudit: { mode: confirmation.mode, analyzedAt: confirmation.audit?.analyzedAt || now, resolved: false, covered: confirmation.covered },
+        });
+    return { ...result, changed: true, record: updated, needsAudit: !confirmation.resolved, confirmationAudit: confirmation };
+  } catch (error) {
+    const latest = result.record;
+    try {
+      const updated = await updateAndSync(latest, {
+        status: "Da verificare",
+        verifiedAt: "",
+        lastVerificationAttemptAt: new Date().toISOString(),
+        verificationNote: `${latest.verificationNote || "Frontend verificato."} Audit automatico non completato: ${error.message}`,
+      });
+      return { ...result, changed: true, record: updated, needsAudit: true, auditError: error };
+    } catch {
+      return { ...result, needsAudit: true, auditError: error };
+    }
+  }
 }
 
 export async function recheckCorrections({ clientId, limit = 20 } = {}) {
@@ -280,9 +264,7 @@ export async function recheckCorrections({ clientId, limit = 20 } = {}) {
     const scope = normalizeClientId(clientId ?? currentClientId());
     if (!scope || scope !== currentClientId()) return { checked: 0, changed: 0, busy: false };
     const rows = await listCorrections({ clientId: scope });
-    const pending = rows
-      .filter((record) => ["Applicato", "Da verificare"].includes(record.status))
-      .slice(0, Math.max(1, Math.min(100, Number(limit) || 20)));
+    const pending = rows.filter((record) => ["Applicato", "Da verificare"].includes(record.status)).slice(0, Math.max(1, Math.min(100, Number(limit) || 20)));
     let changed = 0, checked = 0;
     for (const record of pending) {
       if (currentClientId() !== scope) break;
@@ -291,18 +273,14 @@ export async function recheckCorrections({ clientId, limit = 20 } = {}) {
       if (result.changed) changed += 1;
     }
     return { checked, changed, busy: false };
-  } finally {
-    recheckRunning = false;
-  }
+  } finally { recheckRunning = false; }
 }
 
 const scheduleRecheck = (delay = 500) => {
   if (recheckRunning || recheckTimer) return;
   recheckTimer = window.setTimeout(() => {
     recheckTimer = null;
-    void recheckCorrections().catch((error) =>
-      console.warn("Controllo integrità remediation non eseguito:", error),
-    );
+    void recheckCorrections().catch((error) => console.warn("Controllo integrità remediation non eseguito:", error));
   }, delay);
 };
 
@@ -312,8 +290,6 @@ if (typeof window !== "undefined") {
   window.addEventListener("seogrow-verify-correction", (event) => {
     const id = event?.detail?.id;
     if (!id) return;
-    void recheckCorrectionById(id).catch((error) =>
-      console.warn("Riverifica correzione non riuscita:", error),
-    );
+    void recheckCorrectionById(id).catch((error) => console.warn("Riverifica correzione non riuscita:", error));
   });
 }
