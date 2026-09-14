@@ -5,7 +5,7 @@ import { normalizeSiteAnalysis } from "./seoResponseIntegrity.js";
 import { analysisDiff, normalizeAnalysisHistory, tasksFromAnalysis } from "./platform.js";
 import { observedScoreDelta } from "./observedAuditData.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation.js";
-import { listCorrections, readCorrection, removeVerifiedTask, updateCorrection } from "./remediationStore.js";
+import { readCorrection, removeVerifiedTask, updateCorrection } from "./remediationStore.js";
 import { navigatePage } from "./navigationUx.js";
 import {
   CONFIRMATION_AUDIT_EVENT,
@@ -71,7 +71,6 @@ const saveAudit = (intent, data, client) => {
 
 export default function ConfirmationAuditRunner() {
   const running = useRef(new Set());
-  const scanTimer = useRef(0);
 
   useEffect(() => {
     let disposed = false;
@@ -131,50 +130,26 @@ export default function ConfirmationAuditRunner() {
       }
     };
 
-    const scan = async () => {
-      if (disposed || running.current.size) return;
-      const clientId = selectedClientId();
-      if (!clientId) return;
-      const rows = await listCorrections({ clientId });
-      const now = Date.now();
-      const candidate = rows
-        .filter((record) => confirmationAuditReady(record))
-        .filter((record) => {
-          const attempted = Date.parse(record.lastVerificationAttemptAt || "");
-          return Number.isFinite(attempted) && now - attempted < 24 * 60 * 60 * 1000;
-        })
-        .toSorted((a, b) => Date.parse(b.lastVerificationAttemptAt || 0) - Date.parse(a.lastVerificationAttemptAt || 0))[0];
-      if (!candidate) return;
-      const intent = confirmationAuditIntent(candidate);
-      if (intent) void runIntent({ ...intent, navigate: false, explicit: false });
+    const onRequest = (event) => {
+      if (event?.detail) void runIntent(event.detail);
     };
-
-    const scheduleScan = () => {
-      window.clearTimeout(scanTimer.current);
-      scanTimer.current = window.setTimeout(() => { void scan(); }, 350);
-    };
-    const onRequest = (event) => { if (event?.detail) void runIntent(event.detail); };
     window.addEventListener(CONFIRMATION_AUDIT_EVENT, onRequest);
-    window.addEventListener("seogrow-remediation-history", scheduleScan);
-    window.addEventListener("seogrow-remediation-applied", scheduleScan);
-    window.addEventListener("seogrow-locationchange", scheduleScan);
 
+    // Only resume an audit explicitly queued by the current workflow. Do not scan
+    // every pending correction on load/navigation: a saved "Da verificare" state
+    // is not by itself permission to start network work in the background.
     const initial = window.setTimeout(() => {
       try {
         const queued = JSON.parse(sessionStorage.getItem(CONFIRMATION_AUDIT_KEY) || "null");
         if (queued && Date.now() - Number(queued.createdAt || 0) < 30 * 60 * 1000) void runIntent(queued);
-        else scheduleScan();
-      } catch { scheduleScan(); }
+        else sessionStorage.removeItem(CONFIRMATION_AUDIT_KEY);
+      } catch { sessionStorage.removeItem(CONFIRMATION_AUDIT_KEY); }
     }, 250);
 
     return () => {
       disposed = true;
       window.clearTimeout(initial);
-      window.clearTimeout(scanTimer.current);
       window.removeEventListener(CONFIRMATION_AUDIT_EVENT, onRequest);
-      window.removeEventListener("seogrow-remediation-history", scheduleScan);
-      window.removeEventListener("seogrow-remediation-applied", scheduleScan);
-      window.removeEventListener("seogrow-locationchange", scheduleScan);
     };
   }, []);
 
