@@ -126,7 +126,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   };
 
   const runPrimaryAction = () => {
-    if (priority.mode === "automatic") return startAutomaticResolution();
+    if (canStartAutomatic) return startAutomaticResolution();
     if (priority.mode === "approval") return prepareApprovalSolution();
     if (priority.mode === "confirm") return confirmContextAndPrepare();
     if (priority.mode === "verify") {
