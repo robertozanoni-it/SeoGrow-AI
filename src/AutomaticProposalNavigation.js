@@ -1,4 +1,4 @@
-import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview } from "./resolutionPath.js";
+import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview, canOpenControlledReviewPreview } from "./resolutionPath.js";
 import { navigatePage } from "./navigationUx.js";
 import { problemNavigationFocus } from "./problemNavigationFocus.js";
 import { normalizeClientId } from "./reliabilityModel.js";
@@ -88,11 +88,13 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
   if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
-  const controlled = controlledPreview === true && canOpenControlledLinkPreview(problem);
-  if (controlled) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
+  const controlledLink = controlledPreview === true && canOpenControlledLinkPreview(problem);
+  const controlledReview = controlledPreview === true && canOpenControlledReviewPreview(problem);
+  if (controlledLink) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
+  if (controlledReview) focus.controlledReviewPreview = true;
   const forcedAutomatic = forceAutomatic === true && problem?.correctability === "automatic";
   if (forcedAutomatic) focus.forcedAutomaticFlow = true;
-  const automatic = shouldOpenAutomaticProposal(problem) || controlled || forcedAutomatic;
+  const automatic = shouldOpenAutomaticProposal(problem) || controlledLink || controlledReview || forcedAutomatic;
   try {
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
