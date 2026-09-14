@@ -4,6 +4,7 @@ import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, S
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 import { buildProblemAgentRun } from "./problemAgentDiagnosis.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
+import { problemResolutionPriority } from "./problemResolutionPriority.js";
 
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 const quickGoals = ["Trova le 10 migliori opportunità SEO", "Perché il traffico organico è diminuito?", "Quali pagine posso portare in Top 10?", "Quali contenuti devo aggiornare?", "Trova opportunità di internal linking"];
@@ -30,21 +31,33 @@ const problemFromRecommendation = (context, item) => {
   const title = String(context?.title || item?.query || "Problema SEO").trim();
   const inferredType = /meta\s*description.*(?:larga|snippet|920\s*px)|description.*serp/i.test(title) ? "description-serp-width" : "";
   const issueType = String(context?.issueType || inferredType).trim();
-  const reviewOnly = context?.reviewOnly === true || issueType === "description-serp-width" || context?.problemStateCode === "needs_verification";
+  const reviewOnly = context?.reviewOnly === true || issueType === "description-serp-width";
   return {
     key: context?.issueKey || "",
     issueType,
     title,
+    detail: context?.detail || item?.interpretation || "",
     sourceUrl: item?.page || context?.sourceUrl || "",
     problemState: context?.problemStateCode || (reviewOnly ? "needs_verification" : "open"),
+    interventionState: context?.interventionStateCode || "not_prepared",
     correctability: context?.correctability || (issueType === "description-serp-width" ? "not_supported" : "manual"),
     reviewOnly,
-    ownershipBlocked: false,
-    targetUrls: [],
+    ownershipBlocked: context?.ownershipBlocked === true,
+    stale: context?.stale === true,
+    targetUrls: Array.isArray(context?.targetUrls) ? context.targetUrls : [],
   };
 };
 
-const solutionSupported = (problem) => problem?.issueType === "description-serp-width" || problem?.correctability === "automatic";
+const saveRecommendationTask = (onCreateTask, run, item) => onCreateTask({
+  title: run?.plan?.workflow === "PROBLEM_DIAGNOSIS" ? (item.query || "Verifica finding SEO") : (item.recommendation || "Rivedi raccomandazione SEO"),
+  priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media",
+  kind: "seo-agent",
+  sourceUrl: item.page || "",
+  targetUrl: "",
+  linkLabel: "Apri pagina",
+  query: item.query || "",
+  detail: `${item.interpretation || ""}\n\nAzione: ${item.recommendation || ""}\n\nEvidenza: ${(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ")}\nFonti: ${(Array.isArray(item.sources) ? item.sources : []).join(", ")}`,
+});
 
 export default function AgentPage({ client, dataset, analysis, rankings, savedRuns = [], onSaveRun, onDeleteRun, onCreateTask }) {
   const [goal, setGoal] = useState("");
@@ -109,17 +122,28 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     catch (error) { setActionError(error?.message || "Non è stato possibile registrare la decisione."); }
     finally { operationLock.current = false; setRunning(false); }
   };
-  const prepareSolution = (item) => {
+
+  const runProblemAction = (item) => {
     const problem = problemFromRecommendation(problemContext, item);
-    if (!solutionSupported(problem)) return false;
-    const controlledPreview = problem.issueType === "description-serp-width";
-    const opened = openProblemResolution(problem, client.id, "problem-card", {
-      controlledPreview,
-      forceAutomatic: !controlledPreview && problem.correctability === "automatic",
-    });
-    if (!opened) setActionError("Non è stato possibile aprire la proposta controllata. Riapri il finding da Problemi e riprova.");
+    const priority = problemResolutionPriority(problem);
+    let opened = false;
+    if (priority.mode === "automatic") {
+      opened = openProblemResolution(problem, client.id, "problem-card", { forceAutomatic: true });
+    } else if (priority.mode === "approval") {
+      opened = openProblemResolution(problem, client.id, "problem-card", { controlledPreview: true });
+    } else if (priority.mode === "confirm") {
+      const message = priority.kind === "canonical"
+        ? `Confermi che ${problem.sourceUrl} debba essere la versione canonica pubblica? SeoGrow preparerà la modifica ma non la applicherà senza il Prima/Dopo e la tua approvazione.`
+        : `Confermi che ${problem.sourceUrl} debba essere indicizzabile? SeoGrow preparerà la modifica ma non la applicherà senza il Prima/Dopo e la tua approvazione.`;
+      if (!window.confirm(message)) return false;
+      opened = openProblemResolution(problem, client.id, "problem-card", { controlledContextPreview: true });
+    } else {
+      opened = openProblemResolution(problem, client.id, "problem-card");
+    }
+    if (!opened) setActionError("Non è stato possibile aprire il percorso di risoluzione. Riapri il finding da Problemi e riprova.");
     return opened;
   };
+
   return <div className="reference-agent-page">
     <section className="reference-agent-hero">
       <div className="reference-agent-heading"><span><Sparkles /></span><div><h1>SEO Agent</h1><p>Il tuo assistente AI per analizzare, ottimizzare e far crescere {client.name}.</p></div></div>
@@ -146,11 +170,19 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
       {run.errors?.length > 0 && <div className="empty-state"><p>{run.errors.join(" ")}</p></div>}
       {run.status === AgentStatus.WAITING_APPROVAL && run.pendingApproval && <div className="agent-approval"><h3>Approvazione richiesta</h3><dl><dt>Operazione</dt><dd>{toolLabels[run.pendingApproval.tool]?.[0] || run.pendingApproval.tool}</dd><dt>Rischio</dt><dd>{run.pendingApproval.risk || "non disponibile"}</dd><dt>Costo stimato</dt><dd>{agentCostLabel({ estimatedCost: run.pendingApproval.estimatedCost })}</dd><dt>Anteprima</dt><dd><pre>{JSON.stringify(run.pendingApproval.preview || {}, null, 2)}</pre></dd></dl><div className="agent-controls"><button className="primary" disabled={running} onClick={() => decide(true)}>Approva</button><button className="secondary" disabled={running} onClick={() => decide(false)}>Rifiuta</button></div></div>}
     </section>}
-    {run?.recommendations?.length > 0 && <section className="agent-recommendations"><h2>Azioni prioritarie</h2>{run.recommendations.map((item) => { const preparedProblem = run?.plan?.workflow === "PROBLEM_DIAGNOSIS" ? problemFromRecommendation(problemContext, item) : null; const canPrepare = solutionSupported(preparedProblem); return <article className="panel agent-recommendation" key={item.id}>
-      <div className="panel-head"><div><h3>{item.query || item.page || "Opportunità SEO"}</h3><p>{item.page}</p></div><span className="priority media">{item.priority}</span></div>
-      <p><strong>Evidenza:</strong> {(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ") || "non disponibile"}</p>
-      <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>Azione:</strong> {item.recommendation}</p>
-      <div className="agent-recommendation-footer"><small>Confidenza {item.confidence ?? "—"}% · Fonti: {Array.isArray(item.sources) && item.sources.length ? item.sources.join(", ") : "non disponibili"}</small>{canPrepare ? <button className="primary" onClick={() => prepareSolution(item)}><Sparkles /> Prepara soluzione</button> : <button className="secondary" onClick={() => onCreateTask({ title: run?.plan?.workflow === "PROBLEM_DIAGNOSIS" ? (item.query || "Verifica finding SEO") : (item.recommendation || "Rivedi raccomandazione SEO"), priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media", kind: "seo-agent", sourceUrl: item.page || "", targetUrl: "", linkLabel: "Apri pagina", query: item.query || "", detail: `${item.interpretation || ""}\n\nAzione: ${item.recommendation || ""}\n\nEvidenza: ${(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ")}\nFonti: ${(Array.isArray(item.sources) ? item.sources : []).join(", ")}` })}>Crea task</button>}</div>
-    </article>; })}</section>}
+    {run?.recommendations?.length > 0 && <section className="agent-recommendations"><h2>Azioni prioritarie</h2>{run.recommendations.map((item) => {
+      const isProblem = run?.plan?.workflow === "PROBLEM_DIAGNOSIS";
+      const preparedProblem = isProblem ? problemFromRecommendation(problemContext, item) : null;
+      const priority = isProblem ? problemResolutionPriority(preparedProblem) : null;
+      return <article className="panel agent-recommendation" key={item.id}>
+        <div className="panel-head"><div><h3>{item.query || item.page || "Opportunità SEO"}</h3><p>{item.page}</p></div><span className="priority media">{item.priority}</span></div>
+        <p><strong>Evidenza:</strong> {(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ") || "non disponibile"}</p>
+        <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>Azione:</strong> {item.recommendation}</p>
+        <div className="agent-recommendation-footer">
+          <small>Confidenza {item.confidence ?? "—"}% · Fonti: {Array.isArray(item.sources) && item.sources.length ? item.sources.join(", ") : "non disponibili"}</small>
+          {isProblem ? <div className="agent-controls"><button className="primary" onClick={() => runProblemAction(item)}><Sparkles /> {priority.label}</button><button className="secondary" onClick={() => saveRecommendationTask(onCreateTask, run, item)}>Salva come task</button></div> : <button className="secondary" onClick={() => saveRecommendationTask(onCreateTask, run, item)}>Crea task</button>}
+        </div>
+      </article>;
+    })}</section>}
   </div>;
 }
