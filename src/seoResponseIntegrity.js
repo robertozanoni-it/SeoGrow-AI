@@ -1,10 +1,12 @@
 import { observedPageCount } from "./observedAuditData.js";
-import { excludeLegalSeo } from "./legalPageScope.js";
+import { excludeLegalSeo, isLegalPage } from "./legalPageScope.js";
+import { metaDescriptionSerpWidthWarning } from "./seoTextPolicy.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v9";
 const SCORE_POLICY_VERSION = 5;
 const ISSUE_SCHEMA_VERSION = 2;
+const META_DESCRIPTION_WIDTH_TYPE = "description-serp-width";
 
 const normalizeUrl = (value) => {
   try {
@@ -56,6 +58,41 @@ const normalizedIssue = (issue, fallbackUrl = "") => {
     ...(pageUrl && !issue.url ? { url: pageUrl } : {}),
     ...(pageUrl && !issue.sourceUrl && !brokenLink ? { sourceUrl: pageUrl } : {}),
   };
+};
+
+const metaDescriptionWidthReviewItem = (page, fallbackUrl = "") => {
+  const description = String(page?.description || "").trim();
+  const sourceUrl = page?.url || fallbackUrl || "";
+  if (!description || !sourceUrl || isLegalPage(sourceUrl)) return null;
+  const warning = metaDescriptionSerpWidthWarning(description);
+  if (!warning) return null;
+  return {
+    type: META_DESCRIPTION_WIDTH_TYPE,
+    severity: "bassa",
+    label: `Meta description larga nello snippet: circa ${warning.pixels}px / ${warning.maxPixels}px`,
+    url: sourceUrl,
+    sourceUrl,
+    detail: `${warning.characters} caratteri: il limite di ${warning.maxCharacters} caratteri è rispettato, ma la larghezza SERP stimata supera ${warning.maxPixels}px. Avviso non bloccante: valuta una formulazione più compatta.`,
+    diagnosisState: "needs-confirmation",
+    evidenceNature: "derived-estimate",
+    reviewReason: "La larghezza in pixel è una stima dello snippet e non un limite fisso imposto da Google; verificare l’anteprima prima di modificare.",
+  };
+};
+
+const appendMetaDescriptionWidthReviewItems = (data) => {
+  if (!data || typeof data !== "object" || data.legalOnly) return data;
+  const pages = Array.isArray(data.pages) && data.pages.length ? data.pages : [data];
+  const generated = pages.map((page) => metaDescriptionWidthReviewItem(page, data.url)).filter(Boolean);
+  const previous = Array.isArray(data.reviewItems) ? data.reviewItems : [];
+  data.reviewItems = [
+    ...previous.filter((item) => item?.type !== META_DESCRIPTION_WIDTH_TYPE),
+    ...generated,
+  ];
+  data.reviewSummary = data.reviewItems.reduce((summary, issue) => {
+    summary[issue.type || "review"] = (summary[issue.type || "review"] || 0) + 1;
+    return summary;
+  }, {});
+  return data;
 };
 
 const severityPenalty = (value) => {
@@ -131,7 +168,7 @@ const normalizeSiteAnalysis = (data) => {
     data.legalScopeVersion === 4 &&
     data.scorePolicyVersion === SCORE_POLICY_VERSION &&
     data.issueSchemaVersion === ISSUE_SCHEMA_VERSION;
-  if (currentPolicy) return data;
+  if (currentPolicy) return appendMetaDescriptionWidthReviewItems(data);
 
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
@@ -146,7 +183,7 @@ const normalizeSiteAnalysis = (data) => {
     data.legalScopeVersion = 4;
     data.scorePolicyVersion = SCORE_POLICY_VERSION;
     data.issueSchemaVersion = ISSUE_SCHEMA_VERSION;
-    return data;
+    return appendMetaDescriptionWidthReviewItems(data);
   }
 
   const rawInternal = Array.isArray(data.brokenLinks) ? data.brokenLinks : [];
@@ -223,7 +260,7 @@ const normalizeSiteAnalysis = (data) => {
   data.scoreLabel = "Indice di salute tecnica SeoGrow";
   data.scoreMethodology = "Indice interno derivato dai problemi confermati e dai fallimenti del crawl; non è un voto Google.";
   data.evidencePolicy = "confirmed-issues-only";
-  return data;
+  return appendMetaDescriptionWidthReviewItems(data);
 };
 
 export async function normalizeSiteAnalysisResponse(response) {
