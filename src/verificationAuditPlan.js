@@ -61,3 +61,53 @@ export function consumeVerificationAudit(clientId) {
     return null;
   }
 }
+
+const setReactValue = (element, value) => {
+  if (!element) return false;
+  const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (!setter) return false;
+  setter.call(element, String(value));
+  element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+  return true;
+};
+
+export function launchVerificationAudit(plan, navigatePage) {
+  if (!plan || typeof window === "undefined" || typeof document === "undefined" || typeof navigatePage !== "function") return false;
+  if (!queueVerificationAudit(plan)) return false;
+  navigatePage("Audit SEO");
+
+  const deadline = Date.now() + 6000;
+  const tryLaunch = () => {
+    if (Date.now() > deadline) return;
+    const root = document.querySelector(".audit-enhancer-root");
+    const launcher = root?.querySelector(".reference-audit-launcher");
+    const form = launcher?.querySelector("form.site-analysis-form");
+    if (!launcher || !form) {
+      window.setTimeout(tryLaunch, 80);
+      return;
+    }
+
+    const modeCards = [...launcher.querySelectorAll(".audit-mode-card")];
+    const wantedLabel = plan.mode === "site" ? "Analizza tutto il sito" : "Analizza questa pagina";
+    const wantedCard = modeCards.find(card => card.textContent?.includes(wantedLabel));
+    if (wantedCard && !wantedCard.classList.contains("active")) wantedCard.click();
+
+    window.setTimeout(() => {
+      const liveForm = document.querySelector(".reference-audit-launcher form.site-analysis-form");
+      const input = liveForm?.querySelector('input[type="url"]');
+      if (!liveForm || !input || !setReactValue(input, plan.url)) {
+        window.setTimeout(tryLaunch, 80);
+        return;
+      }
+      if (plan.mode === "site") {
+        const select = liveForm.querySelector("select");
+        if (select) setReactValue(select, plan.maxPages || 75);
+      }
+      try { sessionStorage.removeItem(CONFIRMATION_AUDIT_KEY); } catch { /* optional */ }
+      liveForm.requestSubmit();
+    }, 80);
+  };
+  window.setTimeout(tryLaunch, 80);
+  return true;
+}
