@@ -26,6 +26,8 @@ import {
 } from "./remediationStore";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { rollbackRequest } from "./rollbackPayload";
+import { navigatePage } from "./navigationUx.js";
+import { launchVerificationAudit, verificationAuditPlan } from "./verificationAuditPlan.js";
 import "./CorrectionsWorkspace.css";
 import "./CorrectionsReference.css";
 import { historyText, historyFieldLabel } from "./correctionHistoryText.js";
@@ -175,6 +177,16 @@ export default function CorrectionsWorkspace() {
     });
   };
 
+  const launchConfirmation = (record) => {
+    const plan = verificationAuditPlan(record, profile?.url || "");
+    if (!plan || !launchVerificationAudit(plan, navigatePage)) {
+      setMessage("Audit di conferma non avviato: riapri la correzione o Audit SEO e riprova.");
+      return false;
+    }
+    setMessage(plan.reason);
+    return true;
+  };
+
   const reverify = async (id) => {
     if (!id || verifying || rollingBack) return;
     setVerifying(id);
@@ -191,6 +203,9 @@ export default function CorrectionsWorkspace() {
         setMessage(`Riverifica non conclusa: ${result.error.message}. Lo stato precedente è stato mantenuto.`);
       } else if (updated?.status === "Verificato") {
         setMessage("Riverifica completata: la correzione è confermata nel frontend e la Task collegata può essere chiusa.");
+      } else if (result?.needsAudit && updated?.frontendConfirmed === true) {
+        const plan = verificationAuditPlan(updated, profile?.url || "");
+        setMessage(plan?.reason || "Controllo frontend completato. Per confermare la risoluzione SEO serve ancora un nuovo audit mirato o completo.");
       } else if (result?.needsAudit) {
         setMessage("Controllo frontend completato. Per confermare la risoluzione SEO serve ancora un nuovo audit mirato o completo.");
       } else {
@@ -303,6 +318,7 @@ export default function CorrectionsWorkspace() {
               const open = expanded.has(record.id);
               const verified = isVerified(record);
               const pending = isPending(record);
+              const confirmationPlan = verificationAuditPlan(record, profile?.url || "");
               return (
                 <article className={`panel correction-card ${open ? "open" : ""}`} data-correction-id={record.id} key={record.id}>
                   <button type="button" className="correction-summary" onClick={() => toggleExpanded(record.id)} aria-expanded={open}>
@@ -311,7 +327,13 @@ export default function CorrectionsWorkspace() {
                     <span className="correction-quick-state"><span className={record.writeConfirmed === false ? "wait" : "ok"}>WordPress</span><span className={record.frontendConfirmed ? "ok" : "wait"}>Frontend</span><span className={verified ? "ok" : "wait"}>SEO</span></span>
                     <ChevronDown className="correction-chevron" />
                   </button>
-                  <div className="correction-summary-actions"><a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a><button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button><button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi" : "Prima / Dopo"}</button><button type="button" className="secondary mini correction-rollback" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina"}</button></div>
+                  <div className="correction-summary-actions">
+                    <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
+                    {confirmationPlan && <button type="button" className="primary mini" disabled={Boolean(verifying || rollingBack)} onClick={() => launchConfirmation(record)}><RefreshCw />Esegui audit di conferma</button>}
+                    <button type="button" className="secondary mini" disabled={Boolean(verifying || rollingBack) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
+                    <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi" : "Prima / Dopo"}</button>
+                    <button type="button" className="secondary mini correction-rollback" disabled={Boolean(rollingBack || verifying) || ["Ripristinato", "Bloccato"].includes(record.status)} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina"}</button>
+                  </div>
                   <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{(isRolledBack(record) ? record.rollbackNote : record.verificationNote) || "Modifica registrata."}</p>
                   {open && <div className="correction-details"><div className="correction-diff-grid"><section className="before"><strong>Prima</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.before?.[field]),1200)}</p>{(field === "meta._elementor_data" || String(record.before?.[field] || "").length > 300) && <details><summary>Dati completi</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section><section className="after"><strong>Dopo</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{historyFieldLabel(field)}</small><p>{preview(historyText(field, record.after?.[field]),1200)}</p>{(field === "meta._elementor_data" || String(record.after?.[field] || "").length > 300) && <details><summary>Dati completi</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section></div><div className="correction-footer"><div><strong>{isRolledBack(record) ? "Versione precedente ripristinata" : record.status === "Bloccato" ? "Scrittura bloccata" : verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong><span>{isRolledBack(record) ? "Lo storico conserva la modifica annullata." : record.status === "Bloccato" ? record.verificationNote : verified ? "Il frontend e il controllo SEO hanno confermato il risultato." : "La scrittura WordPress da sola non basta: serve la verifica."}</span></div></div></div>}
                 </article>

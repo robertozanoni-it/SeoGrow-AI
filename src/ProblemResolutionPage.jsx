@@ -11,6 +11,7 @@ import { recheckCorrectionById } from "./remediationIntegrity";
 import { freshnessLabel, normalizeClientId, safeHttpHref } from "./reliabilityModel";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
+import { launchVerificationAudit, verificationAuditPlan } from "./verificationAuditPlan.js";
 import "./ProblemResolutionPage.css";
 
 const PAGE = PROPOSAL_ROUTE_PAGE;
@@ -61,6 +62,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   const path = resolutionPath(problem, latestCorrection);
   const priority = problemResolutionPriority(problem, latestCorrection);
   const canStartAutomatic = priority.mode === "automatic";
+  const confirmationAudit = verificationAuditPlan(latestCorrection, client.url);
 
   const openCorrectionHistory = () => {
     try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* route remains read-only */ }
@@ -83,6 +85,10 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     try {
       const result = await recheckCorrectionById(latestCorrection.id, { clientId: client.id });
       if (result?.error) throw result.error;
+      if (result?.needsAudit && result?.record?.frontendConfirmed === true) {
+        const plan = verificationAuditPlan(result.record, client.url);
+        if (plan && launchVerificationAudit(plan, navigatePage)) return;
+      }
       setMessage(result?.record?.verificationNote || (result?.needsAudit
         ? "Controllo frontend completato. Per confermare la risoluzione SEO serve un nuovo audit."
         : "Riverifica completata. Lo stato è stato aggiornato con la nuova evidenza."));
@@ -126,6 +132,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   };
 
   const runPrimaryAction = () => {
+    if (confirmationAudit) return launchVerificationAudit(confirmationAudit, navigatePage);
     if (canStartAutomatic) return startAutomaticResolution();
     if (priority.mode === "approval") return prepareApprovalSolution();
     if (priority.mode === "confirm") return confirmContextAndPrepare();
@@ -182,8 +189,8 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
             <span className="problem-resolution-number">3</span>
             <div>
               <h2>Che cosa propone SeoGrow</h2>
-              {problem.ownershipBlocked ? <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo o widget. Il blocco di sicurezza resta attivo.</p> : <p>{priority.mode === "automatic" && "Prima priorità: SeoGrow usa l’adapter sicuro e prepara il percorso automatico."}{priority.mode === "approval" && "La modifica può essere preparata, ma richiede il tuo controllo del Prima/Dopo e l’approvazione."}{priority.mode === "confirm" && "Serve prima una tua decisione esplicita sull’intento; dopo la conferma SeoGrow prepara la soluzione da approvare."}{priority.mode === "guided" && "Non esiste ancora una scrittura sicura: SeoGrow prepara una soluzione guidata senza simulare modifiche automatiche."}{priority.mode === "verify" && "Esiste già uno stato da verificare: SeoGrow evita una nuova scrittura finché il risultato non è confermato."}</p>}
-              <div className="problem-resolution-guidance"><h3>{priority.title || path.title}</h3><p>{priority.instructions || path.instructions}</p></div>
+              {problem.ownershipBlocked ? <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo o widget. Il blocco di sicurezza resta attivo.</p> : <p>{confirmationAudit && "La modifica è già visibile nel frontend: SeoGrow avvia direttamente l’audit adatto per confermare la chiusura SEO."}{!confirmationAudit && priority.mode === "automatic" && "Prima priorità: SeoGrow usa l’adapter sicuro e prepara il percorso automatico."}{!confirmationAudit && priority.mode === "approval" && "La modifica può essere preparata, ma richiede il tuo controllo del Prima/Dopo e l’approvazione."}{!confirmationAudit && priority.mode === "confirm" && "Serve prima una tua decisione esplicita sull’intento; dopo la conferma SeoGrow prepara la soluzione da approvare."}{!confirmationAudit && priority.mode === "guided" && "Non esiste ancora una scrittura sicura: SeoGrow prepara una soluzione guidata senza simulare modifiche automatiche."}{!confirmationAudit && priority.mode === "verify" && "Esiste già uno stato da verificare: SeoGrow evita una nuova scrittura finché il risultato non è confermato."}</p>}
+              <div className="problem-resolution-guidance"><h3>{confirmationAudit?.label || priority.title || path.title}</h3><p>{confirmationAudit?.reason || priority.instructions || path.instructions}</p></div>
               {problem.fields.length > 0 && <p><strong>Campi coinvolti:</strong> {problem.fields.join(", ")}</p>}
               {problem.adapters.length > 0 && <p><strong>Adapter:</strong> {problem.adapters.join(", ")}</p>}
               {problem.quality && <p><strong>Quality gate:</strong> {problem.quality.publishable === false ? "revisione richiesta" : "superato"}</p>}
@@ -202,8 +209,8 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
         <aside className="problem-resolution-actions">
           <div><small>Prossima azione</small><h2>Risolvi e verifica</h2><p>SeoGrow prova prima la risoluzione automatica; quando serve una decisione, prepara la soluzione da approvare.</p></div>
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
-          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles />{working ? "Verifica…" : priority.label}</button>
-          {path.action === "audit" && <button className="secondary" type="button" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>}
+          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles />{working ? "Verifica…" : confirmationAudit?.label || priority.label}</button>
+          {path.action === "audit" && !confirmationAudit && <button className="secondary" type="button" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>}
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>
           {message && <p className="problem-resolution-message" role="status">{message}</p>}
