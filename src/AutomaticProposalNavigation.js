@@ -1,4 +1,4 @@
-import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview, canOpenControlledReviewPreview } from "./resolutionPath.js";
+import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview, canOpenControlledReviewPreview, canOpenControlledContextPreview } from "./resolutionPath.js";
 import { navigatePage } from "./navigationUx.js";
 import { problemNavigationFocus } from "./problemNavigationFocus.js";
 import { normalizeClientId } from "./reliabilityModel.js";
@@ -48,15 +48,12 @@ export const readAutomaticProposalFocus = () => {
   try {
     const focus = JSON.parse(sessionStorage.getItem(PROPOSAL_FOCUS_KEY) || "null");
     if (!focus || !VALID_OPEN_SOURCES.has(focus.openedFrom) || !focus.title || !focus.sourceUrl) return null;
-    // Keep the comparison accessible for the entire browser session. Preview
-    // expiry and stale-state checks are enforced separately before every write.
     if (normalizeClientId(focus.clientId) !== selectedClientId()) return null;
     return focus;
   } catch {
     return null;
   }
 };
-
 
 export const rememberAutomaticResolutionIntent = (focus) => {
   if (!focus || typeof sessionStorage === "undefined") return false;
@@ -77,24 +74,26 @@ const clearAutomaticResolutionIntent = () => {
   try { sessionStorage.removeItem(AUTO_RESOLVE_INTENT_KEY); } catch { /* optional session helper */ }
 };
 export const clearAutomaticProposalFocus = () => {
-  try {
-    sessionStorage.removeItem(PROPOSAL_FOCUS_KEY);
-  } catch {
-    /* Il routing continua a funzionare anche senza sessionStorage. */
-  }
+  try { sessionStorage.removeItem(PROPOSAL_FOCUS_KEY); } catch { /* routing can continue read-only */ }
 };
 
-export const openProblemResolution = (problem, clientId, openedFrom = "problem-card", { controlledPreview = false, forceAutomatic = false } = {}) => {
+export const openProblemResolution = (problem, clientId, openedFrom = "problem-card", {
+  controlledPreview = false,
+  controlledContextPreview = false,
+  forceAutomatic = false,
+} = {}) => {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return false;
   const focus = problemNavigationFocus(problem, clientId, selectedClientId(), openedFrom);
   if (!focus || !VALID_OPEN_SOURCES.has(openedFrom)) return false;
   const controlledLink = controlledPreview === true && canOpenControlledLinkPreview(problem);
   const controlledReview = controlledPreview === true && canOpenControlledReviewPreview(problem);
+  const controlledContext = controlledContextPreview === true && canOpenControlledContextPreview(problem);
   if (controlledLink) { focus.controlledPreview = true; focus.targetUrl = problem.targetUrls[0]; }
   if (controlledReview) focus.controlledReviewPreview = true;
+  if (controlledContext) focus.controlledContextPreview = true;
   const forcedAutomatic = forceAutomatic === true && problem?.correctability === "automatic";
   if (forcedAutomatic) focus.forcedAutomaticFlow = true;
-  const automatic = shouldOpenAutomaticProposal(problem) || controlledLink || controlledReview || forcedAutomatic;
+  const automatic = shouldOpenAutomaticProposal(problem) || controlledLink || controlledReview || controlledContext || forcedAutomatic;
   try {
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
@@ -116,7 +115,6 @@ const interceptAutomaticClick = (event) => {
   if (currentPage() !== "Problemi") return;
   const row = event.target.closest?.(".problem-row");
   if (!row || row.dataset.problemNavigation === "direct" || event.target.closest?.("a") || !row.querySelector(".problem-correctability.automatic")) return;
-
   const openedFrom = event.target.closest?.(".problem-correctability.automatic") ? "automatic-badge" : "problem-row";
   if (!openAutomaticProposal(row, openedFrom)) return;
   event.preventDefault();
@@ -148,8 +146,6 @@ const resumeAutomaticResolutionAfterAudit = (event) => {
 };
 
 if (typeof document !== "undefined") {
-  // Capture phase: l'intera riga di un problema automatico apre direttamente
-  // la proposta prima del drawer legacy. Manuali e non supportati restano nel dettaglio.
   document.addEventListener("click", interceptAutomaticClick, true);
   window.addEventListener("hashchange", clearFocusOutsideProposalRoute);
   window.addEventListener("seogrow-locationchange", clearFocusOutsideProposalRoute);
