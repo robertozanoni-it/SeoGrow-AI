@@ -106,13 +106,12 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         applicationPassword: passwordEntry?.identity === identity ? passwordEntry.value : "",
       });
       if (!mounted.current || selectedClient() !== scope) return;
-      if (!result?.error && result?.needsAudit && result?.record?.frontendConfirmed === true) {
-        const plan = verificationAuditPlan(result.record, profile.url || record.siteUrl || "");
-        if (plan && launchVerificationAudit(plan, go)) return;
-      }
+      const plan = !result?.error && result?.needsAudit && result?.record?.frontendConfirmed === true
+        ? verificationAuditPlan(result.record, profile.url || record.siteUrl || "")
+        : null;
       const text = result?.error
         ? `Riverifica non conclusa: ${result.error.message}. Nessuna nuova modifica applicata.`
-        : result?.record?.verificationNote || (result?.needsAudit
+        : plan?.reason || result?.record?.verificationNote || (result?.needsAudit
           ? "Serve un nuovo audit SEO per confermare la risoluzione."
           : "Controllo completato. Leggi lo stato della verifica qui sotto.");
       setNotice({ identity, text });
@@ -160,7 +159,8 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         {observed != null && <div><strong>Valore letto sul sito all’ultimo controllo</strong><pre>{String(observed)}</pre></div>}
         {record.resource === "taxonomy" && <label>Password applicativa WordPress per la verifica<input type="password" autoComplete="new-password" value={passwordEntry?.identity === identity ? passwordEntry.value : ""} onChange={(event) => setPasswordEntry({ identity, value: event.target.value })} /></label>}
         <div className="saved-correction-actions">
-          {auditPlan ? <button type="button" className="primary" disabled={busy} onClick={() => startConfirmationAudit()}><RefreshCw />Esegui audit di conferma</button> : <button type="button" className="primary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>}
+          {auditPlan && <button type="button" className="primary" disabled={busy} onClick={() => startConfirmationAudit()}><RefreshCw />Esegui audit di conferma</button>}
+          <button type="button" className={auditPlan ? "secondary" : "primary"} disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>
           {href && <a className="secondary" href={href} target="_blank" rel="noopener noreferrer"><ExternalLink />Apri pagina attuale</a>}
           {!auditPlan && <button type="button" className="secondary" onClick={() => go("Audit SEO")}>Apri Audit SEO</button>}
         </div>
