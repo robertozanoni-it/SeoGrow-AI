@@ -1,5 +1,5 @@
 import { contentSafetyErrors } from "./editorialContentSafety.js";
-import { SEO_TEXT_LIMITS, seoCharacterCount } from "./seoTextPolicy.js";
+import { SEO_TEXT_LIMITS, metaDescriptionSerpWidthWarning, seoCharacterCount } from "./seoTextPolicy.js";
 
 const stripHtml = (value) => String(value || "")
   .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -79,6 +79,8 @@ export function validateSeoSuggestion(kind, value, page = {}) {
   if (normalizedKind === "meta_description" || normalizedKind === "description") {
     if (length < 110) errors.push("La meta description è troppo corta per il quality gate automatico.");
     if (length > SEO_TEXT_LIMITS.meta_description) errors.push(`La meta description supera ${SEO_TEXT_LIMITS.meta_description} caratteri, inclusi spazi e punteggiatura.`);
+    const serpWarning = metaDescriptionSerpWidthWarning(text);
+    if (serpWarning) warnings.push(`La meta description è entro ${serpWarning.maxCharacters} caratteri ma può risultare troppo larga nello snippet: circa ${serpWarning.pixels}px su ${serpWarning.maxPixels}px stimati.`);
     if (!/[.!?…]$/.test(text)) errors.push("La meta description non termina con una frase completa.");
     if (tokenCount < 14) errors.push("La meta description è troppo povera di contenuto.");
   }
