@@ -29,9 +29,15 @@ const problemPrompt = (detail) => {
 
 const problemFromRecommendation = (context, item) => {
   const title = String(context?.title || item?.query || "Problema SEO").trim();
-  const inferredType = /meta\s*description.*(?:larga|snippet|920\s*px)|description.*serp/i.test(title) ? "description-serp-width" : "";
+  const inferredType = /meta\s*description.*(?:larga|snippet|920\s*px)|description.*serp/i.test(title)
+    ? "description-serp-width"
+    : /canonical/i.test(title)
+      ? "canonical-different"
+      : /noindex|non indicizz/i.test(title)
+        ? "noindex"
+        : "";
   const issueType = String(context?.issueType || item?.issueType || inferredType).trim();
-  const reviewOnly = context?.reviewOnly === true || item?.reviewOnly === true || issueType === "description-serp-width";
+  const reviewOnly = context?.reviewOnly === true || item?.reviewOnly === true || ["description-serp-width", "canonical-different", "noindex"].includes(issueType);
   return {
     key: context?.issueKey || item?.issueKey || "",
     issueType,
@@ -174,10 +180,14 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
       const isProblem = run?.plan?.workflow === "PROBLEM_DIAGNOSIS";
       const preparedProblem = isProblem ? problemFromRecommendation(problemContext, item) : null;
       const priority = isProblem ? problemResolutionPriority(preparedProblem) : null;
+      const currentAction = isProblem ? priority.instructions : item.recommendation;
+      const savedAction = String(item.recommendation || "").trim();
+      const policyChanged = isProblem && savedAction && savedAction !== String(currentAction || "").trim();
       return <article className="panel agent-recommendation" key={item.id}>
         <div className="panel-head"><div><h3>{item.query || item.page || "Opportunità SEO"}</h3><p>{item.page}</p></div><span className="priority media">{item.priority}</span></div>
         <p><strong>Evidenza:</strong> {(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ") || "non disponibile"}</p>
-        <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>Azione:</strong> {item.recommendation}</p>
+        <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>{isProblem ? "Azione attuale" : "Azione"}:</strong> {currentAction}</p>
+        {policyChanged && <details><summary>Indicazione salvata nell’analisi</summary><p>{savedAction}</p></details>}
         <div className="agent-recommendation-footer">
           <small>Confidenza {item.confidence ?? "—"}% · Fonti: {Array.isArray(item.sources) && item.sources.length ? item.sources.join(", ") : "non disponibili"}</small>
           {isProblem ? <div className="agent-controls"><button className="primary" onClick={() => runProblemAction(item)}><Sparkles /> {priority.label}</button><button className="secondary" onClick={() => saveRecommendationTask(onCreateTask, run, item)}>Salva come task</button></div> : <button className="secondary" onClick={() => saveRecommendationTask(onCreateTask, run, item)}>Crea task</button>}
