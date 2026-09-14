@@ -17,7 +17,7 @@ export function requiresDuplicateAudit(record = {}) {
 const confirmationRequirement = (record, target) => {
   const text = `${record?.issueType || ""} ${record?.issueLabel || ""} ${record?.issue?.type || ""} ${record?.issue?.label || ""}`.toLowerCase();
   if (requiresDuplicateAudit(record)) {
-    return "Per confermare la risoluzione SEO serve un nuovo crawl che verifichi l’assenza del duplicato nelle pagine coinvolte.";
+    return "Per confermare la risoluzione SEO serve un nuovo audit completo (crawl) che verifichi l’assenza del duplicato nelle pagine coinvolte.";
   }
   if (target.publicField === "metaDescription" && /description-serp-width|larghezza serp|920\s*px/.test(text)) {
     return "Per confermare la risoluzione SEO esegui un nuovo audit della pagina: la meta description deve non risultare più oltre la soglia SERP stimata di 920px.";
