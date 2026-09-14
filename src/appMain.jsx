@@ -33,6 +33,7 @@ import AutomaticProposalPage from './AutomaticProposalPage';
 import AuditWorkspace from './AuditWorkspace';
 import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
+import ConfirmationAuditRunner from './ConfirmationAuditRunner';
 import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
@@ -101,6 +102,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuditWorkspace />
       <RemediationRuntime />
       <CorrectionsWorkspace />
+      <ConfirmationAuditRunner />
     </AppErrorBoundary>
   </React.StrictMode>,
 );
