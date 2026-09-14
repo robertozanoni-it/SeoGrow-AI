@@ -98,7 +98,7 @@ export function confirmationAuditIntent(record = {}) {
 export function confirmationAuditReady(record = {}) {
   const safeRecord = record || {};
   if (!safeRecord.id || safeRecord.status !== "Da verificare" || safeRecord.confirmationAuditState === "running") return false;
-  if (!safeRecord.lastVerificationAttemptAt || safeRecord.frontendFailure === true) return false;
+  if (!safeRecord.lastVerificationAttemptAt || safeRecord.frontendFailure === true || safeRecord.titleCaseOnlyMatch === true) return false;
   if (safeRecord.confirmationAuditVerifiedAt) return false;
   const verificationAt = Date.parse(safeRecord.lastVerificationAttemptAt);
   const lastConfirmationAt = Math.max(
