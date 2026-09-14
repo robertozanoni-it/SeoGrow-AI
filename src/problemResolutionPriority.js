@@ -34,7 +34,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     return {
       mode: "approval",
       action: "prepare",
-      label: "Prepara soluzione",
+      label: kind === "external_link" ? path.label : "Prepara soluzione",
       title: "Soluzione pronta per approvazione",
       instructions: "SeoGrow prepara una proposta concreta e verificabile. Prima di qualunque scrittura mostra il confronto Prima/Dopo e richiede la tua approvazione.",
       kind,
