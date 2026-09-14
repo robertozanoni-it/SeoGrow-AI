@@ -3,9 +3,9 @@ import { excludeLegalSeo, isLegalPage } from "./legalPageScope.js";
 import { metaDescriptionSerpWidthWarning } from "./seoTextPolicy.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v9";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v10";
 const SCORE_POLICY_VERSION = 5;
-const ISSUE_SCHEMA_VERSION = 2;
+const ISSUE_SCHEMA_VERSION = 3;
 const META_DESCRIPTION_WIDTH_TYPE = "description-serp-width";
 
 const normalizeUrl = (value) => {
@@ -17,6 +17,42 @@ const normalizeUrl = (value) => {
   } catch {
     return String(value || "");
   }
+};
+
+const trailingSlashEquivalent = (left, right) => {
+  try {
+    const a = new URL(String(left || ""));
+    const b = new URL(String(right || ""));
+    a.hash = "";
+    b.hash = "";
+    a.hostname = a.hostname.toLowerCase().replace(/^www\./, "");
+    b.hostname = b.hostname.toLowerCase().replace(/^www\./, "");
+    const path = (value) => value === "/" ? "/" : value.replace(/\/+$/, "");
+    return a.protocol === b.protocol && a.host === b.host && a.search === b.search &&
+      path(a.pathname) === path(b.pathname) && a.pathname !== b.pathname;
+  } catch {
+    return false;
+  }
+};
+
+const canonicalIssueUrl = (issue) => {
+  const explicit = issue?.canonicalUrl || issue?.canonical;
+  if (explicit) return String(explicit);
+  const detail = String(issue?.detail || "").trim();
+  return /^https?:\/\//i.test(detail) ? detail : "";
+};
+
+const benignSlashNormalization = (issue) => {
+  const type = String(issue?.type || "").trim().toLowerCase();
+  if (!["canonical-different", "url-alias"].includes(type)) return false;
+  const source = issue?.sourceUrl || issue?.url || "";
+  const canonical = canonicalIssueUrl(issue);
+  if (!trailingSlashEquivalent(source, canonical)) return false;
+  if (type === "url-alias") {
+    const documentId = Number(issue?.wordpressDocumentId);
+    return Number.isSafeInteger(documentId) && documentId > 0;
+  }
+  return true;
 };
 
 const confirmedBroken = (link) => [404, 410].includes(Number(link?.status));
@@ -173,13 +209,18 @@ const normalizeSiteAnalysis = (data) => {
   const alreadyNormalized = data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived";
   excludeLegalSeo(data);
   if (alreadyNormalized) {
-    data.issues = (Array.isArray(data.issues) ? data.issues : []).map((issue) => normalizedIssue(issue, data.url));
-    data.reviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map((issue) => normalizedIssue(issue, data.url));
+    data.issues = (Array.isArray(data.issues) ? data.issues : [])
+      .map((issue) => normalizedIssue(issue, data.url))
+      .filter((issue) => !benignSlashNormalization(issue));
+    data.reviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : [])
+      .map((issue) => normalizedIssue(issue, data.url))
+      .filter((issue) => !benignSlashNormalization(issue));
     data.pagesFailed = Array.isArray(data.failures)
       ? data.failures.filter((failure) => !robotsExclusion(failure)).length
       : Math.max(0, Number(data.pagesFailed || 0));
     data.score = data.legalOnly ? null : scoreFromVerifiedEvidence(data, data.issues || [], data.pagesFailed);
     data.summary = (data.issues || []).reduce((out, issue) => { out[issue.type || "unknown"] = (out[issue.type || "unknown"] || 0) + 1; return out; }, {});
+    data.reviewSummary = (data.reviewItems || []).reduce((out, issue) => { out[issue.type || "review"] = (out[issue.type || "review"] || 0) + 1; return out; }, {});
     data.legalScopeVersion = 4;
     data.scorePolicyVersion = SCORE_POLICY_VERSION;
     data.issueSchemaVersion = ISSUE_SCHEMA_VERSION;
@@ -217,6 +258,7 @@ const normalizeSiteAnalysis = (data) => {
 
   const rawIssues = (Array.isArray(data.issues) ? data.issues : []).map((issue) => normalizedIssue(issue, data.url));
   const filtered = rawIssues.filter((issue) => {
+    if (benignSlashNormalization(issue)) return false;
     if (issueLooksTransientLink(issue)) return false;
     const target = normalizeUrl(issue?.targetUrl || "");
     if (issue?.type === "broken-link" && transientInternalTargets.has(target)) return false;
@@ -232,7 +274,9 @@ const normalizeSiteAnalysis = (data) => {
     else confirmed.push({ ...issue, diagnosisState: issue?.diagnosisState || "confirmed" });
   }
 
-  const previousReviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : []).map((issue) => normalizedIssue(issue, data.url));
+  const previousReviewItems = (Array.isArray(data.reviewItems) ? data.reviewItems : [])
+    .map((issue) => normalizedIssue(issue, data.url))
+    .filter((issue) => !benignSlashNormalization(issue));
   data.rawIssueCount = rawIssues.length;
   data.issues = confirmed;
   data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {

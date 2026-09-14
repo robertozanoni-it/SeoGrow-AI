@@ -30,7 +30,7 @@ test("429 e 5xx non restano tra i link interrotti confermati", () => {
   assert.equal(result.crawlExclusions.length, 1);
   assert.equal(result.legalScopeVersion, 4);
   assert.equal(result.scorePolicyVersion, 5);
-  assert.equal(result.issueSchemaVersion, 2);
+  assert.equal(result.issueSchemaVersion, 3);
 });
 
 test("audit pagina senza type converge alla stessa tassonomia del crawl sito", () => {
@@ -203,7 +203,7 @@ test("uno storico già normalizzato viene ricalcolato con scope legale, score e 
 
   assert.equal(result.legalScopeVersion, 4);
   assert.equal(result.scorePolicyVersion, 5);
-  assert.equal(result.issueSchemaVersion, 2);
+  assert.equal(result.issueSchemaVersion, 3);
   assert.equal(result.pagesChecked, 1);
   assert.equal(result.pagesFailed, 0);
   assert.deepEqual(result.issues.map((item) => item.type), ["broken-link"]);
