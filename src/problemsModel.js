@@ -173,7 +173,10 @@ const auditObservedUrl = (scope, item, sourceUrl) => {
 };
 
 const auditStillContainsGroup = (group, item) =>
-  (Array.isArray(item?.issues) ? item.issues : []).some((issue) => {
+  [
+    ...(Array.isArray(item?.issues) ? item.issues : []),
+    ...(Array.isArray(item?.reviewItems) ? item.reviewItems : []),
+  ].some((issue) => {
     const sourceUrl = issueSourceUrl(issue, item?.url || "");
     const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
     return identityCandidates(record).some((alias) => group.aliases.has(alias));
@@ -268,9 +271,14 @@ export function buildUnifiedProblems({
       const group = findOrCreate(groups, aliasMap, record, reviewItem, sourceUrl);
       group.events.push({ kind: "audit_review", at, source: "audit", scope });
       group.auditScopes.add(scope);
-      if (!group.detail) group.detail = reviewItem?.detail || reviewItem?.label || "Segnale da confermare.";
-      const reviewSeverity = severity(reviewItem?.severity);
-      if (group.severity === "unknown" && reviewSeverity !== "unknown") group.severity = reviewSeverity;
+      const newestReview = !group.latestAuditAt || timestamp(at) >= timestamp(group.latestAuditAt);
+      if (newestReview) {
+        group.title = reviewItem?.label || reviewItem?.type || group.title;
+        group.detail = reviewItem?.detail || group.detail || "Segnale da confermare.";
+        const currentSeverity = severity(reviewItem?.severity);
+        if (currentSeverity !== "unknown") group.severity = currentSeverity;
+        group.latestAuditAt = at || group.latestAuditAt;
+      }
       addSource(group, {
         label: scope === "site" ? "Audit sito · Da confermare" : "Audit pagina · Da confermare",
         kind: "audit-review",
