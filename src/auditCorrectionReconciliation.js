@@ -1,12 +1,16 @@
-import { normalizeHttpUrl } from "./reliabilityModel.js";
+import { normalizeClientId, normalizeHttpUrl } from "./reliabilityModel.js";
 import { requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 import { listCorrections, removeVerifiedTask, updateCorrection } from "./remediationStore.js";
+import { workspaceStorage } from "./workspaceDatabase.js";
+
+const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
+const SITE_HISTORY_KEY = "seogrow-analyses-v2";
+const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 
 const urlKey = value => normalizeHttpUrl(value || "", { stripSlash: true });
 const auditAt = result => result?.analyzedAt || result?.startedAt || "";
 const findingType = item => String(item?.type || "").trim().toLowerCase();
 const recordType = record => String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
-
 const resultFindingSource = (item, result) => item?.sourceUrl || item?.url || item?.targetUrl || result?.url || "";
 
 function auditCovers(record, resultType, result) {
@@ -38,8 +42,9 @@ const verificationNote = record => {
 };
 
 export async function reconcileCorrectionsAfterAudit({ clientId, resultType, result } = {}) {
-  if (!clientId || !result) return [];
-  const rows = await listCorrections({ clientId });
+  const scope = normalizeClientId(clientId);
+  if (!scope || !result) return [];
+  const rows = await listCorrections({ clientId: scope });
   const completed = [];
   for (const record of rows) {
     if (!record?.id || record.frontendConfirmed !== true) continue;
@@ -57,11 +62,7 @@ export async function reconcileCorrectionsAfterAudit({ clientId, resultType, res
       frontendFailure: false,
       lastVerificationAttemptAt: checkedAt,
       verificationNote: verificationNote(record),
-      auditVerification: {
-        type: resultType,
-        url: result.url || "",
-        analyzedAt: checkedAt,
-      },
+      auditVerification: { type: resultType, url: result.url || "", analyzedAt: checkedAt },
     }, { expectedRecord: record });
     if (updated) {
       removeVerifiedTask(updated);
@@ -69,4 +70,37 @@ export async function reconcileCorrectionsAfterAudit({ clientId, resultType, res
     }
   }
   return completed;
+}
+
+const selectedClientId = () => {
+  try { return normalizeClientId(JSON.parse(workspaceStorage.getItem(SELECTED_CLIENT_KEY) || "null")); }
+  catch { return null; }
+};
+
+const latestFromStore = (key, raw) => {
+  try {
+    const store = JSON.parse(raw ?? workspaceStorage.getItem(key) ?? "{}");
+    const scope = selectedClientId();
+    const rows = scope ? store?.[scope] ?? store?.[String(scope)] : null;
+    return { scope, result: Array.isArray(rows) ? rows[0] || null : rows || null };
+  } catch {
+    return { scope: null, result: null };
+  }
+};
+
+const reconcileFromStorageEvent = event => {
+  const key = event?.key || event?.detail?.key;
+  if (![PAGE_HISTORY_KEY, SITE_HISTORY_KEY].includes(key)) return;
+  const raw = event?.newValue ?? event?.detail?.newValue;
+  const { scope, result } = latestFromStore(key, raw);
+  if (!scope || !result) return;
+  const resultType = key === PAGE_HISTORY_KEY ? "page" : "site";
+  void reconcileCorrectionsAfterAudit({ clientId: scope, resultType, result }).catch(error =>
+    console.warn("Riconciliazione correzioni dopo audit non completata:", error),
+  );
+};
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", reconcileFromStorageEvent);
+  window.addEventListener("seogrow-storage-ok", reconcileFromStorageEvent);
 }
