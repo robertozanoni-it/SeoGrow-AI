@@ -126,7 +126,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const runProblemAction = (item) => {
     const problem = problemFromRecommendation(problemContext, item);
     const priority = problemResolutionPriority(problem);
-    let opened = false;
+    let opened;
     if (priority.mode === "automatic") {
       opened = openProblemResolution(problem, client.id, "problem-card", { forceAutomatic: true });
     } else if (priority.mode === "approval") {
