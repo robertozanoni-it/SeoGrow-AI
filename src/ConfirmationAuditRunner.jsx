@@ -21,6 +21,7 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const TASKS_KEY = "seogrow-tasks-v2";
+const FRONTEND_VERIFIED_EVENT = "seogrow-frontend-verification-complete";
 
 const readJson = (key, fallback) => {
   try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -133,7 +134,17 @@ export default function ConfirmationAuditRunner() {
     const onRequest = (event) => {
       if (event?.detail) void runIntent(event.detail);
     };
+    const onFrontendVerified = async (event) => {
+      const correctionId = event?.detail?.correctionId;
+      const clientId = Number(event?.detail?.clientId);
+      if (!correctionId || !clientId || clientId !== selectedClientId()) return;
+      const record = await readCorrection(correctionId);
+      if (!record || !confirmationAuditReady(record)) return;
+      const intent = confirmationAuditIntent(record);
+      if (intent) void runIntent({ ...intent, navigate: false, explicit: false });
+    };
     window.addEventListener(CONFIRMATION_AUDIT_EVENT, onRequest);
+    window.addEventListener(FRONTEND_VERIFIED_EVENT, onFrontendVerified);
 
     // Only resume an audit explicitly queued by the current workflow. Do not scan
     // every pending correction on load/navigation: a saved "Da verificare" state
@@ -150,6 +161,7 @@ export default function ConfirmationAuditRunner() {
       disposed = true;
       window.clearTimeout(initial);
       window.removeEventListener(CONFIRMATION_AUDIT_EVENT, onRequest);
+      window.removeEventListener(FRONTEND_VERIFIED_EVENT, onFrontendVerified);
     };
   }, []);
 
