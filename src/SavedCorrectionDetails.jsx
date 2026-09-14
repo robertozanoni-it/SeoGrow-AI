@@ -154,7 +154,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         {record.resource === "taxonomy" && <label>Password applicativa WordPress per la verifica<input type="password" autoComplete="new-password" value={passwordEntry?.identity === identity ? passwordEntry.value : ""} onChange={(event) => setPasswordEntry({ identity, value: event.target.value })} /></label>}
         <div className="saved-correction-actions">
           {readyForAudit ? <button type="button" className="primary" disabled={busy || auditRunning} onClick={() => requestConfirmationAudit(record, { navigate: true })}><RefreshCw />{auditRunning ? "Audit di conferma in corso…" : auditPolicy.label}</button> : <button type="button" className="primary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>}
-          {readyForAudit && <button type="button" className="secondary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />Riverifica frontend</button>}
+          {readyForAudit && <button type="button" className="secondary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />Riverifica</button>}
           {href && <a className="secondary" href={href} target="_blank" rel="noopener noreferrer"><ExternalLink />Apri pagina attuale</a>}
           <button type="button" className="secondary" onClick={() => go("Audit SEO")}>Apri Audit SEO</button>
         </div>
