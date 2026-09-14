@@ -105,12 +105,13 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
         evidence: { sourceUrl: targetUrl, canonicalUrl: currentCanonical, sourceId, outcome: 'self-canonical' },
       };
     }
-    let canonicalInspected = null, canonicalFrontend = null;
-    try { [canonicalInspected, canonicalFrontend] = await inspectPair(currentCanonical); }
+    let canonicalPair;
+    try { canonicalPair = await inspectPair(currentCanonical); }
     catch (error) {
       if (entry.kind === 'url_alias') throw fail(`Non è possibile confermare l'alias verso ${currentCanonical}: ${error.message}`, 'ALIAS_CONTEXT_REQUIRED');
       return null;
     }
+    const [canonicalInspected, canonicalFrontend] = canonicalPair;
     const canonicalId = Number(canonicalInspected?.entity?.id || canonicalFrontend?.wordpressDocumentId);
     const issueId = Number(resolved.issue?.wordpressDocumentId);
     const issueIdentityMatches = !(issueId > 0) || issueId === sourceId;
