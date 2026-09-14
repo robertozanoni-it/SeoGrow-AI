@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import dns from "node:dns/promises";
 import https from "node:https";
 import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 
 process.env.APP_API_TOKEN = "a".repeat(64);
 process.env.CREDENTIAL_ENCRYPTION_KEY = "b".repeat(64);
@@ -68,6 +69,49 @@ test("legacy WordPress routes pin requests and reject redirects without forwardi
         assert.equal(calls.at(-1).timeout, route === "test" ? 12000 : 15000);
       }
     }
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test("audit web segnala la meta description solo quando supera il limite SEO", async (t) => {
+  t.mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  let description = "x".repeat(160);
+  t.mock.method(https, "request", (options, callback) => {
+    const request = new EventEmitter();
+    request.write = () => {};
+    request.destroy = error => { request.emit("error", error); request.emit("close"); };
+    request.end = () => queueMicrotask(() => {
+      const html = `<!doctype html><html><head><title>Pagina SEO di verifica completa</title><meta name="description" content="${description}"><link rel="canonical" href="https://example.test/"></head><body><h1>Pagina di verifica</h1><p>${"contenuto ".repeat(220)}</p></body></html>`;
+      const incoming = Readable.from([Buffer.from(html)]);
+      incoming.statusCode = 200;
+      incoming.headers = { "content-type": "text/html; charset=utf-8" };
+      callback(incoming);
+      request.emit("close");
+    });
+    return request;
+  });
+  const server = await new Promise(resolve => {
+    const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+  });
+  const audit = async () => {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/audit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-seogrow-token": "a".repeat(64) },
+      body: JSON.stringify({ url: "https://example.test/" }),
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  try {
+    const atLimit = await audit();
+    assert.equal(atLimit.descriptionLength, 160);
+    assert.equal(atLimit.issues.some(issue => /Meta description di 160 caratteri/.test(issue.label)), false);
+
+    description = "x".repeat(161);
+    const overLimit = await audit();
+    assert.equal(overLimit.descriptionLength, 161);
+    assert.equal(overLimit.issues.some(issue => issue.severity === "media" && issue.label === "Meta description di 161 caratteri"), true);
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

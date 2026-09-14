@@ -72,7 +72,7 @@ export function validateSeoSuggestion(kind, value, page = {}) {
 
   if (normalizedKind === "seo_title" || normalizedKind === "title") {
     if (length < 20) errors.push("Il title è troppo corto per essere pubblicato automaticamente.");
-    if (length > 70) errors.push("Il title supera 70 caratteri.");
+    if (length > SEO_TEXT_LIMITS.seo_title) errors.push(`Il title supera ${SEO_TEXT_LIMITS.seo_title} caratteri, inclusi spazi e punteggiatura.`);
     if (tokenCount < 3) errors.push("Il title non contiene abbastanza informazioni.");
   }
 

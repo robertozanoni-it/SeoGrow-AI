@@ -15,8 +15,14 @@ import { buildConnectorArchive } from './connectorPackage.js';
 
 const sentence = 'Scopri come integrare lo yoga in una routine equilibrata con posizioni, consigli pratici e indicazioni utili per iniziare in modo graduale e consapevole.';
 
-test('meta description 160-character policy counts punctuation, spaces, NFC and code points', () => {
+test('SEO title and meta description length policy enforces shared character caps', () => {
   assert.equal(seoCharacterCount('e\u0301 🧘.'), 4);
+
+  for (const size of [69, 70]) assert.doesNotThrow(() => assertSeoTextLength('seo_title', 'x'.repeat(size)));
+  assert.throws(() => assertSeoTextLength('seo_title', 'x'.repeat(71)), e => e.code === 'SEO_TEXT_LIMIT_EXCEEDED' && e.maxCharacters === 70);
+  assert.equal(validateSeoSuggestion('seo_title', 'x'.repeat(71)).errors.some(error => error.includes('70 caratteri')), true);
+  for (const key of ['rank_math_title','_yoast_wpseo_title']) assert.throws(() => assertSeoPatchLengths({meta:{[key]:'x'.repeat(71)}}), /70/);
+
   for (const size of [159, 160]) assert.doesNotThrow(() => assertSeoTextLength('meta_description', 'x'.repeat(size)));
   for (const size of [161, 175, 180]) {
     assert.throws(() => assertSeoTextLength('meta_description', 'x'.repeat(size)), e => e.code === 'SEO_TEXT_LIMIT_EXCEEDED' && e.maxCharacters === 160);
@@ -36,11 +42,13 @@ test('deterministic metadata uses complete sentences without clipping or fabrica
 test('server rejects oversized SEO metadata before requesting WordPress or granting approval', async () => {
   const handlers = new Map();
   registerRoutes({post:(path,fn)=>handlers.set(path,fn)}, {readTransport:()=>{throw new Error('Must not read WordPress');},atomicTransport:()=>{throw new Error('Must not write WordPress');}});
-  const res = {statusCode:200,status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};
-  await handlers.get('/api/wordpress/live-preview')({ip:'policy-test',body:{siteUrl:'https://example.com',username:'qa',applicationPassword:'qa',resource:'posts',id:1,changes:{meta:{rank_math_description:'x'.repeat(161)}}}},res);
-  assert.equal(res.statusCode,422);
-  assert.equal(res.body.code,'SEO_TEXT_LIMIT_EXCEEDED');
-  assert.equal(res.body.approvalToken,undefined);
+  for (const [key, size] of [['rank_math_title', 71], ['rank_math_description', 161]]) {
+    const res = {statusCode:200,status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};
+    await handlers.get('/api/wordpress/live-preview')({ip:`policy-test-${key}`,body:{siteUrl:'https://example.com',username:'qa',applicationPassword:'qa',resource:'posts',id:1,changes:{meta:{[key]:'x'.repeat(size)}}}},res);
+    assert.equal(res.statusCode,422);
+    assert.equal(res.body.code,'SEO_TEXT_LIMIT_EXCEEDED');
+    assert.equal(res.body.approvalToken,undefined);
+  }
 });
 
 test('taxonomy apply respects cap while a historical rollback preserves its exact long snapshot', () => {
