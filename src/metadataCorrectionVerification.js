@@ -16,7 +16,7 @@ export function requiresDuplicateAudit(record = {}) {
 
 const metadataAuditInstruction = (record, target) => {
   const text = `${record?.issueType || ""} ${record?.issueLabel || ""} ${record?.issue?.type || ""} ${record?.issue?.label || ""}`.toLowerCase();
-  if (requiresDuplicateAudit(record)) return "Per confermare la risoluzione del duplicato serve un nuovo crawl del sito che confronti le pagine coinvolte.";
+  if (requiresDuplicateAudit(record)) return "Per confermare la risoluzione del duplicato serve un nuovo audit/crawl del sito che confronti le pagine coinvolte.";
   if (/description-serp-width|920\s*px|larghezza\s+serp|larga\s+nello\s+snippet/.test(text)) return "Per confermare la risoluzione SEO, SeoGrow deve rieseguire l’audit della pagina e verificare che la larghezza SERP stimata della meta description rientri nella soglia prevista.";
   return `Per confermare la risoluzione del finding relativo a ${target.label}, SeoGrow deve rieseguire un audit recente della pagina.`;
 };
