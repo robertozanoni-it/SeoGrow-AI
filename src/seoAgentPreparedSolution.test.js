@@ -55,10 +55,12 @@ test("la selezione dedicata risolve il review item più recente senza promuoverl
   assert.equal(audit.item.issues.length, 0);
 });
 
-test("SEO Agent offre la soluzione e il generatore impone anche la larghezza SERP", async () => {
+test("SEO Agent usa la policy globale e il generatore impone anche la larghezza SERP", async () => {
   const agent = await readFile(new URL("./AgentPage.jsx", import.meta.url), "utf8");
   const server = await readFile(new URL("../server/wordpressSeoAdapterV2Hook.js", import.meta.url), "utf8");
-  assert.match(agent, /Prepara soluzione/);
+  assert.match(agent, /problemResolutionPriority/);
+  assert.match(agent, /priority\.label/);
+  assert.match(agent, /Salva come task/);
   assert.match(agent, /openProblemResolution/);
   assert.match(server, /metaDescriptionSerpWidthWarning/);
   assert.match(server, /stima massima di 920px/);
