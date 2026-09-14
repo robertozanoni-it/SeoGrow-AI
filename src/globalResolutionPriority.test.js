@@ -53,11 +53,11 @@ test("un finding obsoleto non può saltare l'audit con una conferma", () => {
   assert.equal(canOpenControlledContextPreview(problem), false);
 });
 
-test("link esterno assistito prepara una soluzione controllata", () => {
+test("link esterno assistito prepara una correzione controllata", () => {
   const problem = { ...base, issueType: "broken-external-link", title: "Link esterno 404", correctability: "assisted", targetUrls: ["https://broken.example/"] };
   const priority = problemResolutionPriority(problem);
   assert.equal(priority.mode, "approval");
-  assert.equal(priority.label, "Prepara soluzione");
+  assert.equal(priority.label, "Prepara correzione");
 });
 
 test("problemi senza adapter restano soluzione guidata, non falsa automazione", () => {
