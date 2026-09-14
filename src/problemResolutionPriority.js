@@ -17,14 +17,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
   const hasUrl = Boolean(safeHttpHref(problem.sourceUrl));
 
   if (problem.problemState === "resolved" || path.action === "verify" || path.action === "history") {
-    return {
-      mode: "verify",
-      action: path.action,
-      label: path.label,
-      title: path.title,
-      instructions: path.instructions,
-      kind,
-    };
+    return { mode: "verify", action: path.action, label: path.label, title: path.title, instructions: path.instructions, kind };
   }
 
   if (problem.correctability === "automatic" && path.action === "prepare" && !problem.ownershipBlocked && hasUrl) {
@@ -38,7 +31,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     };
   }
 
-  if (path.action === "prepare" || (PREPARABLE_KINDS.has(kind) && hasUrl && !problem.ownershipBlocked)) {
+  if (path.action === "prepare" || (PREPARABLE_KINDS.has(kind) && path.action !== "audit" && hasUrl && !problem.ownershipBlocked)) {
     return {
       mode: "approval",
       action: "prepare",
@@ -49,7 +42,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     };
   }
 
-  if (USER_INTENT_KINDS.has(kind) && hasUrl && !problem.ownershipBlocked) {
+  if (USER_INTENT_KINDS.has(kind) && path.action === "confirm" && hasUrl && !problem.ownershipBlocked) {
     return {
       mode: "confirm",
       action: "confirm",
@@ -64,9 +57,9 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
 
   return {
     mode: "guided",
-    action: "guide",
-    label: "Prepara soluzione guidata",
-    title: "Soluzione guidata",
+    action: path.action === "audit" ? "audit" : "guide",
+    label: path.action === "audit" ? path.label : "Prepara soluzione guidata",
+    title: path.title || "Soluzione guidata",
     instructions: path.instructions || "SeoGrow prepara i passaggi operativi e le verifiche necessarie. Se manca un adapter sicuro non viene simulata alcuna scrittura automatica.",
     kind,
   };
