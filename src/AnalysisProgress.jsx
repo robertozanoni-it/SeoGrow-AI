@@ -23,11 +23,12 @@ export default function AnalysisProgress({ progressId }) {
   }, [progressId]);
   const done = Math.max(0, Number(state?.done) || 0);
   const total = Math.max(done, Number(state?.total) || 0);
+  const indeterminate = !state || state.discovering;
   return <div className="analysis-progress" aria-busy="true">
     <strong role="status">{state?.phase || 'Avvio analisi…'}</strong>
-    <progress aria-label={state?.phase || 'Avvio analisi'} value={state?.discovering ? 0 : done} max={Math.max(1, total)} />
-    <small>{state ? `${done} completati · ${Math.max(0, total - done)} rimanenti nella fase corrente.` : 'In attesa dei primi dati dal server.'}</small>
-    {state?.discovering && <small>Ricerca delle pagine: il totale può aumentare, fino al limite scelto. La barra resta ferma finché il totale non è definito.</small>}
+    <progress aria-label={state?.phase || 'Avvio analisi'} value={indeterminate ? undefined : done} max={Math.max(1, total)} />
+    <small>{state ? `${done} completati · ${Math.max(0, total - done)} rimanenti nella fase corrente.` : 'Avvio e ricerca delle prime pagine in corso.'}</small>
+    {state?.discovering && <small>Ricerca delle pagine in corso: il totale può aumentare fino al limite scelto. La barra resta attiva finché il totale non è definito.</small>}
     <small>L’analisi comprende pagine, link interni, link esterni e riepilogo finale.</small>
   </div>;
 }
