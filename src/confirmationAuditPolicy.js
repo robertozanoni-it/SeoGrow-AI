@@ -100,6 +100,13 @@ export function confirmationAuditReady(record = {}) {
   if (!safeRecord.id || safeRecord.status !== "Da verificare" || safeRecord.confirmationAuditState === "running") return false;
   if (!safeRecord.lastVerificationAttemptAt || safeRecord.frontendFailure === true) return false;
   if (safeRecord.confirmationAuditVerifiedAt) return false;
+  const verificationAt = Date.parse(safeRecord.lastVerificationAttemptAt);
+  const lastConfirmationAt = Math.max(
+    Date.parse(safeRecord.confirmationAuditLastAt || "") || 0,
+    Date.parse(safeRecord.confirmationAuditErrorAt || "") || 0,
+    Date.parse(safeRecord.confirmationAuditStartedAt || "") || 0,
+  );
+  if (lastConfirmationAt && (!Number.isFinite(verificationAt) || verificationAt <= lastConfirmationAt)) return false;
   return Boolean(safeHttpHref(safeRecord.sourceUrl));
 }
 
