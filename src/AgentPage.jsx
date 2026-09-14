@@ -42,7 +42,6 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode };
 
   useEffect(() => {
-    setProblemContext(null);
     const applyPrefill = (detail) => {
       if (!detail || Number(detail.clientId) !== Number(client.id)) return false;
       setGoal(problemPrompt(detail));
@@ -71,8 +70,9 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     operationLock.current = true;
     setRunning(true); setActionError("");
     try {
-      const result = problemContext
-        ? buildProblemAgentRun({ goal, detail: problemContext, analysis, projectId: client.id })
+      const contextualProblem = problemContext && Number(problemContext.clientId) === Number(client.id) ? problemContext : null;
+      const result = contextualProblem
+        ? buildProblemAgentRun({ goal, detail: contextualProblem, analysis, projectId: client.id })
         : await orchestrator.run(goal, input);
       setCurrentRun(result);
       onSaveRun(result);
