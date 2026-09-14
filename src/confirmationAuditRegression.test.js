@@ -14,6 +14,8 @@ test("SERP width verification asks for the correct audit instead of duplicate ch
     after: { "meta.rank_math_description": "Una meta description più compatta e leggibile." },
   };
   const patch = metadataVerificationPatch(record, {
+    ok: true,
+    isHtml: true,
     url: page,
     status: 200,
     verificationSafe: true,
