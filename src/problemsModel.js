@@ -260,6 +260,25 @@ export function buildUnifiedProblems({
         nature: "observed",
       });
     }
+
+    for (const reviewItem of Array.isArray(item?.reviewItems) ? item.reviewItems : []) {
+      const sourceUrl = issueSourceUrl(reviewItem, item?.url || "");
+      if (isLegalPage(sourceUrl)) continue;
+      const record = { issueType: reviewItem?.type, issueLabel: reviewItem?.label, sourceUrl, issue: reviewItem };
+      const group = findOrCreate(groups, aliasMap, record, reviewItem, sourceUrl);
+      group.events.push({ kind: "audit_review", at, source: "audit", scope });
+      group.auditScopes.add(scope);
+      if (!group.detail) group.detail = reviewItem?.detail || reviewItem?.label || "Segnale da confermare.";
+      const reviewSeverity = severity(reviewItem?.severity);
+      if (group.severity === "unknown" && reviewSeverity !== "unknown") group.severity = reviewSeverity;
+      addSource(group, {
+        label: scope === "site" ? "Audit sito · Da confermare" : "Audit pagina · Da confermare",
+        kind: "audit-review",
+        at,
+        detail: reviewItem?.detail || reviewItem?.label || "Segnale da confermare prima di correggere.",
+        nature: reviewItem?.evidenceNature || "derived",
+      });
+    }
   }
 
   reconcileAuditClearance(groups, audits);
@@ -328,12 +347,13 @@ export function buildUnifiedProblems({
     );
     const clearedByNewerAudit = clearanceTime > timestamp(group.latestAuditAt) && !invalidatedAfterClearance;
     const isolatedQaCompleted = String(group.issueType || "").trim().toLowerCase() === "qa-isolated" && state.interventionState === "rolled_back";
-    const problemState = isolatedQaCompleted ? "intentional" : clearedByNewerAudit ? "resolved" : state.problemState;
+    const reviewOnly = group.sources.some((source) => source.kind === "audit-review") && !group.sources.some((source) => source.kind === "audit");
+    const problemState = isolatedQaCompleted ? "intentional" : clearedByNewerAudit ? "resolved" : reviewOnly ? "needs_verification" : state.problemState;
     const verifiedAt = clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
     const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;
-    const confidence = issueConfidence(
+    const confidence = reviewOnly ? "needs_confirmation" : issueConfidence(
       { type: group.issueType, label: group.title, detail: group.detail },
       {
         pageKind: group.pageKind,
@@ -353,7 +373,7 @@ export function buildUnifiedProblems({
       priority: group.priority,
       problemState,
       interventionState: state.interventionState,
-      correctability: issueCorrectability(
+      correctability: reviewOnly ? "not_supported" : issueCorrectability(
         { type: group.issueType, label: group.title, detail: group.detail },
         { pageKind: group.pageKind, ownershipBlocked: group.ownershipBlocked },
       ),
@@ -372,6 +392,7 @@ export function buildUnifiedProblems({
       quality: group.quality,
       pageKind: group.pageKind,
       resolvedByAudit: clearedByNewerAudit,
+      reviewOnly,
     };
   }).toSorted((a, b) => {
     const stateWeight = { reappeared: 0, open: 1, needs_verification: 2, intentional: 3, resolved: 4 };
