@@ -3,7 +3,17 @@ import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { exactPageKey } from "./remediationEvidence.js";
 
 export const proposalSelectionKey = focus => focus ? JSON.stringify([
-  focus.clientId, focus.sourceUrl, focus.issueType || "", focus.title || "", focus.createdAt, focus.issueKey || "", focus.targetUrl || "", focus.controlledPreview === true, focus.controlledReviewPreview === true,
+  focus.clientId,
+  focus.sourceUrl,
+  focus.issueType || "",
+  focus.title || "",
+  focus.createdAt,
+  focus.issueKey || "",
+  focus.targetUrl || "",
+  focus.controlledPreview === true,
+  focus.controlledReviewPreview === true,
+  focus.controlledContextPreview === true,
+  focus.reviewOnly === true,
 ]) : "";
 
 // A dedicated proposal resolves its current persisted identity, never a replayed index.
@@ -12,7 +22,9 @@ export function selectFocusedRemediation(audits, focus, clientId, client) {
   const source = exactPageKey(focus.sourceUrl);
   if (!source) return null;
   const text = value => String(value || "").trim().toLowerCase();
-  const collection = focus.controlledReviewPreview === true ? "reviewItems" : "issues";
+  const collection = focus.controlledReviewPreview === true || (focus.controlledContextPreview === true && focus.reviewOnly === true)
+    ? "reviewItems"
+    : "issues";
   const matching = [];
   for (const audit of audits) {
     const rows = Array.isArray(audit.item?.[collection]) ? audit.item[collection] : [];

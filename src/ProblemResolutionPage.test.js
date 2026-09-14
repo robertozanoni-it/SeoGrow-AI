@@ -25,7 +25,8 @@ test("la pagina di risoluzione conserva dati, prove e azioni reali", () => {
   assert.match(page, /Che cosa propone SeoGrow/);
   assert.match(page, /Dopo l’approvazione/);
   assert.match(page, /resolutionPath\(problem, latestCorrection\)/);
-  assert.match(page, /path\.label/);
+  assert.match(page, /problemResolutionPriority\(problem, latestCorrection\)/);
+  assert.match(page, /priority\.label/);
   assert.match(page, /Chiedi a SeoGrow/);
 });
 
