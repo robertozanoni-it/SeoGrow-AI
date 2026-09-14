@@ -54,10 +54,11 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     };
   }
 
+  const specificGuidedLabel = ["audit", "manual"].includes(path.action);
   return {
     mode: "guided",
     action: path.action === "audit" ? "audit" : "guide",
-    label: path.action === "audit" ? path.label : "Prepara soluzione guidata",
+    label: specificGuidedLabel ? path.label : "Prepara soluzione guidata",
     title: path.title || "Soluzione guidata",
     instructions: path.instructions || "SeoGrow prepara i passaggi operativi e le verifiche necessarie. Se manca un adapter sicuro non viene simulata alcuna scrittura automatica.",
     kind,

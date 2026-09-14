@@ -35,7 +35,13 @@ export function resolutionPath(problem = {}, correction = null) {
   if (/url-alias|redirect/.test(type)) return { action: "audit", label: "Verifica URL e indicizzazione", title: "Conferma quale URL deve essere pubblica", instructions: "Controlla redirect, canonical e risorsa WordPress. Due URL con e senza slash possono essere la stessa pagina: non generare modifiche senza confermare risorse distinte." };
   if (problem.correctability === "automatic" || /broken-external-link/.test(type)) return { action: "prepare", label: "Prepara correzione", title: "Anteprima, approvazione e verifica", instructions: "Prepara la singola proposta sul campo verificato. Se la generazione fallisce, rivedi e valida il testo prima di approvare. Per i link scegli se mantenere o eliminare il testo." };
   if (/ottimizza|keyword|opportun|position|ranking/.test(type)) return { action: "agent", label: "Prepara soluzione guidata", title: "Ottimizzazione editoriale guidata", instructions: "Confronta keyword, intento e contenuto con dati recenti. SeoGrow prepara un brief operativo e conserva l’applicazione come passaggio separato da approvare." };
-  if (/performance|lento|response|depth|image|alt|broken-link/.test(type)) return { action: "manual", label: "Prepara soluzione guidata", title: "Intervento tecnico guidato", instructions: "SeoGrow prepara controlli e passaggi specifici per l’elemento segnalato. Se manca un adapter sicuro, la modifica resta manuale e viene verificata con un nuovo audit." };
+  if (/performance|lento|response|speed|tempo di risposta/.test(type)) return {
+    action: "manual",
+    label: "Analizza causa e prepara correzione",
+    title: "Diagnosi prestazionale guidata",
+    instructions: "SeoGrow prepara una diagnosi causale con evidenze recenti, identifica le cause più probabili e propone un intervento alla volta. Ogni modifica resta separata e verificabile con confronto Prima/Dopo; non vengono cambiate configurazioni non attribuite con certezza.",
+  };
+  if (/depth|image|alt|broken-link/.test(type)) return { action: "manual", label: "Prepara soluzione guidata", title: "Intervento tecnico guidato", instructions: "SeoGrow prepara controlli e passaggi specifici per l’elemento segnalato. Se manca un adapter sicuro, la modifica resta manuale e viene verificata con un nuovo audit." };
   return { action: "agent", label: "Prepara soluzione guidata", title: "Diagnosi e soluzione guidata", instructions: "SeoGrow usa URL, dettaglio ed evidenze per preparare un intervento preciso. Se il tipo non dispone di una scrittura sicura, non inventa un adapter: propone i passaggi e la verifica finale." };
 }
 
