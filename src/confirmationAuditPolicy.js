@@ -3,12 +3,13 @@ import { normalizeHttpUrl, safeHttpHref } from "./reliabilityModel.js";
 export const CONFIRMATION_AUDIT_KEY = "seogrow-confirmation-audit-v1";
 export const CONFIRMATION_AUDIT_EVENT = "seogrow-confirmation-audit";
 
-const issueText = (record = {}) => `${record.issueType || ""} ${record.issueLabel || ""} ${record.issue?.type || ""} ${record.issue?.label || ""}`.toLowerCase();
+const issueText = (record = {}) => `${record?.issueType || ""} ${record?.issueLabel || ""} ${record?.issue?.type || ""} ${record?.issue?.label || ""}`.toLowerCase();
 const normalizedUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
 const duplicateFinding = (text) => /duplicate[-_ ](?:title|description)|(?:title|titolo|meta description|descrizione)\s+duplicat/i.test(text);
 
 export function confirmationAuditPolicy(record = {}) {
-  const text = issueText(record);
+  const safeRecord = record || {};
+  const text = issueText(safeRecord);
   if (/description-serp-width|meta description.*(?:larga|snippet)|920\s*px/.test(text)) return {
     mode: "page",
     maxPages: 1,
@@ -23,11 +24,11 @@ export function confirmationAuditPolicy(record = {}) {
     mode: "site",
     maxPages: 200,
     label: "Esegui crawl di conferma",
-    frontendMatchedNote: "Il valore pubblicato coincide con quello inviato a WordPress. Per confermare la risoluzione del duplicato serve un nuovo crawl che confronti le pagine del sito.",
+    frontendMatchedNote: "Il valore pubblicato coincide con quello inviato a WordPress. Per confermare la risoluzione del duplicato serve un nuovo audit con crawl che confronti le pagine del sito.",
     runningNote: "Crawl di conferma in corso: SeoGrow verifica che il duplicato non sia più presente nel sito.",
     successNote: "Crawl di conferma completato: il duplicato non è più presente nelle pagine controllate.",
     stillPresentNote: "Il crawl di conferma rileva ancora il duplicato. La correzione resta Da verificare.",
-    help: "I duplicati richiedono un crawl del sito: la sola corrispondenza del valore sul frontend non dimostra l’unicità tra pagine diverse.",
+    help: "I duplicati richiedono un nuovo audit con crawl del sito: la sola corrispondenza del valore sul frontend non dimostra l’unicità tra pagine diverse.",
   };
   if (/canonical/.test(text)) return {
     mode: "page",
@@ -72,21 +73,22 @@ export function confirmationAuditPolicy(record = {}) {
 }
 
 export function confirmationAuditIntent(record = {}) {
-  const policy = confirmationAuditPolicy(record);
-  const sourceUrl = safeHttpHref(record.sourceUrl);
-  if (!record.id || !record.clientId || !sourceUrl) return null;
+  const safeRecord = record || {};
+  const policy = confirmationAuditPolicy(safeRecord);
+  const sourceUrl = safeHttpHref(safeRecord.sourceUrl);
+  if (!safeRecord.id || !safeRecord.clientId || !sourceUrl) return null;
   let startUrl = sourceUrl;
   if (policy.mode === "site") {
-    try { startUrl = safeHttpHref(record.siteUrl) || new URL(sourceUrl).origin; } catch { return null; }
+    try { startUrl = safeHttpHref(safeRecord.siteUrl) || new URL(sourceUrl).origin; } catch { return null; }
   }
   return {
-    id: `confirm-${record.id}-${Date.now()}`,
-    correctionId: record.id,
-    clientId: Number(record.clientId),
+    id: `confirm-${safeRecord.id}-${Date.now()}`,
+    correctionId: safeRecord.id,
+    clientId: Number(safeRecord.clientId),
     sourceUrl,
     startUrl,
-    issueType: String(record.issueType || record.issue?.type || ""),
-    issueLabel: String(record.issueLabel || record.issue?.label || ""),
+    issueType: String(safeRecord.issueType || safeRecord.issue?.type || ""),
+    issueLabel: String(safeRecord.issueLabel || safeRecord.issue?.label || ""),
     mode: policy.mode,
     maxPages: policy.maxPages,
     createdAt: Date.now(),
@@ -94,17 +96,19 @@ export function confirmationAuditIntent(record = {}) {
 }
 
 export function confirmationAuditReady(record = {}) {
-  if (!record.id || record.status !== "Da verificare" || record.confirmationAuditState === "running") return false;
-  if (!record.lastVerificationAttemptAt || record.frontendFailure === true) return false;
-  if (record.confirmationAuditVerifiedAt) return false;
-  return Boolean(safeHttpHref(record.sourceUrl));
+  const safeRecord = record || {};
+  if (!safeRecord.id || safeRecord.status !== "Da verificare" || safeRecord.confirmationAuditState === "running") return false;
+  if (!safeRecord.lastVerificationAttemptAt || safeRecord.frontendFailure === true) return false;
+  if (safeRecord.confirmationAuditVerifiedAt) return false;
+  return Boolean(safeHttpHref(safeRecord.sourceUrl));
 }
 
 const findingSourceUrl = (finding, result) => finding?.sourceUrl || finding?.url || finding?.pageUrl || finding?.page || result?.url || "";
 const findingTitle = (finding) => String(finding?.label || finding?.title || finding?.type || "").trim().toLowerCase();
 
 export function confirmationAuditOutcome(record = {}, result = {}, mode = confirmationAuditPolicy(record).mode) {
-  const source = normalizedUrl(record.sourceUrl);
+  const safeRecord = record || {};
+  const source = normalizedUrl(safeRecord.sourceUrl);
   const resultUrl = normalizedUrl(result.url);
   const pages = Array.isArray(result.pages) ? result.pages : [];
   const pageUrls = pages.map((page) => normalizedUrl(page?.url)).filter(Boolean);
@@ -115,8 +119,8 @@ export function confirmationAuditOutcome(record = {}, result = {}, mode = confir
       : Number(result.pagesChecked || 0) > 0;
   if (!coverageConfirmed) return { confirmed: false, inconclusive: true, matching: [], reason: "L’audit non dimostra di aver ricontrollato la URL della correzione." };
 
-  const wantedType = String(record.issueType || record.issue?.type || "").trim().toLowerCase();
-  const wantedTitle = String(record.issueLabel || record.issue?.label || "").trim().toLowerCase();
+  const wantedType = String(safeRecord.issueType || safeRecord.issue?.type || "").trim().toLowerCase();
+  const wantedTitle = String(safeRecord.issueLabel || safeRecord.issue?.label || "").trim().toLowerCase();
   const rows = [
     ...(Array.isArray(result.issues) ? result.issues : []),
     ...(Array.isArray(result.reviewItems) ? result.reviewItems : []),
