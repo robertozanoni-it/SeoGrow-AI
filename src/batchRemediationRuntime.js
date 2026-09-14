@@ -9,11 +9,12 @@ import { buildElementorImpactCandidateUrls } from './elementorImpactCandidates.j
 import { brokenExternalTarget } from './brokenLinkRemediation.js';
 import { assertSeoPatchLengths } from './seoTextPolicy.js';
 import { correctionCredentials } from './correctionCredentials.js';
-import { listCorrections, readCorrection, updateCorrection, removeVerifiedTask } from './remediationStore.js';
+import { listCorrections, readCorrection, saveCorrection, updateCorrection, removeVerifiedTask } from './remediationStore.js';
 import { recheckCorrectionById } from './remediationIntegrity.js';
 import { exactPageKey, assertPublicObservation } from './remediationEvidence.js';
 import { requiresDuplicateAudit, metadataVerificationTarget } from './metadataCorrectionVerification.js';
 import { remediationIssueKind } from './remediationIssueKind.js';
+import { safeHttpHref } from './reliabilityModel.js';
 import { stableBatchJson } from './batchRemediationModel.js';
 
 const read = (key, fallback) => { try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
@@ -29,6 +30,14 @@ const request = async (path, body) => {
   const data = await response.json();
   if (!response.ok) throw fail(data.error || `Richiesta non riuscita (${response.status}).`, data.code || (/401|403|password|autentic|unauthorized|forbidden|incorrect_password/i.test(data.error || '') ? 'AUTH_LOST' : `HTTP_${response.status}`));
   return data;
+};
+const normalizedResourceUrl = value => exactPageKey(value, true);
+const sameResourceUrl = (left, right) => Boolean(normalizedResourceUrl(left) && normalizedResourceUrl(left) === normalizedResourceUrl(right));
+const canonicalFromIssue = issue => {
+  const explicit = safeHttpHref(issue?.canonicalUrl || issue?.canonical || '');
+  if (explicit) return explicit;
+  const detail = String(issue?.detail || '').trim();
+  return /^https?:\/\//i.test(detail) ? safeHttpHref(detail) : '';
 };
 
 export function createBatchWordPressPorts({ run, credentials, save, progress, stopped }) {
@@ -49,7 +58,12 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       ...normalizeAnalysisHistory(read('seogrow-analyses-v2', {})[run.clientId]).map(item => ({ type: 'site', item })),
     ];
     const p = entry.problem;
-    const focus = { clientId: run.clientId, issueType: p.issueType, title: p.title, sourceUrl: p.sourceUrl, targetUrl: p.targetUrls?.[0] || '', issueKey: p.key };
+    const reviewOnly = p.reviewOnly === true || p.problemState === 'needs_verification';
+    const focus = {
+      clientId: run.clientId, issueType: p.issueType, title: p.title, sourceUrl: p.sourceUrl,
+      targetUrl: p.targetUrls?.[0] || '', issueKey: p.key, reviewOnly,
+      controlledReviewPreview: reviewOnly,
+    };
     const selection = selectFocusedRemediation(history, focus, run.clientId, client);
     if (!selection) throw fail('Il problema non identifica un’unica rilevazione nell’audit corrente. Aprilo singolarmente.', 'STALE_TARGET');
     return { client, audit: selection.audit, issue: selection.audit.item.issues[selection.issueIndex], focus };
@@ -60,11 +74,63 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
     if (checked.ok !== true || !(checked.user?.id > 0)) throw fail('Connessione WordPress non verificata.', 'AUTH_LOST');
     await assertContext(); return checked;
   };
+  const inspectPair = async targetUrl => {
+    if (!cache.has(targetUrl)) cache.set(targetUrl, Promise.all([inspectWordPress(targetUrl, wp), inspectFrontend(targetUrl)]));
+    return cache.get(targetUrl);
+  };
   const pendingCorrection = async (entry, preview) => {
     const corrections = await listCorrections({ clientId: run.clientId });
     return corrections.find(c => c.id !== entry.correctionId &&
       ((correctionIssueKeys(c).includes(entry.problem.key)) || (preview && c.resourceIdentity === preview.resourceIdentity && c.fields?.some(f => preview.data.changed.includes(f)))) &&
       (c.status === 'Esito incerto' || (['Applicato','Da verificare'].includes(c.status) && c.writeConfirmed !== false)));
+  };
+  const readOnlyCanonicalCheck = async (entry, resolved, inspected, frontendContext, targetUrl) => {
+    if (!['canonical', 'url_alias'].includes(entry.kind)) return null;
+    const currentCanonical = safeHttpHref(frontendContext?.canonical || canonicalFromIssue(resolved.issue));
+    if (!currentCanonical) {
+      if (entry.kind === 'url_alias') throw fail('Alias rilevato ma canonical corrente non verificabile: serve controllo singolo prima di qualsiasi decisione.', 'ALIAS_CONTEXT_REQUIRED');
+      return null;
+    }
+    const sourceId = Number(inspected.entity?.id);
+    const observedSourceId = Number(frontendContext?.wordpressDocumentId);
+    if (observedSourceId > 0 && sourceId > 0 && observedSourceId !== sourceId) throw fail('La pagina pubblica appartiene a una risorsa WordPress diversa da quella ispezionata.', 'OWNERSHIP_UNDETERMINED');
+    const resourceIdentity = `wp:${inspected.resource}:${sourceId}`;
+    if (sameResourceUrl(currentCanonical, targetUrl)) {
+      return {
+        alreadyResolved: true,
+        verifiedResolution: true,
+        reason: 'La canonical corrente coincide già con la URL analizzata: il finding è obsoleto e viene chiuso senza scritture.',
+        resourceIdentity,
+        issue: resolved.issue,
+        evidence: { sourceUrl: targetUrl, canonicalUrl: currentCanonical, sourceId, outcome: 'self-canonical' },
+      };
+    }
+    let canonicalPair;
+    try { canonicalPair = await inspectPair(currentCanonical); }
+    catch (error) {
+      if (entry.kind === 'url_alias') throw fail(`Non è possibile confermare l'alias verso ${currentCanonical}: ${error.message}`, 'ALIAS_CONTEXT_REQUIRED');
+      return null;
+    }
+    const [canonicalInspected, canonicalFrontend] = canonicalPair;
+    const canonicalId = Number(canonicalInspected?.entity?.id || canonicalFrontend?.wordpressDocumentId);
+    const issueId = Number(resolved.issue?.wordpressDocumentId);
+    const issueIdentityMatches = !(issueId > 0) || issueId === sourceId;
+    const sameWordPressResource = sourceId > 0 && canonicalId === sourceId && issueIdentityMatches;
+    const canonicalSelf = sameResourceUrl(canonicalFrontend?.canonical || currentCanonical, currentCanonical);
+    if (sameWordPressResource && canonicalSelf) {
+      return {
+        alreadyResolved: true,
+        verifiedResolution: true,
+        reason: `Alias WordPress verificato: entrambe le URL appartengono alla risorsa #${sourceId} e convergono sulla canonical ${currentCanonical}. Nessuna scrittura necessaria.`,
+        resourceIdentity,
+        issue: resolved.issue,
+        evidence: { sourceUrl: targetUrl, canonicalUrl: currentCanonical, sourceId, canonicalId, outcome: 'intentional-alias' },
+      };
+    }
+    if (entry.kind === 'url_alias') {
+      throw fail('Le due URL non sono più dimostrate come alias della stessa risorsa con canonical coerente. Serve una decisione singola su redirect/canonical.', 'ALIAS_CONTEXT_REQUIRED');
+    }
+    return null;
   };
   const ports = {
     save, progress, stopped, assertContext, connection,
@@ -73,10 +139,12 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       const resolved = resolve(entry), targetUrl = entry.problem.sourceUrl;
       if (new URL(targetUrl).origin !== new URL(run.siteUrl).origin) throw fail('La pagina non appartiene al sito approvato.', 'SCOPE_CHANGED');
       if (await pendingCorrection(entry)) throw fail('Esiste una scrittura applicata o incerta per questo problema. Verificala nello storico.', 'UNCERTAIN_PENDING_WRITE');
-      if (!cache.has(targetUrl)) cache.set(targetUrl, Promise.all([inspectWordPress(targetUrl, wp), inspectFrontend(targetUrl)]));
-      const [raw, frontendContext] = await cache.get(targetUrl), inspected = structuredClone(raw);
+      const [raw, frontendContext] = await inspectPair(targetUrl), inspected = structuredClone(raw);
       if (inspected.ok !== true || !['pages','posts'].includes(inspected.resource) || !(inspected.entity?.id > 0) || inspected.entity.status !== 'publish')
         throw fail('Il batch modifica solo pagine/articoli pubblicati e identificati senza ambiguità.', 'UNSUPPORTED_RESOURCE');
+      const readOnlyResolution = await readOnlyCanonicalCheck(entry, resolved, inspected, frontendContext, targetUrl);
+      if (readOnlyResolution) return readOnlyResolution;
+      if (entry.kind === 'url_alias') throw fail('Alias non risolvibile automaticamente con le evidenze correnti.', 'ALIAS_CONTEXT_REQUIRED');
       if (exactPageKey(inspected.entity.link) !== exactPageKey(targetUrl) || exactPageKey(frontendContext.url) !== exactPageKey(targetUrl))
         throw fail('Permalink WordPress e pagina pubblica non coincidono esattamente con il target.', 'OWNERSHIP_UNDETERMINED');
       if (['content','h1'].includes(entry.kind)) {
@@ -104,6 +172,41 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
         ...previewIdentity({ issue: resolved.issue, inspected, targetUrl, frontend: frontendContext }) };
       if (await pendingCorrection(entry, preview)) throw fail('Un’altra correzione sul campo è ancora da verificare.', 'UNCERTAIN_PENDING_WRITE');
       return preview;
+    },
+    recordNoWriteResolution: async (entry, result) => {
+      await assertContext();
+      const resolved = resolve(entry);
+      const now = new Date().toISOString();
+      const record = {
+        id: entry.correctionId,
+        batchId: run.id,
+        clientId: run.clientId,
+        clientName: run.clientName,
+        issueType: entry.problem.issueType,
+        issueLabel: entry.problem.title,
+        issueKey: entry.problem.key,
+        issue: resolved.issue,
+        sourceUrl: entry.problem.sourceUrl,
+        siteUrl: run.siteUrl,
+        resourceIdentity: result.resourceIdentity || '',
+        adapter: 'Verifica batch read-only',
+        status: 'Verificato',
+        createdAt: now,
+        preparedAt: now,
+        verifiedAt: now,
+        writeConfirmed: false,
+        noWriteResolution: true,
+        frontendConfirmed: true,
+        frontendFailure: false,
+        fields: [],
+        before: {},
+        after: {},
+        verificationNote: result.reason || 'Finding verificato in sola lettura; nessuna scrittura WordPress necessaria.',
+        readOnlyEvidence: result.evidence || null,
+      };
+      const saved = await saveCorrection(record);
+      removeVerifiedTask(saved);
+      return saved;
     },
     validate: async entry => {
       const p = entry.preview;
@@ -141,19 +244,26 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       if (['title','meta_description','h1'].includes(entry.kind)) {
         if (!audits.has(p.targetUrl)) audits.set(p.targetUrl, request('/api/audit', { url: p.targetUrl }));
         auditEvidence = await audits.get(p.targetUrl);
-        const at = Date.parse(auditEvidence.fetchedAt || '');
-        const samePage = exactPageKey(auditEvidence.url) === exactPageKey(p.targetUrl);
+        const at = Date.parse(auditEvidence.fetchedAt || auditEvidence.analyzedAt || '');
+        const samePage = exactPageKey(auditEvidence.url, true) === exactPageKey(p.targetUrl, true);
         const fresh = Number.isFinite(at) && at >= Date.parse(record.appliedAt) && at <= Date.now() + 60000;
-        const issues = auditEvidence.issues;
-        const unresolved = !Array.isArray(issues) || issues.some(issue => remediationIssueKind(issue) === entry.kind || issue.type === 'metadata-tags');
+        const issues = [
+          ...(Array.isArray(auditEvidence.issues) ? auditEvidence.issues : []),
+          ...(Array.isArray(auditEvidence.reviewItems) ? auditEvidence.reviewItems : []),
+        ];
+        const originalType = String(entry.problem.issueType || '').toLowerCase();
+        const unresolved = !Array.isArray(issues) || issues.some(issue => {
+          if (originalType && String(issue?.type || '').toLowerCase() === originalType) return true;
+          return originalType !== 'description-serp-width' && (remediationIssueKind(issue) === entry.kind || issue.type === 'metadata-tags');
+        });
         const metadata = metadataVerificationTarget(record);
         const expected = metadata?.expected || (entry.kind === 'title' ? record.after.title : null);
         const observed = entry.kind === 'meta_description' ? frontend.metaDescription : frontend.title;
         const normalized = value => typeof value === 'string' ? value.normalize('NFC').replace(/\s+/g,' ').trim() : null;
         const count = entry.kind === 'title' ? frontend.titleCount : frontend.metaDescriptionCount;
+        const auditValue = entry.kind === 'title' ? auditEvidence.title : auditEvidence.description;
         const actualMatches = entry.kind === 'h1' ? frontend.h1 === 1 && auditEvidence.h1 === 1 :
-          count === 1 && typeof expected === 'string' && normalized(expected) === normalized(observed) &&
-          normalized(entry.kind === 'title' ? auditEvidence.title : auditEvidence.description) === normalized(expected);
+          count === 1 && typeof expected === 'string' && normalized(expected) === normalized(observed) && normalized(auditValue) === normalized(expected);
         fixed = samePage && fresh && !unresolved && actualMatches;
       } else if (entry.kind === 'external_link') {
         const evidence = await inspectLinkEvidence(p.targetUrl, brokenExternalTarget(p.issue));

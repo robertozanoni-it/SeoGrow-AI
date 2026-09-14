@@ -24,7 +24,15 @@ export async function prepareBatch(run, ports) {
       if (!generated.has(key)) generated.set(key, preview);
       await ports.assertContext();
       if (preview.alreadyResolved) {
-        note(entry, 'SKIPPED', preview.reason || 'Non più presente; da confermare nel nuovo audit.', 'ALREADY_ABSENT');
+        if (preview.verifiedResolution === true) {
+          const record = ports.recordNoWriteResolution ? await ports.recordNoWriteResolution(entry, preview) : null;
+          if (record?.id) entry.recordId = record.id;
+          entry.readOnlyEvidence = preview.evidence || null;
+          entry.verification = { needsAudit: false, needsBrowserVerification: false, at: new Date().toISOString(), note: preview.reason || 'Verifica batch conclusa senza scritture.' };
+          note(entry, 'RESOLVED_VERIFIED', preview.reason || 'Verificato in sola lettura: nessuna modifica necessaria.', 'READ_ONLY_VERIFIED');
+        } else {
+          note(entry, 'SKIPPED', preview.reason || 'Non più presente; da confermare nel nuovo audit.', 'ALREADY_ABSENT');
+        }
       } else {
         if (!preview.data?.approvalToken || !preview.data?.changed?.length || !preview.resourceIdentity) throw new Error('Anteprima incompleta: scrittura bloccata.');
         entry.preview = preview;
@@ -33,14 +41,18 @@ export async function prepareBatch(run, ports) {
       }
     } catch (error) {
       const code = errorCode(error);
-      const state = /STALE/.test(code) ? 'STALE_TARGET' : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE/.test(code) ? 'BLOCKED' : 'FAILED';
+      const state = /STALE/.test(code) ? 'STALE_TARGET' : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code) ? 'BLOCKED' : 'FAILED';
       note(entry, state, error.message, code); stop = systemic(code);
     }
     await persist();
   }
   consolidateBatch(run);
-  run.status = run.entries.some(e => e.state === 'PREPARED') ? 'AWAITING_APPROVAL' : 'COMPLETED_WITH_OPEN';
+  const summary = batchSummary(run);
+  run.status = run.entries.some(e => e.state === 'PREPARED')
+    ? 'AWAITING_APPROVAL'
+    : summary.resolvedProblems === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.planFingerprint = approvalFingerprint(run);
+  run.summary = summary;
   await persist(); return run;
 }
 export async function executeBatch(run, approval, ports) {
