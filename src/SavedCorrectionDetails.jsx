@@ -9,6 +9,8 @@ import { safeHttpHref } from "./reliabilityModel.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
 import { clearAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
+import { confirmationAuditPolicy } from "./confirmationAuditPolicy.js";
+import { requestConfirmationAudit } from "./ConfirmationAuditRunner.jsx";
 import "./SavedCorrectionDetails.css";
 
 const selectedClient = () => {
@@ -42,7 +44,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
-    const events = ["seogrow-remediation-history", "seogrow-remediation-applied", "seogrow-storage-ok", "storage"];
+    const events = ["seogrow-remediation-history", "seogrow-remediation-applied", "seogrow-confirmation-audit-complete", "seogrow-storage-ok", "storage"];
     for (const name of events) window.addEventListener(name, refresh);
     return () => { for (const name of events) window.removeEventListener(name, refresh); };
   }, []);
@@ -50,8 +52,6 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
   useEffect(() => {
     if (!correctionId || !Number.isSafeInteger(scope) || scope <= 0) return undefined;
     let cancelled = false;
-    // The lightweight history index deliberately has no before/after values.
-    // Read the authoritative record; never fabricate snapshots from live HTML.
     readCorrection(correctionId).then((record) => {
       if (cancelled) return;
       if (!record || Number(record.clientId) !== scope || selectedClient() !== scope) {
@@ -103,9 +103,10 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
       const text = result?.error
         ? `Riverifica non conclusa: ${result.error.message}. Nessuna nuova modifica applicata.`
         : result?.record?.verificationNote || (result?.needsAudit
-          ? "Serve un nuovo audit SEO per confermare la risoluzione."
+          ? "La verifica frontend è completata; SeoGrow avvia ora l’audit di conferma appropriato al finding."
           : "Controllo completato. Leggi lo stato della verifica qui sotto.");
       setNotice({ identity, text });
+      if (!result?.error && result?.needsAudit && result?.record) requestConfirmationAudit(result.record, { navigate: false });
       setRevision((value) => value + 1);
     } catch (failure) {
       if (mounted.current && selectedClient() === scope) setNotice({ identity, text: `Riverifica non conclusa: ${failure.message}` });
@@ -123,6 +124,9 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
   const href = safeHttpHref(record.sourceUrl);
   const observed = record.frontendSnapshot?.metaDescription ?? record.frontendSnapshot?.title;
   const message = notice?.identity === identity ? notice.text : "";
+  const auditPolicy = confirmationAuditPolicy(record);
+  const readyForAudit = record.status === "Da verificare" && Boolean(record.lastVerificationAttemptAt) && record.frontendFailure !== true;
+  const auditRunning = record.confirmationAuditState === "running";
   return (
     <section className="saved-correction-details" data-correction-id={record.id} aria-label="Confronto salvato Prima / Dopo">
       <header className="saved-correction-head">
@@ -149,14 +153,15 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         {observed != null && <div><strong>Valore letto sul sito all’ultimo controllo</strong><pre>{String(observed)}</pre></div>}
         {record.resource === "taxonomy" && <label>Password applicativa WordPress per la verifica<input type="password" autoComplete="new-password" value={passwordEntry?.identity === identity ? passwordEntry.value : ""} onChange={(event) => setPasswordEntry({ identity, value: event.target.value })} /></label>}
         <div className="saved-correction-actions">
-          <button type="button" className="primary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>
+          {readyForAudit ? <button type="button" className="primary" disabled={busy || auditRunning} onClick={() => requestConfirmationAudit(record, { navigate: true })}><RefreshCw />{auditRunning ? "Audit di conferma in corso…" : auditPolicy.label}</button> : <button type="button" className="primary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>}
+          {readyForAudit && <button type="button" className="secondary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />Riverifica</button>}
           {href && <a className="secondary" href={href} target="_blank" rel="noopener noreferrer"><ExternalLink />Apri pagina attuale</a>}
           <button type="button" className="secondary" onClick={() => go("Audit SEO")}>Apri Audit SEO</button>
         </div>
         {!canVerifyReceipt(record) && <p>La scrittura è bloccata, incerta o ripristinata: non viene dichiarata risolta e non viene riapplicata automaticamente.</p>}
         {message && <p role="status">{message}</p>}
       </section>
-      <p className="saved-correction-help">Prima e Dopo sono gli snapshot storici: restano consultabili dopo l’applicazione, la riverifica e la riapertura. Il link apre la pagina attuale, non una copia del passato. Per confermare l’assenza di duplicati serve anche un nuovo audit che confronti le pagine coinvolte.</p>
+      <p className="saved-correction-help">{auditPolicy.help}</p>
     </section>
   );
 }

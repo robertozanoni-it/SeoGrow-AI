@@ -28,21 +28,11 @@ const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const REMEDIATION_FOCUS_KEY = "seogrow-remediation-focus-v1";
 
 const currentPage = () => {
-  try {
-    return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica";
-  } catch {
-    return "Panoramica";
-  }
+  try { return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"; } catch { return "Panoramica"; }
 };
-
 const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
-
 const normalizedUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
 const issueSourceUrl = (issue, audit, client) => {
   const type = String(issue?.type || "").toLowerCase();
@@ -50,48 +40,59 @@ const issueSourceUrl = (issue, audit, client) => {
   return issue?.sourceUrl || issue?.url || (!brokenLink ? issue?.targetUrl : "") || audit?.url || client?.url || "";
 };
 const auditTimestamp = (audit) => audit?.analyzedAt || audit?.startedAt || "";
-
 const matchesFocus = matchesProblemFocus;
 
 const findAuditFocus = ({ clientId, client, focus, problem, pageHistory, siteHistory }) => {
   if (!clientId || !client || !focus) return null;
-  const pages = Array.isArray(pageHistory?.[clientId])
-    ? pageHistory[clientId]
-    : Array.isArray(pageHistory?.[String(clientId)])
-      ? pageHistory[String(clientId)]
-      : [];
+  const pages = Array.isArray(pageHistory?.[clientId]) ? pageHistory[clientId] : Array.isArray(pageHistory?.[String(clientId)]) ? pageHistory[String(clientId)] : [];
   const sites = normalizeAnalysisHistory(siteHistory?.[clientId] ?? siteHistory?.[String(clientId)] ?? []);
-  const candidates = [
-    ...pages.map((item) => ({ auditType: "page", item })),
-    ...sites.map((item) => ({ auditType: "site", item })),
-  ].toSorted((a, b) => Date.parse(auditTimestamp(b.item) || 0) - Date.parse(auditTimestamp(a.item) || 0));
-  const wantedType = String(problem?.issueType || "").trim().toLowerCase();
+  const candidates = [...pages.map((item) => ({ auditType: "page", item })), ...sites.map((item) => ({ auditType: "site", item }))]
+    .toSorted((a, b) => Date.parse(auditTimestamp(b.item) || 0) - Date.parse(auditTimestamp(a.item) || 0));
+  const wantedType = String(problem?.issueType || focus.issueType || "").trim().toLowerCase();
   const wantedUrl = normalizedUrl(problem?.sourceUrl || focus.sourceUrl);
   const wantedTitle = String(problem?.title || focus.title || "").trim().toLowerCase();
   const wantedTarget = focus.targetUrl || (wantedType === "broken-external-link" && problem?.targetUrls?.length === 1 ? problem.targetUrls[0] : "");
-  const collection = focus.controlledReviewPreview === true ? "reviewItems" : "issues";
+  const collections = focus.controlledReviewPreview === true || focus.controlledContextPreview === true ? ["reviewItems", "issues"] : ["issues"];
+  const latestExactPage = candidates.find((entry) => entry.auditType === "page" && normalizedUrl(entry.item?.url) === wantedUrl) || null;
+  const searchCandidates = latestExactPage ? [latestExactPage] : candidates;
 
-  for (const entry of candidates) {
-    const rows = Array.isArray(entry.item?.[collection]) ? entry.item[collection] : [];
-    const issueIndex = rows.findIndex((issue) => {
-      const type = String(issue?.type || "").trim().toLowerCase();
-      const title = String(issue?.label || issue?.title || issue?.type || "").trim().toLowerCase();
-      const typeMatches = wantedType ? type === wantedType : title === wantedTitle;
-      const urlMatches = normalizedUrl(issueSourceUrl(issue, entry.item, client)) === wantedUrl;
-      const targetMatches = !wantedTarget || safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || "") === safeHttpHref(wantedTarget);
-      return typeMatches && urlMatches && targetMatches;
-    });
-    if (issueIndex >= 0) {
-      return {
-        clientId,
-        issueIndex,
-        auditType: entry.auditType,
-        analyzedAt: auditTimestamp(entry.item),
-        collection,
-      };
+  for (const entry of searchCandidates) {
+    for (const collection of collections) {
+      const rows = Array.isArray(entry.item?.[collection]) ? entry.item[collection] : [];
+      const issueIndex = rows.findIndex((issue) => {
+        const type = String(issue?.type || "").trim().toLowerCase();
+        const title = String(issue?.label || issue?.title || issue?.type || "").trim().toLowerCase();
+        const typeMatches = wantedType ? type === wantedType : title === wantedTitle;
+        const urlMatches = normalizedUrl(issueSourceUrl(issue, entry.item, client)) === wantedUrl;
+        const targetMatches = !wantedTarget || safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || "") === safeHttpHref(wantedTarget);
+        return typeMatches && urlMatches && targetMatches;
+      });
+      if (issueIndex >= 0) return { clientId, issueIndex, auditType: entry.auditType, analyzedAt: auditTimestamp(entry.item), collection, issue: rows[issueIndex], audit: entry.item };
     }
+    if (latestExactPage) return { stale: true, analyzedAt: auditTimestamp(entry.item), auditType: entry.auditType };
   }
   return null;
+};
+
+const syntheticProblemFromAudit = (auditFocus, focus, client) => {
+  if (!auditFocus?.issue || auditFocus.stale) return null;
+  const issue = auditFocus.issue;
+  const sourceUrl = issueSourceUrl(issue, auditFocus.audit, client);
+  return {
+    key: focus.issueKey || "",
+    issueType: issue.type || focus.issueType || "",
+    title: issue.label || issue.title || focus.title || "Problema SEO",
+    detail: issue.detail || issue.reviewReason || "Serve una verifica del contesto.",
+    sourceUrl,
+    severity: String(issue.severity || "low").toLowerCase(),
+    problemState: auditFocus.collection === "reviewItems" ? "needs_verification" : "open",
+    interventionState: "not_prepared",
+    correctability: focus.correctability || (auditFocus.collection === "reviewItems" ? "assisted" : "manual"),
+    reviewOnly: auditFocus.collection === "reviewItems",
+    ownershipBlocked: false,
+    targetUrls: [issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || ""].filter(Boolean),
+    evidence: [{ source: auditFocus.auditType === "page" ? "Audit pagina" : "Audit sito", detail: issue.detail || issue.label || "", at: auditFocus.analyzedAt }],
+  };
 };
 
 const label = (value, map) => map[value] || value || "Non disponibile";
@@ -105,9 +106,7 @@ function RemediationFocusDispatcher({ focus }) {
   const serialized = focus ? JSON.stringify(focus) : "";
   useEffect(() => {
     if (!serialized) return undefined;
-    const timer = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("seogrow-remediation-open", { detail: JSON.parse(serialized) }));
-    }, 220);
+    const timer = window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-remediation-open", { detail: JSON.parse(serialized) })), 220);
     return () => window.clearTimeout(timer);
   }, [serialized]);
   return null;
@@ -117,46 +116,25 @@ export default function AutomaticProposalPage() {
   const [host, setHost] = useState(null);
   const [revision, setRevision] = useState(0);
   const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [], error: "" });
-
   const focus = readAutomaticProposalFocus();
   const selectedClientId = normalizeClientId(readJson(SELECTED_CLIENT_KEY, null));
-  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus) &&
-    selectedClientId !== null && normalizeClientId(focus.clientId) === selectedClientId;
+  const active = currentPage() === PROPOSAL_ROUTE_PAGE && Boolean(focus) && selectedClientId !== null && normalizeClientId(focus.clientId) === selectedClientId;
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
-    window.addEventListener("hashchange", refresh);
-    window.addEventListener("popstate", refresh);
-    window.addEventListener("seogrow-locationchange", refresh);
-    window.addEventListener("seogrow-storage-ok", refresh);
-    window.addEventListener("seogrow-automatic-proposal-open", refresh);
-    window.addEventListener("seogrow-automatic-proposal-close", refresh);
-    window.addEventListener("seogrow-remediation-history", refresh);
-    window.addEventListener("seogrow-remediation-applied", refresh);
-    return () => {
-      window.removeEventListener("hashchange", refresh);
-      window.removeEventListener("popstate", refresh);
-      window.removeEventListener("seogrow-locationchange", refresh);
-      window.removeEventListener("seogrow-storage-ok", refresh);
-      window.removeEventListener("seogrow-automatic-proposal-open", refresh);
-      window.removeEventListener("seogrow-automatic-proposal-close", refresh);
-      window.removeEventListener("seogrow-remediation-history", refresh);
-      window.removeEventListener("seogrow-remediation-applied", refresh);
-    };
+    const events = ["hashchange", "popstate", "seogrow-locationchange", "seogrow-storage-ok", "seogrow-automatic-proposal-open", "seogrow-automatic-proposal-close", "seogrow-remediation-history", "seogrow-remediation-applied"];
+    for (const event of events) window.addEventListener(event, refresh);
+    return () => { for (const event of events) window.removeEventListener(event, refresh); };
   }, []);
 
   useEffect(() => {
     if (!active) return undefined;
-    let cancelled = false;
-    let timer = 0;
-    let mountedHost = null;
-
+    let cancelled = false, timer = 0, mountedHost = null;
     const install = () => {
       if (cancelled) return;
       const workspace = document.querySelector(".workspace");
       if (!workspace) return;
       if (mountedHost?.isConnected && mountedHost.parentElement === workspace) return;
-
       mountedHost?.remove();
       mountedHost = document.createElement("div");
       mountedHost.className = "automatic-proposal-root-host";
@@ -164,14 +142,9 @@ export default function AutomaticProposalPage() {
       workspace.appendChild(mountedHost);
       setHost(mountedHost);
     };
-
     install();
     timer = window.setInterval(install, 100);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      mountedHost?.remove();
-    };
+    return () => { cancelled = true; window.clearInterval(timer); mountedHost?.remove(); };
   }, [active]);
 
   useEffect(() => {
@@ -184,12 +157,8 @@ export default function AutomaticProposalPage() {
     if (!active || !selectedClientId) return undefined;
     let cancelled = false;
     listCorrections({ clientId: selectedClientId })
-      .then((rows) => {
-        if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows, error: "" });
-      })
-      .catch((error) => {
-        if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows: [], error: error.message || String(error) });
-      });
+      .then((rows) => { if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows, error: "" }); })
+      .catch((error) => { if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows: [], error: error.message || String(error) }); });
     return () => { cancelled = true; };
   }, [active, selectedClientId, revision]);
 
@@ -202,25 +171,15 @@ export default function AutomaticProposalPage() {
   const siteHistory = readJson(SITE_HISTORY_KEY, {});
   const correctionsReady = correctionSnapshot.clientId === selectedClientId;
   const corrections = correctionsReady ? correctionSnapshot.rows : [];
-  const model = client && correctionsReady ? buildUnifiedProblems({
-    clientId: client.id,
-    siteHistory: siteHistory[client.id] || siteHistory[String(client.id)] || [],
-    pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [],
-    tasks,
-    corrections,
-  }) : { rows: [] };
-  const problem = model.rows.find((row) => matchesFocus(row, focus)) || null;
-  const linkProblem = (problem?.issueType || focus.issueType) === "broken-external-link" ? (problem || {
-    issueType: focus.issueType, sourceUrl: focus.sourceUrl, targetUrls: focus.targetUrl ? [focus.targetUrl] : [],
-  }) : null;
+  const model = client && correctionsReady ? buildUnifiedProblems({ clientId: client.id, siteHistory: siteHistory[client.id] || siteHistory[String(client.id)] || [], pageHistory: pageHistory[client.id] || pageHistory[String(client.id)] || [], tasks, corrections }) : { rows: [] };
+  const modelProblem = model.rows.find((row) => matchesFocus(row, focus)) || null;
+  const auditResolution = findAuditFocus({ clientId: selectedClientId, client, focus, problem: modelProblem, pageHistory, siteHistory });
+  const problem = modelProblem || syntheticProblemFromAudit(auditResolution, focus, client);
+  const staleFocus = !problem && auditResolution?.stale === true;
+  const linkProblem = (problem?.issueType || focus.issueType) === "broken-external-link" ? (problem || { issueType: focus.issueType, sourceUrl: focus.sourceUrl, targetUrls: focus.targetUrl ? [focus.targetUrl] : [] }) : null;
   const scopedCorrections = linkProblem ? corrections.filter(record => correctionMatchesProblem(linkProblem, record)) : corrections;
-  const latestCorrection = client ? latestCorrectionForFocus(scopedCorrections, {
-    clientId: selectedClientId,
-    sourceUrl: problem?.sourceUrl || focus.sourceUrl,
-    issueType: problem?.issueType || focus.issueType,
-    title: problem?.title || focus.title,
-  }) : null;
-  const auditFocus = findAuditFocus({ clientId: selectedClientId, client, focus, problem, pageHistory, siteHistory });
+  const latestCorrection = client ? latestCorrectionForFocus(scopedCorrections, { clientId: selectedClientId, sourceUrl: problem?.sourceUrl || focus.sourceUrl, issueType: problem?.issueType || focus.issueType, title: problem?.title || focus.title }) : null;
+  const auditFocus = auditResolution && !auditResolution.stale ? { clientId: auditResolution.clientId, issueIndex: auditResolution.issueIndex, auditType: auditResolution.auditType, analyzedAt: auditResolution.analyzedAt, collection: auditResolution.collection } : null;
   const href = safeHttpHref(problem?.sourceUrl || focus?.sourceUrl);
   const previewAllowed = controlledPreviewAllowed(problem, focus);
   const nextResolution = problem ? resolutionPath(problem, latestCorrection) : null;
@@ -228,26 +187,17 @@ export default function AutomaticProposalPage() {
   const refreshAuditForAutomaticResolution = () => {
     if (!problem || !client) return;
     rememberAutomaticResolutionIntent(focus);
-    const request = {
-      clientId: client.id,
-      issueKey: problem.key,
-      issueType: problem.issueType,
-      sourceUrl: problem.sourceUrl,
-    };
+    const request = { clientId: client.id, issueKey: problem.key, issueType: problem.issueType, sourceUrl: problem.sourceUrl };
     try { sessionStorage.setItem(REMEDIATION_FOCUS_KEY, JSON.stringify(request)); } catch { /* Audit can still be opened manually. */ }
     clearAutomaticProposalFocus();
     window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
     navigatePage("Audit SEO");
     window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-remediation-focus", { detail: request })), 0);
   };
-
   const closeAndGo = (page) => {
     clearAutomaticProposalFocus();
     window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-close"));
-    if (page === PROPOSAL_ROUTE_PAGE) {
-      setRevision((value) => value + 1);
-      return;
-    }
+    if (page === PROPOSAL_ROUTE_PAGE) { setRevision((value) => value + 1); return; }
     navigatePage(page);
   };
 
@@ -258,108 +208,33 @@ export default function AutomaticProposalPage() {
         <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}><ArrowLeft /> Torna ai problemi</button>
         <div>
           <span className="automatic-proposal-kicker"><WandSparkles /> {focus.controlledReviewPreview ? "Soluzione controllata" : focus.controlledPreview ? "Correzione controllata" : "Correzione automatica"}</span>
-          <h1>{PROPOSAL_PAGE}</h1>
-          <p>{problem?.title || focus?.title || "Problema SEO"}</p>
-          <small>{problem?.sourceUrl || focus?.sourceUrl || "URL non disponibile"}</small>
+          <h1>{PROPOSAL_PAGE}</h1><p>{problem?.title || focus?.title || "Problema SEO"}</p><small>{problem?.sourceUrl || focus?.sourceUrl || "URL non disponibile"}</small>
         </div>
         <button type="button" className="secondary" onClick={() => closeAndGo(PROPOSAL_ROUTE_PAGE)}>Apri elenco Correzioni</button>
       </header>
-
-      <div className="automatic-proposal-saved-slot" aria-live="polite">
-        {latestCorrection && !correctionSnapshot.error && (
-          <SavedCorrectionDetails key={`${selectedClientId}:${latestCorrection.id}`} correctionId={latestCorrection.id} clientId={selectedClientId} onNavigate={closeAndGo} />
-        )}
-      </div>
-
-      {!correctionsReady ? (
-        <section className="automatic-proposal-warning" role="status">
-          <h2>Caricamento dello stato reale</h2>
-          <p>SeoGrow sta leggendo audit, task e storico correzioni prima di preparare una nuova proposta.</p>
+      <div className="automatic-proposal-saved-slot" aria-live="polite">{latestCorrection && !correctionSnapshot.error && <SavedCorrectionDetails key={`${selectedClientId}:${latestCorrection.id}`} correctionId={latestCorrection.id} clientId={selectedClientId} onNavigate={closeAndGo} />}</div>
+      {!correctionsReady ? <section className="automatic-proposal-warning" role="status"><h2>Caricamento dello stato reale</h2><p>SeoGrow sta leggendo audit, task e storico correzioni prima di preparare una nuova proposta.</p></section>
+      : correctionSnapshot.error ? <section className="automatic-proposal-warning" role="alert"><h2>Storico correzioni non leggibile</h2><p>{correctionSnapshot.error}. Nessuna nuova proposta viene preparata finché lo stato precedente non è verificabile.</p><button type="button" className="secondary" onClick={() => setRevision((value) => value + 1)}>Riprova</button></section>
+      : problem ? <>
+        <section className="automatic-proposal-summary" aria-label="Riepilogo del problema"><div><small>Problema</small><strong>{problem.title}</strong></div><div><small>Gravità</small><strong>{label(problem.severity, labels.severity)}</strong></div><div><small>Stato</small><strong>{label(problem.problemState, labels.state)}</strong></div><div><small>Correggibilità</small><strong>{focus.controlledReviewPreview ? "Assistita" : label(problem.correctability, labels.correctability)}</strong></div></section>
+        <section className="automatic-proposal-context">
+          <article><span>1</span><div><h2>Problema rilevato</h2><p>{problem.detail || "Nessun dettaglio aggiuntivo."}</p></div></article>
+          <article><span>2</span><div><h2>Prova</h2>{problem.evidence?.length ? problem.evidence.slice(0, 3).map((item, index) => <p key={`${item.source}-${index}`}><FileSearch /> <strong>{item.source}</strong> · {item.detail}</p>) : <p>La prova è disponibile nei dati dell’audit collegato.</p>}</div></article>
+          <article><span>3</span><div><h2>Proposta controllata</h2><p>SeoGrow prepara l’anteprima soltanto per gli adapter supportati, dopo aver verificato la sorgente del problema. Prima dell’approvazione mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong>.</p></div></article>
         </section>
-      ) : correctionSnapshot.error ? (
-        <section className="automatic-proposal-warning" role="alert">
-          <h2>Storico correzioni non leggibile</h2>
-          <p>{correctionSnapshot.error}. Nessuna nuova proposta viene preparata finché lo stato precedente non è verificabile.</p>
-          <button type="button" className="secondary" onClick={() => setRevision((value) => value + 1)}>Riprova</button>
+        {href && <a className="secondary automatic-proposal-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
+        <section className="automatic-proposal-runtime">
+          <div className="automatic-proposal-runtime-head"><ShieldCheck /><div><small>Proposta e approvazione</small><h2>{focus.controlledReviewPreview ? "Prepara la soluzione proposta" : "Prepara la correzione del problema selezionato"}</h2><p>{latestCorrection ? "Una correzione è già registrata: consulta il Prima/Dopo e usa Riverifica qui sopra prima di preparare un altro intervento." : "Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica."}</p></div></div>
+          {!previewAllowed ? <div className="automatic-proposal-warning" role="alert"><strong>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "Aggiorna l’audit per continuare con la correzione automatica." : nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong><p>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "SeoGrow conserva l’intento di risoluzione: dopo un audit aggiornato riaprirà automaticamente la proposta, senza applicare alcuna scrittura prima dell’anteprima e della tua approvazione." : nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>{focus.forcedAutomaticFlow && problem.correctability === "automatic" && <button type="button" className="primary" onClick={refreshAuditForAutomaticResolution}>Aggiorna audit e continua</button>}<button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button></div>
+          : problem.problemState === "resolved" ? <div className="automatic-proposal-warning" role="status"><strong>Problema già verificato come risolto.</strong><p>Lo storico correzioni conferma la risoluzione. Esegui un nuovo audit se vuoi controllare che non sia ricomparso.</p><button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button></div>
+          : auditFocus ? <div className="proposal-remediation-slot" />
+          : <div className="automatic-proposal-warning" role="alert"><strong>Audit sorgente non individuato con certezza.</strong><p>Il problema resta visibile, ma SeoGrow non apre una proposta automatica su un audit diverso da quello che ha generato l’evidenza.</p><button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button></div>}
         </section>
-      ) : problem ? (
-        <>
-          <section className="automatic-proposal-summary" aria-label="Riepilogo del problema">
-            <div><small>Problema</small><strong>{problem.title}</strong></div>
-            <div><small>Gravità</small><strong>{label(problem.severity, labels.severity)}</strong></div>
-            <div><small>Stato</small><strong>{label(problem.problemState, labels.state)}</strong></div>
-            <div><small>Correggibilità</small><strong>{focus.controlledReviewPreview ? "Assistita" : label(problem.correctability, labels.correctability)}</strong></div>
-          </section>
-
-          <section className="automatic-proposal-context">
-            <article>
-              <span>1</span>
-              <div><h2>Problema rilevato</h2><p>{problem.detail || "Nessun dettaglio aggiuntivo."}</p></div>
-            </article>
-            <article>
-              <span>2</span>
-              <div>
-                <h2>Prova</h2>
-                {problem.evidence?.length
-                  ? problem.evidence.slice(0, 3).map((item, index) => <p key={`${item.source}-${index}`}><FileSearch /> <strong>{item.source}</strong> · {item.detail}</p>)
-                  : <p>La prova è disponibile nei dati dell’audit collegato.</p>}
-              </div>
-            </article>
-            <article>
-              <span>3</span>
-              <div><h2>Proposta controllata</h2><p>SeoGrow prepara l’anteprima soltanto per gli adapter supportati, dopo aver verificato la sorgente del problema. Prima dell’approvazione mostra sempre <strong>Adesso sul sito</strong> e <strong>Dopo la modifica</strong>.</p></div>
-            </article>
-          </section>
-
-          {href && <a className="secondary automatic-proposal-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
-
-          <section className="automatic-proposal-runtime">
-            <div className="automatic-proposal-runtime-head">
-              <ShieldCheck />
-              <div>
-                <small>Proposta e approvazione</small>
-                <h2>{focus.controlledReviewPreview ? "Prepara la soluzione proposta" : "Prepara la correzione del problema selezionato"}</h2>
-                <p>{latestCorrection ? "Una correzione è già registrata: consulta il Prima/Dopo e usa Riverifica qui sopra prima di preparare un altro intervento." : "Collega WordPress, prepara l’anteprima, confronta prima/dopo e applica soltanto se approvi la singola modifica."}</p>
-              </div>
-            </div>
-            {!previewAllowed ? (
-              <div className="automatic-proposal-warning" role="alert">
-                <strong>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "Aggiorna l’audit per continuare con la correzione automatica." : nextResolution?.title || "Preparazione non disponibile nello stato corrente."}</strong>
-                <p>{focus.forcedAutomaticFlow && problem.correctability === "automatic" ? "SeoGrow conserva l’intento di risoluzione: dopo un audit aggiornato riaprirà automaticamente la proposta, senza applicare alcuna scrittura prima dell’anteprima e della tua approvazione." : nextResolution?.instructions || "Riapri il problema dai dati correnti prima di preparare un altro intervento."}</p>
-                {focus.forcedAutomaticFlow && problem.correctability === "automatic" && <button type="button" className="primary" onClick={refreshAuditForAutomaticResolution}>Aggiorna audit e continua</button>}
-                <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
-              </div>
-            ) : problem.problemState === "resolved" ? (
-              <div className="automatic-proposal-warning" role="status">
-                <strong>Problema già verificato come risolto.</strong>
-                <p>Lo storico correzioni conferma la risoluzione. Esegui un nuovo audit se vuoi controllare che non sia ricomparso.</p>
-                <button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button>
-              </div>
-            ) : auditFocus ? (
-              <div className="proposal-remediation-slot" />
-            ) : (
-              <div className="automatic-proposal-warning" role="alert">
-                <strong>Audit sorgente non individuato con certezza.</strong>
-                <p>Il problema resta visibile, ma SeoGrow non apre una proposta automatica su un audit diverso da quello che ha generato l’evidenza.</p>
-                <button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri Audit SEO</button>
-              </div>
-            )}
-          </section>
-        </>
-      ) : latestCorrection ? (
-        <section className="automatic-proposal-warning" role="status">
-          <h2>Confronto storico disponibile</h2>
-          <p>Il problema non è più nell’elenco corrente. Il Prima/Dopo della correzione rimane disponibile sopra; la sua assenza dall’elenco non prova da sola la risoluzione.</p>
-        </section>
-      ) : (
-        <section className="automatic-proposal-warning" role="alert">
-          <h2>Problema non più disponibile</h2>
-          <p>Il problema selezionato non coincide più con i dati correnti del progetto. Torna a Problemi e selezionalo di nuovo.</p>
-          <button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button>
-        </section>
-      )}
+      </>
+      : latestCorrection ? <section className="automatic-proposal-warning" role="status"><h2>Confronto storico disponibile</h2><p>Il problema non è più nell’elenco corrente. Il Prima/Dopo della correzione rimane disponibile sopra; la sua assenza dall’elenco non prova da sola la risoluzione.</p></section>
+      : staleFocus ? <section className="automatic-proposal-warning" role="status"><h2>Finding non più presente nell’audit più recente</h2><p>Un audit pagina più recente della stessa URL non rileva più “{focus.title}”. SeoGrow non riapre una vecchia osservazione e non prepara una nuova scrittura su evidenze superate.</p><button type="button" className="secondary" onClick={() => closeAndGo("Audit SEO")}>Apri l’audit più recente</button></section>
+      : <section className="automatic-proposal-warning" role="alert"><h2>Problema non più disponibile</h2><p>Il problema selezionato non coincide più con i dati correnti del progetto. Torna a Problemi e selezionalo di nuovo.</p><button type="button" className="secondary" onClick={() => closeAndGo("Problemi")}>Torna ai problemi</button></section>}
     </div>
   );
-
   return createPortal(content, host);
 }

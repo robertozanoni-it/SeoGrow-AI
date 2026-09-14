@@ -270,7 +270,13 @@ export async function recheckCorrectionById(id, credentials = {}) {
   const record = await readCorrection(id);
   if (!record) throw new Error("Correzione non trovata nello storico.");
   if (credentials.clientId != null && Number(credentials.clientId) !== Number(record.clientId)) throw new Error("La correzione appartiene a un altro progetto.");
-  return recheckCorrection(record, credentials);
+  const result = await recheckCorrection(record, credentials);
+  if (result?.needsAudit && result?.record && !result?.error && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("seogrow-frontend-verification-complete", {
+      detail: { correctionId: result.record.id, clientId: result.record.clientId },
+    }));
+  }
+  return result;
 }
 
 export async function recheckCorrections({ clientId, limit = 20 } = {}) {

@@ -1,6 +1,7 @@
 import { remediationIssueKind } from "./remediationIssueKind.js";
 import { resolutionPath } from "./resolutionPath.js";
 import { safeHttpHref } from "./reliabilityModel.js";
+import { confirmationAuditPolicy, confirmationAuditReady } from "./confirmationAuditPolicy.js";
 
 const USER_INTENT_KINDS = new Set(["canonical", "noindex"]);
 
@@ -14,6 +15,15 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     detail: problem.detail,
   });
   const hasUrl = Boolean(safeHttpHref(problem.sourceUrl));
+
+  if (correction?.confirmationAuditState === "running") {
+    const policy = confirmationAuditPolicy(correction);
+    return { mode: "confirmation-audit", action: "audit-confirmation", label: "Audit di conferma in corso…", title: "Verifica SEO finale in corso", instructions: policy.runningNote, kind };
+  }
+  if (confirmationAuditReady(correction)) {
+    const policy = confirmationAuditPolicy(correction);
+    return { mode: "confirmation-audit", action: "audit-confirmation", label: policy.label, title: "Verifica SEO finale", instructions: policy.help, kind };
+  }
 
   if (problem.problemState === "resolved" || path.action === "verify" || path.action === "history") {
     return { mode: "verify", action: path.action, label: path.label, title: path.title, instructions: path.instructions, kind };
