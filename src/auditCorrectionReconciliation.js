@@ -30,6 +30,15 @@ function findingStillPresent(record, result) {
   ].some(item => findingType(item) === wantedType && urlKey(resultFindingSource(item, result)) === urlKey(record.sourceUrl));
 }
 
+export function auditConfirmsCorrection(record, resultType, result) {
+  if (!record || !result) return false;
+  if (requiresDuplicateAudit(record) && resultType !== "site") return false;
+  if (!auditCovers(record, resultType, result)) return false;
+  const checkedAt = auditAt(result);
+  if (!checkedAt || Date.parse(checkedAt) <= Date.parse(record.appliedAt || 0)) return false;
+  return !findingStillPresent(record, result);
+}
+
 const verificationNote = record => {
   const text = `${record?.issueType || ""} ${record?.issueLabel || ""}`.toLowerCase();
   if (/description-serp-width|larghezza serp|920\s*px/.test(text)) {
@@ -49,11 +58,8 @@ export async function reconcileCorrectionsAfterAudit({ clientId, resultType, res
   for (const record of rows) {
     if (!record?.id || record.frontendConfirmed !== true) continue;
     if (!["Applicato", "Da verificare"].includes(record.status)) continue;
-    if (requiresDuplicateAudit(record) && resultType !== "site") continue;
-    if (!auditCovers(record, resultType, result)) continue;
+    if (!auditConfirmsCorrection(record, resultType, result)) continue;
     const checkedAt = auditAt(result);
-    if (!checkedAt || Date.parse(checkedAt) <= Date.parse(record.appliedAt || 0)) continue;
-    if (findingStillPresent(record, result)) continue;
 
     const updated = await updateCorrection(record.id, {
       status: "Verificato",
