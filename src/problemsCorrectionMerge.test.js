@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildUnifiedProblems } from "./problemsModel.js";
+import { problemEntryLabel } from "./resolutionPath.js";
 
 const source = "https://example.com/qa-resolution/";
 
@@ -36,6 +37,7 @@ test("a Da verificare correction without nested issue merges into the same audit
   assert.equal(rows.length, 1);
   assert.equal(rows[0].problemState, "needs_verification");
   assert.equal(rows[0].interventionState, "applied");
+  assert.equal(problemEntryLabel(rows[0]), "Verifica risultato");
   assert.ok(rows[0].sources.some((sourceRow) => sourceRow.kind === "audit"));
   assert.ok(rows[0].sources.some((sourceRow) => sourceRow.kind === "correction"));
 });
