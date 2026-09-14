@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { confirmationAuditOutcome, confirmationAuditPolicy, confirmationAuditReady } from "./confirmationAuditPolicy.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
 import { selectFocusedRemediation } from "./remediationSelection.js";
@@ -29,6 +30,7 @@ test("duplicati usano crawl sito fino a 200 pagine", () => {
   const policy = confirmationAuditPolicy({ ...baseCorrection, issueType: "duplicate-description", issueLabel: "Meta description duplicata" });
   assert.equal(policy.mode, "site");
   assert.equal(policy.maxPages, 200);
+  assert.match(policy.frontendMatchedNote, /nuovo audit/i);
   assert.match(policy.frontendMatchedNote, /crawl/i);
 });
 
@@ -55,6 +57,24 @@ test("pagina risoluzione privilegia audit finale dopo frontend confermato", () =
   assert.equal(priority.mode, "confirmation-audit");
   assert.equal(priority.action, "audit-confirmation");
   assert.equal(priority.label, "Esegui audit di conferma");
+});
+
+test("un audit finale non riparte senza una riverifica frontend più recente", () => {
+  const record = { ...baseCorrection, confirmationAuditLastAt: "2026-09-14T13:51:00.000Z" };
+  assert.equal(confirmationAuditReady(record), false);
+  assert.equal(confirmationAuditReady({ ...record, lastVerificationAttemptAt: "2026-09-14T13:52:00.000Z" }), true);
+});
+
+test("normalizzazione solo maiuscole del title non avvia un crawl automatico", () => {
+  assert.equal(confirmationAuditReady({ ...baseCorrection, issueType: "duplicate-title", titleCaseOnlyMatch: true }), false);
+});
+
+test("runner non scansiona passivamente tutte le correzioni pendenti", async () => {
+  const source = await readFile(new URL("./ConfirmationAuditRunner.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /listCorrections/);
+  assert.doesNotMatch(source, /scheduleScan/);
+  assert.match(source, /CONFIRMATION_AUDIT_EVENT/);
+  assert.match(source, /sessionStorage\.getItem\(CONFIRMATION_AUDIT_KEY\)/);
 });
 
 test("canonical review non viene riaperta da un audit vecchio se esiste un audit pagina più recente pulito", () => {
