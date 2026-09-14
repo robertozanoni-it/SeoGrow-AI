@@ -9,6 +9,18 @@ const fields = {
 };
 const normalizedText = (value) => value.normalize("NFC").replace(/\s+/g, " ").trim();
 
+export function requiresDuplicateAudit(record = {}) {
+  const text = `${record.issueType || ""} ${record.issueLabel || ""} ${record.issue?.type || ""} ${record.issue?.label || ""}`;
+  return /duplicate[-_ ](?:title|description)|(?:title|titolo|meta description|descrizione)\s+duplicat/i.test(text);
+}
+
+const metadataAuditInstruction = (record, target) => {
+  const text = `${record?.issueType || ""} ${record?.issueLabel || ""} ${record?.issue?.type || ""} ${record?.issue?.label || ""}`.toLowerCase();
+  if (requiresDuplicateAudit(record)) return "Per confermare la risoluzione del duplicato serve un nuovo audit/crawl del sito che confronti le pagine coinvolte.";
+  if (/description-serp-width|920\s*px|larghezza\s+serp|larga\s+nello\s+snippet/.test(text)) return "Per confermare la risoluzione SEO, SeoGrow deve rieseguire l’audit della pagina e verificare che la larghezza SERP stimata della meta description rientri nella soglia prevista.";
+  return `Per confermare la risoluzione del finding relativo a ${target.label}, SeoGrow deve rieseguire un audit recente della pagina.`;
+};
+
 export function metadataVerificationTarget(record) {
   const after = flattenCorrectionSnapshot(record?.after);
   const targets = Object.keys(fields).filter((field) => Object.prototype.hasOwnProperty.call(after, field));
@@ -38,13 +50,8 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
     frontendFailure: !matches,
     lastVerificationAttemptAt: at,
     verificationNote: matches
-      ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} Per confermare la risoluzione SEO, inclusa l’assenza di duplicati, esegui un nuovo audit delle pagine coinvolte.`
+      ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} ${metadataAuditInstruction(record, target)}`
       : `Il valore di ${target.label} sul sito non coincide con quello inviato a WordPress. Controlla cache e impostazioni del plugin SEO; la correzione non è confermata nel frontend.`,
     frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, expected: target.expected, checkedAt: at },
   };
-}
-
-export function requiresDuplicateAudit(record = {}) {
-  const text = `${record.issueType || ""} ${record.issueLabel || ""} ${record.issue?.type || ""} ${record.issue?.label || ""}`;
-  return /duplicate[-_ ](?:title|description)|(?:title|titolo|meta description|descrizione)\s+duplicat/i.test(text);
 }
