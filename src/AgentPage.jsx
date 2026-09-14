@@ -2,6 +2,7 @@ import { agentModeLabels, agentModeHelp, agentStatusLabel, agentCostLabel } from
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
+import { buildProblemAgentRun } from "./problemAgentDiagnosis.js";
 
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 const quickGoals = ["Trova le 10 migliori opportunità SEO", "Perché il traffico organico è diminuito?", "Quali pagine posso portare in Top 10?", "Quali contenuti devo aggiornare?", "Trova opportunità di internal linking"];
@@ -26,6 +27,7 @@ const problemPrompt = (detail) => {
 
 export default function AgentPage({ client, dataset, analysis, rankings, savedRuns = [], onSaveRun, onDeleteRun, onCreateTask }) {
   const [goal, setGoal] = useState("");
+  const [problemContext, setProblemContext] = useState(null);
   const [currentRun, setCurrentRun] = useState(null);
   const [running, setRunning] = useState(false);
   const operationLock = useRef(false);
@@ -40,9 +42,14 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode };
 
   useEffect(() => {
+    setProblemContext(null);
     const applyPrefill = (detail) => {
       if (!detail || Number(detail.clientId) !== Number(client.id)) return false;
       setGoal(problemPrompt(detail));
+      setProblemContext(detail);
+      setCurrentRun(null);
+      setSelectedRunId("");
+      setActionError("");
       return true;
     };
     try {
@@ -63,7 +70,13 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     if (!goal.trim() || operationLock.current) return;
     operationLock.current = true;
     setRunning(true); setActionError("");
-    try { const result = await orchestrator.run(goal, input); onSaveRun(result); }
+    try {
+      const result = problemContext
+        ? buildProblemAgentRun({ goal, detail: problemContext, analysis, projectId: client.id })
+        : await orchestrator.run(goal, input);
+      setCurrentRun(result);
+      onSaveRun(result);
+    }
     catch (error) { setActionError(error?.message || "Non è stato possibile avviare l’analisi."); }
     finally { operationLock.current = false; setRunning(false); }
   };
@@ -87,8 +100,8 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     </section>
     <section className="panel agent-console">
       <div className="agent-form-field"><label htmlFor="seo-agent-mode">Modalità</label><select id="seo-agent-mode" aria-describedby="seo-agent-mode-help" disabled={running} value={mode} onChange={(event) => setMode(event.target.value)}><option value={AgentMode.READ_ONLY}>Sola lettura</option><option value={AgentMode.ASSISTED}>Assistita</option><option value={AgentMode.AUTONOMOUS}>Autonoma con limiti</option></select><p id="seo-agent-mode-help" className="agent-help">{agentModeHelp[mode]}</p></div>
-      <div className="agent-form-field"><label htmlFor="seo-agent-goal">Cosa vuoi ottenere?</label><textarea id="seo-agent-goal" disabled={running} rows="3" value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Es. Trova le 10 migliori opportunità SEO" /></div>
-      <div className="agent-quick-actions">{quickGoals.map((item) => <button className="secondary" disabled={running} key={item} onClick={() => setGoal(item)}>{item}</button>)}</div>
+      <div className="agent-form-field"><label htmlFor="seo-agent-goal">Cosa vuoi ottenere?</label><textarea id="seo-agent-goal" disabled={running} rows="3" value={goal} onChange={(event) => { setGoal(event.target.value); setProblemContext(null); }} placeholder="Es. Trova le 10 migliori opportunità SEO" /></div>
+      <div className="agent-quick-actions">{quickGoals.map((item) => <button className="secondary" disabled={running} key={item} onClick={() => { setGoal(item); setProblemContext(null); }}>{item}</button>)}</div>
       <div className="agent-controls"><button className="primary" onClick={start} disabled={running || !goal.trim()}>{running ? <LoaderCircle className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}{running ? "Analisi…" : "Avvia analisi"}</button>{running && run?.id && <button className="secondary" onClick={() => orchestrator.cancel(run.id)}>Interrompi</button>}</div>
       {running && <p className="agent-help" role="status">Analisi in corso: modalità, obiettivo e cronologia sono temporaneamente bloccati. Puoi interrompere l’esecuzione.</p>}
       {!running && !goal.trim() && <p className="agent-help">Scegli un esempio qui sopra oppure descrivi il tuo obiettivo per abilitare Avvia analisi.</p>}
