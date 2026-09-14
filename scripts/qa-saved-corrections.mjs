@@ -16,6 +16,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     const issue = { type:'duplicate-description', label:'Meta description duplicata', severity:'alta', url:targetUrl, sourceUrl:targetUrl, detail:'Descrizione duplicata nella fixture controllata.' };
     const audit = { url:client.url, analyzedAt:'2026-09-10T08:00:00.000Z', score:80, issues:[issue] };
     const publicResponse = { ok:true, url:targetUrl, status:200, isHtml:true, titleCount:1, metaDescriptionCount:1, title:'Pagina test', metaDescription:after, wordpressDocumentId:123, h1:1, words:300 };
+    const duplicateAuditResponse = () => ({ url:client.url, analyzedAt:new Date().toISOString(), pagesChecked:1, pages:[{url:targetUrl}], issues:[issue], reviewItems:[] });
     const receipt = '.automatic-proposal-page .saved-correction-details[data-correction-id]';
     const snapshotValues = scope => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(scope)});const saved=[...(r?.querySelectorAll('.saved-correction-field .saved-correction-diff pre')||[])].map(n=>n.textContent);if(saved.length)return saved;const before=[...(r?.querySelectorAll('.correction-diff-grid .before p')||[])].map(n=>n.textContent);const after=[...(r?.querySelectorAll('.correction-diff-grid .after p')||[])].map(n=>n.textContent);return [...before,...after]})()`);
     const visibleClick = async selector => {
@@ -34,7 +35,6 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await evaluate(`sessionStorage.setItem('seogrow-problem-proposal-v1',JSON.stringify({title:${JSON.stringify(issue.label)},sourceUrl:${JSON.stringify(targetUrl)},clientId:${clientId},openedFrom:'problem-row',createdAt:Date.now()}));window.confirm=()=>true;true`);
       await evaluate(`import('/src/navigationUx.js').then(m=>{window.__qaNavigatePage=m.navigatePage;return true})`);
       await evaluate(`window.__qaNavigatePage('Correzioni');window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-open'));true`);
-      const routeDiag = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');return {hash:decodeURIComponent(location.hash.slice(1)),bodyPage:document.body.dataset.seogrowPage,rawFocus:sessionStorage.getItem('seogrow-problem-proposal-v1'),storedClient:JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'null'),storedPage:JSON.parse(m.workspaceStorage.getItem('seogrow-selected-page-v1')||'null'),domClient:document.querySelector('.client-select select')?.value||null,host:!!document.querySelector('.automatic-proposal-root-host'),proposal:!!document.querySelector('.automatic-proposal-page'),corrections:!!document.querySelector('.corrections-workspace-root')}})()`);
       await waitFor("document.querySelector('.proposal-remediation-slot .audit-unified-credentials') && document.querySelector('.proposal-remediation-slot .wp-live-remediation-v2')",'Dedicated proposal with real controls');
       assert.equal(await evaluate("decodeURIComponent(location.hash.slice(1))==='Correzioni' && document.querySelector('.automatic-proposal-header h1')?.textContent==='Proposta correzione'"),true);
       for (const [label,value] of Object.entries({'URL del sito':client.url,'Utente WordPress':'qa-receipt','Password applicativa':'qa-only'})) await set('.proposal-remediation-slot .audit-unified-credentials',label,value);
@@ -54,22 +54,21 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await visibleClick('.proposal-remediation-slot .wp-live-apply-one');
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes(${JSON.stringify(after)})`,'Saved comparison remains after actual UI apply');
       correctionId = await evaluate(`document.querySelector(${JSON.stringify(receipt)}).dataset.correctionId`);
-      // The writer is intentionally unmounted as soon as the saved result requires verification.
-      // Assert the durable receipt and the single write, not a transient writer toast.
       await waitFor(`(async()=>{const m=await import('/src/remediationStore.js');const r=await m.readCorrection(${JSON.stringify(correctionId)});return Boolean(r?.writeConfirmed===true&&r?.after&&r?.appliedAt)})()`,'Applied correction is durably stored');
       assert.equal(await evaluate("window.__qaFormRequests.filter(r=>r.path==='/api/wordpress/live-apply').length"),1,'Exactly one approved write');
       await waitFor("!document.querySelector('.proposal-remediation-slot .wp-live-apply-one')",'Applied correction cannot expose another write');
       assert.deepEqual(await snapshotValues(receipt),[before,after]);
       assert.equal(await evaluate(`document.querySelector(${JSON.stringify(receipt+' .saved-correction-url')}).href`),targetUrl);
       await resetRequests();
+      await mock('/api/site-analysis',duplicateAuditResponse());
       await button('Riverifica',receipt);
       await waitFor("window.__qaFormRequests.some(r=>r.path==='/api/wordpress/verify-frontend')",'Direct metadata verification makes a real app request');
-      await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes('codice HTML pubblico coincide')`,'Public value confirmed separately from SEO duplicate');
+      await waitFor("window.__qaFormRequests.some(r=>r.path==='/api/site-analysis')",'Matching duplicate launches a site confirmation crawl');
+      await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.toLowerCase().includes('crawl di conferma rileva ancora il duplicato')`,'Duplicate remains pending after confirmation crawl');
       assert.deepEqual(await snapshotValues(receipt),[before,after]);
-      assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-apply|rollback/.test(r.path))"),false,'Reverify never applies or rolls back');
+      assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-apply|rollback/.test(r.path))"),false,'Reverify and confirmation audit never apply or roll back');
       await button('Apri elenco Correzioni','.automatic-proposal-header');
       await waitFor("document.body.dataset.seogrowAutomaticProposal !== 'true'",'Exit dedicated proposal');
-      // Deliberately empty the lightweight index: the actual card list must read IndexedDB.
       await write('seogrow-remediation-history-v1',[]);
       const card = `.correction-card[data-correction-id="${correctionId}"]`;
       await visibleClick(`${card} .correction-summary`);
@@ -89,8 +88,10 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await waitFor(`document.querySelector(${JSON.stringify(detail)})?.textContent.includes('non coincide con quello inviato')`,'Mismatch is not a successful SEO resolution');
       assert.deepEqual(await snapshotValues(detail),[before,after]);
       await mock('/api/wordpress/verify-frontend',publicResponse);
+      await mock('/api/site-analysis',duplicateAuditResponse());
       await button('Riverifica',detail);
-      await waitFor(`document.querySelector(${JSON.stringify(detail)})?.textContent.includes('codice HTML pubblico coincide')`,'Verification recovers');
+      await waitFor("window.__qaFormRequests.some(r=>r.path==='/api/site-analysis')",'Recovered verification launches confirmation crawl');
+      await waitFor(`document.querySelector(${JSON.stringify(detail)})?.textContent.toLowerCase().includes('crawl di conferma rileva ancora il duplicato')`,'Recovered duplicate remains pending after final crawl');
       for (const width of [1440,390]) {
         await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
         await evaluate(`document.querySelector(${JSON.stringify(detail)}).scrollIntoView({behavior:'instant',block:'start'})`);
@@ -106,7 +107,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       const saved = await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');return m.readCorrection(${JSON.stringify(correctionId)})})()`);
       assert.deepEqual(saved.before,{'meta.rank_math_description':before});
       assert.deepEqual(saved.after,{'meta.rank_math_description':after});
-      assert.notEqual(saved.status,'Verificato','Matching metadata alone never closes a duplicate');
+      assert.notEqual(saved.status,'Verificato','Matching metadata plus a crawl that still sees the duplicate never closes it');
     } catch (error) {
       const diagnostic = await evaluate("({messages:[...document.querySelectorAll('.wp-live-remediation-message,.correction-explanation,.saved-correction-details')].map(e=>e.textContent),credentials:[...document.querySelectorAll('.audit-unified-credentials')].map(e=>({inProposal:!!e.closest('.proposal-remediation-slot'),fields:[...e.querySelectorAll('input')].map(i=>({type:i.type,autocomplete:i.autocomplete,present:!!i.value}))})),requests:(window.__qaFormRequests||[]).map(r=>r.path)})").catch(()=>null);
       console.error('SAVED_CORRECTION_DIAGNOSTIC '+JSON.stringify(diagnostic));
