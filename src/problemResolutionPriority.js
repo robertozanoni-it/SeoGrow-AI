@@ -3,7 +3,6 @@ import { resolutionPath } from "./resolutionPath.js";
 import { safeHttpHref } from "./reliabilityModel.js";
 
 const USER_INTENT_KINDS = new Set(["canonical", "noindex"]);
-const PREPARABLE_KINDS = new Set(["title", "meta_description", "h1", "content", "excerpt", "external_link"]);
 
 export const problemResolutionPriority = (problem = {}, correction = null) => {
   const path = resolutionPath(problem, correction);
@@ -31,7 +30,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     };
   }
 
-  if (path.action === "prepare" || (PREPARABLE_KINDS.has(kind) && path.action !== "audit" && hasUrl && !problem.ownershipBlocked)) {
+  if (path.action === "prepare" && hasUrl && !problem.ownershipBlocked) {
     return {
       mode: "approval",
       action: "prepare",
