@@ -202,7 +202,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
         <aside className="problem-resolution-actions">
           <div><small>Prossima azione</small><h2>Risolvi e verifica</h2><p>SeoGrow prova prima la risoluzione automatica; quando serve una decisione, prepara la soluzione da approvare.</p></div>
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
-          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles /> {working ? "Verifica…" : priority.label}</button>
+          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles />{working ? "Verifica…" : priority.label}</button>
           {path.action === "audit" && <button className="secondary" type="button" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>}
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>
