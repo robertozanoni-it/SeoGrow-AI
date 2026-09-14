@@ -68,8 +68,9 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       const pending={id:'qa-pending-resolution',clientId:Number(clientId),issueType:'duplicate-description',issueLabel:'Meta description duplicata',sourceUrl:source,status:'Da verificare',appliedAt:new Date().toISOString(),fields:['meta.rank_math_description'],before:{'meta.rank_math_description':'Precedente'},after:{'meta.rank_math_description':description}};
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${q([...corrections.filter(c=>Number(c.clientId)!==Number(clientId)),pending])})})()`);
       await revisit('Problemi');
-      await waitFor("document.querySelector('.native-problem-cards [data-issue-type=\"duplicate-description\"] .card-record-open')?.textContent.includes('Verifica risultato')",'Pending card offers verification');
-      await evaluate("document.querySelector('.native-problem-cards [data-issue-type=\"duplicate-description\"]').click()");
+      const pendingSelector='.native-problem-cards [data-issue-type="duplicate-description"]';
+      await waitFor(`[...document.querySelectorAll(${q(pendingSelector)})].some(e=>e.textContent.includes(${q(source)})&&e.querySelector('.card-record-open')?.textContent.includes('Verifica risultato'))`,'Pending card offers verification');
+      await evaluate(`([...document.querySelectorAll(${q(pendingSelector)})].find(e=>e.textContent.includes(${q(source)}))).click()`);
       await waitFor("document.querySelector('.problem-resolution-actions .primary')?.textContent==='Verifica risultato'",'Pending card opens dedicated verification path');
       assert.equal(await evaluate("Boolean(document.querySelector('.automatic-proposal-page'))"),false);
       await visible('.problem-resolution-actions .primary');
