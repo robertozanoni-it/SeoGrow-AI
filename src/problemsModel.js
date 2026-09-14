@@ -292,6 +292,7 @@ export function buildUnifiedProblems({
   reconcileAuditClearance(groups, audits);
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
+    if (String(task?.kind || "").trim().toLowerCase() === "seo-agent") continue;
     if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
     if (normalizeClientId(task?.sourceClientId) !== normalizedClientId) {
       if (!task?.sourceClientId && task?.client) warnings.push(`Task legacy non associata tramite ID: ${task.title || "senza titolo"}.`);
