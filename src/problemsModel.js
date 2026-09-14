@@ -327,7 +327,8 @@ export function buildUnifiedProblems({
       timestamp(event?.at) > clearanceTime && ["audit_detected", "correction_applied", "rollback"].includes(event?.kind),
     );
     const clearedByNewerAudit = clearanceTime > timestamp(group.latestAuditAt) && !invalidatedAfterClearance;
-    const problemState = clearedByNewerAudit ? "resolved" : state.problemState;
+    const isolatedQaCompleted = String(group.issueType || "").trim().toLowerCase() === "qa-isolated" && state.interventionState === "rolled_back";
+    const problemState = isolatedQaCompleted ? "intentional" : clearedByNewerAudit ? "resolved" : state.problemState;
     const verifiedAt = clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
     const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
