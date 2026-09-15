@@ -9,3 +9,8 @@ export {
 } from "./observedData.js";
 export { metadataDuplicateGroups } from "./metadataDuplicateGroups.js";
 export { isLegalPage, excludeLegalSeo } from "./legalPageScope.js";
+export {
+  latestOf,
+  normalizeAnalysisHistory,
+  analysisDiff,
+} from "./history.js";
