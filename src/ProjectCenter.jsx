@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { reportSections, reportTemplate } from "./projectPlanning.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
+import { loadProjectProblemSummary } from "./projectProblemSummary.js";
 import "./ProjectCenterCards.css";
 import "./ProjectCenterReference.css";
 
@@ -84,6 +85,7 @@ export default function ProjectCenter({
   client,
   dataset,
   analysis,
+  analysisHistory = [],
   tasks = [],
   opportunityCount = 0,
   connection,
@@ -96,6 +98,7 @@ export default function ProjectCenter({
 }) {
   const [step, setStep] = useState(0);
   const [activeArea, setActiveArea] = useState("");
+  const [problemSummary, setProblemSummary] = useState({ active: 0, high: 0, verify: 0 });
   const [now, setNow] = useState(() => Date.now());
   const detailRef = useRef(null);
 
@@ -103,6 +106,28 @@ export default function ProjectCenter({
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const summary = await loadProjectProblemSummary({ clientId: client.id, analysisHistory, analysis, tasks });
+        if (!cancelled) setProblemSummary(summary);
+      } catch {
+        if (!cancelled) setProblemSummary({ active: 0, high: 0, verify: 0 });
+      }
+    };
+    refresh();
+    window.addEventListener("seogrow-remediation-history", refresh);
+    window.addEventListener("seogrow-remediation-applied", refresh);
+    window.addEventListener("seogrow-storage-ok", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("seogrow-remediation-history", refresh);
+      window.removeEventListener("seogrow-remediation-applied", refresh);
+      window.removeEventListener("seogrow-storage-ok", refresh);
+    };
+  }, [client.id, analysisHistory, analysis, tasks]);
 
   const template = reportTemplate(settings.report);
   const objective = typeof settings.objective === "string" ? settings.objective : "";
@@ -303,7 +328,7 @@ export default function ProjectCenter({
   const contentIssues = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue.type || ""} ${issue.label || ""}`)).length;
   const topPages = [...(dataset?.pages || [])].toSorted((a, b) => Number(b.clicks || 0) - Number(a.clicks || 0)).slice(0, 5);
   const trend = trendPoints(dataset?.graph || []);
-  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, wordpressConnected: verified, opportunityCount });
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount });
   const projectActions = intelligence.actions;
   const activity = [
     analysis?.analyzedAt && { label: "Audit completato", date: analysis.analyzedAt, Icon: ScanSearch },

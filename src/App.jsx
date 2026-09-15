@@ -7,16 +7,15 @@ import { mergeGoogleStatus, normalizeGoogleProperties } from "./googleProperties
 import { AuditScheduler, FreshnessNotice, ProjectMonitoring, AuditUpdateNotice } from "./AuditMonitoring.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
 import EditorialCalendar from "./EditorialCalendar.jsx";
-import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { completeTaskById } from "./taskCompletion.js";
 import { buildProjectHistory } from "./projectHistory.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
+import { loadProjectProblemSummary } from "./projectProblemSummary.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
-import { buildUnifiedProblems } from "./problemsModel.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
@@ -58,6 +57,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+const ProjectCenter = lazy(() => import("./ProjectCenter.jsx"));
 const AgentPage = lazy(() => import("./intelligence/agent/index.js").then((module) => ({ default: module.AgentPage })));
 const GeoPage = lazy(() => import("./modules/geo/index.js").then((module) => ({ default: module.GeoPage })));
 import { initialClients } from "./data";
@@ -1358,22 +1358,8 @@ function Dashboard({
     let cancelled = false;
     const refresh = async () => {
       try {
-        const corrections = await listCorrections({ clientId: selectedClient });
-        const pageStore = JSON.parse(localStorage.getItem("seogrow-page-audit-history-v2") || "{}");
-        const pageHistory = pageStore[selectedClient] || pageStore[String(selectedClient)] || [];
-        const model = buildUnifiedProblems({
-          clientId: selectedClient,
-          siteHistory: analysisHistory.length ? analysisHistory : analysis ? [analysis] : [],
-          pageHistory,
-          tasks,
-          corrections,
-        });
-        if (cancelled) return;
-        setProblemSummary({
-          active: model.rows.filter((row) => !["resolved", "intentional"].includes(row.problemState)).length,
-          high: model.rows.filter((row) => row.severity === "high" && !["resolved", "intentional"].includes(row.problemState)).length,
-          verify: model.rows.filter((row) => row.problemState === "needs_verification").length,
-        });
+        const summary = await loadProjectProblemSummary({ clientId: selectedClient, analysisHistory, analysis, tasks });
+        if (!cancelled) setProblemSummary(summary);
       } catch {
         if (!cancelled) setProblemSummary({ active: 0, high: 0, verify: 0 });
       }
@@ -4385,7 +4371,7 @@ export default function App() {
   const content = (() => {
     // These pages render through their dedicated portals.
     if (["Problemi", "Correzioni"].includes(page)) return null;
-    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
+    if (page === "Centro progetto") return <Suspense fallback={<div className="page-loading">Caricamento Centro progetto…</div>}><ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} analysisHistory={selectedAnalysisHistory} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter></Suspense>;
     if (page === "Panoramica")
       return (
         <Dashboard
