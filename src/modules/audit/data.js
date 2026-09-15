@@ -8,3 +8,4 @@ export {
   observedScoreDelta,
 } from "./observedData.js";
 export { metadataDuplicateGroups } from "./metadataDuplicateGroups.js";
+export { isLegalPage, excludeLegalSeo } from "./legalPageScope.js";
