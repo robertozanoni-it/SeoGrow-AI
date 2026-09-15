@@ -50,3 +50,18 @@ test("la business logic dei task opportunità appartiene al modulo Rank, non all
   assert.doesNotMatch(legacyShim, /function findExistingTask/);
   assert.match(legacyShim, /from ["']\.\/modules\/rank\/opportunityTasks\.js["']/);
 });
+
+test("Rank possiede query changes, opportunity groups e task detail mentre platform resta compatibility entry point", async () => {
+  const facade = await readFile(new URL("./modules/rank/index.js", import.meta.url), "utf8");
+  const owner = await readFile(new URL("./modules/rank/opportunityAnalysis.js", import.meta.url), "utf8");
+  const platform = await readFile(new URL("./platform.js", import.meta.url), "utf8");
+
+  assert.match(facade, /from ["']\.\/opportunityAnalysis\.js["']/);
+  assert.match(owner, /export function queryChanges/);
+  assert.match(owner, /export function opportunityGroups/);
+  assert.match(owner, /export function queryTaskDetail/);
+  assert.doesNotMatch(platform, /export function queryChanges/);
+  assert.doesNotMatch(platform, /export function opportunityGroups/);
+  assert.doesNotMatch(platform, /export function queryTaskDetail/);
+  assert.match(platform, /from ["']\.\/modules\/rank\/opportunityAnalysis\.js["']/);
+});
