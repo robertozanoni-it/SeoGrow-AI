@@ -1,6 +1,7 @@
 // Public API for the Content domain.
 //
-// The facade is intentionally narrow while the legacy implementation is
-// extracted incrementally. Add domain-owned exports here instead of creating
-// new cross-domain imports into legacy files.
+// Implementations intentionally remain in legacy files while callers migrate
+// incrementally. New consumers should depend on this facade instead of
+// importing editorial planning logic directly from platform.js.
 export { contentManifest } from "./manifest.js";
+export { contentPlan } from "../../platform.js";
