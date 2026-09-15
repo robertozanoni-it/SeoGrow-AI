@@ -10,6 +10,9 @@ export {
   metadataDuplicateGroups,
   isLegalPage,
   excludeLegalSeo,
+  latestOf,
+  normalizeAnalysisHistory,
+  analysisDiff,
 } from "./data.js";
 export { default as ProblemsNavBridge } from "../../ProblemsNavBridge.jsx";
 export { default as ProblemsWorkspaceMount } from "../../ProblemsWorkspaceMount.jsx";
