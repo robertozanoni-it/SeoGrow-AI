@@ -1,5 +1,18 @@
 // Public API for the Tasks experience.
 //
-// Cross-module work remains coordinated through the shared Tasks experience;
-// consumers should use this boundary as task behavior is extracted.
+// Tasks owns shared task behavior. New consumers should use this boundary
+// instead of importing legacy top-level task helpers directly.
 export { tasksManifest } from "./manifest.js";
+export {
+  sameTask,
+  archiveDuplicateTasks,
+} from "./taskDuplicates.js";
+export {
+  isLegalSeoTask,
+  archiveLegalSeoTasks,
+} from "./taskScope.js";
+export {
+  missingCanonicalTask,
+  activeClientTasks,
+  completeVerifiedCanonicals,
+} from "./taskReview.js";
