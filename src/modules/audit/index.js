@@ -7,6 +7,7 @@ export {
   observedNumber,
   observedPageCount,
   observedScoreDelta,
+  metadataDuplicateGroups,
 } from "./data.js";
 export { default as ProblemsNavBridge } from "../../ProblemsNavBridge.jsx";
 export { default as ProblemsWorkspaceMount } from "../../ProblemsWorkspaceMount.jsx";
