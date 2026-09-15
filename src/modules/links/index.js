@@ -9,3 +9,7 @@ export {
   brokenExternalLinks,
   orphanPages,
 } from "./selectors.js";
+export {
+  decodeLinkEntities,
+  singleAnchorHref,
+} from "../../brokenLinkHref.js";
