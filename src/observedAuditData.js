@@ -4,4 +4,4 @@ export {
   observedNumber,
   observedPageCount,
   observedScoreDelta,
-} from "./modules/audit/observedData.js";
+} from "./modules/audit/data.js";

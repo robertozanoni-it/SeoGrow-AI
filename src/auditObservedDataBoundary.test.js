@@ -7,7 +7,7 @@ import {
   observedNumber,
   observedPageCount,
   observedScoreDelta,
-} from "./modules/audit/observedData.js";
+} from "./modules/audit/data.js";
 import {
   observedNumber as legacyObservedNumber,
   observedPageCount as legacyObservedPageCount,
@@ -39,10 +39,13 @@ test("Audit owns observed evidence normalization while legacy exports remain ide
   assert.equal(observedScoreDelta({ score: null }, { score: 65 }), null);
 
   const facade = await readFile(new URL("./modules/audit/index.js", import.meta.url), "utf8");
+  const pureApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
   const legacyShim = await readFile(new URL("./observedAuditData.js", import.meta.url), "utf8");
-  assert.match(facade, /from ["']\.\/observedData\.js["']/);
+  assert.match(facade, /from ["']\.\/data\.js["']/);
+  assert.doesNotMatch(pureApi, /\.jsx|AuditWorkspace|Problems/);
+  assert.match(pureApi, /from ["']\.\/observedData\.js["']/);
   assert.doesNotMatch(legacyShim, /function observedNumber/);
-  assert.match(legacyShim, /from ["']\.\/modules\/audit\/observedData\.js["']/);
+  assert.match(legacyShim, /from ["']\.\/modules\/audit\/data\.js["']/);
 });
 
 test("nessun nuovo consumer di produzione importa direttamente lo shim observedAuditData", async () => {
@@ -58,7 +61,6 @@ test("nessun nuovo consumer di produzione importa direttamente lo shim observedA
     "App.jsx",
     "AuditWorkspace.jsx",
     "problemsModel.js",
-    "providerBudgetModel.js",
     "seoResponseIntegrity.js",
   ]);
 });
