@@ -16,6 +16,7 @@ import {
 } from "./modules/rank/index.js";
 import {
   opportunityQueries as dataOpportunityQueries,
+  suggestPageForQuery as dataSuggestPageForQuery,
   opportunityGroups as dataOpportunityGroups,
   queryChanges as dataQueryChanges,
   queryTaskDetail as dataQueryTaskDetail,
@@ -60,6 +61,7 @@ test("Rank facade mantiene identiche le implementazioni legacy durante l'estrazi
 
 test("la pure Rank data API espone le stesse implementazioni analitiche e di history", () => {
   assert.equal(dataOpportunityQueries, opportunityQueries);
+  assert.equal(dataSuggestPageForQuery, suggestPageForQuery);
   assert.equal(dataOpportunityGroups, opportunityGroups);
   assert.equal(dataQueryChanges, queryChanges);
   assert.equal(dataQueryTaskDetail, queryTaskDetail);
@@ -82,6 +84,28 @@ test("Rank opportunity queries preserva filtri, ordinamento e limite", () => {
     ["opportunità", "top3 basso ctr"],
   );
   assert.deepEqual(opportunityQueries(null), []);
+});
+
+test("Rank page suggestion preserva matching URL, titolo, excerpt e soglia", () => {
+  const pages = [
+    {
+      dimension: "https://example.it/guida-yoga-principianti/",
+      title: "Yoga per principianti",
+      contentExcerpt: "Una guida pratica per iniziare yoga in sicurezza.",
+    },
+    {
+      dimension: "https://example.it/pilates/",
+      title: "Pilates",
+      contentExcerpt: "Esercizi e corsi di pilates.",
+    },
+    { dimension: "not-a-url", title: "Yoga", contentExcerpt: "Yoga" },
+  ];
+  const result = suggestPageForQuery("guida yoga principianti", pages);
+  assert.equal(result?.url, "https://example.it/guida-yoga-principianti/");
+  assert.ok(result?.score >= 0.35);
+  assert.ok(result?.matches.includes("yoga"));
+  assert.equal(suggestPageForQuery("a di e", pages), null);
+  assert.equal(suggestPageForQuery("termine totalmente estraneo", pages), null);
 });
 
 test("Rank dataset history preserva deduplica, ordinamento e comparabilità dei periodi", () => {
@@ -116,29 +140,38 @@ test("la business logic dei task opportunità appartiene al modulo Rank, non all
 
   assert.match(implementation, /export function opportunityTask/);
   assert.match(implementation, /export function findExistingTask/);
+  assert.match(implementation, /from ["']\.\/pageSuggestion\.js["']/);
+  assert.doesNotMatch(implementation, /seoHelpers\.js/);
   assert.doesNotMatch(legacyShim, /function opportunityTask/);
   assert.doesNotMatch(legacyShim, /function findExistingTask/);
   assert.match(legacyShim, /from ["']\.\/modules\/rank\/opportunityTasks\.js["']/);
 });
 
-test("Rank possiede opportunity queries, opportunity analysis e dataset history", async () => {
+test("Rank possiede opportunity queries, page suggestion, opportunity analysis e dataset history", async () => {
   const facade = await readFile(new URL("./modules/rank/index.js", import.meta.url), "utf8");
   const dataApi = await readFile(new URL("./modules/rank/data.js", import.meta.url), "utf8");
   const queriesOwner = await readFile(new URL("./modules/rank/opportunityQueries.js", import.meta.url), "utf8");
+  const pageSuggestionOwner = await readFile(new URL("./modules/rank/pageSuggestion.js", import.meta.url), "utf8");
   const analysisOwner = await readFile(new URL("./modules/rank/opportunityAnalysis.js", import.meta.url), "utf8");
   const historyOwner = await readFile(new URL("./modules/rank/datasetHistory.js", import.meta.url), "utf8");
   const gscImport = await readFile(new URL("./gscImport.js", import.meta.url), "utf8");
+  const seoHelpers = await readFile(new URL("./seoHelpers.js", import.meta.url), "utf8");
   const platform = await readFile(new URL("./platform.js", import.meta.url), "utf8");
 
   assert.match(facade, /from ["']\.\/opportunityQueries\.js["']/);
+  assert.match(facade, /from ["']\.\/pageSuggestion\.js["']/);
   assert.match(facade, /from ["']\.\/opportunityAnalysis\.js["']/);
   assert.match(facade, /from ["']\.\/datasetHistory\.js["']/);
   assert.match(dataApi, /from ["']\.\/opportunityQueries\.js["']/);
+  assert.match(dataApi, /from ["']\.\/pageSuggestion\.js["']/);
   assert.match(dataApi, /from ["']\.\/opportunityAnalysis\.js["']/);
   assert.match(dataApi, /from ["']\.\/datasetHistory\.js["']/);
   assert.match(queriesOwner, /export function opportunityQueries/);
   assert.doesNotMatch(gscImport, /export function opportunityQueries/);
   assert.match(gscImport, /modules\/rank\/opportunityQueries\.js/);
+  assert.match(pageSuggestionOwner, /export function suggestPageForQuery/);
+  assert.doesNotMatch(seoHelpers, /export function suggestPageForQuery/);
+  assert.match(seoHelpers, /modules\/rank\/pageSuggestion\.js/);
   assert.match(analysisOwner, /export function queryChanges/);
   assert.match(analysisOwner, /export function opportunityGroups/);
   assert.match(analysisOwner, /export function queryTaskDetail/);

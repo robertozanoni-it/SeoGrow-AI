@@ -1,4 +1,4 @@
-import { suggestPageForQuery } from "../../seoHelpers.js";
+import { suggestPageForQuery } from "./pageSuggestion.js";
 import { sameTask } from "../../experience/tasks/index.js";
 import { normalizeClientId } from "../../reliabilityModel.js";
 
