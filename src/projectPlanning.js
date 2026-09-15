@@ -1,17 +1,9 @@
 // Compatibility entry point for planning/report helpers.
-// Content owns editorial calendar planning; report-template behavior remains
-// here until its final domain boundary is established.
+// Content owns editorial calendar planning; Core owns shared report templates.
 export {
   validDate,
   calendarDays,
   planItems,
   scheduleItem,
 } from "./modules/content/editorialPlanning.js";
-
-export const reportSections = { tasks: "Attività", issues: "Problemi tecnici", geo: "Preparazione GEO", queries: "Query Search Console", links: "Link interrotti" };
-export function reportTemplate(value = {}) {
-  const input = value && typeof value === "object" ? value : {};
-  const sections = Object.fromEntries(Object.keys(reportSections).map(key => [key, input.sections?.[key] !== false]));
-  if (!Object.values(sections).some(Boolean)) sections.tasks = true;
-  return { brand: String(input.brand || "").slice(0, 100), title: String(input.title || "Report SEO").slice(0, 100), intro: String(input.intro || "").slice(0, 2000), color: /^#[\da-f]{6}$/i.test(input.color || "") ? input.color : "#16a05d", sections };
-}
+export { reportSections, reportTemplate } from "./core/reporting/index.js";
