@@ -30,11 +30,13 @@ import {
   ProblemsNavBridge,
   ProblemsWorkspaceMount,
   ProblemResolutionPage,
-  AutomaticProposalPage,
   AuditWorkspace,
+} from './modules/audit/index.js';
+import {
+  AutomaticProposalPage,
   RemediationRuntime,
   CorrectionsWorkspace,
-} from './modules/audit/index.js';
+} from './modules/publish/ui.js';
 import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
