@@ -57,8 +57,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import AgentPage from "./AgentPage";
-import GeoPage from "./GeoPage";
+const AgentPage = lazy(() => import("./AgentPage"));
+const GeoPage = lazy(() => import("./GeoPage"));
 import { initialClients } from "./data";
 import { apiFetch } from "./api";
 import {

@@ -22,7 +22,21 @@ export default defineConfig(({ mode }) => {
   };
   return {
     plugins: [react()],
-    build: { chunkSizeWarningLimit: 700 },
+    build: {
+      chunkSizeWarningLimit: 700,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (id.includes("recharts") || id.includes("d3-")) return "charts";
+            if (id.includes("jszip")) return "archive";
+            if (id.includes("papaparse")) return "csv";
+            if (id.includes("react") || id.includes("scheduler")) return "react-vendor";
+            return "vendor";
+          },
+        },
+      },
+    },
     server: {
       host: "127.0.0.1",
       port: 5173,
