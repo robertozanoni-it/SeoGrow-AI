@@ -10,7 +10,7 @@ import EditorialCalendar from "./EditorialCalendar.jsx";
 import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
-import { taskWorkflowTarget } from "./taskWorkflow.js";
+import { consumeTaskWorkflowContext, taskWorkflowTarget, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
 import { buildUnifiedProblems } from "./problemsModel.js";
@@ -2088,6 +2088,7 @@ function ContentPage({
   editorialSchedule,
   onSaveSchedule,
   onDataForSeoUsage,
+  workflowContext,
 }) {
   const editorRef = useRef(null);
   const topicalItems = (topicalMap?.ideas || [])
@@ -2116,7 +2117,7 @@ function ContentPage({
       slot: `Settimana ${Math.floor(index / 3) + 1}`,
     }));
   const [topic, setTopic] = useState(
-    draft?.topic || initialPlan[0]?.title || "",
+    draft?.topic || workflowContext?.query || workflowContext?.title || initialPlan[0]?.title || "",
   );
   const [type, setType] = useState(draft?.type || "brief");
   const [content, setContent] = useState(draft?.content || "");
@@ -2171,6 +2172,7 @@ function ContentPage({
           context: JSON.stringify({
             progetto: client.name,
             sito: client.url,
+            taskOrigine: workflowContext ? { id: workflowContext.taskId, titolo: workflowContext.title, query: workflowContext.query, pagina: workflowContext.sourceUrl, destinazione: workflowContext.targetUrl } : null,
             querySearchConsole: (dataset?.queries || []).slice(0, 20).map((row) => ({
               query: row.dimension,
               clic: row.clicks,
@@ -3712,6 +3714,7 @@ export default function App() {
   const [storageError, setStorageError] = useState("");
   const [toast, setToast] = useState("");
   const [requestedTask, setRequestedTask] = useState(null);
+  const [taskWorkflowContextState, setTaskWorkflowContextState] = useState(() => consumeTaskWorkflowContext(localStorage));
   const handleGscImportRef = useRef(null);
   const clientsRef = useRef(clients);
   const storageErrorKeyRef = useRef("");
@@ -4533,6 +4536,7 @@ export default function App() {
           onSaveSchedule={editorialSchedule => saveProjectSettings({ ...projectSettings, editorialSchedule })}
           draft={contentDrafts[selectedClient]}
           onSaveDraft={saveContentDraft}
+          workflowContext={taskWorkflowContextState}
           onDataForSeoUsage={(monthlyCost) =>
             setDataForSeo((current) => ({ ...current, monthlyCost }))
           }
@@ -4554,6 +4558,8 @@ export default function App() {
           onContinueTask={(task) => {
             const target = taskWorkflowTarget(task);
             if (!target) return;
+            const context = writeTaskWorkflowContext(localStorage, task);
+            setTaskWorkflowContextState(context);
             setRequestedTask(null);
             setPage(target.page);
           }}
