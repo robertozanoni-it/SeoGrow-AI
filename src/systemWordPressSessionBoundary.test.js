@@ -42,10 +42,13 @@ test("nessun nuovo consumer production importa direttamente lo shim WordPress se
     "BatchRemediationPanel.jsx",
     "ProjectCenter.jsx",
     "RemediationHost.jsx",
-    "WordPressConnectionControl.jsx",
   ]);
 
   const isolatedQa = await readFile(new URL("./IsolatedElementorQaPanel.jsx", import.meta.url), "utf8");
   assert.match(isolatedQa, /from ["']\.\/system\/index\.js["']/);
   assert.doesNotMatch(isolatedQa, /from ["']\.\/wordpressSession(?:\.js)?["']/);
+
+  const connectionControl = await readFile(new URL("./WordPressConnectionControl.jsx", import.meta.url), "utf8");
+  assert.match(connectionControl, /from ["']\.\/system\/index\.js["']/);
+  assert.doesNotMatch(connectionControl, /from ["']\.\/wordpressSession(?:\.js)?["']/);
 });
