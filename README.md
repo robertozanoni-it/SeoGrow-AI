@@ -1,8 +1,8 @@
-# seoGrow AI — MVP 1.4.3
+# SeoGrow AI — Suite 1.4.3
 
 Le verifiche storiche della versione 1.4.2 sono riepilogate in `docs/QA-1.4.2.md`. La release 1.4.3 aggiunge il workflow di remediation WordPress con verifica frontend, storico correzioni e rollback.
 
-MVP personale per gestire clienti SEO, audit on-page, opportunità, contenuti, task e integrazioni WordPress.
+Suite SEO locale per gestire progetti e clienti, audit, problemi, opportunità, posizionamenti, contenuti, task, GEO, automazioni assistite e workflow WordPress verificabili.
 
 ## Avvio locale
 
@@ -31,7 +31,7 @@ Esegui `npm run build` e quindi `npm start`. Apri `http://localhost:5176`; l’A
 - task Search Console con metriche, distinzione tra URL confermata e suggerita, checklist operativa e link alla pagina;
 - crawl configurabile fino a 200 pagine, 800 link interni e 250 link esterni;
 - controlli di title, description, H1, canonical, noindex, immagini, contenuti brevi, tempi di risposta, profondità, duplicati, sitemap e link interrotti;
-- storico delle analisi con problemi nuovi, risolti e variazione del punteggio;
+- storico unificato di audit, correzioni, contenuti WordPress e task completate, con filtri ed esportazione CSV;
 - suggerimenti di linking interno con pagina sorgente, destinazione e anchor;
 - creazione task verificata dai suggerimenti editoriali, dai link interrotti e dai link interni consigliati, con conferma visibile;
 - opportunità per posizioni 4–20, CTR basso, query in calo e cannibalizzazioni;
@@ -39,7 +39,7 @@ Esegui `npm run build` e quindi `npm start`. Apri `http://localhost:5176`; l’A
 - topical map DataForSEO con volumi, intento, cluster e articoli mancanti rispetto alle query già coperte;
 - controllo posizionamenti DataForSEO per desktop/mobile, profondità fino alla top 100, URL posizionata, storico e variazione;
 - eliminazione protetta dei clienti e dei relativi dati locali;
-- report HTML scaricabile per ogni cliente, stampabile anche in PDF;
+- report HTML configurabile per ogni cliente con sintesi executive, audit, task, Search Console, posizionamenti, piano editoriale, GEO e link, stampabile anche in PDF;
 - backup completo cifrato con password, incluse cronologia e snapshot di rollback delle remediation, e copie locali automatiche ripristinabili;
 - notifiche per cali, nuovi problemi, correzioni e task scadute;
 - metriche reali per cliente: clic, impressioni, CTR, posizione, query, pagine, Paesi e dispositivi;
@@ -51,6 +51,8 @@ Esegui `npm run build` e quindi `npm start`. Apri `http://localhost:5176`; l’A
 - verifica guidata WordPress e invio dei contenuti editoriali esclusivamente come bozze, con credenziali mantenute solo durante la sessione;
 - remediation WordPress separata per campi supportati, con verifica del frontend prima di considerare risolto un problema SEO e storico Prima/Dopo con rollback;
 - ricerca globale funzionante per sezioni, clienti e task;
+- workflow cross-modulo Audit/Opportunità → Task → Correzioni o Piano editoriale → verifica/completamento → Storico/Report;
+- SEO Agent con pianificazione, limiti operativi, approvazione delle azioni sensibili, provenance e controllo dei costi;
 - integrazione OAuth Search Console con importazione query–pagina reale e aggiornamento periodico mentre l’app è aperta;
 - salvataggio delle preferenze nel browser;
 - salvataggio automatico delle bozze editoriali per progetto;
@@ -100,7 +102,7 @@ Il controllo dei link interrotti richiede una **Nuova analisi** del sito: Search
 
 ## Report, backup e analisi
 
-- In **Siti**, premi **Report** nella card di un cliente. Apri il file HTML e usa **Stampa / Salva PDF** se desideri un PDF.
+- In **Clienti**, apri il progetto e usa il **Report** configurato nel Centro progetto. Apri il file HTML e usa **Stampa / Salva PDF** se desideri un PDF.
 - In **Impostazioni → Backup completo**, scegli una password di almeno 10 caratteri: il file viene cifrato con AES-GCM. Conservala, perché non può essere recuperata dall’app. Nella 1.4.3 il backup include anche storico correzioni e snapshot Prima/Dopo usati per il rollback.
 - In **Panoramica**, **Storico**, **Link interni** o **Task**, premi **Nuova analisi**. Puoi scegliere da 25 a 200 pagine.
 
@@ -131,6 +133,6 @@ La voce **GEO AI** nella sidebar lavora sul progetto selezionato e offre:
 L’audit non garantisce che un motore AI menzioni o citi il sito. Le risposte
 generative possono variare e Search Console non separa tutte le citazioni AI.
 
-## Limiti della versione 1.4
+## Limiti dell’esecuzione locale
 
 Le automazioni funzionano finché app e Terminale restano aperti. Database multiutente, invii programmati a computer spento, email automatiche e gestione di più utenti richiedono una versione installata su server/cloud. Le chiamate DataForSEO reali richiedono credenziali attive e consumano il relativo credito.
