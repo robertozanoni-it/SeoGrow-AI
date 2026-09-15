@@ -40,9 +40,12 @@ test("nessun nuovo consumer production importa direttamente lo shim WordPress se
   assert.deepEqual(importers.sort(), [
     "App.jsx",
     "BatchRemediationPanel.jsx",
-    "IsolatedElementorQaPanel.jsx",
     "ProjectCenter.jsx",
     "RemediationHost.jsx",
     "WordPressConnectionControl.jsx",
   ]);
+
+  const isolatedQa = await readFile(new URL("./IsolatedElementorQaPanel.jsx", import.meta.url), "utf8");
+  assert.match(isolatedQa, /from ["']\.\/system\/index\.js["']/);
+  assert.doesNotMatch(isolatedQa, /from ["']\.\/wordpressSession(?:\.js)?["']/);
 });
