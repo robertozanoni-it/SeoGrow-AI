@@ -20,7 +20,7 @@ export const SUITE_NAVIGATION = Object.freeze([
     item("GEO AI", "GEO", "geo"),
   ]),
   group("ACT", [
-    item("Correzioni", "Correzioni", "fix", true),
+    item("Correzioni", "Publish", "fix"),
     item("Task", "Tasks", "tasks"),
   ]),
   group("AI", [

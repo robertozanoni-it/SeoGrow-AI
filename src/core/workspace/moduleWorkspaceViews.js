@@ -20,8 +20,7 @@ export const MODULE_WORKSPACE_VIEWS = Object.freeze([
   ]),
   view("audit", [
     "clients", "selectedClient", "analyses", "auditMonitor", "pageAuditHistory",
-    "auditResults", "remediationHistory", "remediationLastBatch", "wordpressProfiles",
-    "cmsRouter",
+    "auditResults", "remediationHistory",
   ]),
   view("rank", [
     "clients", "selectedClient", "gsc", "gscHistory", "rankings",

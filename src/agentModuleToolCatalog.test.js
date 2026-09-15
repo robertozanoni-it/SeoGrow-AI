@@ -6,7 +6,7 @@ import {
   isAgentCapabilityAvailable,
 } from "./intelligence/agent/moduleToolCatalog.js";
 
-test("l'Agent vede solo capability dei moduli operativi e non le proprie infrastrutture", () => {
+test("l'Agent vede solo capability dei moduli esplicitamente agent-enabled", () => {
   const tools = agentModuleTools();
   const modules = new Set(tools.map((tool) => tool.moduleId));
   assert.ok(modules.has("audit"));
@@ -26,7 +26,7 @@ test("ogni tool Agent usa l'identificatore namespaced della capability", () => {
   assert.deepEqual(verify, {
     id: "audit:verify",
     moduleId: "audit",
-    moduleLabel: "Audit & Fix",
+    moduleLabel: "Audit",
     capability: "verify",
     available: true,
   });
@@ -34,13 +34,13 @@ test("ogni tool Agent usa l'identificatore namespaced della capability", () => {
   assert.equal(agentToolForCapability("missing:tool"), null);
 });
 
-test("Publish è visibile alla pianificazione ma non invocabile finché resta planned", () => {
+test("Publish è attivo per l'utente ma non invocabile dall'Agent", () => {
   assert.equal(agentToolForCapability("publish:wordpress"), null);
   assert.equal(isAgentCapabilityAvailable("publish:wordpress"), false);
 
-  const planned = agentToolForCapability("publish:wordpress", { includeUnavailable: true });
-  assert.equal(planned.moduleId, "publish");
-  assert.equal(planned.available, false);
+  const unavailable = agentToolForCapability("publish:wordpress", { includeUnavailable: true });
+  assert.equal(unavailable.moduleId, "publish");
+  assert.equal(unavailable.available, false);
 
   const all = agentModuleTools({ includeUnavailable: true });
   assert.ok(all.some((tool) => tool.id === "publish:wordpress" && tool.available === false));

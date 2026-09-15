@@ -12,6 +12,7 @@ export const SUITE_CAPABILITIES = Object.freeze(
       capability,
       moduleStatus: moduleDefinition.status,
       available: moduleDefinition.status === "active",
+      agentAvailable: moduleDefinition.status === "active" && moduleDefinition.agentEnabled === true,
     })),
   ),
 );
@@ -25,9 +26,13 @@ for (const entry of SUITE_CAPABILITIES) {
 
 export const suiteCapability = (key) => capabilityMap.get(String(key || "")) || null;
 
-export const capabilitiesForModule = (moduleId, { availableOnly = false } = {}) =>
+export const capabilitiesForModule = (moduleId, { availableOnly = false, agentOnly = false } = {}) =>
   SUITE_CAPABILITIES.filter((entry) =>
-    entry.moduleId === moduleId && (!availableOnly || entry.available),
+    entry.moduleId === moduleId &&
+    (!availableOnly || entry.available) &&
+    (!agentOnly || entry.agentAvailable),
   );
 
 export const availableSuiteCapabilities = () => SUITE_CAPABILITIES.filter((entry) => entry.available);
+
+export const agentAvailableSuiteCapabilities = () => SUITE_CAPABILITIES.filter((entry) => entry.agentAvailable);

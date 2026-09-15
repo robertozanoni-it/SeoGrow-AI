@@ -5,6 +5,7 @@ export const rankManifest = defineSuiteModule({
   label: "Rank & Growth",
   layer: "module",
   status: "active",
+  agentEnabled: true,
   homePage: "Posizionamenti",
   futurePath: "/rank",
   pages: ["Posizionamenti", "Opportunità"],

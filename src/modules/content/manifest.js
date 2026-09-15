@@ -5,6 +5,7 @@ export const contentManifest = defineSuiteModule({
   label: "Content",
   layer: "module",
   status: "active",
+  agentEnabled: true,
   homePage: "Piano editoriale",
   futurePath: "/content",
   pages: ["Piano editoriale"],

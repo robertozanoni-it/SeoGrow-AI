@@ -1,6 +1,6 @@
 import {
   SUITE_CAPABILITIES,
-  availableSuiteCapabilities,
+  agentAvailableSuiteCapabilities,
   suiteCapability,
 } from "../../core/modules/capabilityRegistry.js";
 import { moduleById } from "../../core/modules/moduleRegistry.js";
@@ -15,12 +15,12 @@ const toAgentTool = (entry) => {
     moduleId: entry.moduleId,
     moduleLabel: moduleDefinition.label,
     capability: entry.capability,
-    available: entry.available,
+    available: entry.agentAvailable,
   });
 };
 
 export const agentModuleTools = ({ includeUnavailable = false } = {}) => {
-  const source = includeUnavailable ? SUITE_CAPABILITIES : availableSuiteCapabilities();
+  const source = includeUnavailable ? SUITE_CAPABILITIES : agentAvailableSuiteCapabilities();
   return Object.freeze(source.map(toAgentTool).filter(Boolean));
 };
 
