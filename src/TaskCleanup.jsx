@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api.js';
-import { archiveDuplicateTasks } from './taskDuplicates.js';
+import { archiveDuplicateTasks, activeClientTasks, missingCanonicalTask, completeVerifiedCanonicals } from './experience/tasks/index.js';
 import { slashPairs, confirmedSlashAlias } from './taskUrlEvidence.js';
-import { activeClientTasks, missingCanonicalTask, completeVerifiedCanonicals } from './taskReview.js';
 
 export default function TaskCleanup({ tasks, clientId, setTasks }) {
   const [busy, setBusy] = useState(false);
