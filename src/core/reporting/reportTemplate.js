@@ -1,8 +1,11 @@
 export const reportSections = {
+  overview: "Sintesi executive",
   tasks: "Attività",
   issues: "Problemi tecnici",
   geo: "Preparazione GEO",
   queries: "Query Search Console",
+  rankings: "Posizionamenti",
+  editorial: "Piano editoriale",
   links: "Link interrotti",
 };
 

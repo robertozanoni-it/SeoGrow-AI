@@ -10,3 +10,23 @@ test("personalized reports omit unselected sections and escape branding", () => 
   assert.ok(!html.includes("<h2>Preparazione GEO</h2>"));
   assert.ok(html.includes("<h2>Task del progetto</h2>"));
 });
+
+test("suite report includes rankings, editorial plan and executive overview", () => {
+  const html = buildClientReport({
+    client: { name: "Client", url: "https://example.com" }, tasks: [],
+    rankings: { items: [{ keyword: "seo locale", position: 4, delta: 2, url: "https://example.com/seo" }] },
+    editorial: [{ id: "e1", title: "Guida SEO", type: "article", date: "2026-09-20", url: "https://example.com/guida" }],
+  });
+  assert.ok(html.includes("<h2>Sintesi executive</h2>"));
+  assert.ok(html.includes("<h2>Posizionamenti</h2>"));
+  assert.ok(html.includes("seo locale"));
+  assert.ok(html.includes("<h2>Piano editoriale</h2>"));
+  assert.ok(html.includes("Guida SEO"));
+});
+
+test("suite report can omit new sections independently", () => {
+  const html = buildClientReport({ client: { name: "Client", url: "https://example.com" }, tasks: [], template: { sections: { overview: false, rankings: false, editorial: false } } });
+  assert.ok(!html.includes("<h2>Sintesi executive</h2>"));
+  assert.ok(!html.includes("<h2>Posizionamenti</h2>"));
+  assert.ok(!html.includes("<h2>Piano editoriale</h2>"));
+});

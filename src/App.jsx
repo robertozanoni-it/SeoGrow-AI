@@ -4259,6 +4259,8 @@ export default function App() {
       tasks: clientTasks,
       analysis: latestOf(normalizeAnalysisHistory(analyses[clientId])),
       geo: geoData[clientId],
+      rankings: rankings[clientId],
+      editorial: preferences.projectSettings?.[clientId]?.editorialSchedule,
       template: preferences.projectSettings?.[clientId]?.report,
     });
   };
