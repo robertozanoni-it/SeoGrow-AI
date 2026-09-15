@@ -96,15 +96,15 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     assert.equal(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Avanti').disabled"),true);
     await set('main','Soglia avvisi','30'); await set('main','Frequenza','168');
     const count = await evaluate("document.querySelectorAll('fieldset .report-option input').length");
-    assert.equal(count,5);
-    for(let i=0;i<4;i++) await evaluate(`document.querySelectorAll('fieldset .report-option input')[${i}].click()`);
-    await waitFor("document.querySelectorAll('fieldset .report-option input')[4].disabled",'Last report section cannot be removed');
+    assert.equal(count,8);
+    for(let i=0;i<count-1;i++) await evaluate(`document.querySelectorAll('fieldset .report-option input')[${i}].click()`);
+    await waitFor(`document.querySelectorAll('fieldset .report-option input')[${count-1}].disabled`,'Last report section cannot be removed');
     await saved('seogrow-preferences-v1',"value?.projectSettings?.[9001]?.report?.intro === 'Introduction\\nEvidence'");
     await revisit('Centro progetto'); await waitFor("document.querySelector('.wizard-steps')",'Wizard restored');
     for(const [label,value] of Object.entries(values)) assert.equal(await evaluate(`${field('main',label)}.value`),value,label);
     assert.equal(await evaluate(`${field('main','Soglia avvisi')}.value`),'30');
     assert.equal(await evaluate(`${field('main','Frequenza')}.value`),'168');
-    assert.deepEqual(await evaluate("[...document.querySelectorAll('fieldset .report-option input')].map(e=>e.checked)"),[false,false,false,false,true]);
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('fieldset .report-option input')].map(e=>e.checked)"),[false,false,false,false,false,false,false,true]);
   });
 
   await record('FIELDS-RANKINGS', async () => {
