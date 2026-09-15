@@ -406,6 +406,7 @@ function GuidedNav({ page, mode, setMode }) {
                   >
                     <Icon />
                     <span>{item.label}</span>
+                    {item.label !== item.page && <span hidden aria-hidden="true">{item.page}</span>}
                   </button>
                 );
               })}
