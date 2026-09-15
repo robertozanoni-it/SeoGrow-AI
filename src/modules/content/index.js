@@ -1,7 +1,8 @@
 // Public API for the Content domain.
 //
-// Implementations intentionally remain in legacy files while callers migrate
-// incrementally. New consumers should depend on this facade instead of
-// importing editorial planning logic directly from platform.js.
+// Implementations are extracted incrementally behind this facade. New
+// consumers should depend on this API instead of importing editorial behavior
+// from legacy monolith files directly.
 export { contentManifest } from "./manifest.js";
 export { contentPlan } from "../../platform.js";
+export { contentSafetyErrors } from "./contentSafety.js";
