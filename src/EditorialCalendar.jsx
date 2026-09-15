@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { calendarDays, planItems, scheduleItem } from "./projectPlanning.js";
+import { calendarDays, planItems, scheduleItem } from "./modules/content/index.js";
 export default function EditorialCalendar({ plan, saved, onSave, clientId }) {
   const [month, setMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; });
   const [message, setMessage] = useState("");
