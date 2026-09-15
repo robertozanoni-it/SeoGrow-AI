@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeVerifiedCanonicals, activeClientTasks } from './taskReview.js';
-import { sameTask, archiveDuplicateTasks } from './taskDuplicates.js';
+import { completeVerifiedCanonicals, activeClientTasks, sameTask, archiveDuplicateTasks } from './experience/tasks/index.js';
 import { confirmedSlashAlias } from './taskUrlEvidence.js';
 import { canonicalCount } from '../server/frontendVerificationHook.js';
 import { reconcileAuditTasks } from './auditTaskReconciliation.js';
