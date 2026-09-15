@@ -1,3 +1,4 @@
+import { confirmAction } from "./ui/dialogs.js";
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api';
 import { getWordPressSession } from './system/index.js';
@@ -47,7 +48,7 @@ export default function IsolatedElementorQaPanel({ client, onNavigate }) {
   const apply = () => run(async () => {
     if (!preview || recorded) return;
     const auth = credentials();
-    if (!window.confirm('Applicare il solo testo di prova alla bozza Elementor 8196 su yogabuenaonda.it? Lo snapshot verrà salvato prima della richiesta e sarà disponibile per il ripristino.')) return;
+    if (!confirmAction('Applicare il solo testo di prova alla bozza Elementor 8196 su yogabuenaonda.it? Lo snapshot verrà salvato prima della richiesta e sarà disponibile per il ripristino.')) return;
     const batchId = `qa-elementor-${crypto.randomUUID()}`;
     const record = {
       id: `correction-${crypto.randomUUID()}`, batchId, clientId: client.id, clientName: client.name,

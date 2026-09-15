@@ -19,13 +19,11 @@ async function sourceFiles(directory, prefix = "") {
 
 test("WordPress transient credentials belong to System and legacy file is only a shim", async () => {
   const implementation = await readFile(new URL("./system/integrations/wordpressSession.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./wordpressSession.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./wordpressSession.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(implementation, /const sessions = new Map\(\)/);
   assert.match(implementation, /30 \* 60_000/);
   assert.doesNotMatch(implementation, /localStorage|workspaceStorage|WORKSPACE_KEYS|indexedDB/i);
-  assert.doesNotMatch(legacyShim, /new Map\(\)/);
-  assert.match(legacyShim, /from ["']\.\/system\/integrations\/wordpressSession\.js["']/);
 });
 
 test("nessun nuovo consumer production importa direttamente lo shim WordPress session", async () => {
@@ -37,12 +35,7 @@ test("nessun nuovo consumer production importa direttamente lo shim WordPress se
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), [
-    "App.jsx",
-    "BatchRemediationPanel.jsx",
-    "ProjectCenter.jsx",
-    "RemediationHost.jsx",
-  ]);
+  assert.deepEqual(importers.sort(), []);
 
   const isolatedQa = await readFile(new URL("./IsolatedElementorQaPanel.jsx", import.meta.url), "utf8");
   assert.match(isolatedQa, /from ["']\.\/system\/index\.js["']/);

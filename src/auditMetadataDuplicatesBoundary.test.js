@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { metadataDuplicateGroups } from "./modules/audit/data.js";
-import { metadataDuplicateGroups as legacyMetadataDuplicateGroups } from "./metadataDuplicateGroups.js";
+import { metadataDuplicateGroups as legacyMetadataDuplicateGroups } from "./modules/audit/data.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.dirname(srcRoot);
@@ -66,12 +66,10 @@ test("Audit owns metadata duplicate grouping while legacy export remains identic
 test("metadata duplicate implementation lives under Audit and the legacy shim stays thin", async () => {
   const dataApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/audit/metadataDuplicateGroups.js", import.meta.url), "utf8");
-  const shim = await readFile(new URL("./metadataDuplicateGroups.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./metadataDuplicateGroups.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(dataApi, /from ["']\.\/metadataDuplicateGroups\.js["']/);
   assert.match(owner, /function metadataDuplicateGroups/);
-  assert.doesNotMatch(shim, /function metadataDuplicateGroups/);
-  assert.match(shim, /modules\/audit\/metadataDuplicateGroups\.js/);
 });
 
 test("nessun nuovo consumer di produzione importa lo shim metadataDuplicateGroups", async () => {
@@ -86,5 +84,5 @@ test("nessun nuovo consumer di produzione importa lo shim metadataDuplicateGroup
     const source = await readFile(path.join(projectRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(relative);
   }
-  assert.deepEqual(importers.sort(), ["server/index.js"]);
+  assert.deepEqual(importers.sort(), []);
 });

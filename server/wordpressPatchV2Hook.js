@@ -1,6 +1,6 @@
 import { budgetedOpenAiFetch } from "./openAiBudget.js";
 import { countVisibleWords, shortContentTarget } from "./wordpressContentTarget.js";
-import { validateSeoSuggestion } from "../src/editorialQuality.js";
+import { validateSeoSuggestion } from "../src/modules/content/index.js";
 import { deterministicDuplicateTitle } from "./deterministicSeoTitle.js";
 import { assertCompletedModelResponse, collectFinalModelText, parseModelValue, canRetryGeneration } from "./remediationOutput.js";
 

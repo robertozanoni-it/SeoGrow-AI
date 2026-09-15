@@ -1,3 +1,5 @@
+import { confirmAction } from "./ui/dialogs.js";
+import { formatUiDate as formatDate } from "./ui/dateFormat.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { resolutionPath, correctionMatchesProblem } from "./resolutionPath.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
@@ -37,12 +39,6 @@ const currentPage = () => {
 };
 const readFocus = () => {
   try { return JSON.parse(sessionStorage.getItem(FOCUS_KEY) || "null"); } catch { return null; }
-};
-const formatDate = (value) => {
-  if (!value) return "Data non disponibile";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data non disponibile";
-  return date.toLocaleString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 const sameProblemCorrection = correctionMatchesProblem;
 const matchesFocus = matchesProblemFocus;
@@ -104,7 +100,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
     const text = priority.kind === "canonical"
       ? `Confermi che ${problem.sourceUrl} debba avere canonical verso se stessa? La modifica verrà solo preparata: vedrai Prima/Dopo e dovrai approvarla prima della scrittura.`
       : `Confermi che ${problem.sourceUrl} debba essere indicizzabile? La modifica verrà solo preparata: vedrai Prima/Dopo e dovrai approvarla prima della scrittura.`;
-    if (!window.confirm(text)) return;
+    if (!confirmAction(text)) return;
     openProblemResolution(problem, client.id, "problem-card", { controlledContextPreview: true });
   };
 

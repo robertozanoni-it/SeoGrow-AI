@@ -7,7 +7,7 @@ import { isLegalPage, excludeLegalSeo } from "./modules/audit/data.js";
 import {
   isLegalPage as legacyIsLegalPage,
   excludeLegalSeo as legacyExcludeLegalSeo,
-} from "./legalPageScope.js";
+} from "./modules/audit/data.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.dirname(srcRoot);
@@ -76,16 +76,13 @@ test("Audit owns legal-page SEO scope while legacy exports remain identical", ()
 test("legal-page scope implementation lives under Audit and consumers use public APIs", async () => {
   const dataApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/audit/legalPageScope.js", import.meta.url), "utf8");
-  const shim = await readFile(new URL("./legalPageScope.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./legalPageScope.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
   const tasksScope = await readFile(new URL("./experience/tasks/taskScope.js", import.meta.url), "utf8");
   const autoFixPlan = await readFile(new URL("./autoFixPlan.js", import.meta.url), "utf8");
 
   assert.match(dataApi, /from ["']\.\/legalPageScope\.js["']/);
   assert.match(owner, /function isLegalPage/);
   assert.match(owner, /function excludeLegalSeo/);
-  assert.doesNotMatch(shim, /function isLegalPage/);
-  assert.doesNotMatch(shim, /function excludeLegalSeo/);
-  assert.match(shim, /modules\/audit\/legalPageScope\.js/);
   assert.match(tasksScope, /from ["']\.\.\/\.\.\/modules\/audit\/data\.js["']/);
   assert.doesNotMatch(tasksScope, /legalPageScope\.js/);
   assert.match(autoFixPlan, /from ["']\.\/modules\/audit\/data\.js["']/);
@@ -104,9 +101,5 @@ test("nessun nuovo consumer di produzione importa lo shim legalPageScope", async
     const source = await readFile(path.join(projectRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(relative);
   }
-  assert.deepEqual(importers.sort(), [
-    "server/index.js",
-    "src/problemsModel.js",
-    "src/seoResponseIntegrity.js",
-  ]);
+  assert.deepEqual(importers.sort(), []);
 });

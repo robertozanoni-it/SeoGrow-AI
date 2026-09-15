@@ -1,9 +1,9 @@
 import { publicHeadMetadata } from "./publicHeadMetadata.js";
 import { SEO_TEXT_LIMITS, seoCharacterCount } from "../src/seoTextPolicy.js";
-import { metadataDuplicateGroups } from "../src/metadataDuplicateGroups.js";
+import { metadataDuplicateGroups } from "../src/modules/audit/data.js";
 import { wordpressDocumentId } from "../src/taskUrlEvidence.js";
 import { canonicalCount, stripAlwaysHiddenMarkup, visibleH1Count } from "./frontendVerificationHook.js";
-import { isLegalPage } from "../src/legalPageScope.js";
+import { isLegalPage } from "../src/modules/audit/data.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { openAiReserved, readOpenAiUsage, estimateOpenAiCost, reserveOpenAiBudget, settleOpenAiBudget } from "./openAiBudget.js";
 import express from "express";

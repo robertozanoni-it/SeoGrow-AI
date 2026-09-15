@@ -12,7 +12,7 @@ import {
   validateSeoSuggestion as legacyValidateSeoSuggestion,
   assertPublishableSeoSuggestion as legacyAssertPublishableSeoSuggestion,
   stripHtml as legacyStripHtml,
-} from "./editorialQuality.js";
+} from "./modules/content/index.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.dirname(srcRoot);
@@ -55,16 +55,13 @@ test("Content owns editorial quality while legacy exports remain identical", () 
 test("editorial quality implementation lives under Content and uses Content-owned safety", async () => {
   const facade = await readFile(new URL("./modules/content/index.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/content/editorialQuality.js", import.meta.url), "utf8");
-  const shim = await readFile(new URL("./editorialQuality.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./editorialQuality.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(facade, /from ["']\.\/editorialQuality\.js["']/);
   assert.match(owner, /from ["']\.\/contentSafety\.js["']/);
   assert.doesNotMatch(owner, /editorialContentSafety\.js/);
   assert.match(owner, /function validateSeoSuggestion/);
   assert.match(owner, /function assertPublishableSeoSuggestion/);
-  assert.doesNotMatch(shim, /function validateSeoSuggestion/);
-  assert.doesNotMatch(shim, /function assertPublishableSeoSuggestion/);
-  assert.match(shim, /modules\/content\/editorialQuality\.js/);
 });
 
 test("nessun nuovo consumer di produzione importa lo shim editorialQuality", async () => {
@@ -79,10 +76,7 @@ test("nessun nuovo consumer di produzione importa lo shim editorialQuality", asy
     const source = await readFile(path.join(projectRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(relative);
   }
-  assert.deepEqual(importers.sort(), [
-    "server/wordpressPatchV2Hook.js",
-    "server/wordpressSeoAdapterV2Hook.js",
-  ]);
+  assert.deepEqual(importers.sort(), []);
 
   const fallback = await readFile(new URL("../server/metaDescriptionFallback.js", import.meta.url), "utf8");
   assert.match(fallback, /from ["']\.\.\/src\/modules\/content\/index\.js["']/);

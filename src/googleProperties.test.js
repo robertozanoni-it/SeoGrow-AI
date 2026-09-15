@@ -7,7 +7,7 @@ import {
 import {
   mergeGoogleStatus as legacyMergeGoogleStatus,
   normalizeGoogleProperties as legacyNormalizeGoogleProperties,
-} from "./googleProperties.js";
+} from "./system/index.js";
 
 test("a late Google status response preserves already loaded properties", () => {
   const properties = Array.from({ length: 19 }, (_, i) => ({ url: `https://site-${i}.example/` }));

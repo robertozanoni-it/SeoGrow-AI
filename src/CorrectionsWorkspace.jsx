@@ -1,3 +1,4 @@
+import { confirmAction } from "./ui/dialogs.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -235,7 +236,7 @@ export default function CorrectionsWorkspace() {
       setMessage("Rollback bloccato: manca lo snapshot dello stato applicato necessario per verificare che WordPress non sia cambiato nel frattempo.");
       return;
     }
-    if (!window.confirm(`Ripristinare la versione precedente per “${record.issueLabel}”? Prima del rollback SeoGrow controllerà che WordPress sia ancora nello stato applicato da questa correzione.`)) return;
+    if (!confirmAction(`Ripristinare la versione precedente per “${record.issueLabel}”? Prima del rollback SeoGrow controllerà che WordPress sia ancora nello stato applicato da questa correzione.`)) return;
     setRollingBack(id);
     setMessage("Controllo stale-state e rollback in corso…");
     try {

@@ -1,3 +1,4 @@
+import { confirmAction } from "./ui/dialogs.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { inspectWordPress, inspectFrontend, inspectLinkEvidence, buildPlan, preparationFailure, createWordPressCorrection, applyPreparedCorrection } from "./wordpressRemediationEngine.js";
 import ManualRemediationProposal from "./ManualRemediationProposal.jsx";
@@ -364,7 +365,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       setMessage("Progetto o audit sono cambiati dopo la preparazione. L'anteprima selezionata è stata invalidata.");
       return;
     }
-    if (!window.confirm(`Applicare ORA questa singola modifica al sito WordPress live?\n\nProblema: ${item.issue?.label || "SEO"}\nCampo/i: ${(item.data.changed || []).join(", ")}\nRisorsa WordPress: ${item.inspected?.resource || "contenuto"} #${item.inspected?.entity?.id || "?"}\n\nIl payload completo è visibile nell'anteprima.`)) return;
+    if (!confirmAction(`Applicare ORA questa singola modifica al sito WordPress live?\n\nProblema: ${item.issue?.label || "SEO"}\nCampo/i: ${(item.data.changed || []).join(", ")}\nRisorsa WordPress: ${item.inspected?.resource || "contenuto"} #${item.inspected?.entity?.id || "?"}\n\nIl payload completo è visibile nell'anteprima.`)) return;
 
     const batchId = `live-remediation-${Date.now()}`;
     setLastBatch(batchId);

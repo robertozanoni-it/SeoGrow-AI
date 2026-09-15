@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import JSZip from 'jszip';
 import { assertSeoPatchLengths, assertSeoTextLength, seoCharacterCount } from './seoTextPolicy.js';
-import { validateSeoSuggestion } from './editorialQuality.js';
+import { validateSeoSuggestion } from './modules/content/index.js';
 import { deterministicMetaDescription } from '../server/wordpressSeoAdapterV2Hook.js';
 import { registerRoutes } from '../server/wordpressLiveApprovalHook.js';
 import { validateTaxonomyChange } from '../server/wordpressTaxonomyHook.js';
 import { remediationIssueKind, remediationSourceUrl } from './remediationIssueKind.js';
 import { problemNavigationFocus, matchesProblemFocus } from './problemNavigationFocus.js';
 import { metadataVerificationPatch } from './metadataCorrectionVerification.js';
-import { metadataDuplicateGroups } from './metadataDuplicateGroups.js';
+import { metadataDuplicateGroups } from './modules/audit/data.js';
 import { buildConnectorArchive } from './connectorPackage.js';
 
 const sentence = 'Scopri come integrare lo yoga in una routine equilibrata con posizioni, consigli pratici e indicazioni utili per iniziare in modo graduale e consapevole.';

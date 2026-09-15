@@ -10,7 +10,7 @@ import {
 import {
   clientForCard as legacyClientForCard,
   selectCardClient as legacySelectCardClient,
-} from "./clientCardNavigation.js";
+} from "./experience/hub/index.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,15 +40,12 @@ test("Hub owns client-card project selection while legacy exports remain identic
 
   const facade = await readFile(new URL("./experience/hub/index.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./experience/hub/clientCardNavigation.js", import.meta.url), "utf8");
-  const shim = await readFile(new URL("./clientCardNavigation.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./clientCardNavigation.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(facade, /from ["']\.\/clientCardNavigation\.js["']/);
   assert.match(owner, /function clientForCard/);
   assert.match(owner, /function selectCardClient/);
   assert.match(owner, /seogrow-selected-client-v1/);
-  assert.doesNotMatch(shim, /function clientForCard/);
-  assert.doesNotMatch(shim, /function selectCardClient/);
-  assert.match(shim, /experience\/hub\/clientCardNavigation\.js/);
 });
 
 test("nessun nuovo consumer di produzione importa lo shim clientCardNavigation", async () => {
@@ -60,5 +57,5 @@ test("nessun nuovo consumer di produzione importa lo shim clientCardNavigation",
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), ["CardWorkspaceLayer.jsx"]);
+  assert.deepEqual(importers.sort(), []);
 });

@@ -3,7 +3,7 @@ import { batchCapability, visibleBatchSelection, createBatchRun, batchSummary, B
 import { prepareBatch, executeBatch } from './batchRemediationQueue.js';
 import { batchHistorySnapshot, listBatchRuns, saveBatchRun, withBatchLock } from './batchRemediationStore.js';
 import { createBatchWordPressPorts } from './batchRemediationRuntime.js';
-import { getWordPressSession, rememberWordPressSession } from './wordpressSession.js';
+import { getWordPressSession, rememberWordPressSession } from './system/index.js';
 import { listCorrections } from './remediationStore.js';
 import { safeHttpHref } from './reliabilityModel.js';
 import { openProblemResolution } from './AutomaticProposalNavigation.js';

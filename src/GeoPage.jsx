@@ -1,3 +1,4 @@
+import { confirmAction } from "./ui/dialogs.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -178,7 +179,7 @@ export default function GeoPage({
       return;
     }
     if (
-      !window.confirm(
+      !confirmAction(
         `Inviare a OpenAI ${questions.length} domande e gli estratti del progetto? La chiamata usa credito API e non misura citazioni reali.`,
       )
     )
@@ -245,7 +246,7 @@ export default function GeoPage({
       return;
     }
     const maxCost = queries.length * Number(dataForSeo.maxSerpCost || 0.1);
-    if (!window.confirm(`Osservare ${queries.length} query su Google tramite DataForSEO? Costo massimo stimato: $${maxCost.toFixed(2)}. La misura non rappresenta citazioni AI.`)) return;
+    if (!confirmAction(`Osservare ${queries.length} query su Google tramite DataForSEO? Costo massimo stimato: $${maxCost.toFixed(2)}. La misura non rappresenta citazioni AI.`)) return;
     setObservationLoading(true);
     setError("");
     try {

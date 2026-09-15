@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import { observedNumber, observedPageCount, observedScoreDelta } from "./observedAuditData.js";
+import { observedNumber, observedPageCount, observedScoreDelta } from "./modules/audit/data.js";
 import { normalizeSiteAnalysis, scoreFromVerifiedEvidence } from "./seoResponseIntegrity.js";
 import { providerBudgetHealth, budgetMoney } from "./system/index.js";
-import { metadataDuplicateGroups } from "./metadataDuplicateGroups.js";
-import { clientForCard } from "./clientCardNavigation.js";
+import { metadataDuplicateGroups } from "./modules/audit/data.js";
+import { clientForCard } from "./experience/hub/index.js";
 import { metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 import { app } from "../server/index.js";
 

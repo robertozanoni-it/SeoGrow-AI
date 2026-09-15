@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateSeoSuggestion } from "./editorialQuality.js";
+import { validateSeoSuggestion } from "./modules/content/index.js";
 import { normalizeSiteAnalysis } from "./seoResponseIntegrity.js";
 import { metaDescriptionSerpWidthWarning, seoCharacterCount } from "./seoTextPolicy.js";
 

@@ -19,13 +19,10 @@ async function sourceFiles(directory, prefix = "") {
 
 test("Google integration business logic belongs to System and legacy file is only a shim", async () => {
   const implementation = await readFile(new URL("./system/integrations/googleProperties.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./googleProperties.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./googleProperties.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(implementation, /export function mergeGoogleStatus/);
   assert.match(implementation, /export function normalizeGoogleProperties/);
-  assert.doesNotMatch(legacyShim, /function mergeGoogleStatus/);
-  assert.doesNotMatch(legacyShim, /function normalizeGoogleProperties/);
-  assert.match(legacyShim, /from ["']\.\/system\/integrations\/googleProperties\.js["']/);
 });
 
 test("nessun nuovo consumer di produzione importa direttamente lo shim Google legacy", async () => {
@@ -37,5 +34,5 @@ test("nessun nuovo consumer di produzione importa direttamente lo shim Google le
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), ["App.jsx"]);
+  assert.deepEqual(importers.sort(), []);
 });

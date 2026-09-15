@@ -1,3 +1,4 @@
+import { confirmAction, notifyUser } from "./ui/dialogs.js";
 import {
   BROKEN_LINK_CLEANUP_MODES,
   brokenExternalTarget,
@@ -66,7 +67,7 @@ const setText = (node, value) => {
 const prepareAgain = (card, target) => {
   const previews = card.closest(".wp-live-remediation")?.querySelectorAll(".wp-live-preview-row.preview") || [];
   if (previews.length !== 1) {
-    window.alert("Per cambiare questa risoluzione prepara un solo problema alla volta, così la scelta resta legata alla pagina corretta.");
+    notifyUser("Per cambiare questa risoluzione prepara un solo problema alla volta, così la scelta resta legata alla pagina corretta.");
     clearBrokenLinkCleanupMode(target);
     return false;
   }
@@ -212,7 +213,7 @@ const confirmDestructiveChoice = (event) => {
   const key = target ? choiceKey(card, target) : "";
   if (!target || choiceModes.get(key) !== DELETE) return;
   const anchor = anchorFromCard(card) || "testo del collegamento";
-  const accepted = window.confirm(
+  const accepted = confirmAction(
     `Conferma eliminazione del link 404 e del testo associato.\n\nAnchor text che verrà eliminato: «${anchor}»\n\nQuesta operazione rimuove il testo dalla pagina. Procedere?`,
   );
   if (!accepted) {

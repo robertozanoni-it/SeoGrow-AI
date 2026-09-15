@@ -9,7 +9,7 @@ import {
   getWordPressSession as legacyGetWordPressSession,
   rememberWordPressSession as legacyRememberWordPressSession,
   forgetWordPressSession as legacyForgetWordPressSession,
-} from "./wordpressSession.js";
+} from "./system/index.js";
 import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
 
 test("WordPress sessions are isolated by project and installation and expire", () => {

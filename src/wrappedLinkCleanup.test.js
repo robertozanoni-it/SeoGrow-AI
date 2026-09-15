@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
-import { matchBrokenLinkHref, singleAnchorHref, transformBrokenLinkAnchors } from "./brokenLinkHref.js";
+import { matchBrokenLinkHref, singleAnchorHref, transformBrokenLinkAnchors } from "./modules/links/index.js";
 import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
 
 const target = "https://www.yogajournal.com/poses/types/advanced/";

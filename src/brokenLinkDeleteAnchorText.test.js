@@ -66,6 +66,6 @@ test("la UI espone entrambe le risoluzioni, limita la scelta a una preview e con
   assert.match(ux, /Anchor text che verrà eliminato/);
   assert.match(ux, /previewCards\.length !== 1/);
   assert.match(ux, /choiceKey/);
-  assert.match(ux, /window\.confirm/);
+  assert.match(ux, /confirmAction/);
   assert.match(appMain, /BrokenLinkCleanupChoiceUx/);
 });

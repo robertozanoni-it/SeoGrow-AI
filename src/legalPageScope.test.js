@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isLegalPage, excludeLegalSeo } from './legalPageScope.js';
+import { isLegalPage, excludeLegalSeo } from './modules/audit/data.js';
 import { buildAutoFixPlan } from './autoFixPlan.js';
 
 test('policy pages excluded, editorial privacy articles retained', () => {

@@ -1,3 +1,4 @@
+import { confirmAction } from "./ui/dialogs.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
@@ -316,7 +317,7 @@ export default function WordPressTaxonomyRemediationControl() {
       return;
     }
     const termLabel = `${inspection.term?.taxonomy === "category" ? "Categoria" : "Tag"} “${inspection.term?.name || ""}”`;
-    if (!window.confirm(`Applicare ORA questa singola modifica alla tassonomia WordPress live?\n\n${termLabel}\nCampo: ${field}\nPrima: ${previewValue(preview.previewBefore)}\nDopo: ${previewValue(preview.previewAfter)}\n\nLa modifica sarà registrata come Da verificare.`)) return;
+    if (!confirmAction(`Applicare ORA questa singola modifica alla tassonomia WordPress live?\n\n${termLabel}\nCampo: ${field}\nPrima: ${previewValue(preview.previewBefore)}\nDopo: ${previewValue(preview.previewAfter)}\n\nLa modifica sarà registrata come Da verificare.`)) return;
 
     setApplying(true);
     setMessage("Applicazione tassonomia live…");

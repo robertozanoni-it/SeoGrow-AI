@@ -3,7 +3,7 @@ import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
 import { selectFocusedRemediation, correctionIssueKeys } from "./remediationSelection.js";
 import { verifiedForAudit } from "./remediationEvidence.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
-import { getWordPressSession } from "./wordpressSession.js";
+import { getWordPressSession } from "./system/index.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";

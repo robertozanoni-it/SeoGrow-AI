@@ -14,7 +14,7 @@ import {
   matchBrokenLinkHref as legacyMatchBrokenLinkHref,
   singleAnchorHref as legacySingleAnchorHref,
   transformBrokenLinkAnchors as legacyTransformBrokenLinkAnchors,
-} from "./brokenLinkHref.js";
+} from "./modules/links/index.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.dirname(srcRoot);
@@ -65,14 +65,11 @@ test("Links owns broken-link href behavior while legacy exports remain identical
 test("broken-link href implementation lives under Links and legacy shim stays thin", async () => {
   const facade = await readFile(new URL("./modules/links/index.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/links/brokenLinkHref.js", import.meta.url), "utf8");
-  const shim = await readFile(new URL("./brokenLinkHref.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./brokenLinkHref.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(facade, /from ["']\.\/brokenLinkHref\.js["']/);
   assert.match(owner, /function matchBrokenLinkHref/);
   assert.match(owner, /function transformBrokenLinkAnchors/);
-  assert.doesNotMatch(shim, /function matchBrokenLinkHref/);
-  assert.doesNotMatch(shim, /function transformBrokenLinkAnchors/);
-  assert.match(shim, /modules\/links\/brokenLinkHref\.js/);
 });
 
 test("nessun consumer di produzione importa lo shim brokenLinkHref", async () => {

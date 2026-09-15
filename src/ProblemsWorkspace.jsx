@@ -1,3 +1,4 @@
+import { formatUiDate as formatDate } from "./ui/dateFormat.js";
 import BatchRemediationPanel from "./BatchRemediationPanel.jsx";
 import { problemEntryLabel } from "./resolutionPath.js";
 import { filterProblemRows } from "./problemFilters.js";
@@ -97,12 +98,6 @@ const labelMap = {
   priority: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non assegnata" },
 };
 
-const formatDate = (value) => {
-  if (!value) return "Data non disponibile";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data non disponibile";
-  return date.toLocaleString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-};
 
 const compactText = (value, max = 220) => {
   const text = String(value || "").replace(/\s+/g, " ").trim();

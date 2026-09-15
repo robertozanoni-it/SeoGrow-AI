@@ -41,9 +41,9 @@ test("nessun nuovo consumer di produzione aggira il boundary Rank", async () => 
   assert.deepEqual(await directImporters("queryTaskDetail", "platform"), ["App.jsx"]);
   assert.deepEqual(await directImporters("datasetKey", "platform"), []);
   assert.deepEqual(await directImporters("addDatasetToHistory", "platform"), ["App.jsx"]);
-  assert.deepEqual(await directImporters("compareDatasets", "platform"), ["App.jsx"]);
+  assert.deepEqual(await directImporters("compareDatasets", "platform"), []);
   assert.deepEqual(await directImporters("opportunityQueries", "gscImport"), ["App.jsx"]);
   assert.deepEqual(await directImporters("suggestPageForQuery", "seoHelpers"), ["App.jsx"]);
-  assert.deepEqual(await directImporters("opportunityTask", "opportunityTasks"), ["App.jsx"]);
-  assert.deepEqual(await directImporters("findExistingTask", "opportunityTasks"), ["App.jsx"]);
+  assert.deepEqual(await directImporters("opportunityTask", "opportunityTasks"), []);
+  assert.deepEqual(await directImporters("findExistingTask", "opportunityTasks"), []);
 });

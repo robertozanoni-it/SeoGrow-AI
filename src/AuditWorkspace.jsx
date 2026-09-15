@@ -1,5 +1,5 @@
 import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
-import { observedScoreDelta } from "./observedAuditData.js";
+import { observedScoreDelta } from "./modules/audit/data.js";
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { auditTaskIdentity } from './auditTaskReconciliation.js';

@@ -12,7 +12,7 @@ import {
   observedNumber as legacyObservedNumber,
   observedPageCount as legacyObservedPageCount,
   observedScoreDelta as legacyObservedScoreDelta,
-} from "./observedAuditData.js";
+} from "./modules/audit/data.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,12 +40,10 @@ test("Audit owns observed evidence normalization while legacy exports remain ide
 
   const facade = await readFile(new URL("./modules/audit/index.js", import.meta.url), "utf8");
   const pureApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./observedAuditData.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./observedAuditData.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
   assert.match(facade, /from ["']\.\/data\.js["']/);
   assert.doesNotMatch(pureApi, /\.jsx|AuditWorkspace|Problems/);
   assert.match(pureApi, /from ["']\.\/observedData\.js["']/);
-  assert.doesNotMatch(legacyShim, /function observedNumber/);
-  assert.match(legacyShim, /from ["']\.\/modules\/audit\/data\.js["']/);
 });
 
 test("nessun nuovo consumer di produzione importa direttamente lo shim observedAuditData", async () => {
@@ -57,10 +55,5 @@ test("nessun nuovo consumer di produzione importa direttamente lo shim observedA
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), [
-    "App.jsx",
-    "AuditWorkspace.jsx",
-    "problemsModel.js",
-    "seoResponseIntegrity.js",
-  ]);
+  assert.deepEqual(importers.sort(), []);
 });

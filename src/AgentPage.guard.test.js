@@ -24,6 +24,6 @@ test("editing context and history cannot switch away from an active execution", 
   assert.match(source, /id="seo-agent-mode"[^>]*disabled=\{running\}/);
   assert.match(source, /id="seo-agent-goal"[^>]*disabled=\{running\}/);
   assert.match(source, /id="agent-history"[^>]*disabled=\{running\}/);
-  assert.match(source, /disabled=\{running\} onClick=\{\(\) => \{ if \(window.confirm/);
+  assert.match(source, /disabled=\{running\} onClick=\{\(\) => \{ if \(confirmAction/);
   assert.match(source, /<button className="secondary" onClick=\{\(\) => orchestrator.cancel\(run.id\)\}>Interrompi<\/button>/);
 });

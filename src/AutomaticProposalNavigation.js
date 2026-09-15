@@ -1,3 +1,4 @@
+import { notifyUser } from "./ui/dialogs.js";
 import { shouldOpenAutomaticProposal, canOpenControlledLinkPreview, canOpenControlledReviewPreview, canOpenControlledContextPreview } from "./resolutionPath.js";
 import { navigatePage } from "./navigationUx.js";
 import { problemNavigationFocus } from "./problemNavigationFocus.js";
@@ -74,7 +75,7 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
     sessionStorage.removeItem(automatic ? RESOLUTION_FOCUS_KEY : PROPOSAL_FOCUS_KEY);
     sessionStorage.setItem(automatic ? PROPOSAL_FOCUS_KEY : RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
   } catch {
-    window.alert("Impossibile conservare il problema selezionato. Abilita lo storage della sessione e riprova; nessuna modifica applicata.");
+    notifyUser("Impossibile conservare il problema selezionato. Abilita lo storage della sessione e riprova; nessuna modifica applicata.");
     return false;
   }
   navigatePage(PROPOSAL_ROUTE_PAGE);

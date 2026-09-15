@@ -70,7 +70,7 @@ test("UI shared Elementor mostra scelte, impatto e applicazione esplicita", asyn
   assert.match(ux, /Rimuovi solo il link/);
   assert.match(ux, /Elimina link \+ anchor text/);
   assert.match(ux, /Pagine influenzate/);
-  assert.match(ux, /window\.confirm/);
+  assert.match(ux, /confirmAction/);
   assert.match(ux, /applyJournaledCorrection/);
   assert.match(ux, /elementor-shared-link-preview/);
   assert.match(ux, /elementor-shared-link-apply/);

@@ -1,3 +1,5 @@
+import { confirmAction } from "./ui/dialogs.js";
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { apiFetch } from "./api.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
 import {
@@ -5,7 +7,6 @@ import {
   setLastBatch,
   updateCorrection,
 } from "./remediationStore.js";
-import { workspaceStorage } from "./workspaceDatabase.js";
 import "./SharedElementorBrokenLinkUx.css";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
@@ -18,10 +19,6 @@ const previews = new Map();
 const modes = new Map();
 let frame = 0;
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-};
 
 const httpUrl = (value, { httpsOnly = false } = {}) => {
   try {
@@ -256,7 +253,7 @@ async function applyPreview(section, card, preview) {
   const anchor = preview.linkCleanup?.anchorText || anchorText(card) || "testo del collegamento";
   const affected = Array.isArray(preview.affectedUrls) ? preview.affectedUrls : [];
   const destructive = preview.linkCleanup?.action === DELETE;
-  const accepted = window.confirm(
+  const accepted = confirmAction(
     `Applicare ORA la correzione al template Elementor condiviso?\n\nTemplate: ${preview.sharedTemplate?.title || "Senza titolo"} (#${preview.id})\nPagine pubbliche influenzate: ${affected.length}\nLink 404: ${target}\n${destructive ? `Anchor text che verrà ELIMINATO: «${anchor}»` : `Anchor text che verrà mantenuto: «${anchor}»`}\n\nSeoGrow verificherà tutte le pagine influenzate e ripristinerà automaticamente il template se il link resta visibile.`,
   );
   if (!accepted) return;

@@ -1,5 +1,6 @@
+import { formatUiDate as formatDate } from "./ui/dateFormat.js";
 import IsolatedElementorQaPanel from "./IsolatedElementorQaPanel.jsx";
-import { getWordPressSession } from "./wordpressSession.js";
+import { getWordPressSession } from "./system/index.js";
 import AutoFixPanel from "./AutoFixPanel.jsx";
 import { readAuditMonitor } from "./auditMonitorStore.js";
 import { useEffect, useRef, useState } from "react";
@@ -39,17 +40,6 @@ const latestDate = (...values) => {
   return dates.toSorted((a, b) => Date.parse(b) - Date.parse(a))[0];
 };
 
-const formatDate = (value) => {
-  const normalized = validDate(value);
-  if (!normalized) return "Data non disponibile";
-  return new Date(normalized).toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
 
 const isElementorQaProject = (url) => {
   try {

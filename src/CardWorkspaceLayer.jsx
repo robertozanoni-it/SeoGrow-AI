@@ -1,6 +1,8 @@
+import { notifyUser } from "./ui/dialogs.js";
+import { formatUiDate as formatDate } from "./ui/dateFormat.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { problemEntryLabel } from "./resolutionPath.js";
-import { selectCardClient } from "./clientCardNavigation.js";
+import { selectCardClient } from "./experience/hub/index.js";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -61,17 +63,6 @@ const maxDate = (values) => {
   return dates.length ? new Date(Math.max(...dates)).toISOString() : "";
 };
 
-const formatDate = (value) => {
-  const normalized = validDate(value);
-  if (!normalized) return "Data non disponibile";
-  return new Date(normalized).toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
 
 const shortUrl = (value) => String(value || "").replace(/^https?:\/\//i, "").replace(/\/$/, "");
 
@@ -884,12 +875,12 @@ export default function CardWorkspaceLayer() {
   const openCard = async (id) => {
     const item = items.find(entry => entry.id === id);
     if (item?.kind === "problem") {
-      if (!openProblemResolution(item.problem, selectedClientId, "problem-card")) window.alert("Problema non disponibile per il cliente selezionato. Ricarica i dati e riprova.");
+      if (!openProblemResolution(item.problem, selectedClientId, "problem-card")) notifyUser("Problema non disponibile per il cliente selezionato. Ricarica i dati e riprova.");
       return;
     }
     if (item?.kind === "client") {
       try { await selectCardClient(item.clientId); }
-      catch (error) { window.alert(error.message); return; }
+      catch (error) { notifyUser(error.message); return; }
     }
     setSelectedId(id);
     setManaging(false);

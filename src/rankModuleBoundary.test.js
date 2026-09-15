@@ -37,7 +37,7 @@ import { suggestPageForQuery as legacySuggestPageForQuery } from "./seoHelpers.j
 import {
   opportunityTask as legacyOpportunityTask,
   findExistingTask as legacyFindExistingTask,
-} from "./opportunityTasks.js";
+} from "./modules/rank/index.js";
 
 test("Rank facade espone le capability dichiarate dal modulo", () => {
   assert.equal(rankManifest.id, "rank");
@@ -136,15 +136,12 @@ test("Rank dataset history preserva deduplica, ordinamento e comparabilità dei 
 
 test("la business logic dei task opportunità appartiene al modulo Rank, non allo shim legacy", async () => {
   const implementation = await readFile(new URL("./modules/rank/opportunityTasks.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./opportunityTasks.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./opportunityTasks.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(implementation, /export function opportunityTask/);
   assert.match(implementation, /export function findExistingTask/);
   assert.match(implementation, /from ["']\.\/pageSuggestion\.js["']/);
   assert.doesNotMatch(implementation, /seoHelpers\.js/);
-  assert.doesNotMatch(legacyShim, /function opportunityTask/);
-  assert.doesNotMatch(legacyShim, /function findExistingTask/);
-  assert.match(legacyShim, /from ["']\.\/modules\/rank\/opportunityTasks\.js["']/);
 });
 
 test("Rank possiede opportunity queries, page suggestion, opportunity analysis e dataset history", async () => {

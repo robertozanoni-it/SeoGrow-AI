@@ -1,21 +1,13 @@
+import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
 import { apiFetch } from "./api.js";
 import { normalizeSiteAnalysis } from "./seoResponseIntegrity.js";
 import { normalizeHttpUrl } from "./reliabilityModel.js";
-import { workspaceStorage } from "./workspaceDatabase.js";
 import { requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
-const writeJson = (key, value) => {
-  const serialized = JSON.stringify(value);
-  workspaceStorage.setItem(key, serialized);
-  if (typeof window !== "undefined") window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
-};
 
 const comparableUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
 const findingType = (record) => String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();

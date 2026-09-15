@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { contentSafetyErrors } from "./modules/content/index.js";
-import { contentSafetyErrors as legacyContentSafetyErrors } from "./editorialContentSafety.js";
+import { contentSafetyErrors as legacyContentSafetyErrors } from "./modules/content/index.js";
 import {
   decodeLinkEntities,
   singleAnchorHref,
@@ -10,7 +10,7 @@ import {
 import {
   decodeLinkEntities as legacyDecodeLinkEntities,
   singleAnchorHref as legacySingleAnchorHref,
-} from "./brokenLinkHref.js";
+} from "./modules/links/index.js";
 
 test("Content facade preserves editorial safety behavior and legacy compatibility", () => {
   assert.equal(contentSafetyErrors, legacyContentSafetyErrors);
@@ -26,11 +26,9 @@ test("Content uses the public Links facade for shared link parsing", () => {
 
 test("editorial safety business logic belongs to Content and legacy file is only a shim", async () => {
   const implementation = await readFile(new URL("./modules/content/contentSafety.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./editorialContentSafety.js", import.meta.url), "utf8");
+  await assert.rejects(readFile(new URL("./editorialContentSafety.js", import.meta.url), "utf8"), (error) => error?.code === "ENOENT");
 
   assert.match(implementation, /export function contentSafetyErrors/);
   assert.match(implementation, /from ["']\.\.\/links\/index\.js["']/);
   assert.doesNotMatch(implementation, /brokenLinkHref\.js/);
-  assert.doesNotMatch(legacyShim, /function contentSafetyErrors/);
-  assert.match(legacyShim, /from ["']\.\/modules\/content\/contentSafety\.js["']/);
 });

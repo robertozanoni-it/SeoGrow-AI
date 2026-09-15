@@ -1,5 +1,5 @@
-import { observedPageCount } from "./observedAuditData.js";
-import { excludeLegalSeo, isLegalPage } from "./legalPageScope.js";
+import { observedPageCount } from "./modules/audit/data.js";
+import { excludeLegalSeo, isLegalPage } from "./modules/audit/data.js";
 import { metaDescriptionSerpWidthWarning } from "./seoTextPolicy.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";

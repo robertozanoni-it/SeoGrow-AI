@@ -1,5 +1,5 @@
-import { observedPageCount } from "./observedAuditData.js";
-import { isLegalPage } from "./legalPageScope.js";
+import { observedPageCount } from "./modules/audit/data.js";
+import { isLegalPage } from "./modules/audit/data.js";
 import {
   correctionEvent,
   deriveProblemState,

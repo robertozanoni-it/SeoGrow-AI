@@ -1,6 +1,6 @@
 import { SEO_TEXT_LIMITS, metaDescriptionSerpWidthWarning } from "../src/seoTextPolicy.js";
 import { budgetedOpenAiFetch } from "./openAiBudget.js";
-import { validateSeoSuggestion } from "../src/editorialQuality.js";
+import { validateSeoSuggestion } from "../src/modules/content/index.js";
 import { deterministicDuplicateTitle } from "./deterministicSeoTitle.js";
 import { completeSourceDescription } from "./metaDescriptionFallback.js";
 import { assertCompletedModelResponse, collectFinalModelText, parseModelValue, canRetryGeneration } from "./remediationOutput.js";
