@@ -62,7 +62,8 @@ test("editorial planning implementation lives under Content while report helpers
   assert.doesNotMatch(compatibility, /function planItems/);
   assert.doesNotMatch(compatibility, /function scheduleItem/);
   assert.match(compatibility, /modules\/content\/editorialPlanning\.js/);
-  assert.match(compatibility, /function reportTemplate/);
+  assert.doesNotMatch(compatibility, /function reportTemplate/);
+  assert.match(compatibility, /core\/reporting\/index\.js/);
 });
 
 test("nessun consumer di produzione importa planning helper da projectPlanning", async () => {
