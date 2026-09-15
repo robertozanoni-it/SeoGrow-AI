@@ -1,4 +1,4 @@
-import { isLegalPage } from "../../legalPageScope.js";
+import { isLegalPage } from "../../modules/audit/data.js";
 
 export function isLegalSeoTask(task) {
   return /^(?:h1|thin|content|title|description|meta-description|meta_description|duplicate-title|duplicate-description|canonical|canonical-different|indexability|noindex|orphan|broken-link|broken-external-link)$/.test(task.kind || "") &&

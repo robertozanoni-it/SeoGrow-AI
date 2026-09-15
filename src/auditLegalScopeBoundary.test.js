@@ -77,6 +77,7 @@ test("legal-page scope implementation lives under Audit and the legacy shim stay
   const dataApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/audit/legalPageScope.js", import.meta.url), "utf8");
   const shim = await readFile(new URL("./legalPageScope.js", import.meta.url), "utf8");
+  const tasksScope = await readFile(new URL("./experience/tasks/taskScope.js", import.meta.url), "utf8");
 
   assert.match(dataApi, /from ["']\.\/legalPageScope\.js["']/);
   assert.match(owner, /function isLegalPage/);
@@ -84,6 +85,8 @@ test("legal-page scope implementation lives under Audit and the legacy shim stay
   assert.doesNotMatch(shim, /function isLegalPage/);
   assert.doesNotMatch(shim, /function excludeLegalSeo/);
   assert.match(shim, /modules\/audit\/legalPageScope\.js/);
+  assert.match(tasksScope, /from ["']\.\.\/\.\.\/modules\/audit\/data\.js["']/);
+  assert.doesNotMatch(tasksScope, /legalPageScope\.js/);
 });
 
 test("nessun nuovo consumer di produzione importa lo shim legalPageScope", async () => {
@@ -101,7 +104,6 @@ test("nessun nuovo consumer di produzione importa lo shim legalPageScope", async
   assert.deepEqual(importers.sort(), [
     "server/index.js",
     "src/autoFixPlan.js",
-    "src/experience/tasks/taskScope.js",
     "src/problemsModel.js",
     "src/seoResponseIntegrity.js",
   ]);
