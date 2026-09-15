@@ -5,6 +5,7 @@ export const linksManifest = defineSuiteModule({
   label: "Links",
   layer: "module",
   status: "active",
+  agentEnabled: true,
   homePage: "Link interni",
   futurePath: "/links",
   pages: ["Link interni"],

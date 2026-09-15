@@ -54,6 +54,7 @@ export const SUITE_PAGE_ALIASES = Object.freeze({
   Content: "Piano editoriale",
   Links: "Link interni",
   GEO: "GEO AI",
+  Publish: "Correzioni",
   Agent: "SEO Agent",
 });
 

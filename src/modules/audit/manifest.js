@@ -2,11 +2,12 @@ import { defineSuiteModule } from "../../core/modules/moduleContract.js";
 
 export const auditManifest = defineSuiteModule({
   id: "audit",
-  label: "Audit & Fix",
+  label: "Audit",
   layer: "module",
   status: "active",
+  agentEnabled: true,
   homePage: "Audit SEO",
   futurePath: "/audit",
-  pages: ["Audit SEO", "Problemi", "Correzioni"],
-  capabilities: ["detect", "prioritize", "fix", "verify"],
+  pages: ["Audit SEO", "Problemi"],
+  capabilities: ["detect", "prioritize", "verify"],
 });

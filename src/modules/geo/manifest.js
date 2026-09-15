@@ -5,6 +5,7 @@ export const geoManifest = defineSuiteModule({
   label: "GEO",
   layer: "module",
   status: "active",
+  agentEnabled: true,
   homePage: "GEO AI",
   futurePath: "/geo",
   pages: ["GEO AI"],
