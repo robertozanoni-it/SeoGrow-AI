@@ -39,9 +39,9 @@ test("il registry assegna ogni pagina legacy a un solo dominio della Suite", () 
   }
 });
 
-test("i confini principali rispecchiano Audit, Rank, Content, Links, GEO e Agent", () => {
+test("i confini principali separano analisi, crescita, contenuti, link, GEO e pubblicazione", () => {
   assert.equal(moduleForPage("Problemi").id, "audit");
-  assert.equal(moduleForPage("Correzioni").id, "audit");
+  assert.equal(moduleForPage("Correzioni").id, "publish");
   assert.equal(moduleForPage("Opportunità").id, "rank");
   assert.equal(moduleForPage("Piano editoriale").id, "content");
   assert.equal(moduleForPage("Link interni").id, "links");
@@ -49,11 +49,13 @@ test("i confini principali rispecchiano Audit, Rank, Content, Links, GEO e Agent
   assert.equal(moduleForPage("SEO Agent").id, "agent");
 });
 
-test("Publish nasce come boundary pianificato senza cambiare le route correnti", () => {
+test("Publish è un modulo attivo sopra la route legacy Correzioni ma non Agent-enabled", () => {
   const publish = moduleById("publish");
-  assert.equal(publish.status, "planned");
-  assert.deepEqual(publish.pages, []);
-  assert.equal(REGISTERED_PAGES.includes("Publish"), false);
+  assert.equal(publish.status, "active");
+  assert.equal(publish.agentEnabled, false);
+  assert.equal(publish.homePage, "Correzioni");
+  assert.deepEqual(publish.pages, ["Correzioni"]);
+  assert.equal(moduleForPage("Correzioni").id, "publish");
 });
 
 test("la nuova terminologia risolve sulle route legacy senza riscrivere i dati", () => {
@@ -61,6 +63,7 @@ test("la nuova terminologia risolve sulle route legacy senza riscrivere i dati",
   assert.equal(resolvePageAlias("Audit & Fix"), "Audit SEO");
   assert.equal(resolvePageAlias("Rankings"), "Posizionamenti");
   assert.equal(resolvePageAlias("Content"), "Piano editoriale");
+  assert.equal(resolvePageAlias("Publish"), "Correzioni");
   assert.equal(resolvePageAlias("Agent"), "SEO Agent");
   assert.equal(resolvePageAlias("Correzioni"), "Correzioni");
 });
