@@ -25,7 +25,7 @@ test("la sidebar presenta la Suite senza rinominare le route legacy", () => {
   assert.equal(suiteNavigationItem("GEO AI").label, "GEO");
   assert.equal(suiteNavigationItem("Correzioni").label, "Publish");
   assert.equal(suiteNavigationItem("SEO Agent").label, "SeoGrow Agent");
-  assert.equal(suiteNavigationItem("Problemi").advancedOnly, true);
+  assert.equal(suiteNavigationItem("Problemi").advancedOnly, false);
   assert.equal(suiteNavigationItem("Opportunità").advancedOnly, true);
   assert.equal(suiteNavigationItem("Correzioni").advancedOnly, false);
 });
