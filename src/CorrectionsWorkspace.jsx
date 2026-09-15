@@ -1,3 +1,4 @@
+import { workspaceStorage } from "./workspaceDatabase.js";
 import { confirmAction } from "./ui/dialogs.js";
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { useEffect, useMemo, useState } from "react";
@@ -62,7 +63,7 @@ export default function CorrectionsWorkspace() {
   const [rows, setRows] = useState([]);
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [workflowContext, setWorkflowContext] = useState(() => consumeCorrectionsWorkflowContext(localStorage));
+  const [workflowContext, setWorkflowContext] = useState(() => consumeCorrectionsWorkflowContext(workspaceStorage));
   const [query, setQuery] = useState(() => workflowContext?.sourceUrl || workflowContext?.title || "");
   const [expanded, setExpanded] = useState(() => new Set());
   const [passwordEntry, setPasswordEntry] = useState(null);
@@ -72,7 +73,7 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     const receiveTaskHandoff = () => {
-      const context = consumeCorrectionsWorkflowContext(localStorage);
+      const context = consumeCorrectionsWorkflowContext(workspaceStorage);
       if (!context) return;
       setWorkflowContext(context);
       setQuery(context.sourceUrl || context.title || "");

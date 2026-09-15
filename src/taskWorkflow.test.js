@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consumeCorrectionsWorkflowContext, consumeTaskWorkflowContext, taskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
+import { TASK_CORRECTIONS_CONTEXT_KEY, consumeCorrectionsWorkflowContext, consumeTaskWorkflowContext, taskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 
 test("content and search tasks continue in the editorial workflow", () => {
   assert.equal(taskWorkflowTarget({ kind: "search", title: "Ottimizza query" }).page, "Piano editoriale");
@@ -35,4 +35,18 @@ test("corrections handoff is isolated from editorial handoff", () => {
   writeCorrectionsWorkflowContext(storage, { id: "fix-1", title: "Correggi canonical", sourceUrl: "https://a.test/p" });
   assert.equal(consumeTaskWorkflowContext(storage), null);
   assert.equal(consumeCorrectionsWorkflowContext(storage).taskId, "fix-1");
+});
+
+test("corrections handoff can be consumed synchronously from the workspace adapter contract", () => {
+  const data = new Map();
+  const workspaceLike = {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => data.set(key, String(value)),
+    removeItem: (key) => data.delete(key),
+  };
+  writeCorrectionsWorkflowContext(workspaceLike, { id: "sync-fix", title: "Correggi canonical sync", sourceUrl: "https://example.test/fix/" });
+  const context = consumeCorrectionsWorkflowContext(workspaceLike);
+  assert.equal(context.taskId, "sync-fix");
+  assert.equal(context.sourceUrl, "https://example.test/fix/");
+  assert.equal(workspaceLike.getItem(TASK_CORRECTIONS_CONTEXT_KEY), null);
 });
