@@ -1,4 +1,3 @@
-import { archiveLegalSeoTasks } from "./taskScope.js";
 import { issueIdentity } from "./reliabilityModel.js";
 import {
   opportunityGroups,
@@ -6,59 +5,19 @@ import {
   queryTaskDetail,
 } from "./modules/rank/opportunityAnalysis.js";
 import { contentPlan } from "./modules/content/contentPlan.js";
+import { normalizeStoredTasks } from "./experience/tasks/taskPersistence.js";
+import { tasksFromAnalysis } from "./experience/tasks/auditTasks.js";
 
-export { opportunityGroups, queryChanges, queryTaskDetail, contentPlan };
+export {
+  opportunityGroups,
+  queryChanges,
+  queryTaskDetail,
+  contentPlan,
+  normalizeStoredTasks,
+  tasksFromAnalysis,
+};
 
 const day = 86_400_000;
-
-const taskPriorities = new Set(["Alta", "Media", "Bassa"]);
-const taskStatuses = new Set([
-  "Da fare",
-  "In corso",
-  "In revisione",
-  "Completato",
-]);
-
-export function normalizeStoredTasks(value, fallback = []) {
-  if (!Array.isArray(value)) return fallback;
-  const seen = new Set();
-  const normalized = [];
-  for (const task of value) {
-    const normalizedId =
-      typeof task?.id === "string" ? task.id.trim() : "";
-    if (
-      !task ||
-      typeof task !== "object" ||
-      !normalizedId ||
-      seen.has(normalizedId) ||
-      typeof task.title !== "string" ||
-      !task.title.trim()
-    )
-      return fallback;
-    seen.add(normalizedId);
-    normalized.push({
-      ...task,
-      id: normalizedId,
-      title: task.title.trim(),
-      priority: taskPriorities.has(task.priority) ? task.priority : "Media",
-      status: taskStatuses.has(task.status) ? task.status : "Da fare",
-      due: typeof task.due === "string" ? task.due : "",
-      kind: typeof task.kind === "string" && task.kind ? task.kind : "manual",
-      client: typeof task.client === "string" ? task.client : "",
-      sourceClientId:
-        Number.isSafeInteger(task.sourceClientId) && task.sourceClientId > 0
-          ? task.sourceClientId
-          : null,
-      sourceUrl: typeof task.sourceUrl === "string" ? task.sourceUrl : "",
-      targetUrl: typeof task.targetUrl === "string" ? task.targetUrl : "",
-      detail: typeof task.detail === "string" ? task.detail : "",
-      notes: typeof task.notes === "string" ? task.notes : "",
-      query: typeof task.query === "string" ? task.query : "",
-      stale: task.stale === true,
-    });
-  }
-  return archiveLegalSeoTasks(normalized);
-}
 
 export const latestOf = (value) =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -152,47 +111,6 @@ export function compareDatasets(current, previous) {
     ctr: current.totals.ctr - previous.totals.ctr,
     position: current.totals.position - previous.totals.position,
   };
-}
-
-export function tasksFromAnalysis(analysis, client) {
-  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
-  const tasks = issues.slice(0, 300).map((issue, index) => ({
-    id: `analysis-${client.id}-${analysis.analyzedAt}-${index}`,
-    title: issue.label,
-    client: client.name,
-    sourceClientId: client.id,
-    priority:
-      issue.severity === "alta"
-        ? "Alta"
-        : issue.severity === "bassa"
-          ? "Bassa"
-          : "Media",
-    due: "Da pianificare",
-    status: "Da fare",
-    kind: issue.type || "audit",
-    targetUrl: issue.targetUrl || issue.url || client.url,
-    sourceUrl: issue.sourceUrl || "",
-    linkLabel: issue.targetUrl ? "Apri destinazione" : "Apri pagina",
-    detail: issue.detail || "",
-    notes: "",
-    createdAt: new Date().toISOString(),
-  }));
-  if (issues.length > tasks.length)
-    tasks.push({
-      id: `analysis-${client.id}-${analysis.analyzedAt}-summary`,
-      title: `Rivedi ${issues.length - tasks.length} problemi aggiuntivi dell’audit`,
-      client: client.name,
-      sourceClientId: client.id,
-      priority: "Media",
-      due: "Da pianificare",
-      status: "Da fare",
-      kind: "audit-summary",
-      targetUrl: client.url,
-      sourceUrl: "",
-      detail: `L’audit ha rilevato ${issues.length} problemi. Sono state create task dettagliate per i primi ${tasks.length}; consulta il report cliente per l’elenco completo.`,
-      createdAt: new Date().toISOString(),
-    });
-  return tasks;
 }
 
 export function buildNotifications({

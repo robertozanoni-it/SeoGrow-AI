@@ -16,3 +16,5 @@ export {
   activeClientTasks,
   completeVerifiedCanonicals,
 } from "./taskReview.js";
+export { normalizeStoredTasks } from "./taskPersistence.js";
+export { tasksFromAnalysis } from "./auditTasks.js";
