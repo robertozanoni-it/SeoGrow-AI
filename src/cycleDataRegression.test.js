@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { observedNumber, observedPageCount, observedScoreDelta } from "./observedAuditData.js";
 import { normalizeSiteAnalysis, scoreFromVerifiedEvidence } from "./seoResponseIntegrity.js";
-import { providerBudgetHealth, budgetMoney } from "./providerBudgetModel.js";
+import { providerBudgetHealth, budgetMoney } from "./system/index.js";
 import { metadataDuplicateGroups } from "./metadataDuplicateGroups.js";
 import { clientForCard } from "./clientCardNavigation.js";
 import { metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";

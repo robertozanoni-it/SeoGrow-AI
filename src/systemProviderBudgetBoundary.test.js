@@ -8,10 +8,6 @@ import {
   providerBudgetHealth,
 } from "./system/index.js";
 import {
-  budgetMoney as legacyBudgetMoney,
-  providerBudgetHealth as legacyProviderBudgetHealth,
-} from "./providerBudgetModel.js";
-import {
   observedNumber,
   observedPageCount,
   observedScoreDelta,
@@ -46,10 +42,7 @@ test("Audit exposes a pure data API without pulling the UI facade", async () => 
   assert.match(source, /from ["']\.\/observedData\.js["']/);
 });
 
-test("System owns provider budget policy while legacy exports remain identical", async () => {
-  assert.equal(budgetMoney, legacyBudgetMoney);
-  assert.equal(providerBudgetHealth, legacyProviderBudgetHealth);
-
+test("System owns provider budget policy and the legacy shim is removed", async () => {
   assert.equal(budgetMoney(null), "—");
   assert.equal(budgetMoney(1.234, 2), "$1.23");
 
@@ -59,19 +52,20 @@ test("System owns provider budget policy while legacy exports remain identical",
   assert.equal(providerBudgetHealth({ ...known, monthlyCost: 6 }, { explicit: true }).label, "Budget disponibile");
 
   const implementation = await readFile(new URL("./system/providers/providerBudget.js", import.meta.url), "utf8");
-  const legacyShim = await readFile(new URL("./providerBudgetModel.js", import.meta.url), "utf8");
   assert.match(implementation, /from ["']\.\.\/\.\.\/modules\/audit\/data\.js["']/);
   assert.doesNotMatch(implementation, /observedAuditData\.js|modules\/audit\/index\.js/);
-  assert.doesNotMatch(legacyShim, /function providerBudgetHealth|const budgetMoney\s*=/);
-  assert.match(legacyShim, /from ["']\.\/system\/providers\/providerBudget\.js["']/);
+  await assert.rejects(
+    readFile(new URL("./providerBudgetModel.js", import.meta.url), "utf8"),
+    (error) => error?.code === "ENOENT",
+  );
 });
 
-test("nessun consumer production importa direttamente lo shim provider budget", async () => {
+test("nessun consumer production importa lo shim provider budget rimosso", async () => {
   const importers = [];
   const pattern = /from\s+["']\.\/providerBudgetModel(?:\.js)?["']/;
   for (const relative of await sourceFiles(srcRoot)) {
     const normalized = relative.split(path.sep).join("/");
-    if (normalized === "providerBudgetModel.js" || normalized.startsWith("system/")) continue;
+    if (normalized.startsWith("system/")) continue;
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
