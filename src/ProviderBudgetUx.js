@@ -1,6 +1,6 @@
 import { apiFetch } from "./api.js";
-import { budgetMoney as money, providerBudgetHealth } from "./providerBudgetModel.js";
-export { providerBudgetHealth } from "./providerBudgetModel.js";
+import { budgetMoney as money, providerBudgetHealth } from "./system/index.js";
+export { providerBudgetHealth } from "./system/index.js";
 import "./ProviderBudgetUx.css";
 
 const PROVIDERS = {
