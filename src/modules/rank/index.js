@@ -15,5 +15,5 @@ export {
   addDatasetToHistory,
   compareDatasets,
 } from "./datasetHistory.js";
-export { suggestPageForQuery } from "../../seoHelpers.js";
+export { suggestPageForQuery } from "./pageSuggestion.js";
 export { opportunityTask, findExistingTask } from "./opportunityTasks.js";
