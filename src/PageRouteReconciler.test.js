@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 
 const source = await readFile(new URL("./PageRouteReconciler.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("route reconciler riallinea hash e pagina React tramite il canale useStoredState", () => {
-  assert.match(source, /seogrow-selected-page-v1/);
+  assert.equal(WORKSPACE_KEYS.selectedPage, "seogrow-selected-page-v1");
+  assert.match(source, /WORKSPACE_KEYS\.selectedPage/);
   assert.match(source, /workspaceStorage/);
   assert.match(source, /workspaceStorage\.getItem\(SELECTED_PAGE_KEY\)/);
   assert.match(source, /workspaceStorage\.setItem\(SELECTED_PAGE_KEY, serialized\)/);
@@ -15,6 +17,11 @@ test("route reconciler riallinea hash e pagina React tramite il canale useStored
   assert.match(source, /StorageEvent/);
   assert.match(source, /newValue:\s*serialized/);
   assert.match(source, /dispatchEvent\(event\)/);
+});
+
+test("route reconciler risolve la terminologia Suite senza riscrivere le route legacy", () => {
+  assert.match(source, /resolvePageAlias/);
+  assert.match(source, /decodeURIComponent\(window\.location\.hash\.slice\(1\)\)/);
 });
 
 test("route reconciler è bounded e reagisce ai tre eventi di navigazione", () => {

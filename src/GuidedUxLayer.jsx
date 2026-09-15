@@ -2,6 +2,8 @@ import { registerPageHost } from "./PageStartHierarchy.js";
 import { opportunityGroups } from "./platform.js";
 import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
+import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -30,58 +32,33 @@ import {
 } from "lucide-react";
 import "./GuidedUxLayer.css";
 
-const UI_MODE_KEY = "seogrow-ui-mode-v1";
-const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
-const CLIENTS_KEY = "seogrow-clients";
-const TASKS_KEY = "seogrow-tasks-v2";
-const GSC_KEY = "seogrow-gsc-v1";
-const ANALYSES_KEY = "seogrow-analyses-v2";
-const REMEDIATION_INDEX_KEY = "seogrow-remediation-history-v1";
+const UI_MODE_KEY = WORKSPACE_KEYS.uiMode;
+const SELECTED_CLIENT_KEY = WORKSPACE_KEYS.selectedClient;
+const CLIENTS_KEY = WORKSPACE_KEYS.clients;
+const TASKS_KEY = WORKSPACE_KEYS.tasks;
+const GSC_KEY = WORKSPACE_KEYS.gsc;
+const ANALYSES_KEY = WORKSPACE_KEYS.analyses;
+const REMEDIATION_INDEX_KEY = WORKSPACE_KEYS.remediationHistory;
 
-const groups = [
-  {
-    label: "Progetto",
-    items: [
-      ["Panoramica", CircleGauge],
-      ["Clienti", Users],
-      ["Centro progetto", ClipboardCheck],
-      ["Storico", History],
-    ],
-  },
-  {
-    label: "Analisi SEO",
-    items: [
-      ["Problemi", ListChecks],
-      ["Audit SEO", CircleGauge],
-      ["Posizionamenti", BarChart3],
-      ["Link interni", Link2],
-    ],
-  },
-  {
-    label: "Migliora",
-    items: [
-      ["Opportunità", Target],
-      ["Correzioni", CheckCircle2],
-      ["Task", ClipboardCheck],
-      ["Piano editoriale", FileText],
-    ],
-  },
-  {
-    label: "SeoGrow AI",
-    items: [
-      ["SeoGrow AI", Sparkles],
-      ["SEO Agent", WandSparkles],
-      ["GEO AI", Sparkles],
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      ["Integrazioni", Plug],
-      ["Impostazioni", Settings],
-    ],
-  },
-];
+const NAV_ICONS = Object.freeze({
+  overview: CircleGauge,
+  clients: Users,
+  project: ClipboardCheck,
+  history: History,
+  audit: CircleGauge,
+  problems: ListChecks,
+  rankings: BarChart3,
+  opportunities: Target,
+  content: FileText,
+  links: Link2,
+  geo: Sparkles,
+  fix: CheckCircle2,
+  tasks: ClipboardCheck,
+  agent: WandSparkles,
+  "ai-overview": Sparkles,
+  integrations: Plug,
+  settings: Settings,
+});
 
 const PAGE_GUIDES = {
   Panoramica: {
@@ -406,28 +383,33 @@ function useUiSnapshot() {
 
 function GuidedNav({ page, mode, setMode }) {
   return (
-    <nav className="guided-nav" aria-label="Navigazione guidata SeoGrow">
+    <nav className="guided-nav" aria-label="Navigazione SeoGrow Suite">
       <div className="guided-nav-scroll">
-        {groups.map((group) => {
-          const visibleItems = group.items.filter(([label, , advancedOnly]) =>
-            isNavigationItemVisible(label, advancedOnly, mode, page),
+        {SUITE_NAVIGATION.map((group) => {
+          const visibleItems = group.items.filter((item) =>
+            isNavigationItemVisible(item.page, item.advancedOnly, mode, page),
           );
           if (!visibleItems.length) return null;
           return (
             <section className="guided-nav-group" key={group.label}>
               <span className="guided-nav-label">{group.label}</span>
-              {visibleItems.map(([label, Icon]) => (
-                <button
-                  type="button"
-                  key={label}
-                  className={page === label ? "active" : ""}
-                  aria-current={page === label ? "page" : undefined}
-                  onClick={() => navigate(label)}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </button>
-              ))}
+              {visibleItems.map((item) => {
+                const Icon = NAV_ICONS[item.icon] || CircleGauge;
+                return (
+                  <button
+                    type="button"
+                    key={item.page}
+                    data-seogrow-page={item.page}
+                    className={page === item.page ? "active" : ""}
+                    aria-current={page === item.page ? "page" : undefined}
+                    onClick={() => navigate(item.page)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                    {item.label !== item.page && <span hidden aria-hidden="true">{item.page}</span>}
+                  </button>
+                );
+              })}
             </section>
           );
         })}

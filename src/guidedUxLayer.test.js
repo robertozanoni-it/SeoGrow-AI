@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { SUITE_NAVIGATION, suiteNavigationItem } from "./suite/navigationModel.js";
 
 const layer = await readFile(new URL("./GuidedUxLayer.jsx", import.meta.url), "utf8");
 const navigation = await readFile(new URL("./navigationUx.js", import.meta.url), "utf8");
@@ -11,8 +12,21 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
   assert.match(layer, /Cosa fare adesso/);
   assert.match(layer, /Modalità semplice/);
   assert.match(layer, /Modalità avanzata/);
-  assert.match(layer, /\["Problemi", ListChecks\]/);
-  assert.match(layer, /\["Correzioni", CheckCircle2\]/);
+  assert.match(layer, /SUITE_NAVIGATION\.map/);
+  assert.match(layer, /data-seogrow-page=\{item\.page\}/);
+});
+
+test("la sidebar presenta la Suite senza rinominare le route legacy", () => {
+  assert.deepEqual(SUITE_NAVIGATION.map((group) => group.label), ["Overview", "GROW", "ACT", "AI", "SYSTEM"]);
+  assert.equal(suiteNavigationItem("Audit SEO").label, "Audit");
+  assert.equal(suiteNavigationItem("Posizionamenti").label, "Rankings");
+  assert.equal(suiteNavigationItem("Piano editoriale").label, "Content");
+  assert.equal(suiteNavigationItem("Link interni").label, "Links");
+  assert.equal(suiteNavigationItem("GEO AI").label, "GEO");
+  assert.equal(suiteNavigationItem("SEO Agent").label, "SeoGrow Agent");
+  assert.equal(suiteNavigationItem("Problemi").advancedOnly, true);
+  assert.equal(suiteNavigationItem("Opportunità").advancedOnly, true);
+  assert.equal(suiteNavigationItem("Correzioni").advancedOnly, true);
 });
 
 test("ogni pagina usa card numerate progressive e spiegazioni finali", () => {
@@ -41,7 +55,7 @@ test("la modalità semplice applica il design system globale senza rimuovere la 
 });
 
 test("la navigazione Correzioni entra nell'overlay prima del fallback dell'App core", () => {
-  assert.match(navigation, /if \(page === "Correzioni"\)/);
+  assert.match(navigation, /if \(resolvedPage === "Correzioni"\)/);
   assert.match(navigation, /window\.__seogrowCorrectionsMode = true/);
   assert.match(navigation, /window\.history\.pushState\(null, "", next\)/);
   assert.match(navigation, /seogrow-locationchange/);

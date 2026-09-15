@@ -1,13 +1,15 @@
+import { resolvePageAlias } from "./core/modules/moduleRegistry.js";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { activateNativePageState } from "./navigationUx.js";
 
-const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
+const SELECTED_PAGE_KEY = WORKSPACE_KEYS.selectedPage;
 const MAX_FRAMES = 120;
 let frame = 0;
 let generation = 0;
 
 const readRequestedPage = () => {
-  try { return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"; }
+  try { return resolvePageAlias(decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"); }
   catch { return "Panoramica"; }
 };
 
