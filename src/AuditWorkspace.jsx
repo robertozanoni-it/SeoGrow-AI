@@ -1,6 +1,6 @@
+import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
 import { observedScoreDelta } from "./observedAuditData.js";
 import AnalysisProgress from "./AnalysisProgress.jsx";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { auditTaskIdentity } from './auditTaskReconciliation.js';
 import { useEffect, useRef, useState } from "react";
@@ -42,15 +42,7 @@ const TASKS_KEY = "seogrow-tasks-v2";
 const FOCUS_KEY = "seogrow-remediation-focus-v1";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
-const writeJson = (key, value) => {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
-};
 
 const severityPriority = (severity) => {
   const value = String(severity || "").toLowerCase();

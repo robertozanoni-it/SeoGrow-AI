@@ -73,7 +73,14 @@ body[data-seogrow-ui-mode] .avatar { background: var(--sg-blue); }
   flex-direction: column;
   gap: 3px;
   margin-bottom: 9px;
+  padding: 4px;
+  border-radius: 11px;
+  border: 1px solid transparent;
 }
+.guided-nav-group.tone-blue { background: #f5f9fe; border-color: #e8f0f9; }
+.guided-nav-group.tone-mint { background: #f3faf7; border-color: #e4f2eb; }
+.guided-nav-group.tone-blue .guided-nav-label { color: #7289a4; }
+.guided-nav-group.tone-mint .guided-nav-label { color: #718f82; }
 .guided-nav-label {
   display: block;
   padding: 8px 13px 4px;

@@ -1,3 +1,4 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { problemEntryLabel } from "./resolutionPath.js";
 import { selectCardClient } from "./clientCardNavigation.js";
 import { registerPageHost } from "./PageStartHierarchy.js";
@@ -17,7 +18,6 @@ import { issueCorrectability, issueIdentity } from "./reliabilityModel.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { navigatePage } from "./navigationUx.js";
 import { opportunityGroups } from "./platform.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { listCorrections } from "./remediationStore.js";
 import SavedCorrectionDetails from "./SavedCorrectionDetails.jsx";
 import "./CardWorkspaceLayer.css";
@@ -26,13 +26,6 @@ const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const CARD_EXCLUDED_PAGES = new Set(["Centro progetto", "Problemi", "Audit SEO"]);
 
-const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
 
 const pageFromHash = () => {
   try {

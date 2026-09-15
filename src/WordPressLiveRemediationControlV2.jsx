@@ -1,3 +1,4 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { inspectWordPress, inspectFrontend, inspectLinkEvidence, buildPlan, preparationFailure, createWordPressCorrection, applyPreparedCorrection } from "./wordpressRemediationEngine.js";
 import ManualRemediationProposal from "./ManualRemediationProposal.jsx";
 import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
@@ -6,7 +7,6 @@ import { verifiedForAudit } from "./remediationEvidence.js";
 import { remediationIssueKind, remediationSourceUrl } from "./remediationIssueKind.js";
 import { assertSeoPatchLengths, SEO_TEXT_LIMITS, seoFieldKind, seoCharacterCount } from "./seoTextPolicy.js";
 import { correctionPresentation, readableCorrectionFields } from "./correctionPresentation.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { AUTO_FIX_LIMIT, selectedAutoFixIssues } from "./autoFixPlan.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -39,9 +39,6 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
 const resolveTarget = () => typeof document === "undefined" ? null : document.querySelector(".audit-unified-remediation");
 const auditTimestamp = (entry) => entry?.item?.analyzedAt || entry?.item?.startedAt || "";

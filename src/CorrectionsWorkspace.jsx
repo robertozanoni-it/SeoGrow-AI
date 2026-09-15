@@ -1,4 +1,4 @@
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -35,9 +35,6 @@ const fetch = apiFetch;
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
 };

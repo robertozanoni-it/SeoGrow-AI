@@ -1,9 +1,9 @@
+import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
 import { readAutomaticProposalFocus } from "./AutomaticProposalNavigation.js";
 import { selectFocusedRemediation, correctionIssueKeys } from "./remediationSelection.js";
 import { verifiedForAudit } from "./remediationEvidence.js";
 import { remediationSourceUrl } from "./remediationIssueKind.js";
 import { getWordPressSession } from "./wordpressSession.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";
@@ -20,15 +20,7 @@ const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
-const writeJson = (key, value) => {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
-};
 
 const auditTimestamp = (entry) => entry?.item?.analyzedAt || entry?.item?.startedAt || "";
 

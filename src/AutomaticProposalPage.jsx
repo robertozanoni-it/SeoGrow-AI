@@ -1,3 +1,4 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { controlledPreviewAllowed, correctionMatchesProblem, resolutionPath } from "./resolutionPath.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
 import { useEffect, useState } from "react";
@@ -7,7 +8,6 @@ import { buildUnifiedProblems } from "./problemsModel.js";
 import { normalizeAnalysisHistory } from "./platform.js";
 import { listCorrections } from "./remediationStore.js";
 import { normalizeClientId, normalizeHttpUrl, safeHttpHref } from "./reliabilityModel.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
 import { latestCorrectionForFocus } from "./correctionReceipt.js";
 import SavedCorrectionDetails from "./SavedCorrectionDetails.jsx";
@@ -35,13 +35,6 @@ const currentPage = () => {
   }
 };
 
-const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
 
 const normalizedUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
 const issueSourceUrl = (issue, audit, client) => {

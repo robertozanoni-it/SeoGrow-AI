@@ -1,3 +1,4 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { opportunityGroups } from "./platform.js";
 import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
@@ -233,13 +234,6 @@ const DEFAULT_GUIDE = {
   ],
 };
 
-const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
 
 const readMode = () => {
   try {
@@ -385,13 +379,13 @@ function GuidedNav({ page, mode, setMode }) {
   return (
     <nav className="guided-nav" aria-label="Navigazione SeoGrow Suite">
       <div className="guided-nav-scroll">
-        {SUITE_NAVIGATION.map((group) => {
+        {SUITE_NAVIGATION.map((group, groupIndex) => {
           const visibleItems = group.items.filter((item) =>
             isNavigationItemVisible(item.page, item.advancedOnly, mode, page),
           );
           if (!visibleItems.length) return null;
           return (
-            <section className="guided-nav-group" key={group.label}>
+            <section className={`guided-nav-group tone-${groupIndex % 2 ? "mint" : "blue"}`} key={group.label}>
               <span className="guided-nav-label">{group.label}</span>
               {visibleItems.map((item) => {
                 const Icon = NAV_ICONS[item.icon] || CircleGauge;

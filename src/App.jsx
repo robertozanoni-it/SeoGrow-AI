@@ -12,6 +12,8 @@ import { taskChange, undoTaskChange } from "./productivity.js";
 import { completeTaskById } from "./taskCompletion.js";
 import { buildProjectHistory } from "./projectHistory.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
+import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
+import { createTaskDraft } from "./experience/tasks/index.js";
 import { loadProjectProblemSummary } from "./projectProblemSummary.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
@@ -92,23 +94,15 @@ import {
   tasksFromAnalysis,
 } from "./platform";
 
-const nav = [
-  ["Panoramica", Home],
-  ["Centro progetto", ClipboardCheck],
-  ["Clienti", Users],
-  ["Audit SEO", CircleGauge],
-  ["Storico", CalendarDays],
-  ["Link interni", RefreshCw],
-  ["Opportunità", Target],
-  ["SeoGrow AI", Sparkles],
-  ["SEO Agent", WandSparkles],
-  ["Posizionamenti", BarChart3],
-  ["GEO AI", Sparkles],
-  ["Piano editoriale", FileText],
-  ["Task", ClipboardCheck],
-  ["Integrazioni", Plug],
-  ["Impostazioni", Settings],
-];
+const NAV_ICON_BY_KEY = {
+  overview: Home, clients: Users, project: ClipboardCheck, history: CalendarDays,
+  audit: CircleGauge, problems: AlertTriangle, rankings: BarChart3, opportunities: Target,
+  content: FileText, links: Link2, geo: Sparkles, fix: CheckCircle2, tasks: ClipboardCheck,
+  agent: WandSparkles, "ai-overview": Sparkles, integrations: Plug, settings: Settings,
+};
+const nav = SUITE_NAVIGATION.flatMap((group) =>
+  group.items.map((item) => [item.page, NAV_ICON_BY_KEY[item.icon] || CircleGauge]),
+);
 const PerformanceChart = lazy(() => import("./PerformanceChart"));
 const fetch = apiFetch;
 const newId = (prefix) => `${prefix}-${crypto.randomUUID()}`;
@@ -4321,25 +4315,7 @@ export default function App() {
       setToast({ kind: "info", message: `Task già presente: ${duplicate.title}`, taskId: duplicate.id, clientId: selectedClient });
       return duplicate;
     }
-    const task = {
-      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      title,
-      client: selectedClientRecord.name,
-      sourceClientId: selectedClient,
-      priority: ["Alta", "Media", "Bassa"].includes(values.priority)
-        ? values.priority
-        : "Media",
-      due: "Da pianificare",
-      status: "Da fare",
-      kind: values.kind || "manual",
-      targetUrl: values.targetUrl || "",
-      sourceUrl: values.sourceUrl || "",
-      linkLabel: values.linkLabel || (values.targetUrl ? "Apri risorsa" : "Apri pagina"),
-      ...(values.query ? { query: values.query, associationStatus: values.associationStatus } : {}),
-      detail: values.detail || "",
-      notes: "",
-      createdAt: new Date().toISOString(),
-    };
+    const task = createTaskDraft(values, { client: selectedClientRecord, clientId: selectedClient });
     tasksRef.current = [task, ...tasksRef.current];
     setTasks(tasksRef.current);
     setToast({ kind: "success", message: `Task creata: ${task.title}`, taskId: task.id, clientId: selectedClient });

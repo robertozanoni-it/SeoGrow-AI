@@ -1,4 +1,4 @@
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
 import { useEffect, useState } from "react";
@@ -16,9 +16,6 @@ const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
 const auditTimestamp = (entry) => entry?.item?.analyzedAt || entry?.item?.startedAt || "";
 const candidates = (clientId) => {

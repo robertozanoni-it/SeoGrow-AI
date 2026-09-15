@@ -1,5 +1,5 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { apiFetch } from "./api.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
@@ -7,10 +7,6 @@ const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const linkEvidenceCache = new Map();
 let evidenceRequest = 0;
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-};
 
 const normalizedUrl = (value) => {
   try {

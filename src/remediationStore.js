@@ -1,5 +1,5 @@
+import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
 import { openWorkspaceDb, guardWorkspaceTransaction } from "./workspaceDatabase.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { exactProblemStatus, issueIdentity } from "./reliabilityModel.js";
 
 const STORE_NAME = "corrections";
@@ -9,15 +9,7 @@ export const REMEDIATION_INDEX_KEY = "seogrow-remediation-history-v1";
 export const REMEDIATION_LAST_BATCH_KEY = "seogrow-remediation-last-batch-v1";
 export const TASKS_KEY = "seogrow-tasks-v2";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
-const writeJson = (key, value) => {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
-};
 
 const writeJsonBestEffort = (key, value, detail = {}) => {
   try {

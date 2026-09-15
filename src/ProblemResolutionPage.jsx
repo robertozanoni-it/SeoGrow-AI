@@ -1,3 +1,4 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { resolutionPath, correctionMatchesProblem } from "./resolutionPath.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
 import { matchesProblemFocus } from "./problemNavigationFocus.js";
@@ -9,7 +10,6 @@ import { buildUnifiedProblems } from "./problemsModel";
 import { listCorrections } from "./remediationStore";
 import { recheckCorrectionById } from "./remediationIntegrity";
 import { freshnessLabel, normalizeClientId, safeHttpHref } from "./reliabilityModel";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { navigatePage } from "./navigationUx.js";
 import "./ProblemResolutionPage.css";
 
@@ -34,9 +34,6 @@ const labelMap = {
 
 const currentPage = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"; } catch { return "Panoramica"; }
-};
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
 const readFocus = () => {
   try { return JSON.parse(sessionStorage.getItem(FOCUS_KEY) || "null"); } catch { return null; }

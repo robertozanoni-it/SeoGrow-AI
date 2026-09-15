@@ -1,19 +1,15 @@
+import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Users } from "lucide-react";
 import { navigatePage } from "./navigationUx.js";
 import { normalizeClientId } from "./reliabilityModel.js";
-import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import "./ProjectSelectionGuard.css";
 
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const SAFE_WITHOUT_PROJECT = new Set(["Clienti", "Impostazioni"]);
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-};
 
 const currentPage = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"; }
