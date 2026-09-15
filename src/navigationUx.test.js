@@ -75,3 +75,10 @@ test("la terminologia Suite naviga sulle route legacy senza cambiare il valore p
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
   }
 });
+
+test("Problemi resta una destinazione primaria anche in modalità semplice", async () => {
+  const { SUITE_NAVIGATION } = await import("./suite/navigationModel.js");
+  const item = SUITE_NAVIGATION.flatMap(group => group.items).find(entry => entry.page === "Problemi");
+  assert.equal(item.advancedOnly, false);
+  assert.equal(isNavigationItemVisible(item.page, item.advancedOnly, "simple", "Task"), true);
+});

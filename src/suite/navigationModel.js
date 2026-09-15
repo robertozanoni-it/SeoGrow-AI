@@ -12,7 +12,7 @@ export const SUITE_NAVIGATION = Object.freeze([
   ]),
   group("GROW", [
     item("Audit SEO", "Audit", "audit"),
-    item("Problemi", "Problemi", "problems", true),
+    item("Problemi", "Problemi", "problems"),
     item("Posizionamenti", "Rankings", "rankings"),
     item("Opportunità", "Opportunità", "opportunities", true),
     item("Piano editoriale", "Content", "content"),
