@@ -132,3 +132,12 @@ test('site lock fails closed when unavailable or held by another tab',async()=>{
 test('approval fingerprint binds site, resource, before/after, changes, dependencies and risk',()=>{
   const run=runFor([problem('a')]);const e=run.entries[0];e.state='PREPARED';e.preview=preview(e);const before=approvalFingerprint(run);e.dependsOn=['other'];assert.notEqual(approvalFingerprint(run),before);
 });
+
+
+test('non-editable WordPress resources are manual-required rather than failed', async () => {
+  const run=runFor([problem('archive-like')]);
+  const t=portsFor({prepare:async()=>{throw Object.assign(new Error('Nessuna pagina o articolo WordPress trovato'),{code:'NON_EDITABLE_RESOURCE'});}});
+  await prepareBatch(run,t.ports);
+  assert.equal(run.entries[0].state,'MANUAL_REQUIRED');
+  assert.equal(run.status,'COMPLETED_WITH_OPEN');
+});

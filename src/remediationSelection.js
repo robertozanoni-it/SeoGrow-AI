@@ -32,7 +32,15 @@ export function selectFocusedRemediation(audits, focus, clientId, client) {
       const sameType = focus.issueType ? text(issue.type) === text(focus.issueType)
         : text(issue.label || issue.title || issue.type) === text(focus.title);
       const sameTarget = !focus.targetUrl || safeHttpHref(issue.targetUrl || issue.brokenUrl || issue.destinationUrl || issue.href || "") === safeHttpHref(focus.targetUrl);
-      return sameType && sameTarget && exactPageKey(remediationSourceUrl(issue, audit.item, client)) === source ? [index] : [];
+      const issueSource = remediationSourceUrl(issue, audit.item, client);
+      const candidateKey = issueIdentity({
+        issue,
+        issueType: issue.type || focus.issueType || "audit",
+        issueLabel: issue.label || issue.title || focus.title || "",
+        sourceUrl: issueSource,
+      });
+      const sameIdentity = !focus.issueKey || candidateKey === focus.issueKey;
+      return sameType && sameTarget && sameIdentity && exactPageKey(issueSource) === source ? [index] : [];
     });
     if (indexes.length) matching.push({ audit, rows, indexes, at: Date.parse(audit.item.analyzedAt || audit.item.startedAt || "") });
   }

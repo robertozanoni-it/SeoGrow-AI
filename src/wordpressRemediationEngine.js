@@ -107,8 +107,13 @@ export async function inspectWordPress(targetUrl, credentials) {
   });
   const data = await response.json();
   if (!response.ok) {
-    const error = new Error(data.error || "Ispezione WordPress non riuscita.");
-    error.code = response.status === 401 || response.status === 403 ? "AUTH" : "INSPECT";
+    const message = data.error || "Ispezione WordPress non riuscita.";
+    const error = new Error(message);
+    error.code = response.status === 401 || response.status === 403
+      ? "AUTH"
+      : /nessuna pagina o articolo wordpress trovato/i.test(message)
+        ? "NON_EDITABLE_RESOURCE"
+        : "INSPECT";
     throw error;
   }
   return data;

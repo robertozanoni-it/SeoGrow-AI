@@ -30,6 +30,8 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
   const checkbox = useRef(null), heading = useRef(null);
   const selected = visibleBatchSelection(rows, selectedKeys);
   const automatic = rows.filter(p => batchCapability(p).state === 'PENDING');
+  const selectedAutomatic = selected.filter(p => batchCapability(p).state === 'PENDING');
+  const selectedOutsideBatch = selected.filter(p => batchCapability(p).state !== 'PENDING');
   useEffect(() => { if (checkbox.current) checkbox.current.indeterminate = selected.length > 0 && selected.length < rows.length; }, [selected.length, rows.length]);
   useEffect(() => {
     mounted.current = true;
@@ -103,10 +105,11 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
         const mode = e.target.value;
         onSelect((mode === 'none' ? [] : mode === 'auto' ? automatic : mode === 'critical' ? rows.filter(p => p.severity === 'high') : rows.filter(p => p.priority === 'high')).map(p => p.key));
       }}><option value="">Selezione rapida</option><option value="none">Deseleziona tutti</option><option value="auto">Risolvibili automaticamente</option><option value="critical">Critici / gravità alta</option><option value="priority">Alta priorità</option></select>
-      <button className="primary" disabled={parentBusy || !selected.length} onClick={() => choose(selected)}>Risolvi problemi in batch{selected.length ? ` (${selected.length})` : ''}</button>
+      <button className="primary" disabled={parentBusy || !selectedAutomatic.length} onClick={() => choose(selectedAutomatic)}>Risolvi problemi in batch{selectedAutomatic.length ? ` (${selectedAutomatic.length})` : ''}</button>
       <button className="secondary" disabled={parentBusy || !automatic.length} onClick={() => { onSelect(automatic.map(p => p.key)); choose(automatic); }}>Risolvi tutti i problemi risolvibili ({automatic.length})</button>
     </div>
-    <p className="batch-note">Le azioni usano solo i problemi visibili con i filtri attuali. “Risolvibili” indica candidati: nessuna modifica prima del preflight e della tua approvazione.</p>
+    <p className="batch-note">Le azioni batch includono solo problemi con un adapter batch sicuro. Nessuna modifica viene eseguita prima del preflight e della tua approvazione.</p>
+    {selectedOutsideBatch.length > 0 && <p className="batch-note"><strong>{selectedOutsideBatch.length}</strong> problemi selezionati richiedono verifica o intervento singolo e non verranno conteggiati come operazioni batch.</p>}
     {selectedKeys.length > selected.length && <p className="batch-note">{selectedKeys.length - selected.length} selezioni non visibili escluse dal prossimo batch.</p>}
     {message && <p className="batch-error" role="alert">{message}</p>}
     {shown && <section className="batch-workspace panel" aria-label="Revisione correzione batch">

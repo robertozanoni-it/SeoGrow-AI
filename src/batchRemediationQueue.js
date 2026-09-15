@@ -41,7 +41,13 @@ export async function prepareBatch(run, ports) {
       }
     } catch (error) {
       const code = errorCode(error);
-      const state = /STALE/.test(code) ? 'STALE_TARGET' : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code) ? 'BLOCKED' : 'FAILED';
+      const state = /STALE/.test(code)
+        ? 'STALE_TARGET'
+        : /NON_EDITABLE_RESOURCE|NON_EDITABLE_ARCHIVE/.test(code)
+          ? 'MANUAL_REQUIRED'
+          : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code)
+            ? 'BLOCKED'
+            : 'FAILED';
       note(entry, state, error.message, code); stop = systemic(code);
     }
     await persist();
