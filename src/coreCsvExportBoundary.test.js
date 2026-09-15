@@ -53,5 +53,9 @@ test("nessun nuovo consumer di produzione importa downloadCsv da platform", asyn
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), ["App.jsx", "GeoPage.jsx"]);
+  assert.deepEqual(importers.sort(), ["App.jsx"]);
+
+  const geoPage = await readFile(new URL("./GeoPage.jsx", import.meta.url), "utf8");
+  assert.match(geoPage, /from ["']\.\/core\/export\/index\.js["']/);
+  assert.doesNotMatch(geoPage, /downloadCsv[\s\S]*from ["']\.\/platform(?:\.js)?["']/);
 });
