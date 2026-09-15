@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { archiveDuplicateTasks, sameTask } from './taskDuplicates.js';
-import { findExistingTask } from './opportunityTasks.js';
+import { archiveDuplicateTasks, sameTask } from './experience/tasks/index.js';
+import { findExistingTask } from './modules/rank/index.js';
 import { reconcileAuditTasks } from './auditTaskReconciliation.js';
 import { taskChange, undoTaskChange } from './productivity.js';
 import { correctionPresentation } from './correctionPresentation.js';
