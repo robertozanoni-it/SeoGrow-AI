@@ -1,3 +1,4 @@
+import { REGISTERED_PAGES } from "./core/modules/moduleRegistry.js";
 import { navigatePage } from "./navigationUx.js";
 
 export const WIZARD_CONTEXT_KEY = "seogrow-wizard-context-v1";
@@ -21,24 +22,12 @@ export const WIZARD_STEP_COUNTS = Object.freeze({
   Storico: 3,
 });
 
-export const WIZARD_DESTINATION_PAGES = Object.freeze([
-  "Panoramica",
-  "Clienti",
-  "Centro progetto",
-  "Storico",
-  "Problemi",
-  "Audit SEO",
-  "Posizionamenti",
-  "Link interni",
-  "Opportunità",
-  "Correzioni",
-  "Task",
-  "Piano editoriale",
-  "SEO Agent",
-  "GEO AI",
-  "Integrazioni",
-  "Impostazioni",
-]);
+// `SeoGrow AI` is still a legacy dashboard surface, not a wizard destination.
+// All other destinations come from the Suite registry so new domain ownership
+// cannot silently diverge from guided navigation.
+export const WIZARD_DESTINATION_PAGES = Object.freeze(
+  REGISTERED_PAGES.filter((page) => page !== "SeoGrow AI"),
+);
 
 // Unica fonte di verità per card wizard -> pagina di destinazione.
 // Le destinazioni sono state riallineate al luogo in cui l'azione descritta
