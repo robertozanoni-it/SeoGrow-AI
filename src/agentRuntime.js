@@ -1,5 +1,6 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
-import { contentPlan, opportunityGroups } from "./platform.js";
+import { contentPlan } from "./platform.js";
+import { opportunityGroups } from "./modules/rank/index.js";
 
 export const AgentDecision = Object.freeze({ CONTINUE: "CONTINUE", REPLAN: "REPLAN", COMPLETE: "COMPLETE", BLOCKED: "BLOCKED" });
 export const AgentStatus = Object.freeze({ PLANNING: "PLANNING", RUNNING: "RUNNING", WAITING_APPROVAL: "WAITING_APPROVAL", COMPLETED: "COMPLETED", PARTIAL: "PARTIAL", BLOCKED: "BLOCKED", FAILED: "FAILED", CANCELLED: "CANCELLED" });

@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { opportunityTask, findExistingTask } from "./opportunityTasks.js";
-import { opportunityGroups } from "./platform.js";
+import {
+  opportunityTask,
+  findExistingTask,
+  opportunityGroups,
+} from "./modules/rank/index.js";
 
 const row = { dimension: "yoga cinisello balsamo", position: 18.15, impressions: 289 };
 test("opportunity task uses query-page evidence as its source, never destination", () => {
