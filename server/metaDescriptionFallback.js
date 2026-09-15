@@ -1,5 +1,5 @@
-import { validateSeoSuggestion } from "../src/editorialQuality.js";
-import { decodeLinkEntities } from "../src/brokenLinkHref.js";
+import { validateSeoSuggestion } from "../src/modules/content/index.js";
+import { decodeLinkEntities } from "../src/modules/links/index.js";
 const clean = value => decodeLinkEntities(String(value || "").replace(/<(script|style|h[1-6])\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 // Reuse complete source sentences. Do not prepend the title, clip words, or
 // invent punctuation to make a truncated generated excerpt look complete.
