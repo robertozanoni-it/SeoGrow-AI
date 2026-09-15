@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   SUITE_CAPABILITIES,
+  agentAvailableSuiteCapabilities,
   availableSuiteCapabilities,
   capabilitiesForModule,
   capabilityKey,
@@ -16,20 +17,25 @@ test("le capability sono namespaced per modulo e univoche", () => {
   assert.equal(suiteCapability("rank:rankings")?.capability, "rankings");
 });
 
-test("le capability Publish esistono ma non sono ancora invocabili dall'orchestratore", () => {
+test("Publish è disponibile nella Suite ma resta escluso dall'orchestratore", () => {
   const publish = capabilitiesForModule("publish");
   assert.ok(publish.some((entry) => entry.key === "publish:wordpress"));
-  assert.ok(publish.every((entry) => entry.available === false));
-  assert.equal(availableSuiteCapabilities().some((entry) => entry.moduleId === "publish"), false);
+  assert.ok(publish.every((entry) => entry.available === true));
+  assert.ok(publish.every((entry) => entry.agentAvailable === false));
+  assert.equal(availableSuiteCapabilities().some((entry) => entry.moduleId === "publish"), true);
+  assert.equal(agentAvailableSuiteCapabilities().some((entry) => entry.moduleId === "publish"), false);
 });
 
-test("solo i moduli attivi alimentano le capability disponibili", () => {
+test("solo moduli esplicitamente agent-enabled alimentano le capability dell'orchestratore", () => {
   const available = availableSuiteCapabilities();
+  const agentAvailable = agentAvailableSuiteCapabilities();
   assert.ok(available.some((entry) => entry.key === "audit:detect"));
   assert.ok(available.some((entry) => entry.key === "agent:orchestration"));
-  assert.ok(available.every((entry) => entry.available));
+  assert.ok(agentAvailable.some((entry) => entry.key === "audit:detect"));
+  assert.equal(agentAvailable.some((entry) => entry.key === "agent:orchestration"), false);
+  assert.ok(agentAvailable.every((entry) => entry.agentAvailable));
   assert.deepEqual(
-    capabilitiesForModule("audit", { availableOnly: true }).map((entry) => entry.capability),
-    ["detect", "prioritize", "fix", "verify"],
+    capabilitiesForModule("audit", { availableOnly: true, agentOnly: true }).map((entry) => entry.capability),
+    ["detect", "prioritize", "verify"],
   );
 });
