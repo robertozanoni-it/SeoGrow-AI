@@ -75,7 +75,7 @@ test("broken-link href implementation lives under Links and legacy shim stays th
   assert.match(shim, /modules\/links\/brokenLinkHref\.js/);
 });
 
-test("nessun nuovo consumer di produzione importa lo shim brokenLinkHref", async () => {
+test("nessun consumer di produzione importa lo shim brokenLinkHref", async () => {
   const files = [
     ...await sourceFiles(srcRoot, "src"),
     ...await sourceFiles(path.join(projectRoot, "server"), "server"),
@@ -87,10 +87,12 @@ test("nessun nuovo consumer di produzione importa lo shim brokenLinkHref", async
     const source = await readFile(path.join(projectRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(relative);
   }
-  assert.deepEqual(importers.sort(), ["server/linkEvidenceHook.js"]);
+  assert.deepEqual(importers.sort(), []);
 
   const fallback = await readFile(new URL("../server/metaDescriptionFallback.js", import.meta.url), "utf8");
+  const evidenceHook = await readFile(new URL("../server/linkEvidenceHook.js", import.meta.url), "utf8");
   const remediation = await readFile(new URL("./brokenLinkRemediation.js", import.meta.url), "utf8");
   assert.match(fallback, /from ["']\.\.\/src\/modules\/links\/index\.js["']/);
+  assert.match(evidenceHook, /from ["']\.\.\/src\/modules\/links\/index\.js["']/);
   assert.match(remediation, /from ["']\.\/modules\/links\/index\.js["']/);
 });

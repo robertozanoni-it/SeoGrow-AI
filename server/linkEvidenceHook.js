@@ -1,4 +1,4 @@
-import { matchBrokenLinkHref, singleAnchorHref } from "../src/brokenLinkHref.js";
+import { matchBrokenLinkHref, singleAnchorHref } from "../src/modules/links/index.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const HOOKED = Symbol.for("seogrow.linkEvidenceHook");
