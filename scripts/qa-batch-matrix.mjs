@@ -17,7 +17,7 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
     m.workspaceStorage.setItem('seogrow-page-audit-history-v2','{}');
     m.workspaceStorage.setItem('seogrow-analyses-v2',JSON.stringify({9001:[{analyzedAt:new Date(Date.now()-60000).toISOString(),issues}]}));
     m.workspaceStorage.setItem('seogrow-tasks-v2','[]'); await m.flushWorkspace();
-    (await import('/src/wordpressSession.js')).rememberWordPressSession(9001,{url:'https://example.com/',username:'QA',applicationPassword:'fixture-only'});
+    (await import('/src/system/index.js')).rememberWordPressSession(9001,{url:'https://example.com/',username:'QA',applicationPassword:'fixture-only'});
     window.__batchFixture={writes:[],requests:[],entities:Object.fromEntries([1,2].map(n=>[url(n),{id:700+n,status:'publish',link:url(n),title:{raw:'Pagina'},content:{raw:'<p>Contenuto della pagina</p>'},meta:{rank_math_description:''}}])),previews:{},token:0,stale:false};
     window.__batchPreviousFetch=window.fetch;
     window.fetch=async (path,options)=>{

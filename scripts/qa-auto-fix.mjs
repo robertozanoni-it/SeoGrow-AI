@@ -87,7 +87,7 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
       await revisit('Centro progetto');
       await button('1. Prepara prova Elementor');
       await waitFor("document.querySelector('[aria-label=\"Collaudo Elementor su pagina isolata\"] [role=status]')?.textContent.includes('assente o scaduta')",'QA requires verified project credentials');
-      await evaluate(`(async()=>{const m=await import('/src/wordpressSession.js');m.rememberWordPressSession(${clientId},{url:'https://yogabuenaonda.it/',username:'qa-fixture',applicationPassword:'qa-fixture'})})()`);
+      await evaluate(`(async()=>{const m=await import('/src/system/index.js');m.rememberWordPressSession(${clientId},{url:'https://yogabuenaonda.it/',username:'qa-fixture',applicationPassword:'qa-fixture'})})()`);
       await mock('/api/wordpress/live-preview',{approvalToken:'qa-isolated-preview',resource:'pages',id:8196,previewBefore:{meta:{_elementor_data:'before'}},previewAfter:{meta:{_elementor_data:'after'}}});
       await resetRequests(); await button('1. Prepara prova Elementor');
       await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent==='2. Applica testo alla pagina di prova')",'QA explicit apply button');

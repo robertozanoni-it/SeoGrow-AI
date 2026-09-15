@@ -30,7 +30,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await write(pageKey,{...pages,[clientId]:[]});
       await write(profileKey,{...profiles,[clientId]:{url:client.url,username:'qa-receipt'}});
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(oldRecords.filter(row=>Number(row.clientId)!==Number(clientId)))});return true})()`);
-      await evaluate(`(async()=>{const s=await import('/src/wordpressSession.js');s.forgetWordPressSession(${clientId},${JSON.stringify(client.url)});return true})()`);
+      await evaluate(`(async()=>{const s=await import('/src/system/index.js');s.forgetWordPressSession(${clientId},${JSON.stringify(client.url)});return true})()`);
       await evaluate(`sessionStorage.setItem('seogrow-problem-proposal-v1',JSON.stringify({title:${JSON.stringify(issue.label)},sourceUrl:${JSON.stringify(targetUrl)},clientId:${clientId},openedFrom:'problem-row',createdAt:Date.now()}));window.confirm=()=>true;true`);
       await evaluate(`import('/src/navigationUx.js').then(m=>{window.__qaNavigatePage=m.navigatePage;return true})`);
       await evaluate(`window.__qaNavigatePage('Correzioni');window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-open'));true`);
