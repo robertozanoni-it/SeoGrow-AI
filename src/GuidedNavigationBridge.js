@@ -6,6 +6,8 @@ const nativeButtons = () =>
 const labelOf = (button) =>
   button?.querySelector?.("span")?.textContent?.trim() || button?.textContent?.trim() || "";
 
+const targetPageOf = (button) => button?.dataset?.seogrowPage?.trim() || labelOf(button);
+
 const mark = (key, value) => {
   if (typeof document === "undefined" || !document.body) return;
   document.body.dataset[key] = String(value ?? "");
@@ -14,10 +16,10 @@ const mark = (key, value) => {
 export function bridgeGuidedNavigationClick(event) {
   const button = event?.target?.closest?.(".guided-nav button");
   if (!button || button.classList?.contains("guided-mode-toggle")) return false;
-  const label = labelOf(button);
-  if (!label) return false;
-  const native = nativeButtons().find((candidate) => labelOf(candidate) === label && !candidate.disabled);
-  mark("seogrowGuidedBridgeRequested", label);
+  const targetPage = targetPageOf(button);
+  if (!targetPage) return false;
+  const native = nativeButtons().find((candidate) => labelOf(candidate) === targetPage && !candidate.disabled);
+  mark("seogrowGuidedBridgeRequested", targetPage);
   mark("seogrowGuidedBridgeNativeFound", Boolean(native));
   if (!native || native === button) return false;
   native.click();
