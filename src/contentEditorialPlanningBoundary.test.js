@@ -65,7 +65,7 @@ test("editorial planning implementation lives under Content while report helpers
   assert.match(compatibility, /function reportTemplate/);
 });
 
-test("nessun nuovo consumer di produzione importa planning helper da projectPlanning", async () => {
+test("nessun consumer di produzione importa planning helper da projectPlanning", async () => {
   const importers = [];
   const planningNames = /\b(?:validDate|calendarDays|planItems|scheduleItem)\b/;
   const importPattern = /import\s*\{([\s\S]*?)\}\s*from\s*["'][^"']*projectPlanning\.js["']/g;
@@ -80,5 +80,7 @@ test("nessun nuovo consumer di produzione importa planning helper da projectPlan
     }
   }
 
-  assert.deepEqual(importers.sort(), ["EditorialCalendar.jsx"]);
+  assert.deepEqual(importers.sort(), []);
+  const calendar = await readFile(new URL("./EditorialCalendar.jsx", import.meta.url), "utf8");
+  assert.match(calendar, /from ["']\.\/modules\/content\/index\.js["']/);
 });
