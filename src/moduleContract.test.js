@@ -15,12 +15,29 @@ test("un nuovo modulo può essere registrato senza dipendere da React o dal rout
   });
   assert.equal(local.id, "local-seo");
   assert.equal(local.futurePath, "/local-seo");
+  assert.equal(local.agentEnabled, false);
   assert.deepEqual(local.capabilities, ["local-rankings", "citations"]);
   assert.equal(Object.isFrozen(local), true);
   assert.equal(Object.isFrozen(local.capabilities), true);
 });
 
-test("il contratto rifiuta definizioni ambigue o non estendibili in sicurezza", () => {
+test("un modulo attivo può restare escluso dall'Agent", () => {
+  const publish = defineSuiteModule({
+    id: "publish-test",
+    label: "Publish test",
+    layer: "action",
+    status: "active",
+    agentEnabled: false,
+    homePage: "Publish test",
+    futurePath: "/publish-test",
+    pages: ["Publish test"],
+    capabilities: ["apply"],
+  });
+  assert.equal(publish.status, "active");
+  assert.equal(publish.agentEnabled, false);
+});
+
+test("il contratto rifiuta definizioni ambigue o enablement Agent non sicuro", () => {
   assert.throws(() => defineSuiteModule({
     id: "Audit Invalid",
     label: "Bad",
@@ -41,6 +58,30 @@ test("il contratto rifiuta definizioni ambigue o non estendibili in sicurezza", 
     pages: ["Pagina A"],
     capabilities: [],
   }), /non appartiene/);
+
+  assert.throws(() => defineSuiteModule({
+    id: "planned-agent",
+    label: "Planned agent",
+    layer: "module",
+    status: "planned",
+    agentEnabled: true,
+    homePage: null,
+    futurePath: "/planned-agent",
+    pages: [],
+    capabilities: ["detect"],
+  }), /deve essere attivo/);
+
+  assert.throws(() => defineSuiteModule({
+    id: "system-agent",
+    label: "System agent",
+    layer: "system",
+    status: "active",
+    agentEnabled: true,
+    homePage: "System",
+    futurePath: "/system-agent",
+    pages: ["System"],
+    capabilities: ["settings"],
+  }), /non può esporre capability/);
 });
 
 test("il set di moduli rifiuta id, path e pagine attive duplicate", () => {
