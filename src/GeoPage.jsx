@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { downloadCsv } from "./platform";
+import { downloadCsv } from "./core/export/index.js";
 import { apiFetch } from "./api";
 
 const fetch = apiFetch;
