@@ -1,113 +1,34 @@
-import { defineSuiteModule, validateSuiteModuleSet } from "./moduleContract.js";
+import { validateSuiteModuleSet } from "./moduleContract.js";
+import { hubManifest } from "../../experience/hub/manifest.js";
+import { tasksManifest } from "../../experience/tasks/manifest.js";
+import { auditManifest } from "../../modules/audit/manifest.js";
+import { rankManifest } from "../../modules/rank/manifest.js";
+import { contentManifest } from "../../modules/content/manifest.js";
+import { linksManifest } from "../../modules/links/manifest.js";
+import { geoManifest } from "../../modules/geo/manifest.js";
+import { publishManifest } from "../../modules/publish/manifest.js";
+import { agentManifest } from "../../intelligence/agent/manifest.js";
+import { systemManifest } from "../../system/manifest.js";
 
 /**
  * SeoGrow Suite domain registry.
  *
- * This is intentionally independent from React and from the current hash-based
- * router. The existing page labels remain the compatibility contract while the
- * application is migrated incrementally from the legacy monolith.
+ * Each domain owns its manifest. This registry only composes and validates the
+ * Suite, so adding a module does not require embedding its definition in Core.
+ * Existing page labels remain the compatibility contract while the legacy
+ * monolith is extracted incrementally.
  */
 export const SUITE_MODULES = Object.freeze([
-  defineSuiteModule({
-    id: "hub",
-    label: "SeoGrow Hub",
-    layer: "experience",
-    status: "active",
-    homePage: "Panoramica",
-    futurePath: "/overview",
-    pages: ["Panoramica", "Clienti", "Centro progetto", "Storico", "SeoGrow AI"],
-    capabilities: ["project-context", "project-health", "activity-summary"],
-  }),
-  defineSuiteModule({
-    id: "audit",
-    label: "Audit & Fix",
-    layer: "module",
-    status: "active",
-    homePage: "Audit SEO",
-    futurePath: "/audit",
-    pages: ["Audit SEO", "Problemi", "Correzioni"],
-    capabilities: ["detect", "prioritize", "fix", "verify"],
-  }),
-  defineSuiteModule({
-    id: "rank",
-    label: "Rank & Growth",
-    layer: "module",
-    status: "active",
-    homePage: "Posizionamenti",
-    futurePath: "/rank",
-    pages: ["Posizionamenti", "Opportunità"],
-    capabilities: ["rankings", "search-opportunities", "growth-signals"],
-  }),
-  defineSuiteModule({
-    id: "content",
-    label: "Content",
-    layer: "module",
-    status: "active",
-    homePage: "Piano editoriale",
-    futurePath: "/content",
-    pages: ["Piano editoriale"],
-    capabilities: ["editorial-plan", "content-brief", "content-optimization"],
-  }),
-  defineSuiteModule({
-    id: "links",
-    label: "Links",
-    layer: "module",
-    status: "active",
-    homePage: "Link interni",
-    futurePath: "/links",
-    pages: ["Link interni"],
-    capabilities: ["internal-links", "broken-links", "anchor-analysis"],
-  }),
-  defineSuiteModule({
-    id: "geo",
-    label: "GEO",
-    layer: "module",
-    status: "active",
-    homePage: "GEO AI",
-    futurePath: "/geo",
-    pages: ["GEO AI"],
-    capabilities: ["entity-clarity", "answerability", "citation-readiness"],
-  }),
-  defineSuiteModule({
-    id: "tasks",
-    label: "Tasks",
-    layer: "experience",
-    status: "active",
-    homePage: "Task",
-    futurePath: "/tasks",
-    pages: ["Task"],
-    capabilities: ["work-queue", "cross-module-actions"],
-  }),
-  defineSuiteModule({
-    id: "agent",
-    label: "SeoGrow Agent",
-    layer: "intelligence",
-    status: "active",
-    homePage: "SEO Agent",
-    futurePath: "/agent",
-    pages: ["SEO Agent"],
-    capabilities: ["orchestration", "planning", "approvals", "verification"],
-  }),
-  defineSuiteModule({
-    id: "publish",
-    label: "Publish",
-    layer: "action",
-    status: "planned",
-    homePage: null,
-    futurePath: "/publish",
-    pages: [],
-    capabilities: ["wordpress", "rank-math", "elementor", "preview", "rollback", "verify"],
-  }),
-  defineSuiteModule({
-    id: "system",
-    label: "System",
-    layer: "system",
-    status: "active",
-    homePage: "Integrazioni",
-    futurePath: "/settings",
-    pages: ["Integrazioni", "Impostazioni"],
-    capabilities: ["integrations", "settings"],
-  }),
+  hubManifest,
+  auditManifest,
+  rankManifest,
+  contentManifest,
+  linksManifest,
+  geoManifest,
+  tasksManifest,
+  agentManifest,
+  publishManifest,
+  systemManifest,
 ]);
 
 validateSuiteModuleSet(SUITE_MODULES);
