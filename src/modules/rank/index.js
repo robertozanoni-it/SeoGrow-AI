@@ -10,5 +10,10 @@ export {
   queryChanges,
   queryTaskDetail,
 } from "./opportunityAnalysis.js";
+export {
+  datasetKey,
+  addDatasetToHistory,
+  compareDatasets,
+} from "./datasetHistory.js";
 export { suggestPageForQuery } from "../../seoHelpers.js";
 export { opportunityTask, findExistingTask } from "./opportunityTasks.js";
