@@ -15,7 +15,7 @@ SeoGrow Suite
 │   ├── Hub
 │   └── Tasks
 ├── Modules
-│   ├── Audit & Fix
+│   ├── Audit
 │   ├── Rank & Growth
 │   ├── Content
 │   ├── Links
@@ -44,37 +44,36 @@ SeoGrow Suite
 5. Le route/hash legacy restano valide durante il refactor.
 6. WordPress, Rank Math, Elementor, remediation, approvals e verification non vengono spostati in blocco.
 7. Ogni estrazione di dominio deve mantenere i test correnti e aggiungere un test di regressione sul nuovo confine.
-8. Publish viene introdotto come boundary prima di diventare una pagina: nessuna modifica WordPress deve cambiare comportamento solo per effetto della riorganizzazione.
+8. Publish è il boundary delle azioni mutative: nessuna modifica WordPress deve cambiare comportamento solo per effetto della riorganizzazione.
 9. L'Agent deve orchestrare capacità dei moduli, non duplicarne la business logic.
 10. `main` riceve solo fasi verificabili e reversibili.
 
 ## Baseline osservata
 
-La UI corrente espone concetti di dominio come pagine peer: `Audit SEO`, `Problemi`, `Correzioni`, `Posizionamenti`, `Opportunità`, `Link interni`, `Piano editoriale`, `GEO AI`, `SEO Agent`.
+La UI legacy espone concetti di dominio come pagine peer: `Audit SEO`, `Problemi`, `Correzioni`, `Posizionamenti`, `Opportunità`, `Link interni`, `Piano editoriale`, `GEO AI`, `SEO Agent`.
 
-La stessa tassonomia è ripetuta in più punti (App, UX guidata, wizard e route reconciliation). Questo rende costoso rinominare o raggruppare una funzione senza rischiare divergenze.
+La stessa tassonomia è storicamente ripetuta in più punti (App, UX guidata, wizard e route reconciliation). Il Module Registry e il compatibility layer sono ora la fonte strutturale per ownership, alias e capability della Suite.
 
-Il workspace è già condiviso: clienti, task, analisi, Search Console, run agentici e remediation usano chiavi `seogrow-*`; IndexedDB mantiene un mirror/transazione del workspace e uno store separato per le correzioni. Non serve creare database separati per i moduli.
+Il workspace resta condiviso: clienti, task, analisi, Search Console, run agentici e remediation usano chiavi `seogrow-*`; IndexedDB mantiene un mirror/transazione del workspace e uno store separato per le correzioni. Non vengono creati database separati per i moduli.
 
-## Prima estrazione: Module Registry
+## Ownership corrente
 
-`src/core/modules/moduleRegistry.js` diventa il contratto iniziale tra il monolite corrente e la Suite.
-
-Ownership legacy:
+`src/core/modules/moduleRegistry.js` definisce il contratto tra il monolite ancora presente e la Suite.
 
 | Pagina corrente | Modulo owner |
 | --- | --- |
 | Panoramica, Clienti, Centro progetto, Storico, SeoGrow AI | Hub |
-| Audit SEO, Problemi, Correzioni | Audit & Fix |
+| Audit SEO, Problemi | Audit |
 | Posizionamenti, Opportunità | Rank & Growth |
 | Piano editoriale | Content |
 | Link interni | Links |
 | GEO AI | GEO |
 | Task | Tasks |
 | SEO Agent | Agent |
+| Correzioni | Publish |
 | Integrazioni, Impostazioni | System |
 
-`Publish` è già registrato come modulo `planned`, ma non possiede ancora route legacy. Questo evita di creare una UI vuota o spostare prematuramente la remediation WordPress.
+`Publish` è attivo e possiede `Correzioni`, ma resta `agentEnabled: false`: le azioni mutative continuano a richiedere il flusso esplicito di proposta/approvazione/applicazione/verifica invece di diventare automaticamente eseguibili dall'Agent.
 
 ## Compatibility layer
 
@@ -83,21 +82,22 @@ Durante la migrazione:
 ```text
 Nuovo termine Suite  →  route legacy
 Hub                   →  Panoramica
-Audit & Fix           →  Audit SEO
-Rank / Rankings       →  Posizionamenti
-Content               →  Piano editoriale
-Links                 →  Link interni
-GEO                   →  GEO AI
-Agent                 →  SEO Agent
+Audit                  →  Audit SEO
+Rank / Rankings        →  Posizionamenti
+Content                →  Piano editoriale
+Links                  →  Link interni
+GEO                    →  GEO AI
+Publish                →  Correzioni
+Agent                  →  SEO Agent
 ```
 
 La risoluzione avviene a runtime e non riscrive i valori già salvati.
 
 ## Storage Core
 
-`src/core/workspace/storageKeys.js` centralizza progressivamente le chiavi persistite. La prima fase mantiene esattamente i nomi correnti per evitare migrazioni dati inutili.
+`src/core/workspace/storageKeys.js` centralizza progressivamente le chiavi persistite. La migrazione mantiene esattamente i nomi correnti finché un cambiamento non è giustificato e testato.
 
-Prima di cambiare una chiave persistita serviranno sempre:
+Prima di cambiare una chiave persistita servono sempre:
 
 1. schema/versione di partenza;
 2. migrazione esplicita;
@@ -113,23 +113,26 @@ Prima di cambiare una chiave persistita serviranno sempre:
 - ownership delle pagine;
 - compatibility alias;
 - storage key registry;
+- capability registry;
 - navigation/reconciler collegati al Core;
 - regression guard.
 
-### Fase 2 — Audit & Fix
+### Fase 2 — Audit
 
-Estrarre per primi i componenti e servizi di:
+Isolare progressivamente:
 
 - Audit SEO;
 - Problemi;
-- Correzioni;
-- remediation verification.
+- detection/prioritization;
+- verifica delle evidenze.
 
-La sequenza funzionale deve diventare esplicita:
+La sequenza funzionale resta esplicita:
 
 ```text
 Detect → Prioritize → Fix → Verify
 ```
+
+`Fix` e le operazioni mutative appartengono a Publish.
 
 ### Fase 3 — Rank & Growth
 
@@ -147,7 +150,7 @@ Raggruppare:
 - piano editoriale;
 - brief;
 - generazione/ottimizzazione contenuti;
-- futuro topical map.
+- topical map quando implementata come capacità reale.
 
 ### Fase 5 — Links e GEO
 
@@ -155,7 +158,7 @@ Isolare i due domini senza cambiare storage o task globali.
 
 ### Fase 6 — Publish
 
-Introdurre il boundary di pubblicazione sopra le capacità WordPress esistenti:
+Il boundary di pubblicazione usa le capacità WordPress esistenti:
 
 ```text
 proposal → approval → preview → apply → verify → receipt/rollback
@@ -165,11 +168,11 @@ Rank Math ed Elementor restano adapter/integration; non diventano logica di domi
 
 ### Fase 7 — Agent orchestration
 
-Ogni modulo espone capability/tool dichiarate. L'Agent seleziona e orchestra i tool senza importare direttamente business logic interna.
+Ogni modulo espone capability/tool dichiarate. L'Agent seleziona e orchestra i tool senza importare direttamente business logic interna. Le capability mutative di Publish non sono abilitate automaticamente per l'Agent.
 
 ### Fase 8 — Experience
 
-Semplificare la navigazione visibile dopo che i confini sono reali:
+Semplificare la navigazione visibile mantenendo gli alias legacy:
 
 ```text
 Overview
@@ -209,20 +212,38 @@ Un dominio è considerato estratto solo quando:
 - la QA pertinente passa;
 - il comportamento utente non cambia salvo modifica esplicitamente richiesta.
 
-## Stato
+La sola presenza del facade non equivale quindi a dichiarare il dominio completamente estratto.
 
-### Completato in questa branch
+## Stato corrente
 
-- [x] baseline fissata;
-- [x] branch di migrazione separata da `main`;
-- [x] module registry indipendente da React;
+### Foundation e confini completati
+
+- [x] baseline e invarianti fissati;
+- [x] Module Registry indipendente da React;
 - [x] ownership delle route legacy;
-- [x] boundary `Publish` pianificato senza route attiva;
+- [x] compatibility alias;
 - [x] registry delle principali chiavi workspace;
+- [x] capability registry e disponibilità Agent;
 - [x] navigation compatibility collegata al registry;
 - [x] page route reconciliation collegata al registry;
-- [x] regression test della foundation.
+- [x] Audit separato dalle azioni mutative di Publish;
+- [x] GEO con facade pubblico;
+- [x] Agent con facade e catalogo capability/tool;
+- [x] Publish attivo, owner di `Correzioni`, con facade sul remediation engine esistente;
+- [x] Publish mantenuto non autonomamente eseguibile dall'Agent;
+- [x] public facade minimo per Hub, Audit, Rank, Content, Links, GEO, Tasks, Agent, Publish e System;
+- [x] regression guard che richiede un facade per ogni modulo Suite attivo.
 
 ### Prossimo delta tecnico
 
-Il primo dominio da estrarre è **Audit & Fix**, perché oggi `Audit SEO`, `Problemi` e `Correzioni` sono già strettamente collegati dal workflow di remediation e verifica. L'estrazione deve iniziare con facade/public API e adapter, non con spostamenti massivi di file.
+La struttura dei boundary è ora uniforme. Il passo successivo non è creare altre cartelle o duplicare il monolite: è **spostare runtime logic dietro i facade esistenti, un dominio alla volta**.
+
+Ordine raccomandato:
+
+1. **Rank & Growth** — estrarre lettura ranking/opportunità e creazione task senza cambiare storage;
+2. **Content** — isolare piano editoriale e relative operazioni;
+3. **Links** — isolare analisi internal/broken links;
+4. **Hub / Tasks / System** — estrarre l'esperienza condivisa solo dopo che i moduli verticali consumano API stabili;
+5. ridurre progressivamente `App.jsx`, mantenendolo come shell finché le dipendenze residue non sono coperte da regression test.
+
+Ogni passo deve lasciare Release Gate e QA pertinente verdi prima del successivo.
