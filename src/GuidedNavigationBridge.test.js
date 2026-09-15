@@ -12,6 +12,12 @@ test("guided navigation bridges visible buttons to the canonical App nav state",
   assert.match(bridge, /document\.addEventListener\("click", bridgeGuidedNavigationClick, true\)/);
 });
 
+test("le label della Suite possono mantenere un target pagina legacy separato", () => {
+  assert.match(bridge, /dataset\?\.seogrowPage/);
+  assert.match(bridge, /const targetPage = targetPageOf\(button\)/);
+  assert.match(bridge, /labelOf\(candidate\) === targetPage/);
+});
+
 test("mode toggle is excluded and bridge installs before React mounts", () => {
   assert.match(bridge, /guided-mode-toggle/);
   const installed = main.indexOf("import './GuidedNavigationBridge';");
