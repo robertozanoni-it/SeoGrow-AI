@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   rankManifest,
   opportunityQueries,
@@ -37,4 +38,15 @@ test("Rank facade mantiene identiche le implementazioni legacy durante l'estrazi
   assert.equal(suggestPageForQuery, legacySuggestPageForQuery);
   assert.equal(opportunityTask, legacyOpportunityTask);
   assert.equal(findExistingTask, legacyFindExistingTask);
+});
+
+test("la business logic dei task opportunità appartiene al modulo Rank, non allo shim legacy", async () => {
+  const implementation = await readFile(new URL("./modules/rank/opportunityTasks.js", import.meta.url), "utf8");
+  const legacyShim = await readFile(new URL("./opportunityTasks.js", import.meta.url), "utf8");
+
+  assert.match(implementation, /export function opportunityTask/);
+  assert.match(implementation, /export function findExistingTask/);
+  assert.doesNotMatch(legacyShim, /function opportunityTask/);
+  assert.doesNotMatch(legacyShim, /function findExistingTask/);
+  assert.match(legacyShim, /from ["']\.\/modules\/rank\/opportunityTasks\.js["']/);
 });

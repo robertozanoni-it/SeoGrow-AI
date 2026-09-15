@@ -25,7 +25,7 @@ const directImporters = async (symbol, legacyModule) => {
   );
   for (const relative of await sourceFiles(srcRoot)) {
     const normalized = relative.split(path.sep).join("/");
-    if (normalized === "modules/rank/index.js") continue;
+    if (normalized.startsWith("modules/rank/")) continue;
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
@@ -40,10 +40,7 @@ test("nessun nuovo consumer di produzione aggira il boundary Rank", async () => 
   assert.deepEqual(await directImporters("queryChanges", "platform"), ["App.jsx"]);
   assert.deepEqual(await directImporters("queryTaskDetail", "platform"), ["App.jsx"]);
   assert.deepEqual(await directImporters("opportunityQueries", "gscImport"), ["App.jsx"]);
-  assert.deepEqual(
-    await directImporters("suggestPageForQuery", "seoHelpers"),
-    ["App.jsx", "opportunityTasks.js"],
-  );
+  assert.deepEqual(await directImporters("suggestPageForQuery", "seoHelpers"), ["App.jsx"]);
   assert.deepEqual(await directImporters("opportunityTask", "opportunityTasks"), ["App.jsx"]);
   assert.deepEqual(await directImporters("findExistingTask", "opportunityTasks"), ["App.jsx"]);
 });
