@@ -16,6 +16,7 @@ import { requiresDuplicateAudit, metadataVerificationTarget } from './metadataCo
 import { remediationIssueKind } from './remediationIssueKind.js';
 import { safeHttpHref } from './reliabilityModel.js';
 import { stableBatchJson } from './batchRemediationModel.js';
+import { createTaskDraft } from './experience/tasks/index.js';
 
 const read = (key, fallback) => { try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const fail = (message, code) => Object.assign(new Error(message), { code });
@@ -134,6 +135,26 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
   };
   const ports = {
     save, progress, stopped, assertContext, connection,
+    manageAssisted: async entry => {
+      await assertContext();
+      const tasks = read('seogrow-tasks-v2', []);
+      const existing = tasks.find(task => task.kind === 'batch-assisted' && task.batchProblemKey === entry.problem.key && Number(task.sourceClientId) === run.clientId && task.status !== 'Completato');
+      if (existing) return { id: existing.id, note: 'Intervento assistito già presente: nessun duplicato creato.' };
+      const task = createTaskDraft({
+        title: `Intervento SEO: ${entry.problem.title}`,
+        priority: entry.problem.severity === 'high' || entry.problem.priority === 'high' ? 'Alta' : entry.problem.severity === 'low' ? 'Bassa' : 'Media',
+        kind: 'batch-assisted',
+        sourceUrl: entry.problem.sourceUrl,
+        targetUrl: entry.problem.targetUrls?.[0] || entry.problem.sourceUrl,
+        detail: entry.problem.detail || entry.reason || 'Intervento generato automaticamente dal batch.',
+        notes: `Creato dal batch ${run.id}. Richiede revisione solo se non esiste una write WordPress sicura.`,
+      }, { client: { name: run.clientName }, clientId: run.clientId, idFactory: () => `batch-assist-${run.id}-${entry.id}` });
+      task.batchProblemKey = entry.problem.key;
+      task.batchId = run.id;
+      workspaceStorage.setItem('seogrow-tasks-v2', JSON.stringify([task, ...tasks]));
+      window.dispatchEvent(new CustomEvent('seogrow-tasks-changed'));
+      return { id: task.id, note: 'Intervento/task creato automaticamente dal batch; nessuna scrittura WordPress non dimostrata.' };
+    },
     preparationKey: entry => { const r = resolve(entry); return stableBatchJson([entry.kind, entry.problem.sourceUrl, r.issue, r.audit.type, r.audit.item.analyzedAt || r.audit.item.startedAt]); },
     prepare: async entry => {
       const resolved = resolve(entry), targetUrl = entry.problem.sourceUrl;

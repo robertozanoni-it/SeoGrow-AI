@@ -59,9 +59,9 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
     await input('.problem-search input','');
     await waitFor("document.querySelectorAll('.problem-row').length===3",'clear filter');
     assert.equal(await evaluate("document.querySelector('.batch-toolbar strong').textContent"),'1 selezionati');
-    await click('Risolvi tutti i problemi risolvibili (2)');
+    await click('Risolvi tutti i problemi risolvibili (3)');
     await click('Prepara piano e anteprime');
-    await waitFor("document.querySelectorAll('.batch-entry.state-prepared').length===2",'real prepared batch');
+    await waitFor("document.querySelectorAll('.batch-entry.state-prepared').length===2 && document.querySelectorAll('.batch-entry.state-managed_assisted').length===1",'real prepared batch plus assisted fallback');
     assert.deepEqual(await evaluate('window.__batchFixture.writes'),[]);
     assert.equal(await evaluate("document.querySelectorAll('.batch-diff pre').length>=4"),true);
     await screenshot('batch-preview-desktop');
@@ -69,7 +69,7 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
   await record('BATCH-UI-EXECUTION',async()=>{
     await evaluate("window.__batchFixture.stale=true");
     await click('Approva e avvia correzione batch');
-    await waitFor("document.querySelector('.batch-entry.state-resolved_verified') && document.querySelector('.batch-entry.state-stale_target')",'verified and stale partial result');
+    await waitFor("document.querySelector('.batch-entry.state-resolved_verified') && document.querySelectorAll('.batch-entry.state-managed_assisted').length===2",'verified and assisted batch result');
     assert.deepEqual(await evaluate('window.__batchFixture.writes'),[701]);
     await waitFor("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Scarica report JSON' && !b.disabled)",'batch report actions enabled');
     const secret=await evaluate("(async()=>{const m=await import('/src/batchRemediationStore.js'); return JSON.stringify(await m.listBatchRuns(9001));})()");

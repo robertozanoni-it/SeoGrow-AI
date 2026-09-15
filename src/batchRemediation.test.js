@@ -15,6 +15,7 @@ function portsFor(options = {}) {
     save:async run=>{ trace.push('save:'+run.status); saved.push(structuredClone(run)); },
     prepare:async e=>preview(e), validate:async()=>{},
     apply:async e=>{ trace.push('write:'+e.id); applied.push(e.id); return {id:e.correctionId}; },
+    manageAssisted:async e=>({ id:'task-'+e.id, note:'managed' }),
     verify:async()=>({ record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true} }),
     ...options,
   };
@@ -29,8 +30,9 @@ test('planner rejects invalid clients, non-HTTPS and empty selections',()=>{
   assert.throws(()=>createBatchRun({clientId:1,siteUrl:'http://example.com/',problems:[problem('a')]}));
   assert.throws(()=>runFor([]));
 });
-test('capabilities exclude manual, ownership, archive, unsupported, applied and resolved',()=>{
-  for(const [extra,state] of [[{correctability:'manual'},'MANUAL_REQUIRED'],[{ownershipBlocked:true},'BLOCKED'],[{pageKind:'archive'},'MANUAL_REQUIRED'],[{issueType:'broken-link'},'UNSUPPORTED'],[{interventionState:'applied'},'BLOCKED'],[{problemState:'resolved'},'SKIPPED']]) assert.equal(batchCapability(problem('a',extra)).state,state);
+test('all active problems are batch-manageable while already resolved findings are skipped',()=>{
+  for(const extra of [{correctability:'manual'},{ownershipBlocked:true},{pageKind:'archive'},{issueType:'broken-link'},{interventionState:'applied'}]) assert.equal(batchCapability(problem('a',extra)).state,'PENDING');
+  assert.equal(batchCapability(problem('a',{problemState:'resolved'})).state,'SKIPPED');
 });
 test('planner deduplicates repeated selection IDs without losing independent pages',()=>{
   assert.equal(runFor([problem('a'),problem('a'),problem('b')]).entries.length,2);
@@ -106,7 +108,7 @@ test('realistic 10-problem scenario: 6 fixes, duplicate, manual, failure, stale'
   const run=runFor(problems);const t=portsFor({prepare:async e=>preview(e,{resource:e.id==='op-7'?'shared':e.id==='op-1'?'shared':e.id,changes:{title:['op-1','op-7'].includes(e.id)?'shared':'new'+e.id}}),
     validate:async e=>{if(e.id==='op-9')throw new Error('isolated');if(e.id==='op-10')throw Object.assign(new Error('stale'),{code:'STALE_TARGET'});}});
   await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);
-  const sum=batchSummary(run);assert.equal(t.applied.length,6);assert.equal(sum.resolvedProblems,7);assert.equal(sum.MANUAL_REQUIRED,1);assert.equal(sum.FAILED,1);assert.equal(sum.STALE_TARGET,1);assert.equal(run.status,'PARTIAL_SUCCESS');assert.deepEqual(retryableProblemKeys(run),['8','9']);
+  const sum=batchSummary(run);assert.equal(t.applied.length,6);assert.equal(sum.resolvedProblems,7);assert.equal(sum.managedAssisted,2);assert.equal(sum.FAILED,1);assert.equal(run.status,'PARTIAL_SUCCESS');assert.deepEqual(retryableProblemKeys(run),['8']);
 });
 test('recovery preserves uncertainty and requires fresh approval for queued entries',()=>{
   const run=runFor([problem('a'),problem('b')]);run.status='RUNNING';run.entries[0].state='IN_EXECUTION';run.entries[1].state='PREPARED';run.approval={at:'old'};
@@ -134,10 +136,15 @@ test('approval fingerprint binds site, resource, before/after, changes, dependen
 });
 
 
-test('non-editable WordPress resources are manual-required rather than failed', async () => {
+test('non-editable WordPress resources are absorbed by the assisted batch fallback', async () => {
   const run=runFor([problem('archive-like')]);
   const t=portsFor({prepare:async()=>{throw Object.assign(new Error('Nessuna pagina o articolo WordPress trovato'),{code:'NON_EDITABLE_RESOURCE'});}});
   await prepareBatch(run,t.ports);
-  assert.equal(run.entries[0].state,'MANUAL_REQUIRED');
-  assert.equal(run.status,'COMPLETED_WITH_OPEN');
+  assert.equal(run.entries[0].state,'MANAGED_ASSISTED');
+  assert.equal(run.status,'SUCCESS');
+});
+
+test('assisted fallback is completed inside the batch without WordPress writes',async()=>{
+  const run=runFor([problem('manual',{correctability:'manual'})]);const t=portsFor();await prepareBatch(run,t.ports);
+  assert.equal(run.entries[0].state,'MANAGED_ASSISTED');assert.equal(run.status,'SUCCESS');assert.equal(t.applied.length,0);assert.equal(batchSummary(run).managedAssisted,1);
 });

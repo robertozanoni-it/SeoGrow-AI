@@ -43,9 +43,9 @@ test('verified confirmed issue can also receive a fresh preflight after regressi
   assert.equal(capability.kind, 'title');
 });
 
-test('verified finding without a newer observation stays blocked and applied writes stay blocked', () => {
-  assert.equal(batchCapability({ ...base, problemState: 'open' }).state, 'BLOCKED');
-  assert.equal(batchCapability({ ...base, problemState: 'needs_verification', interventionState: 'applied' }).state, 'BLOCKED');
+test('verified finding without a newer observation is skipped and applied writes become batch-managed verification work', () => {
+  assert.equal(batchCapability({ ...base, problemState: 'open' }).state, 'SKIPPED');
+  assert.equal(batchCapability({ ...base, problemState: 'needs_verification', interventionState: 'applied' }).state, 'PENDING');
 });
 
 test('batch run starts reobserved verified canonical in PENDING instead of BLOCKED', () => {

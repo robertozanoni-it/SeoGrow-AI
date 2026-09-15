@@ -18,6 +18,14 @@ export async function prepareBatch(run, ports) {
     note(entry, 'PREFLIGHT'); await persist();
     try {
       await ports.assertContext();
+      if (entry.batchMode === 'assisted_task' || entry.kind === 'assisted') {
+        const managed = await ports.manageAssisted(entry);
+        entry.recordId = managed?.id || '';
+        entry.verification = { needsAudit: false, needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || 'Intervento assistito creato automaticamente dal batch.' };
+        note(entry, 'MANAGED_ASSISTED', managed?.note || 'Intervento/task creato automaticamente dal batch; nessuna scrittura WordPress cieca.', 'BATCH_ASSISTED_MANAGED');
+        await persist();
+        continue;
+      }
       const key = ports.preparationKey(entry);
       // Exact duplicate inputs reuse a valid proposal, not a fresh AI call.
       const preview = generated.has(key) ? generated.get(key) : await ports.prepare(entry);
@@ -41,14 +49,20 @@ export async function prepareBatch(run, ports) {
       }
     } catch (error) {
       const code = errorCode(error);
-      const state = /STALE/.test(code)
-        ? 'STALE_TARGET'
-        : /NON_EDITABLE_RESOURCE|NON_EDITABLE_ARCHIVE/.test(code)
-          ? 'MANUAL_REQUIRED'
-          : /OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code)
-            ? 'BLOCKED'
-            : 'FAILED';
-      note(entry, state, error.message, code); stop = systemic(code);
+      const assisted = /STALE|NON_EDITABLE_RESOURCE|NON_EDITABLE_ARCHIVE|UNSUPPORTED_RESOURCE|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
+      if (assisted && !systemic(code) && ports.manageAssisted) {
+        try {
+          const managed = await ports.manageAssisted(entry);
+          entry.recordId = managed?.id || '';
+          entry.verification = { needsAudit: /STALE/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
+          note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch come intervento assistito.`, 'BATCH_ASSISTED_FALLBACK');
+        } catch (manageError) {
+          note(entry, 'FAILED', manageError.message, errorCode(manageError));
+        }
+      } else {
+        note(entry, /STALE/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
+        stop = systemic(code);
+      }
     }
     await persist();
   }
@@ -56,7 +70,7 @@ export async function prepareBatch(run, ports) {
   const summary = batchSummary(run);
   run.status = run.entries.some(e => e.state === 'PREPARED')
     ? 'AWAITING_APPROVAL'
-    : summary.resolvedProblems === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
+    : summary.resolvedProblems + summary.managedAssisted === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.planFingerprint = approvalFingerprint(run);
   run.summary = summary;
   await persist(); return run;
@@ -86,8 +100,17 @@ export async function executeBatch(run, approval, ports) {
       await ports.assertContext();
     } catch (error) {
       const code = errorCode(error);
-      note(entry, /STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
-      stop = systemic(code); await persist(); continue;
+      const assisted = /STALE|EXPIRED|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
+      if (assisted && !systemic(code) && ports.manageAssisted) {
+        const managed = await ports.manageAssisted(entry);
+        entry.recordId = managed?.id || '';
+        entry.verification = { needsAudit: /STALE|EXPIRED/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
+        note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch senza ripetere la scrittura.`, 'BATCH_ASSISTED_VALIDATE_FALLBACK');
+      } else {
+        note(entry, /STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
+        stop = systemic(code);
+      }
+      await persist(); continue;
     }
     note(entry, 'IN_EXECUTION'); entry.definitelyNoWrite = false;
     // Durable write-ahead state, before even calling the correction journal.
@@ -99,8 +122,16 @@ export async function executeBatch(run, approval, ports) {
     } catch (error) {
       const code = errorCode(error);
       entry.definitelyNoWrite = error.definitelyNoWrite === true;
-      note(entry, entry.definitelyNoWrite ? (/STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED') : 'UNCERTAIN', error.message, code);
-      stop = !entry.definitelyNoWrite || systemic(code);
+      const assisted = entry.definitelyNoWrite && /STALE|EXPIRED|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
+      if (assisted && !systemic(code) && ports.manageAssisted) {
+        const managed = await ports.manageAssisted(entry);
+        entry.recordId = managed?.id || '';
+        entry.verification = { needsAudit: /STALE|EXPIRED/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
+        note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch dopo un fallimento pre-write dimostrato.`, 'BATCH_ASSISTED_APPLY_FALLBACK');
+      } else {
+        note(entry, entry.definitelyNoWrite ? (/STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED') : 'UNCERTAIN', error.message, code);
+        stop = !entry.definitelyNoWrite || systemic(code);
+      }
       await persist(); continue;
     }
     await persist();
@@ -131,6 +162,6 @@ export async function executeBatch(run, approval, ports) {
   }
   run.completedAt = new Date().toISOString(); run.durationMs = Date.parse(run.completedAt) - Date.parse(run.startedAt);
   const summary = batchSummary(run);
-  run.status = summary.UNCERTAIN ? 'INTERRUPTED' : summary.resolvedProblems === summary.selected ? 'SUCCESS' : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
+  run.status = summary.UNCERTAIN ? 'INTERRUPTED' : summary.resolvedProblems + summary.managedAssisted === summary.selected ? 'SUCCESS' : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.summary = summary; await persist(); return run;
 }

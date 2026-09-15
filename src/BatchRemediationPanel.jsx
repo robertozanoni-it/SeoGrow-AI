@@ -109,7 +109,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       <button className="secondary" disabled={parentBusy || !automatic.length} onClick={() => { onSelect(automatic.map(p => p.key)); choose(automatic); }}>Risolvi tutti i problemi risolvibili ({automatic.length})</button>
     </div>
     <p className="batch-note">Le azioni batch includono solo problemi con un adapter batch sicuro. Nessuna modifica viene eseguita prima del preflight e della tua approvazione.</p>
-    {selectedOutsideBatch.length > 0 && <p className="batch-note"><strong>{selectedOutsideBatch.length}</strong> problemi selezionati richiedono verifica o intervento singolo e non verranno conteggiati come operazioni batch.</p>}
+    {selectedOutsideBatch.length > 0 && <p className="batch-note"><strong>{selectedOutsideBatch.length}</strong> elementi selezionati sono già risolti/intenzionali o non richiedono una nuova azione batch.</p>}
     {selectedKeys.length > selected.length && <p className="batch-note">{selectedKeys.length - selected.length} selezioni non visibili escluse dal prossimo batch.</p>}
     {message && <p className="batch-error" role="alert">{message}</p>}
     {shown && <section className="batch-workspace panel" aria-label="Revisione correzione batch">
@@ -127,7 +127,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       </>}
       {run && <>
         <p className="batch-note">{run.id} · {date(run.createdAt)}{run.parentRunId ? ` · Retry di ${run.parentRunId}` : ''}</p>
-        <div className="batch-kpis">{[['Selezionati',summary.selected],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
+        <div className="batch-kpis">{[['Selezionati',summary.selected],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Gestiti in batch',summary.managedAssisted],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
         <p>Costo AI stimato: {run.estimatedCost ?? 'non disponibile'} · Costo reale: {run.cost ?? 'non disponibile'} · Modello: {run.model || 'configurazione corrente; dato non restituito'}</p>
         <div aria-live="polite"><progress max={run.entries.length} value={done} aria-label="Avanzamento batch" /> <span>{done} / {run.entries.length} problemi elaborati</span></div>
         {historyOnly && <p className="batch-note">Vista storica: i token di approvazione non vengono conservati. Un nuovo tentativo richiede nuove anteprime e una nuova approvazione.</p>}
@@ -144,7 +144,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
           </>}
           {entry.state === 'PREPARED' && entry.highRisk && !historyOnly && <label className="batch-highrisk"><input type="checkbox" disabled={parentBusy} checked={highRisk.includes(entry.id)} onChange={e => setHighRisk(v => e.target.checked ? [...v, entry.id] : v.filter(id => id !== entry.id))} /> Confermo esplicitamente questa modifica ad alto rischio e il suo payload.</label>}
           {entry.verification?.note && <p><strong>Esito verifica:</strong> {entry.verification.note}</p>}
-          {!parentBusy && ['BLOCKED','MANUAL_REQUIRED','UNSUPPORTED','UNCERTAIN','APPLIED_UNVERIFIED'].includes(entry.state) && <button className="secondary" onClick={() => openProblemResolution(entry.problem, client.id, 'problem-row')}>Apri problema e intervento singolo</button>}
+          {!parentBusy && ['BLOCKED','MANUAL_REQUIRED','UNSUPPORTED','UNCERTAIN','APPLIED_UNVERIFIED','MANAGED_ASSISTED'].includes(entry.state) && <button className="secondary" onClick={() => openProblemResolution(entry.problem, client.id, 'problem-row')}>Apri problema e intervento singolo</button>}
         </article>)}</div>
         <div className="batch-actions">
           {!historyOnly && run.status === 'AWAITING_APPROVAL' && <button className="primary" disabled={!canApprove} onClick={approve}>Approva e avvia correzione batch</button>}

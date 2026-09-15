@@ -112,7 +112,7 @@ test('real API200 with mismatching HTML remains unverified and cannot repeat wri
 });
 test('real preflight refuses a stale resource before persisting any approval token or writing', async () => {
   const f = await fixture('stale-preparation'); await prepareBatch(f.run, f.ports);
-  assert.equal(f.run.entries[0].state, 'STALE_TARGET'); assert.deepEqual(f.writes, []);
+  assert.equal(f.run.entries[0].state, 'MANAGED_ASSISTED'); assert.deepEqual(f.writes, []);
   assert.equal((await listCorrections({ clientId: f.client.id })).length, 0);
 });
 test('real journal retains unknown outcome after lost response and stops independent remaining writes', async () => {
@@ -140,4 +140,19 @@ test('corrupt saved run aborts the transaction without an unhandled parser excep
   const db = await openWorkspaceDb();
   await new Promise((resolve,reject) => { const tx = db.transaction(WORKSPACE_STORE,'readwrite'); tx.objectStore(WORKSPACE_STORE).put('{', `seogrow-batch-run-v1:${f.client.id}:${f.run.id}`); tx.oncomplete=resolve; tx.onabort=reject; });
   db.close(); await assert.rejects(saveBatchRun(f.run), { code: 'BATCH_STORAGE_FAILED' });
+});
+
+test('real assisted fallback creates one scoped task and never writes WordPress', async () => {
+  const f = await fixture();
+  f.run.entries[0].kind = 'assisted';
+  f.run.entries[0].batchMode = 'assisted_task';
+  await prepareBatch(f.run, f.ports);
+  assert.equal(f.run.entries[0].state, 'MANAGED_ASSISTED');
+  assert.equal(f.run.status, 'SUCCESS');
+  assert.deepEqual(f.writes, []);
+  const tasks = JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2'));
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].kind, 'batch-assisted');
+  assert.equal(tasks[0].sourceClientId, f.client.id);
+  assert.equal(tasks[0].batchProblemKey, f.run.entries[0].problem.key);
 });

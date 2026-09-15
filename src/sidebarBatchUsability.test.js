@@ -8,9 +8,9 @@ test('sidebar groups use visibly distinct alternating backgrounds', async () => 
   assert.match(css, /tone-mint \{ background: #edf8f2;/);
 });
 
-test('batch primary action excludes selected problems without a safe batch adapter', async () => {
+test('batch primary action manages every active problem through direct or assisted mode', async () => {
   const source = await readFile(new URL('./BatchRemediationPanel.jsx', import.meta.url), 'utf8');
   assert.match(source, /selectedAutomatic = selected\.filter/);
   assert.match(source, /choose\(selectedAutomatic\)/);
-  assert.match(source, /richiedono verifica o intervento singolo/);
+  assert.match(source, /Risolvi tutti i problemi risolvibili/);
 });

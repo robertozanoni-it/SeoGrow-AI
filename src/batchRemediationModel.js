@@ -6,7 +6,7 @@ export const BATCH_LABELS = {
   IN_EXECUTION: 'In esecuzione', VERIFYING: 'Verifica in corso',
   RESOLVED_VERIFIED: 'Risolto e verificato', APPLIED_UNVERIFIED: 'Applicata, da verificare',
   FAILED: 'Fallita', SKIPPED: 'Saltata', BLOCKED: 'Bloccata', MANUAL_REQUIRED: 'Intervento assistito/manuale',
-  STALE_TARGET: 'Risorsa cambiata', UNSUPPORTED: 'Non supportata', UNCERTAIN: 'Esito incerto: non ripetere',
+  MANAGED_ASSISTED: 'Gestito in batch', STALE_TARGET: 'Risorsa cambiata', UNSUPPORTED: 'Non supportata', UNCERTAIN: 'Esito incerto: non ripetere',
 };
 export const stableBatchJson = value => JSON.stringify(value, (_key, v) =>
   v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
@@ -17,11 +17,11 @@ const controlledReviewType = problem => ['canonical-different', 'description-ser
 export function batchCapability(problem) {
   const kind = batchIssueKind(problem);
   if (['resolved', 'intentional'].includes(problem.problemState)) return { state: 'SKIPPED', reason: 'Problema risolto o intenzionale.', kind };
-  if (problem.ownershipBlocked) return { state: 'BLOCKED', reason: 'Ownership da chiarire nel flusso singolo.', kind };
+  if (problem.ownershipBlocked) return { state: 'PENDING', reason: 'Ownership non dimostrata: il batch crea automaticamente un intervento assistito senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task' };
   const reobservedAfterVerification = problem.interventionState === 'verified' && ['needs_verification', 'reappeared'].includes(problem.problemState);
-  if (problem.interventionState === 'applied') return { state: 'BLOCKED', reason: 'Esiste una modifica da verificare: non ripetere la scrittura.', kind };
-  if (problem.interventionState === 'verified' && !reobservedAfterVerification) return { state: 'BLOCKED', reason: 'Il finding è già verificato e non dispone di una nuova osservazione da riesaminare.', kind };
-  if (['archive', 'gdpr'].includes(problem.pageKind)) return { state: 'MANUAL_REQUIRED', reason: 'Archivio o pagina legale: usa la revisione assistita.', kind };
+  if (problem.interventionState === 'applied') return { state: 'PENDING', reason: 'Esiste una modifica da verificare: il batch crea un intervento di verifica senza ripetere la scrittura.', kind: kind || 'assisted', batchMode: 'assisted_task' };
+  if (problem.interventionState === 'verified' && !reobservedAfterVerification) return { state: 'SKIPPED', reason: 'Finding già verificato e senza nuova osservazione: nessuna azione necessaria.', kind };
+  if (['archive', 'taxonomy', 'gdpr'].includes(problem.pageKind)) return { state: 'PENDING', reason: 'Gestione batch assistita: il sistema prepara automaticamente un intervento/task senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task' };
   if (controlledReviewType(problem)) {
     const reason = batchIssueType(problem) === 'url-alias'
       ? 'Verifica batch in sola lettura: se alias, ID WordPress e canonical sono coerenti il segnale viene chiuso senza scritture.'
@@ -30,8 +30,7 @@ export function batchCapability(problem) {
         : 'La meta description può essere rigenerata in batch e richiede anteprima/approvazione prima della scrittura.';
     return { state: 'PENDING', reason, kind };
   }
-  if (!kind || problem.correctability === 'not_supported') return { state: 'UNSUPPORTED', reason: 'Nessun adapter batch sicuro per questo problema.', kind };
-  if (['manual', 'assisted'].includes(problem.correctability)) return { state: 'MANUAL_REQUIRED', reason: 'Usa la revisione assistita del problema.', kind };
+  if (!kind || problem.correctability === 'not_supported' || ['manual', 'assisted'].includes(problem.correctability)) return { state: 'PENDING', reason: 'Gestione batch assistita: il sistema prepara automaticamente un intervento/task senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task' };
   return { state: 'PENDING', reason: 'Auto-fix con approvazione; disponibilità confermata dal preflight.', kind };
 }
 export function visibleBatchSelection(rows, keys) {
@@ -112,9 +111,11 @@ export function batchSummary(run) {
   const operations = run.entries.filter(e => e.preview?.data?.approvalToken && !e.consolidatedInto);
   const applied = operations.filter(e => ['RESOLVED_VERIFIED', 'APPLIED_UNVERIFIED', 'VERIFYING'].includes(e.state));
   const resolved = run.entries.filter(e => e.state === 'RESOLVED_VERIFIED');
+  const managed = run.entries.filter(e => e.state === 'MANAGED_ASSISTED');
   return { ...counts, selected: run.entries.length, operations: operations.length,
     applied: applied.length, pagesModified: new Set(applied.map(e => e.preview.resourceIdentity)).size,
     resolvedProblems: resolved.reduce((n, e) => n + e.problemKeys.length, 0),
+    managedAssisted: managed.reduce((n, e) => n + e.problemKeys.length, 0),
     highRisk: operations.filter(e => e.state === 'PREPARED' && e.highRisk).length };
 }
 export function verificationState(result) {
