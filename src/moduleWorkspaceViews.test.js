@@ -25,10 +25,15 @@ test("Rank, Content e GEO riusano i dataset esistenti senza crearne di nuovi", (
   assert.ok(moduleWorkspaceKeys("geo").includes("seogrow-geo-v1"));
 });
 
-test("Audit e Publish condividono solo per contratto i dati necessari alla remediation", () => {
-  assert.equal(moduleCanAccessWorkspaceKey("audit", "wordpressProfiles"), true);
+test("Audit conserva evidenza mentre Publish possiede i dati di esecuzione WordPress", () => {
+  assert.equal(moduleCanAccessWorkspaceKey("audit", "remediationHistory"), true);
+  assert.equal(moduleCanAccessWorkspaceKey("audit", "wordpressProfiles"), false);
+  assert.equal(moduleCanAccessWorkspaceKey("audit", "cmsRouter"), false);
+  assert.equal(moduleCanAccessWorkspaceKey("audit", "remediationLastBatch"), false);
   assert.equal(moduleCanAccessWorkspaceKey("publish", WORKSPACE_KEYS.wordpressProfiles), true);
+  assert.equal(moduleCanAccessWorkspaceKey("publish", "cmsRouter"), true);
   assert.equal(moduleCanAccessWorkspaceKey("publish", "remediationHistory"), true);
+  assert.equal(moduleCanAccessWorkspaceKey("publish", "remediationLastBatch"), true);
   assert.equal(moduleCanAccessWorkspaceKey("rank", "wordpressProfiles"), false);
   assert.equal(moduleCanAccessWorkspaceKey("geo", "remediationHistory"), false);
 });
