@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api';
-import { getWordPressSession } from './wordpressSession.js';
+import { getWordPressSession } from './system/index.js';
 import { applyJournaledCorrection } from './correctionJournal.js';
 import { listCorrections, setLastBatch } from './remediationStore.js';
 
