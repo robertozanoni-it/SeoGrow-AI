@@ -1,4 +1,4 @@
-import { getWordPressSession, rememberWordPressSession, forgetWordPressSession } from "./wordpressSession.js";
+import { getWordPressSession, rememberWordPressSession, forgetWordPressSession } from "./system/index.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
