@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consumeTaskWorkflowContext, taskWorkflowContext, taskWorkflowTarget, writeTaskWorkflowContext } from "./taskWorkflow.js";
+import { consumeCorrectionsWorkflowContext, consumeTaskWorkflowContext, taskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 
 test("content and search tasks continue in the editorial workflow", () => {
   assert.equal(taskWorkflowTarget({ kind: "search", title: "Ottimizza query" }).page, "Piano editoriale");
@@ -26,4 +26,13 @@ test("workflow context can be handed off once between modules", () => {
   assert.equal(context.taskId, "t2");
   assert.equal(context.query, "seo locale");
   assert.equal(consumeTaskWorkflowContext(storage), null);
+});
+
+
+test("corrections handoff is isolated from editorial handoff", () => {
+  const data = new Map();
+  const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) };
+  writeCorrectionsWorkflowContext(storage, { id: "fix-1", title: "Correggi canonical", sourceUrl: "https://a.test/p" });
+  assert.equal(consumeTaskWorkflowContext(storage), null);
+  assert.equal(consumeCorrectionsWorkflowContext(storage).taskId, "fix-1");
 });

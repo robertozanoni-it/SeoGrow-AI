@@ -10,7 +10,7 @@ import EditorialCalendar from "./EditorialCalendar.jsx";
 import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
-import { consumeTaskWorkflowContext, taskWorkflowTarget, writeTaskWorkflowContext } from "./taskWorkflow.js";
+import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
 import { buildUnifiedProblems } from "./problemsModel.js";
@@ -4558,10 +4558,14 @@ export default function App() {
           onContinueTask={(task) => {
             const target = taskWorkflowTarget(task);
             if (!target) return;
-            const context = writeTaskWorkflowContext(localStorage, task);
-            setTaskWorkflowContextState(context);
+            if (target.page === "Correzioni") writeCorrectionsWorkflowContext(localStorage, task);
+            else {
+              const context = writeTaskWorkflowContext(localStorage, task);
+              setTaskWorkflowContextState(context);
+            }
             setRequestedTask(null);
-            setPage(target.page);
+            if (target.page === "Correzioni") navigatePage(target.page);
+            else setPage(target.page);
           }}
         />
       );

@@ -23,6 +23,7 @@ export function taskWorkflowContext(task = {}) {
 }
 
 export const TASK_WORKFLOW_CONTEXT_KEY = "seogrow-task-workflow-context-v1";
+export const TASK_CORRECTIONS_CONTEXT_KEY = "seogrow-task-corrections-context-v1";
 
 export function writeTaskWorkflowContext(storage, task = {}) {
   const context = { ...taskWorkflowContext(task), createdAt: new Date().toISOString() };
@@ -39,4 +40,18 @@ export function consumeTaskWorkflowContext(storage) {
     storage.removeItem(TASK_WORKFLOW_CONTEXT_KEY);
     return null;
   }
+}
+
+export function writeCorrectionsWorkflowContext(storage, task = {}) {
+  const context = { ...taskWorkflowContext(task), createdAt: new Date().toISOString() };
+  storage.setItem(TASK_CORRECTIONS_CONTEXT_KEY, JSON.stringify(context));
+  return context;
+}
+
+export function consumeCorrectionsWorkflowContext(storage) {
+  try {
+    const value = JSON.parse(storage.getItem(TASK_CORRECTIONS_CONTEXT_KEY) || "null");
+    storage.removeItem(TASK_CORRECTIONS_CONTEXT_KEY);
+    return value && typeof value === "object" ? value : null;
+  } catch { storage.removeItem(TASK_CORRECTIONS_CONTEXT_KEY); return null; }
 }

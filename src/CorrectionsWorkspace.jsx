@@ -29,6 +29,7 @@ import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
 import "./CorrectionsReference.css";
 import { historyText, historyFieldLabel } from "./correctionHistoryText.js";
+import { consumeCorrectionsWorkflowContext } from "./taskWorkflow.js";
 
 const fetch = apiFetch;
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
@@ -63,7 +64,8 @@ export default function CorrectionsWorkspace() {
   const [rows, setRows] = useState([]);
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [query, setQuery] = useState("");
+  const [workflowContext] = useState(() => consumeCorrectionsWorkflowContext(localStorage));
+  const [query, setQuery] = useState(() => workflowContext?.sourceUrl || workflowContext?.title || "");
   const [expanded, setExpanded] = useState(() => new Set());
   const [passwordEntry, setPasswordEntry] = useState(null);
   const [message, setMessage] = useState("");
@@ -296,6 +298,7 @@ export default function CorrectionsWorkspace() {
 
       <div className="reference-corrections-layout">
         <main className="reference-corrections-main">
+          {workflowContext && <section className="panel task-workflow-context"><strong>Avviato dalla task: {workflowContext.title}</strong><p>{workflowContext.sourceUrl || workflowContext.targetUrl || "Contesto task trasferito alla remediation."}</p></section>}
           <section className="reference-corrections-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca problema o URL…" /></label><span>{filteredRows.length} risultati</span></section>
           {message && <p className="integration-result corrections-message">{message}</p>}
           <div className="corrections-list reference-corrections-list">
