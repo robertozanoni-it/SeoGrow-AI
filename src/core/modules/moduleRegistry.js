@@ -1,8 +1,4 @@
-const freezeModule = (definition) => Object.freeze({
-  ...definition,
-  pages: Object.freeze([...(definition.pages || [])]),
-  capabilities: Object.freeze([...(definition.capabilities || [])]),
-});
+import { defineSuiteModule, validateSuiteModuleSet } from "./moduleContract.js";
 
 /**
  * SeoGrow Suite domain registry.
@@ -12,7 +8,7 @@ const freezeModule = (definition) => Object.freeze({
  * application is migrated incrementally from the legacy monolith.
  */
 export const SUITE_MODULES = Object.freeze([
-  freezeModule({
+  defineSuiteModule({
     id: "hub",
     label: "SeoGrow Hub",
     layer: "experience",
@@ -22,7 +18,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Panoramica", "Clienti", "Centro progetto", "Storico", "SeoGrow AI"],
     capabilities: ["project-context", "project-health", "activity-summary"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "audit",
     label: "Audit & Fix",
     layer: "module",
@@ -32,7 +28,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Audit SEO", "Problemi", "Correzioni"],
     capabilities: ["detect", "prioritize", "fix", "verify"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "rank",
     label: "Rank & Growth",
     layer: "module",
@@ -42,7 +38,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Posizionamenti", "Opportunità"],
     capabilities: ["rankings", "search-opportunities", "growth-signals"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "content",
     label: "Content",
     layer: "module",
@@ -52,7 +48,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Piano editoriale"],
     capabilities: ["editorial-plan", "content-brief", "content-optimization"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "links",
     label: "Links",
     layer: "module",
@@ -62,7 +58,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Link interni"],
     capabilities: ["internal-links", "broken-links", "anchor-analysis"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "geo",
     label: "GEO",
     layer: "module",
@@ -72,7 +68,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["GEO AI"],
     capabilities: ["entity-clarity", "answerability", "citation-readiness"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "tasks",
     label: "Tasks",
     layer: "experience",
@@ -82,7 +78,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["Task"],
     capabilities: ["work-queue", "cross-module-actions"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "agent",
     label: "SeoGrow Agent",
     layer: "intelligence",
@@ -92,7 +88,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: ["SEO Agent"],
     capabilities: ["orchestration", "planning", "approvals", "verification"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "publish",
     label: "Publish",
     layer: "action",
@@ -102,7 +98,7 @@ export const SUITE_MODULES = Object.freeze([
     pages: [],
     capabilities: ["wordpress", "rank-math", "elementor", "preview", "rollback", "verify"],
   }),
-  freezeModule({
+  defineSuiteModule({
     id: "system",
     label: "System",
     layer: "system",
@@ -114,15 +110,12 @@ export const SUITE_MODULES = Object.freeze([
   }),
 ]);
 
+validateSuiteModuleSet(SUITE_MODULES);
+
 const pageOwners = new Map();
 for (const moduleDefinition of SUITE_MODULES) {
   if (moduleDefinition.status !== "active") continue;
-  for (const page of moduleDefinition.pages) {
-    if (pageOwners.has(page)) {
-      throw new Error(`Pagina SeoGrow registrata due volte: ${page}`);
-    }
-    pageOwners.set(page, moduleDefinition);
-  }
+  for (const page of moduleDefinition.pages) pageOwners.set(page, moduleDefinition);
 }
 
 export const REGISTERED_PAGES = Object.freeze([...pageOwners.keys()]);
