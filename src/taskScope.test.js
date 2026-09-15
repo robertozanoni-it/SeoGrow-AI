@@ -1,9 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { archiveLegalSeoTasks } from './taskScope.js';
-import { normalizeStoredTasks } from './platform.js';
+import { archiveLegalSeoTasks, normalizeStoredTasks, archiveDuplicateTasks } from './experience/tasks/index.js';
 import { reconcileAuditTasks } from './auditTaskReconciliation.js';
-import { archiveDuplicateTasks } from './taskDuplicates.js';
 import { wordpressDocumentId, slashPairs, confirmedSlashAlias } from './taskUrlEvidence.js';
 import { taskChange, undoTaskChange } from './productivity.js';
 const base = { id:'a', sourceClientId:4, kind:'h1', title:'0 H1 rilevati', status:'In corso', notes:'Conserva', due:'2026-10-01', targetUrl:'https://example.com/termini-di-uso/' };

@@ -6,27 +6,9 @@ import { fileURLToPath } from "node:url";
 import {
   sameTask,
   archiveDuplicateTasks,
-  isLegalSeoTask,
-  archiveLegalSeoTasks,
-  missingCanonicalTask,
-  activeClientTasks,
-  completeVerifiedCanonicals,
   normalizeStoredTasks,
   tasksFromAnalysis,
 } from "./experience/tasks/index.js";
-import {
-  sameTask as legacySameTask,
-  archiveDuplicateTasks as legacyArchiveDuplicateTasks,
-} from "./taskDuplicates.js";
-import {
-  isLegalSeoTask as legacyIsLegalSeoTask,
-  archiveLegalSeoTasks as legacyArchiveLegalSeoTasks,
-} from "./taskScope.js";
-import {
-  missingCanonicalTask as legacyMissingCanonicalTask,
-  activeClientTasks as legacyActiveClientTasks,
-  completeVerifiedCanonicals as legacyCompleteVerifiedCanonicals,
-} from "./taskReview.js";
 import {
   normalizeStoredTasks as platformNormalizeStoredTasks,
   tasksFromAnalysis as platformTasksFromAnalysis,
@@ -50,21 +32,14 @@ async function legacyImporters(fileName) {
   const pattern = new RegExp(`from\\s+["'][^"']*${fileName.replace(".", "\\.")}["']`);
   for (const relative of await sourceFiles(srcRoot)) {
     const normalized = relative.split(path.sep).join("/");
-    if (normalized === fileName || normalized.startsWith("experience/tasks/")) continue;
+    if (normalized.startsWith("experience/tasks/")) continue;
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
   return importers.sort();
 }
 
-test("Tasks owns task business logic while compatibility exports remain identical", async () => {
-  assert.equal(sameTask, legacySameTask);
-  assert.equal(archiveDuplicateTasks, legacyArchiveDuplicateTasks);
-  assert.equal(isLegalSeoTask, legacyIsLegalSeoTask);
-  assert.equal(archiveLegalSeoTasks, legacyArchiveLegalSeoTasks);
-  assert.equal(missingCanonicalTask, legacyMissingCanonicalTask);
-  assert.equal(activeClientTasks, legacyActiveClientTasks);
-  assert.equal(completeVerifiedCanonicals, legacyCompleteVerifiedCanonicals);
+test("Tasks owns task business logic and public compatibility routes stay equivalent", async () => {
   assert.equal(normalizeStoredTasks, platformNormalizeStoredTasks);
   assert.equal(tasksFromAnalysis, platformTasksFromAnalysis);
 
@@ -102,9 +77,6 @@ test("Tasks owns task business logic while compatibility exports remain identica
   const persistenceOwner = await readFile(new URL("./experience/tasks/taskPersistence.js", import.meta.url), "utf8");
   const auditOwner = await readFile(new URL("./experience/tasks/auditTasks.js", import.meta.url), "utf8");
   const platform = await readFile(new URL("./platform.js", import.meta.url), "utf8");
-  const duplicateShim = await readFile(new URL("./taskDuplicates.js", import.meta.url), "utf8");
-  const scopeShim = await readFile(new URL("./taskScope.js", import.meta.url), "utf8");
-  const reviewShim = await readFile(new URL("./taskReview.js", import.meta.url), "utf8");
 
   assert.match(facade, /from ["']\.\/taskDuplicates\.js["']/);
   assert.match(facade, /from ["']\.\/taskScope\.js["']/);
@@ -120,15 +92,16 @@ test("Tasks owns task business logic while compatibility exports remain identica
   assert.doesNotMatch(platform, /function tasksFromAnalysis/);
   assert.match(platform, /experience\/tasks\/taskPersistence\.js/);
   assert.match(platform, /experience\/tasks\/auditTasks\.js/);
-  assert.doesNotMatch(duplicateShim, /function archiveDuplicateTasks/);
-  assert.doesNotMatch(scopeShim, /function archiveLegalSeoTasks/);
-  assert.doesNotMatch(reviewShim, /function completeVerifiedCanonicals/);
-  assert.match(duplicateShim, /experience\/tasks\/taskDuplicates\.js/);
-  assert.match(scopeShim, /experience\/tasks\/taskScope\.js/);
-  assert.match(reviewShim, /experience\/tasks\/taskReview\.js/);
+
+  for (const legacyFile of ["taskDuplicates.js", "taskScope.js", "taskReview.js"]) {
+    await assert.rejects(
+      readFile(new URL(`./${legacyFile}`, import.meta.url), "utf8"),
+      (error) => error?.code === "ENOENT",
+    );
+  }
 });
 
-test("nessun consumer di produzione importa direttamente gli shim Tasks", async () => {
+test("nessun consumer di produzione importa gli shim Tasks rimossi", async () => {
   assert.deepEqual(await legacyImporters("taskDuplicates.js"), []);
   assert.deepEqual(await legacyImporters("taskScope.js"), []);
   assert.deepEqual(await legacyImporters("taskReview.js"), []);
