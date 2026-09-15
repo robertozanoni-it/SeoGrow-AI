@@ -15,6 +15,7 @@ import {
   findExistingTask,
 } from "./modules/rank/index.js";
 import {
+  opportunityQueries as dataOpportunityQueries,
   opportunityGroups as dataOpportunityGroups,
   queryChanges as dataQueryChanges,
   queryTaskDetail as dataQueryTaskDetail,
@@ -58,12 +59,29 @@ test("Rank facade mantiene identiche le implementazioni legacy durante l'estrazi
 });
 
 test("la pure Rank data API espone le stesse implementazioni analitiche e di history", () => {
+  assert.equal(dataOpportunityQueries, opportunityQueries);
   assert.equal(dataOpportunityGroups, opportunityGroups);
   assert.equal(dataQueryChanges, queryChanges);
   assert.equal(dataQueryTaskDetail, queryTaskDetail);
   assert.equal(dataDatasetKey, datasetKey);
   assert.equal(dataAddDatasetToHistory, addDatasetToHistory);
   assert.equal(dataCompareDatasets, compareDatasets);
+});
+
+test("Rank opportunity queries preserva filtri, ordinamento e limite", () => {
+  const dataset = {
+    queries: [
+      { dimension: "top3 basso ctr", impressions: 100, position: 2, ctr: 1 },
+      { dimension: "opportunità", impressions: 300, position: 8, ctr: 3 },
+      { dimension: "fuori range", impressions: 500, position: 35, ctr: 1 },
+      { dimension: "top3 sano", impressions: 400, position: 2, ctr: 4 },
+    ],
+  };
+  assert.deepEqual(
+    opportunityQueries(dataset, 2).map((row) => row.dimension),
+    ["opportunità", "top3 basso ctr"],
+  );
+  assert.deepEqual(opportunityQueries(null), []);
 });
 
 test("Rank dataset history preserva deduplica, ordinamento e comparabilità dei periodi", () => {
@@ -103,17 +121,24 @@ test("la business logic dei task opportunità appartiene al modulo Rank, non all
   assert.match(legacyShim, /from ["']\.\/modules\/rank\/opportunityTasks\.js["']/);
 });
 
-test("Rank possiede opportunity analysis e dataset history mentre platform resta compatibility entry point", async () => {
+test("Rank possiede opportunity queries, opportunity analysis e dataset history", async () => {
   const facade = await readFile(new URL("./modules/rank/index.js", import.meta.url), "utf8");
   const dataApi = await readFile(new URL("./modules/rank/data.js", import.meta.url), "utf8");
+  const queriesOwner = await readFile(new URL("./modules/rank/opportunityQueries.js", import.meta.url), "utf8");
   const analysisOwner = await readFile(new URL("./modules/rank/opportunityAnalysis.js", import.meta.url), "utf8");
   const historyOwner = await readFile(new URL("./modules/rank/datasetHistory.js", import.meta.url), "utf8");
+  const gscImport = await readFile(new URL("./gscImport.js", import.meta.url), "utf8");
   const platform = await readFile(new URL("./platform.js", import.meta.url), "utf8");
 
+  assert.match(facade, /from ["']\.\/opportunityQueries\.js["']/);
   assert.match(facade, /from ["']\.\/opportunityAnalysis\.js["']/);
   assert.match(facade, /from ["']\.\/datasetHistory\.js["']/);
+  assert.match(dataApi, /from ["']\.\/opportunityQueries\.js["']/);
   assert.match(dataApi, /from ["']\.\/opportunityAnalysis\.js["']/);
   assert.match(dataApi, /from ["']\.\/datasetHistory\.js["']/);
+  assert.match(queriesOwner, /export function opportunityQueries/);
+  assert.doesNotMatch(gscImport, /export function opportunityQueries/);
+  assert.match(gscImport, /modules\/rank\/opportunityQueries\.js/);
   assert.match(analysisOwner, /export function queryChanges/);
   assert.match(analysisOwner, /export function opportunityGroups/);
   assert.match(analysisOwner, /export function queryTaskDetail/);
