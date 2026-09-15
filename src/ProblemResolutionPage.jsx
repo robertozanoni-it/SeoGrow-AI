@@ -61,6 +61,15 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   const path = resolutionPath(problem, latestCorrection);
   const priority = problemResolutionPriority(problem, latestCorrection);
   const canStartAutomatic = priority.mode === "automatic";
+  const verificationSnapshot = latestCorrection?.frontendSnapshot || null;
+  const verificationMismatch = latestCorrection?.frontendFailure === true
+    && latestCorrection?.verificationFailure?.nextAction === "PREPARE_AND_REVERIFY"
+    && Boolean(verificationSnapshot?.expected);
+  const observedVerificationValue = verificationSnapshot?.observed
+    ?? verificationSnapshot?.metaDescription
+    ?? verificationSnapshot?.title
+    ?? "Non rilevato";
+  const verificationFieldLabel = verificationSnapshot?.label || "valore SEO";
 
   const openCorrectionHistory = () => {
     try { sessionStorage.removeItem(FOCUS_KEY); } catch { /* route remains read-only */ }
@@ -126,6 +135,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   };
 
   const runPrimaryAction = () => {
+    if (verificationMismatch) return prepareApprovalSolution();
     if (canStartAutomatic) return startAutomaticResolution();
     if (priority.mode === "approval") return prepareApprovalSolution();
     if (priority.mode === "confirm") return confirmContextAndPrepare();
@@ -202,7 +212,13 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
         <aside className="problem-resolution-actions">
           <div><small>Prossima azione</small><h2>Risolvi e verifica</h2><p>SeoGrow prova prima la risoluzione automatica; quando serve una decisione, prepara la soluzione da approvare.</p></div>
           {href && <a className="secondary problem-resolution-resource" href={href} target="_blank" rel="noreferrer"><ExternalLink /> Apri pagina interessata</a>}
-          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles />{working ? "Verifica…" : priority.label}</button>
+          {verificationMismatch && <div className="problem-resolution-guidance" role="alert">
+            <h3>Verifica fallita</h3>
+            <p><strong>{verificationFieldLabel} atteso:</strong> {verificationSnapshot.expected}</p>
+            <p><strong>Valore rilevato nel frontend:</strong> {observedVerificationValue}</p>
+            <p>La scrittura non è confermata nel markup pubblico. Prepara una nuova correzione controllata; se il mismatch persiste, verifica cache e possibili sovrascritture di plugin SEO o tema.</p>
+          </div>}
+          <button className="primary problem-resolution-auto" type="button" disabled={working} onClick={runPrimaryAction}><Sparkles />{working ? "Verifica…" : verificationMismatch ? "Correggi e verifica" : priority.label}</button>
           {path.action === "audit" && <button className="secondary" type="button" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button>}
           <button className="secondary" type="button" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
           <button className="secondary" type="button" onClick={openCorrectionHistory}><CheckCircle2 /> Apri Correzioni</button>

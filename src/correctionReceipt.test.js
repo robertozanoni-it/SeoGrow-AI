@@ -70,15 +70,23 @@ test("public metadata match confirms the value but not duplicate resolution", ()
   assert.match(patch.verificationNote, /nuovo audit/);
   assert.equal(patch.frontendSnapshot.metaDescription, "Dopo completo");
   assert.equal(patch.lastVerificationAttemptAt, "2026-09-10T11:00:00Z");
+  assert.equal(patch.verificationFailure, null);
   assert.equal("before" in patch || "after" in patch, false);
   assert.deepEqual(input, record);
 });
 
-test("metadata mismatch retains the actual observed value and does not overwrite snapshots", () => {
+test("metadata mismatch retains actual and expected values and exposes an actionable retry", () => {
   const patch = metadataVerificationPatch(record, { ...frontend, metaDescription: "Vecchio testo in cache" });
   assert.equal(patch.frontendConfirmed, false);
   assert.equal(patch.frontendFailure, true);
   assert.equal(patch.frontendSnapshot.metaDescription, "Vecchio testo in cache");
+  assert.equal(patch.frontendSnapshot.observed, "Vecchio testo in cache");
+  assert.equal(patch.frontendSnapshot.expected, "Dopo completo");
+  assert.equal(patch.frontendSnapshot.label, "meta description");
+  assert.equal(patch.verificationFailure.code, "PUBLIC_METADATA_MISMATCH");
+  assert.equal(patch.verificationFailure.nextAction, "PREPARE_AND_REVERIFY");
+  assert.match(patch.verificationNote, /Dopo completo/);
+  assert.match(patch.verificationNote, /Vecchio testo in cache/);
   assert.equal(record.after["meta.rank_math_description"], "Dopo completo");
 });
 
