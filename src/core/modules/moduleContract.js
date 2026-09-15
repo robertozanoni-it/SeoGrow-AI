@@ -33,12 +33,19 @@ export function defineSuiteModule(definition) {
   const layer = String(definition.layer || "").trim();
   const status = String(definition.status || "").trim();
   const futurePath = String(definition.futurePath || "").trim();
+  const agentEnabled = definition.agentEnabled === true;
 
   if (!MODULE_ID.test(id)) throw new TypeError(`ID modulo SeoGrow non valido: ${id || "(vuoto)"}`);
   if (!label) throw new TypeError(`Il modulo ${id} richiede una label.`);
   if (!MODULE_LAYERS.includes(layer)) throw new TypeError(`Layer modulo SeoGrow non valido: ${layer}`);
   if (!MODULE_STATUSES.includes(status)) throw new TypeError(`Stato modulo SeoGrow non valido: ${status}`);
   if (!FUTURE_PATH.test(futurePath)) throw new TypeError(`Percorso futuro modulo SeoGrow non valido: ${futurePath || "(vuoto)"}`);
+  if (definition.agentEnabled != null && typeof definition.agentEnabled !== "boolean") {
+    throw new TypeError(`agentEnabled del modulo ${id} deve essere booleano.`);
+  }
+  if (agentEnabled && !["module", "action"].includes(layer)) {
+    throw new TypeError(`Il modulo ${id} non può esporre capability all'Agent dal layer ${layer}.`);
+  }
 
   const pages = uniqueStrings(definition.pages || [], `${id}.pages`);
   const capabilities = uniqueStrings(definition.capabilities || [], `${id}.capabilities`, { pattern: CAPABILITY_ID });
@@ -53,12 +60,16 @@ export function defineSuiteModule(definition) {
   if (status === "active" && !homePage) {
     throw new TypeError(`Il modulo attivo ${id} richiede una homePage.`);
   }
+  if (agentEnabled && status !== "active") {
+    throw new TypeError(`Il modulo ${id} deve essere attivo prima di essere abilitato per l'Agent.`);
+  }
 
   return Object.freeze({
     id,
     label,
     layer,
     status,
+    agentEnabled,
     homePage,
     futurePath,
     pages,
