@@ -7,3 +7,4 @@ export {
   observedPageCount,
   observedScoreDelta,
 } from "./observedData.js";
+export { metadataDuplicateGroups } from "./metadataDuplicateGroups.js";
