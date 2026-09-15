@@ -55,3 +55,23 @@ test("hash navigation notifica sincronicamente App e layer guidati anche ai conf
     assert.equal(events[0].newValue, JSON.stringify("Audit SEO"));
   } finally { if (old === undefined) delete globalThis.window; else globalThis.window = old; }
 });
+
+test("la terminologia Suite naviga sulle route legacy senza cambiare il valore persistito", () => {
+  const oldWindow = globalThis.window;
+  const oldDocument = globalThis.document;
+  const events = [];
+  globalThis.window = {
+    location: { hash: "#Panoramica", href: "http://127.0.0.1:5176/#Panoramica" },
+    history: { pushState() {} },
+    dispatchEvent: event => events.push({ type: event.type, newValue: event.newValue }),
+  };
+  globalThis.document = { querySelectorAll: () => [], querySelector: () => null };
+  try {
+    navigatePage("Audit & Fix");
+    assert.equal(globalThis.window.location.hash, "#Audit%20SEO");
+    assert.equal(events[0].newValue, JSON.stringify("Audit SEO"));
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+  }
+});
