@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { reportSections, reportTemplate } from "./projectPlanning.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
+import { buildProjectOutcomes } from "./projectOutcomes.js";
 import { loadProjectProblemSummary } from "./projectProblemSummary.js";
 import "./ProjectCenterCards.css";
 import "./ProjectCenterReference.css";
@@ -84,7 +85,9 @@ const statusFromMonitor = (record, enabled) => {
 export default function ProjectCenter({
   client,
   dataset,
+  previousDataset,
   analysis,
+  geo,
   analysisHistory = [],
   tasks = [],
   opportunityCount = 0,
@@ -328,7 +331,8 @@ export default function ProjectCenter({
   const contentIssues = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue.type || ""} ${issue.label || ""}`)).length;
   const topPages = [...(dataset?.pages || [])].toSorted((a, b) => Number(b.clicks || 0) - Number(a.clicks || 0)).slice(0, 5);
   const trend = trendPoints(dataset?.graph || []);
-  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount });
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount, geo });
+  const outcomes = buildProjectOutcomes({ client, tasks, dataset, previousDataset, problemSummary, geo });
   const projectActions = intelligence.actions;
   const activity = [
     analysis?.analyzedAt && { label: "Audit completato", date: analysis.analyzedAt, Icon: ScanSearch },
@@ -366,7 +370,7 @@ export default function ProjectCenter({
       <section className="reference-project-secondary-grid">
         <article className="reference-project-pages"><header><h2>Pagine principali</h2><button onClick={() => onNavigate("Posizionamenti")}>Vedi tutte →</button></header>{topPages.length ? <div className="reference-project-pages-table"><div className="head"><span>URL</span><span>Posizione</span><span>Click</span></div>{topPages.map((row) => <a href={row.dimension} target="_blank" rel="noreferrer" key={row.dimension}><span>{new URL(row.dimension).pathname || "/"}<small>{row.dimension.replace(/^https?:\/\//, "")}</small></span><strong>{Number(row.position || 0).toFixed(1)}</strong><b>{formatMetric(row.clicks)}</b></a>)}</div> : <p className="reference-project-muted">Nessuna pagina Search Console disponibile.</p>}</article>
         <article className="reference-project-activity"><header><h2>Ultime attività</h2><button onClick={() => onNavigate("Storico")}>Vedi tutte →</button></header>{activity.length ? activity.map(({ label, date, Icon }) => <div key={`${label}-${date}`}><span><Icon /></span><p><strong>{label}</strong><small>{formatDate(date)}</small></p></div>) : <p className="reference-project-muted">Le attività del progetto compariranno qui.</p>}</article>
-        <article className="reference-project-growth"><Target /><h2>Il tuo progetto cresce con dati e azioni verificabili.</h2><p>Usa audit, opportunità, correzioni e monitoraggio nello stesso flusso.</p><button className="primary" onClick={() => onNavigate("Opportunità")}>Vedi opportunità →</button></article>
+        <article className="reference-project-growth"><Target /><h2>Risultati osservati</h2><p>{outcomes.completedTasks} task completate · {outcomes.resolvedProblems} problemi risolti · {outcomes.verifiedCorrections} correzioni verificate{outcomes.clickDeltaPct != null ? ` · click ${outcomes.clickDeltaPct >= 0 ? "+" : ""}${outcomes.clickDeltaPct.toFixed(1)}%` : ""}.</p><small>{outcomes.note}</small><button className="primary" onClick={() => onNavigate("Storico")}>Vedi storico →</button></article>
       </section>
 
       <details className="reference-project-operations">

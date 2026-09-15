@@ -29,3 +29,9 @@ test("stale evidence becomes a refresh action before ordinary growth work", () =
   assert.equal(model.facts.auditAgeDays,76);
   assert.equal(model.facts.gscAgeDays,26);
 });
+
+
+test("GEO readiness enters the shared next-best-action queue", () => {
+  const model = buildProjectIntelligence({ client:{id:1,name:"A"}, dataset:{importedAt:"2026-09-15",queries:[]}, analysis:{analyzedAt:"2026-09-15",issues:[]}, wordpressConnected:true, geo:{audit:{score:58,issues:[{severity:"Alta"}]}} });
+  assert.ok(model.actions.some((item) => item.page === "GEO AI" && item.reason === "geo_readiness"));
+});

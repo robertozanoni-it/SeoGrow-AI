@@ -8,7 +8,7 @@ const action = ({ id, title, detail, page, level = "Medio", impact = 50, urgency
   score: Math.round(impact * .4 + urgency * .3 + confidence * .2 - effort * .1),
 });
 
-export function buildProjectIntelligence({ client, dataset, analysis, tasks = [], problemSummary = {}, wordpressConnected = false, opportunityCount = 0, now = Date.now() } = {}) {
+export function buildProjectIntelligence({ client, dataset, analysis, tasks = [], problemSummary = {}, wordpressConnected = false, opportunityCount = 0, geo = null, now = Date.now() } = {}) {
   const projectTasks = tasks.filter((task) => clientTask(task, client));
   const openTasks = projectTasks.filter(activeTask);
   const highTasks = openTasks.filter((task) => task.priority === "Alta");
@@ -20,6 +20,8 @@ export function buildProjectIntelligence({ client, dataset, analysis, tasks = []
   const ageDays = (value) => { const time = Date.parse(value || ""); return Number.isFinite(time) ? Math.max(0, Math.floor((now - time) / 86_400_000)) : null; };
   const auditAgeDays = ageDays(analysis?.analyzedAt || analysis?.startedAt);
   const gscAgeDays = ageDays(dataset?.importedAt || dataset?.dateTo);
+  const geoHigh = (geo?.audit?.issues || []).filter((issue) => issue.severity === "Alta").length;
+  const geoScore = Number.isFinite(Number(geo?.audit?.score)) ? Number(geo.audit.score) : null;
   const candidates = [];
 
   if (!analysis) candidates.push(action({ id:"audit", title:"Esegui un audit SEO", detail:"Serve una baseline tecnica aggiornata prima di decidere gli interventi.", page:"Audit SEO", level:"Alto", impact:95, urgency:90, confidence:100, effort:25, reason:"audit_missing" }));
@@ -31,12 +33,13 @@ export function buildProjectIntelligence({ client, dataset, analysis, tasks = []
   if (highTasks.length) candidates.push(action({ id:"tasks", title:`Completa ${highTasks.length} task ad alta priorità`, detail:`${openTasks.length} task operative ancora aperte per questo progetto.`, page:"Task", level:"Alto", impact:84, urgency:82, confidence:95, effort:50, reason:"high_priority_tasks" }));
   if (opportunityCount > 0) candidates.push(action({ id:"opportunities", title:`Valuta ${opportunityCount} opportunità di crescita`, detail:"Query e pagine con visibilità reale e margine SEO disponibile.", page:"Opportunità", level:"Medio", impact:82, urgency:62, confidence:88, effort:45, reason:"organic_opportunities" }));
   if (contentSignals > 0) candidates.push(action({ id:"content", title:`Migliora ${contentSignals} contenuti`, detail:"L’audit segnala elementi editoriali o on-page da riesaminare.", page:"Piano editoriale", level:"Medio", impact:72, urgency:58, confidence:82, effort:55, reason:"content_signals" }));
+  if (geoHigh > 0 || (geoScore !== null && geoScore < 70)) candidates.push(action({ id:"geo", title:geoHigh ? `Risolvi ${geoHigh} priorità GEO` : `Migliora il GEO score (${geoScore}/100)`, detail:"Il modulo GEO ha rilevato segnali tecnici, di entità o answerability da migliorare.", page:"GEO AI", level:"Medio", impact:74, urgency:56, confidence:84, effort:45, reason:"geo_readiness" }));
   if (analysis && criticalIssues > 0 && !wordpressConnected) candidates.push(action({ id:"wordpress", title:"Verifica la connessione WordPress", detail:"Prima delle remediation controllate serve una connessione WordPress verificabile.", page:"Integrazioni", level:"Medio", impact:65, urgency:70, confidence:100, effort:20, reason:"wordpress_needed" }));
 
   const actions = candidates.toSorted((a, b) => b.score - a.score || b.impact - a.impact).filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 5);
   const coverage = [Boolean(analysis), Boolean(dataset), Boolean(wordpressConnected)].filter(Boolean).length;
   return {
-    facts: { criticalIssues, verificationPending, openTasks: openTasks.length, highTasks: highTasks.length, opportunityCount, contentSignals, top10, auditAgeDays, gscAgeDays },
+    facts: { criticalIssues, verificationPending, openTasks: openTasks.length, highTasks: highTasks.length, opportunityCount, contentSignals, top10, auditAgeDays, gscAgeDays, geoHigh, geoScore },
     readiness: Math.round((coverage / 3) * 100),
     actions,
     nextAction: actions[0] || null,

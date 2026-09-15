@@ -2841,6 +2841,99 @@ app.post("/api/dataforseo/rankings", dataForSeoLimit, async (req, res) => {
   }
 });
 
+
+app.post("/api/dataforseo/geo-observe", dataForSeoLimit, async (req, res) => {
+  let reservation = 0;
+  let budgetSettled = false;
+  try {
+    if (!Array.isArray(req.body.queries)) throw new Error("Le query GEO devono essere inviate come elenco");
+    const queryMap = new Map();
+    for (const value of req.body.queries) {
+      const query = String(value || "").normalize("NFKC").trim().slice(0, 300);
+      if (query) queryMap.set(query.toLocaleLowerCase("it"), query);
+    }
+    const queries = [...queryMap.values()].slice(0, 10);
+    if (!queries.length) throw new Error("Inserisci almeno una query GEO da osservare");
+    const domainInput = String(req.body.domain || "").trim();
+    const siteName = String(req.body.siteName || "").trim().slice(0, 160);
+    const domain = normalizedHost(new URL(/^https?:\/\//i.test(domainInput) ? domainInput : `https://${domainInput}`).hostname);
+    if (!domain.includes(".")) throw new Error("Il progetto non contiene un dominio valido");
+    const locationCode = Number(req.body.locationCode) || 2380;
+    const languageCode = String(req.body.languageCode || "it").toLowerCase();
+    const device = req.body.device === "mobile" ? "mobile" : "desktop";
+    if (!Number.isSafeInteger(locationCode) || locationCode <= 0) throw new Error("Codice località DataForSEO non valido");
+    if (!/^[a-z]{2}$/.test(languageCode)) throw new Error("Codice lingua DataForSEO non valido");
+    reservation = await reserveDataForSeoBudget(queries.length * Number(process.env.DATAFORSEO_MAX_SERP_COST_USD || 0.1));
+    const requestController = new AbortController();
+    req.once("aborted", () => requestController.abort());
+    res.once("close", () => { if (!res.writableEnded) requestController.abort(); });
+    const settled = [];
+    for (let index = 0; index < queries.length; index += 5) {
+      const batch = queries.slice(index, index + 5).map((keyword) => dataForSeoCall(
+        "/v3/serp/google/organic/live/advanced",
+        { keyword, location_code: locationCode, language_code: languageCode, device, depth: 20, tag: domain },
+        requestController.signal,
+      ));
+      settled.push(...(await Promise.allSettled(batch)));
+    }
+    const excluded = /^(?:youtube\.com|facebook\.com|instagram\.com|linkedin\.com|wikipedia\.org|x\.com|twitter\.com)$/i;
+    const competitorCounts = new Map();
+    const observed = settled.map((outcome, index) => {
+      if (outcome.status === "rejected") return { query: queries[index], ownedPresence: false, ownedPosition: null, competitors: [], error: outcome.reason.message };
+      const result = outcome.value.result;
+      const organic = (result?.items || []).filter((item) => item.type === "organic").slice(0, 20);
+      const owned = organic.filter((item) => {
+        const host = normalizedHost(item.domain || "");
+        return host === domain || host.endsWith(`.${domain}`);
+      }).sort((a,b) => (a.rank_absolute || 999) - (b.rank_absolute || 999))[0];
+      const competitors = [];
+      for (const item of organic) {
+        const host = normalizedHost(item.domain || "");
+        if (!host || host === domain || host.endsWith(`.${domain}`) || excluded.test(host)) continue;
+        competitors.push(host);
+        competitorCounts.set(host, (competitorCounts.get(host) || 0) + 1);
+      }
+      const brandTokens = siteName.toLocaleLowerCase("it").split(/\s+/).filter((token) => token.length >= 4);
+      const brandTextPresence = brandTokens.length > 0 && organic.some((item) => {
+        const text = `${item.title || ""} ${item.description || ""}`.toLocaleLowerCase("it");
+        return brandTokens.every((token) => text.includes(token));
+      });
+      return {
+        query: queries[index],
+        ownedPresence: Boolean(owned),
+        ownedPosition: owned?.rank_absolute || null,
+        ownedUrl: owned?.url || "",
+        brandTextPresence,
+        competitors: [...new Set(competitors)].slice(0, 8),
+        checkedAt: result?.datetime || new Date().toISOString(),
+        cost: outcome.value.task.cost || 0,
+      };
+    });
+    const totalCost = settled.reduce((sum, outcome) => sum + (outcome.status === "fulfilled" ? Number(outcome.value.task.cost || 0) : Number(outcome.reason?.cost || 0)), 0);
+    const usage = await settleDataForSeoBudget(reservation, totalCost);
+    budgetSettled = true;
+    const competitors = [...competitorCounts.entries()].map(([domainName, appearances]) => ({ domain: domainName, appearances })).sort((a,b) => b.appearances - a.appearances || a.domain.localeCompare(b.domain)).slice(0, 20);
+    const successful = observed.filter((item) => !item.error);
+    res.json({
+      domain,
+      checkedAt: new Date().toISOString(),
+      queries: observed,
+      competitors,
+      summary: {
+        observed: successful.length,
+        ownedPresence: successful.filter((item) => item.ownedPresence).length,
+        brandTextPresence: successful.filter((item) => item.brandTextPresence).length,
+      },
+      cost: totalCost,
+      monthlyCost: usage.cost,
+      disclaimer: "Osservazione delle SERP Google via DataForSEO. Non misura citazioni o ranking nei motori generativi.",
+    });
+  } catch (error) {
+    if (reservation && !budgetSettled) await settleDataForSeoBudget(reservation, Number(error.cost || 0)).catch(() => undefined);
+    res.status(400).json({ error: error.message || "Osservazione GEO DataForSEO non riuscita" });
+  }
+});
+
 const topicalIntent = (keyword, language = "it") => {
   const informational = {
     it: /^(come|cosa|quando|perch[eé]|quanto|quale|dove)|\b(guida|consigli|significato|benefici|rimedi)\b/i,

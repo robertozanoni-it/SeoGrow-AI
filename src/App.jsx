@@ -1341,6 +1341,7 @@ function Dashboard({
   analysisHistory = [],
   selectedClient,
   gscData,
+  geo,
   onOpenClient,
   wordpressConnected = false,
 }) {
@@ -1377,7 +1378,7 @@ function Dashboard({
   const comparison = compareDatasets(dataset, previousDataset);
   const score = Number.isFinite(Number(analysis?.score)) ? Number(analysis.score) : null;
   const contentTasks = activeTasks.filter((task) => /contenut|articol|meta|title/i.test(`${task.title || ""} ${task.kind || ""}`)).length;
-  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected, opportunityCount: opportunities.length });
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected, opportunityCount: opportunities.length, geo });
   const actionUi = {
     audit: [Search, "info", "Avvia"],
     "audit-refresh": [RefreshCw, "info", "Aggiorna"],
@@ -1388,6 +1389,7 @@ function Dashboard({
     tasks: [ClipboardCheck, "info", "Apri"],
     opportunities: [Target, "success", "Analizza"],
     content: [FileText, "success", "Pianifica"],
+    geo: [Sparkles, "success", "Apri GEO"],
     wordpress: [Plug, "info", "Verifica"],
   };
   const priorityActions = intelligence.actions.slice(0, 3).map((item) => {
@@ -4347,7 +4349,7 @@ export default function App() {
   const content = (() => {
     // These pages render through their dedicated portals.
     if (["Problemi", "Correzioni"].includes(page)) return null;
-    if (page === "Centro progetto") return <Suspense fallback={<div className="page-loading">Caricamento Centro progetto…</div>}><ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} analysisHistory={selectedAnalysisHistory} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter></Suspense>;
+    if (page === "Centro progetto") return <Suspense fallback={<div className="page-loading">Caricamento Centro progetto…</div>}><ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} previousDataset={selectedHistory[1]} analysis={selectedAnalysis || auditResults[selectedClient]} analysisHistory={selectedAnalysisHistory} geo={geoData[selectedClient]} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter></Suspense>;
     if (page === "Panoramica")
       return (
         <Dashboard
@@ -4361,6 +4363,7 @@ export default function App() {
           analysisHistory={selectedAnalysisHistory}
           selectedClient={selectedClient}
           gscData={gscData}
+          geo={geoData[selectedClient]}
           wordpressConnections={wordpressConnections}
           onNavigate={setPage}
           onOpenClient={openClient}
@@ -4497,6 +4500,7 @@ export default function App() {
           }
           onCreateTask={createManualTask}
           aiConfigured={apiStatus.aiConfigured}
+          dataForSeo={dataForSeo}
           aiStatus={apiStatus}
           onNavigate={setPage}
         />

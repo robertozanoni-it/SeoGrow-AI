@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { downloadCsv } from "./core/export/index.js";
 import { apiFetch } from "./api";
+import GeoInsightsPanel from "./GeoInsightsPanel.jsx";
+import { appendGeoHistory, geoEntityProfile, geoPageScores, geoQueryMonitor, geoStrategies } from "./geoIntelligence.js";
 
 const fetch = apiFetch;
 const unique = (values) => [...new Set(values.filter(Boolean))];
@@ -72,6 +74,7 @@ export default function GeoPage({
   onSave,
   onCreateTask,
   aiConfigured,
+  dataForSeo = { configured: false },
   onNavigate,
 }) {
   const initialQuestions = useMemo(
@@ -84,6 +87,7 @@ export default function GeoPage({
     : null;
   const [questionsOverride, setQuestionsOverride] = useState(null);
   const questionsText = questionsOverride ?? savedQuestionsText ?? initialQuestionsText;
+  const [activeTab, setActiveTab] = useState("Panoramica");
   const [audit, setAudit] = useState(
     saved?.audit && typeof saved.audit === "object" ? saved.audit : null,
   );
@@ -92,8 +96,12 @@ export default function GeoPage({
       ? saved.simulation
       : null,
   );
+  const [observation, setObservation] = useState(saved?.observation && typeof saved.observation === "object" ? saved.observation : null);
+  const [history, setHistory] = useState(Array.isArray(saved?.history) ? saved.history : []);
+  const [observationSettings, setObservationSettings] = useState({ locationCode: 2380, languageCode: "it", device: "desktop", ...(saved?.observationSettings || {}) });
   const [auditLoading, setAuditLoading] = useState(false);
   const [simulationLoading, setSimulationLoading] = useState(false);
+  const [observationLoading, setObservationLoading] = useState(false);
   const [error, setError] = useState("");
   const auditControllerRef = useRef(null);
   const simulationControllerRef = useRef(null);
@@ -118,6 +126,9 @@ export default function GeoPage({
       questions,
       audit,
       simulation,
+      observation,
+      history,
+      observationSettings,
       updatedAt: nowIso(),
       ...next,
     };
@@ -144,7 +155,9 @@ export default function GeoPage({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Audit GEO non riuscito");
       setAudit(data);
-      persist({ audit: data });
+      const nextHistory = appendGeoHistory(history, { audit: data });
+      setHistory(nextHistory);
+      persist({ audit: data, history: nextHistory });
     } catch (err) {
       if (err.message !== "Richiesta annullata.") setError(err.message);
     } finally {
@@ -202,7 +215,9 @@ export default function GeoPage({
       if (!response.ok)
         throw new Error(data.error || "Simulazione GEO non riuscita");
       setSimulation(data);
-      persist({ simulation: data, questions });
+      const nextHistory = appendGeoHistory(history, { simulation: data });
+      setHistory(nextHistory);
+      persist({ simulation: data, questions, history: nextHistory });
     } catch (err) {
       if (err.message !== "Richiesta annullata.") setError(err.message);
     } finally {
@@ -210,6 +225,45 @@ export default function GeoPage({
         simulationControllerRef.current = null;
         setSimulationLoading(false);
       }
+    }
+  };
+
+  const updateObservationSettings = (patch) => {
+    const next = { ...observationSettings, ...patch };
+    setObservationSettings(next);
+    persist({ observationSettings: next });
+  };
+
+  const runObservation = async () => {
+    if (!dataForSeo?.configured) {
+      onNavigate("Integrazioni");
+      return;
+    }
+    const queries = questions.slice(0, 10);
+    if (!queries.length) {
+      setError("Inserisci almeno una domanda GEO da osservare.");
+      return;
+    }
+    const maxCost = queries.length * Number(dataForSeo.maxSerpCost || 0.1);
+    if (!window.confirm(`Osservare ${queries.length} query su Google tramite DataForSEO? Costo massimo stimato: $${maxCost.toFixed(2)}. La misura non rappresenta citazioni AI.`)) return;
+    setObservationLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/dataforseo/geo-observe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ domain: client.url, siteName: client.name, queries, ...observationSettings }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Osservazione GEO non riuscita");
+      setObservation(data);
+      const nextHistory = appendGeoHistory(history, { observation: data });
+      setHistory(nextHistory);
+      persist({ observation: data, history: nextHistory, observationSettings });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setObservationLoading(false);
     }
   };
 
@@ -229,6 +283,8 @@ export default function GeoPage({
         dettaglio: item.gap || item.answer,
         url: item.bestUrl || "",
       })),
+      ...geoPageScores(audit).map((item) => ({ sezione: "Page GEO Score", elemento: item.url, esito: item.score, dettaglio: `Answerability ${item.answerability}/100 · ${item.issues} problemi`, url: item.url })),
+      ...(observation?.queries || []).map((item) => ({ sezione: "SERP DataForSEO", elemento: item.query, esito: item.ownedPresence ? `Presente #${item.ownedPosition}` : "Non rilevato", dettaglio: `Competitor: ${(item.competitors || []).slice(0, 5).join(", ")}`, url: item.ownedUrl || "" })),
     ];
     downloadCsv(rows, `geo-ai-${client.name}.csv`);
   };
@@ -242,6 +298,11 @@ export default function GeoPage({
     ? simulation.results
     : [];
   const highIssues = issues.filter((item) => item.severity === "Alta").length;
+  const pageScores = geoPageScores(audit);
+  const entityProfile = geoEntityProfile(audit);
+  const queryMonitor = geoQueryMonitor({ questions, simulation, history: history.slice(1) });
+  const strategies = geoStrategies({ audit, simulation, observation });
+  const tabs = ["Panoramica", "Ricerche AI", "Brand Mentions", "Competitor", "Strategie", "Report"];
 
   return (
     <div className="reference-geo-page">
@@ -249,13 +310,14 @@ export default function GeoPage({
         <div className="reference-geo-heading"><span><Radar /></span><div><h1>GEO AI</h1><p>Ottimizza la visibilità di {client.name} nelle risposte AI e nei motori generativi.</p></div></div>
         <div className="reference-geo-copy"><strong>Essere trovati<br/>anche nelle AI.</strong><Bot /></div>
       </section>
-      <div className="reference-geo-tabs"><span className="active">Panoramica</span><span>Ricerche AI</span><span>Brand Mentions</span><span>Competitor</span><span>Strategie</span><span>Report</span></div>
+      <div className="reference-geo-tabs">{tabs.map((tab) => <button type="button" key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
       <section className="reference-geo-kpis">
         <article className="blue"><FileQuestion /><span><strong>{questions.length}</strong><small>Ricerche monitorate</small><em>Domande reali del progetto</em></span></article>
         <article className="green"><Check /><span><strong>{simulationResults.length}</strong><small>Risposte simulate</small><em>{simulation ? "Ultima simulazione" : "Da eseguire"}</em></span></article>
         <article className="purple"><Radar /><span><strong>{audit?.score ?? "—"}</strong><small>Preparazione GEO</small><em>{audit ? "/100" : "Audit da eseguire"}</em></span></article>
         <article className="orange"><AlertTriangle /><span><strong>{highIssues}</strong><small>Problemi prioritari</small><em>Controlli verificati</em></span></article>
       </section>
+      <div hidden={activeTab !== "Panoramica"}>
       <div className="page-title geo-title reference-geo-actions-only">
         <div><h2>Controlli GEO</h2><p>Audit tecnico e simulazioni restano separati e verificabili.</p></div>
         <div className="geo-title-actions">
@@ -516,6 +578,8 @@ export default function GeoPage({
           </div>
         </section>
       ) : null}
+      </div>
+      {activeTab !== "Panoramica" ? <GeoInsightsPanel tab={activeTab} queryMonitor={queryMonitor} entityProfile={entityProfile} pageScores={pageScores} strategies={strategies} observation={observation} history={history} onRunObservation={runObservation} observationLoading={observationLoading} dataForSeo={dataForSeo} observationSettings={observationSettings} onSettingsChange={updateObservationSettings} onCreateTask={onCreateTask} onExportReport={exportReport} /> : null}
     </div>
   );
 }

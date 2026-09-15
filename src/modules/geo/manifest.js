@@ -9,5 +9,5 @@ export const geoManifest = defineSuiteModule({
   homePage: "GEO AI",
   futurePath: "/geo",
   pages: ["GEO AI"],
-  capabilities: ["entity-clarity", "answerability", "citation-readiness"],
+  capabilities: ["entity-clarity", "answerability", "citation-readiness", "query-monitor", "serp-observation", "competitor-gap", "geo-strategy", "geo-report"],
 });
