@@ -64,13 +64,24 @@ export default function CorrectionsWorkspace() {
   const [rows, setRows] = useState([]);
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [workflowContext] = useState(() => consumeCorrectionsWorkflowContext(localStorage));
+  const [workflowContext, setWorkflowContext] = useState(() => consumeCorrectionsWorkflowContext(localStorage));
   const [query, setQuery] = useState(() => workflowContext?.sourceUrl || workflowContext?.title || "");
   const [expanded, setExpanded] = useState(() => new Set());
   const [passwordEntry, setPasswordEntry] = useState(null);
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
   const [verifying, setVerifying] = useState("");
+
+  useEffect(() => {
+    const receiveTaskHandoff = () => {
+      const context = consumeCorrectionsWorkflowContext(localStorage);
+      if (!context) return;
+      setWorkflowContext(context);
+      setQuery(context.sourceUrl || context.title || "");
+    };
+    window.addEventListener("seogrow-corrections-task-handoff", receiveTaskHandoff);
+    return () => window.removeEventListener("seogrow-corrections-task-handoff", receiveTaskHandoff);
+  }, []);
 
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
   const password = passwordEntry?.clientId === selectedClientId ? passwordEntry.value : "";

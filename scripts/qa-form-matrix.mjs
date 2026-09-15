@@ -66,6 +66,23 @@ export async function runFormMatrix({ evaluate, waitFor, clickSidebar, reload, r
     await button('Salva task','.task-editor');
   });
 
+  await record('TASK-WORKFLOW-HANDOFF', async () => {
+    const seed = await read('seogrow-tasks-v2') || [];
+    const editorial = { id:'qa-workflow-editorial', title:'qa workflow article', client:'QA Fields Edited', sourceClientId:9001, priority:'Media', due:'', status:'Da fare', kind:'search', sourceUrl:'https://example.com/article/', targetUrl:'', query:'qa workflow query', detail:'Content workflow evidence', notes:'', createdAt:new Date().toISOString() };
+    const technical = { id:'qa-workflow-fix', title:'Correggi canonical QA workflow', client:'QA Fields Edited', sourceClientId:9001, priority:'Alta', due:'', status:'Da fare', kind:'technical', sourceUrl:'https://example.com/fix/', targetUrl:'', detail:'Canonical workflow evidence', notes:'', createdAt:new Date().toISOString() };
+    await evaluate(`localStorage.setItem('seogrow-tasks-v2', ${q(JSON.stringify([editorial, technical, ...seed]))}); window.dispatchEvent(new StorageEvent('storage',{key:'seogrow-tasks-v2',newValue:${q(JSON.stringify([editorial, technical, ...seed]))}}))`);
+    await clickSidebar('Task'); await waitFor("[...document.querySelectorAll('.task-title-button')].some(b=>b.textContent.includes('qa workflow article'))",'Editorial workflow task');
+    await evaluate("[...document.querySelectorAll('.task-title-button')].find(b=>b.textContent.includes('qa workflow article')).click()");
+    await button('Apri nel Piano editoriale','.task-editor');
+    await waitFor("document.querySelector('.panel.generator')",'Editorial handoff');
+    assert.equal(await evaluate(`${field('.panel.generator','Argomento')}.value`),'qa workflow query');
+    await clickSidebar('Task'); await evaluate("[...document.querySelectorAll('.task-title-button')].find(b=>b.textContent.includes('Correggi canonical QA workflow')).click()");
+    await button('Apri in Correzioni','.task-editor');
+    await waitFor("document.querySelector('.task-workflow-context')?.textContent.includes('Correggi canonical QA workflow')",'Corrections handoff');
+    assert.equal(await evaluate("document.querySelector('.reference-corrections-toolbar input').value"),'https://example.com/fix/');
+    await evaluate(`localStorage.setItem('seogrow-tasks-v2', ${q(JSON.stringify(seed))}); window.dispatchEvent(new StorageEvent('storage',{key:'seogrow-tasks-v2',newValue:${q(JSON.stringify(seed))}}))`);
+  });
+
   await record('FIELDS-PREFERENCES', async () => {
     await clickSidebar('Impostazioni'); await waitFor("document.querySelector('.settings-form')", 'Settings');
     const before = await read('seogrow-preferences-v1');

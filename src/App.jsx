@@ -4575,7 +4575,7 @@ export default function App() {
           onContinueTask={(task) => {
             const target = taskWorkflowTarget(task);
             if (!target) return;
-            if (target.page === "Correzioni") writeCorrectionsWorkflowContext(localStorage, task);
+            if (target.page === "Correzioni") { writeCorrectionsWorkflowContext(localStorage, task); window.dispatchEvent(new CustomEvent("seogrow-corrections-task-handoff")); }
             else {
               const context = writeTaskWorkflowContext(localStorage, task);
               setTaskWorkflowContextState(context);
