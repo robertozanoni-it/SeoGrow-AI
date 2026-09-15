@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const page = readFileSync(new URL("./ProblemResolutionPage.jsx", import.meta.url), "utf8");
 const main = readFileSync(new URL("./appMain.jsx", import.meta.url), "utf8");
+const auditModule = readFileSync(new URL("./modules/audit/index.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("./ProblemResolutionPage.css", import.meta.url), "utf8");
 
 test("il click su un problema apre una pagina dedicata invece del drawer", () => {
@@ -38,8 +39,10 @@ test("un mismatch frontend espone valori e percorso concreto di nuova correzione
   assert.match(page, /if \(verificationMismatch\) return prepareApprovalSolution\(\)/);
 });
 
-test("il bootstrap monta la nuova pagina e il CSS nasconde il vecchio contenuto core", () => {
-  assert.match(main, /import ProblemResolutionPage from ['"]\.\/ProblemResolutionPage['"]/);
+test("il bootstrap monta la pagina attraverso il boundary Audit e il CSS nasconde il vecchio contenuto core", () => {
+  assert.match(main, /from ['"]\.\/modules\/audit\/index\.js['"]/);
+  assert.match(auditModule, /ProblemResolutionPage/);
+  assert.match(auditModule, /\.\.\/\.\.\/ProblemResolutionPage\.jsx/);
   assert.match(main, /<ProblemResolutionPage \/>/);
   assert.match(css, /data-seogrow-problem-resolution="true"/);
   assert.match(css, /\.workspace > main/);
