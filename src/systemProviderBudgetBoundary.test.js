@@ -66,7 +66,7 @@ test("System owns provider budget policy while legacy exports remain identical",
   assert.match(legacyShim, /from ["']\.\/system\/providers\/providerBudget\.js["']/);
 });
 
-test("nessun nuovo consumer production importa direttamente lo shim provider budget", async () => {
+test("nessun consumer production importa direttamente lo shim provider budget", async () => {
   const importers = [];
   const pattern = /from\s+["']\.\/providerBudgetModel(?:\.js)?["']/;
   for (const relative of await sourceFiles(srcRoot)) {
@@ -75,5 +75,9 @@ test("nessun nuovo consumer production importa direttamente lo shim provider bud
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), ["ProviderBudgetUx.js"]);
+  assert.deepEqual(importers.sort(), []);
+
+  const ux = await readFile(new URL("./ProviderBudgetUx.js", import.meta.url), "utf8");
+  assert.match(ux, /from ["']\.\/system\/index\.js["']/);
+  assert.doesNotMatch(ux, /providerBudgetModel\.js/);
 });
