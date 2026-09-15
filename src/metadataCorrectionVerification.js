@@ -21,6 +21,13 @@ const metadataAuditInstruction = (record, target) => {
   return `Per confermare la risoluzione del finding relativo a ${target.label}, SeoGrow deve rieseguire un audit recente della pagina.`;
 };
 
+const metadataMismatchGuidance = (target) => ({
+  code: "PUBLIC_METADATA_MISMATCH",
+  title: `${target.label} non propagato nel frontend`,
+  likelyCauses: ["cache ancora attiva", "plugin SEO o tema che sovrascrive il valore", "scrittura WordPress non propagata nel markup pubblico"],
+  nextAction: "PREPARE_AND_REVERIFY",
+});
+
 export function metadataVerificationTarget(record) {
   const after = flattenCorrectionSnapshot(record?.after);
   const targets = Object.keys(fields).filter((field) => Object.prototype.hasOwnProperty.call(after, field));
@@ -42,16 +49,18 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
   const exactMatch = normalizedText(observed) === normalizedText(target.expected);
   const caseOnlyMatch = !exactMatch && target.publicField === "title" && normalizedText(observed).toLocaleLowerCase("it") === normalizedText(target.expected).toLocaleLowerCase("it");
   const matches = exactMatch || caseOnlyMatch;
+  const failure = matches ? null : metadataMismatchGuidance(target);
   return {
     status: "Da verificare",
     verifiedAt: "",
     frontendConfirmed: matches,
     titleCaseOnlyMatch: caseOnlyMatch,
     frontendFailure: !matches,
+    verificationFailure: failure,
     lastVerificationAttemptAt: at,
     verificationNote: matches
       ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} ${metadataAuditInstruction(record, target)}`
-      : `Il valore di ${target.label} sul sito non coincide con quello inviato a WordPress. Controlla cache e impostazioni del plugin SEO; la correzione non è confermata nel frontend.`,
-    frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, expected: target.expected, checkedAt: at },
+      : `Verifica fallita: ${target.label} atteso “${target.expected}”, ma il frontend pubblico espone “${observed}”. La correzione non è confermata. SeoGrow deve preparare una nuova correzione e riverificare; se il mismatch persiste, controllare cache e possibili sovrascritture del plugin SEO o del tema.`,
+    frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, label: target.label, expected: target.expected, observed, checkedAt: at },
   };
 }
