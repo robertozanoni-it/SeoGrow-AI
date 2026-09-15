@@ -74,9 +74,9 @@ test("GEO e Agent espongono facade pubbliche senza richiedere il loader JSX nei 
 });
 
 test("nessun nuovo consumer aggira la facade GEO", async () => {
-  assert.deepEqual(await directImporters("GeoPage"), ["App.jsx"]);
+  assert.deepEqual(await directImporters("GeoPage"), []);
 });
 
 test("nessun nuovo consumer aggira la facade Agent", async () => {
-  assert.deepEqual(await directImporters("AgentPage"), ["App.jsx"]);
+  assert.deepEqual(await directImporters("AgentPage"), []);
 });

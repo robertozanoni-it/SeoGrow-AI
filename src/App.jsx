@@ -57,8 +57,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
-const AgentPage = lazy(() => import("./AgentPage"));
-const GeoPage = lazy(() => import("./GeoPage"));
+const AgentPage = lazy(() => import("./intelligence/agent/index.js").then((module) => ({ default: module.AgentPage })));
+const GeoPage = lazy(() => import("./modules/geo/index.js").then((module) => ({ default: module.GeoPage })));
 import { initialClients } from "./data";
 import { apiFetch } from "./api";
 import {

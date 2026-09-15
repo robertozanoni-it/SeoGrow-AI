@@ -33,15 +33,18 @@ test("Core owns shared report templates while compatibility exports stay identic
   assert.equal(defaults.title, "Report SEO");
   assert.equal(defaults.color, "#16a05d");
   assert.deepEqual(defaults.sections, {
+    overview: true,
     tasks: true,
     issues: true,
     geo: true,
     queries: true,
+    rankings: true,
+    editorial: true,
     links: true,
   });
 
   const allDisabled = reportTemplate({
-    sections: { tasks: false, issues: false, geo: false, queries: false, links: false },
+    sections: { overview: false, tasks: false, issues: false, geo: false, queries: false, rankings: false, editorial: false, links: false },
   });
   assert.equal(allDisabled.sections.tasks, true);
   assert.equal(Object.values(allDisabled.sections).filter(Boolean).length, 1);
