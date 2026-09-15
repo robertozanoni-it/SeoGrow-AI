@@ -9,6 +9,6 @@ export {
   opportunityGroups,
   queryChanges,
   queryTaskDetail,
-} from "../../platform.js";
+} from "./opportunityAnalysis.js";
 export { suggestPageForQuery } from "../../seoHelpers.js";
 export { opportunityTask, findExistingTask } from "./opportunityTasks.js";
