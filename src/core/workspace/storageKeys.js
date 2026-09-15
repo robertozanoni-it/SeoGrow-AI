@@ -11,6 +11,7 @@ export const WORKSPACE_KEYS = Object.freeze({
   geoData: "seogrow-geo-v1",
   contentDrafts: "seogrow-content-drafts-v1",
   wordpressProfiles: "seogrow-wordpress-profiles-v1",
+  cmsRouter: "seogrow-cms-router-v1",
   auditMonitor: "seogrow-audit-monitor-v1",
   pageAuditHistory: "seogrow-page-audit-history-v2",
   auditResults: "seogrow-quick-audits-v1",
@@ -24,8 +25,18 @@ export const WORKSPACE_KEYS = Object.freeze({
   wizardContext: "seogrow-wizard-context-v1",
 });
 
+export const SESSION_KEYS = Object.freeze({
+  agentPrefill: "seogrow-agent-prefill-v1",
+});
+
 export const workspaceKey = (name) => {
   const value = WORKSPACE_KEYS[name];
   if (!value) throw new Error(`Chiave workspace SeoGrow sconosciuta: ${name}`);
+  return value;
+};
+
+export const sessionKey = (name) => {
+  const value = SESSION_KEYS[name];
+  if (!value) throw new Error(`Chiave sessione SeoGrow sconosciuta: ${name}`);
   return value;
 };
