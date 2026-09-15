@@ -108,14 +108,14 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       <button className="primary" disabled={parentBusy || !selectedAutomatic.length} onClick={() => choose(selectedAutomatic)}>Risolvi problemi in batch{selectedAutomatic.length ? ` (${selectedAutomatic.length})` : ''}</button>
       <button className="secondary" disabled={parentBusy || !automatic.length} onClick={() => { onSelect(automatic.map(p => p.key)); choose(automatic); }}>Risolvi tutti i problemi risolvibili ({automatic.length})</button>
     </div>
-    <p className="batch-note">Le azioni batch includono solo problemi con un adapter batch sicuro. Nessuna modifica viene eseguita prima del preflight e della tua approvazione.</p>
+    <p className="batch-note">Tutti i problemi attivi entrano nel batch. Gli adapter deterministici tentano un auto-fix con preflight; i casi ambigui vengono gestiti automaticamente come intervento assistito. Nessuna write viene eseguita senza target verificato e approvazione.</p>
     {selectedOutsideBatch.length > 0 && <p className="batch-note"><strong>{selectedOutsideBatch.length}</strong> elementi selezionati sono già risolti/intenzionali o non richiedono una nuova azione batch.</p>}
     {selectedKeys.length > selected.length && <p className="batch-note">{selectedKeys.length - selected.length} selezioni non visibili escluse dal prossimo batch.</p>}
     {message && <p className="batch-error" role="alert">{message}</p>}
     {shown && <section className="batch-workspace panel" aria-label="Revisione correzione batch">
       <div className="batch-heading"><h2 ref={heading} tabIndex={-1}>{run ? runLabels[run.status] || run.status : 'Prepara correzione batch'}</h2>
         {parentBusy ? <button className="secondary" onClick={() => { stop.current = true; setMessage('Arresto richiesto: l’operazione già inviata viene registrata, senza avviare nuove write.'); }}>Interrompi dopo l’operazione corrente</button>
-          : <button className="secondary" onClick={() => { setShown(false); currentRun.current = null; }}>Torna ai problemi</button>}
+          : <button className="secondary" onClick={() => { setShown(false); currentRun.current = null; window.dispatchEvent(new CustomEvent('seogrow-tasks-changed')); }}>Torna ai problemi</button>}
       </div>
       <p><strong>{client.name}</strong> · <a href={safeHttpHref(client.url)} target="_blank" rel="noopener noreferrer">{client.url}</a></p>
       {!run && <>
@@ -127,7 +127,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       </>}
       {run && <>
         <p className="batch-note">{run.id} · {date(run.createdAt)}{run.parentRunId ? ` · Retry di ${run.parentRunId}` : ''}</p>
-        <div className="batch-kpis">{[['Selezionati',summary.selected],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Gestiti in batch',summary.managedAssisted],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
+        <div className="batch-kpis">{[['Selezionati',summary.selected],['Auto-fix candidati',summary.directCandidates],['Gestione assistita',summary.assistedCandidates],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Gestiti in batch',summary.managedAssisted],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
         <p>Costo AI stimato: {run.estimatedCost ?? 'non disponibile'} · Costo reale: {run.cost ?? 'non disponibile'} · Modello: {run.model || 'configurazione corrente; dato non restituito'}</p>
         <div aria-live="polite"><progress max={run.entries.length} value={done} aria-label="Avanzamento batch" /> <span>{done} / {run.entries.length} problemi elaborati</span></div>
         {historyOnly && <p className="batch-note">Vista storica: i token di approvazione non vengono conservati. Un nuovo tentativo richiede nuove anteprime e una nuova approvazione.</p>}
@@ -151,7 +151,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
           {!parentBusy && <>
             {(retryableProblemKeys(run).length > 0 || historyOnly && run.status === 'AWAITING_APPROVAL') && <button className="secondary" onClick={retry}>{historyOnly && run.status === 'AWAITING_APPROVAL' ? 'Rigenera anteprime' : 'Riprova problemi falliti / bloccati sicuri'}</button>}
             <button className="secondary" onClick={() => choose(selected.length ? selected : run.entries.map(e => e.problem))}>Modifica selezione</button>
-            <button className="secondary" onClick={() => { setShown(false); onShowOpen?.(); }}>Visualizza problemi ancora aperti</button>
+            <button className="secondary" onClick={() => { setShown(false); window.dispatchEvent(new CustomEvent('seogrow-tasks-changed')); onShowOpen?.(); }}>Visualizza problemi ancora aperti</button>
             <button className="secondary" onClick={() => report('json')}>Scarica report JSON</button><button className="secondary" onClick={() => report('csv')}>Scarica report CSV</button>
             <button className="secondary" onClick={() => navigatePage('Correzioni')}>Cronologia e ripristino</button>
             <button className="secondary" onClick={() => setShowModified(v => !v)}>Apri pagine modificate</button>

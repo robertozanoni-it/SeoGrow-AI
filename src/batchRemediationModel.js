@@ -12,7 +12,12 @@ export const stableBatchJson = value => JSON.stringify(value, (_key, v) =>
   v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
 export const problemIssue = p => ({ type: p.issueType, label: p.title, detail: p.detail, sourceUrl: p.sourceUrl, targetUrl: p.targetUrls?.[0] || '' });
 const batchIssueType = problem => String(problem?.issueType || '').trim().toLowerCase();
-export const batchIssueKind = problem => batchIssueType(problem) === 'url-alias' ? 'url_alias' : remediationIssueKind(problemIssue(problem));
+export const batchIssueKind = problem => {
+  const type = batchIssueType(problem);
+  if (type === 'url-alias') return 'url_alias';
+  if (type === 'broken-link') return 'external_link';
+  return remediationIssueKind(problemIssue(problem));
+};
 const controlledReviewType = problem => ['canonical-different', 'description-serp-width', 'url-alias'].includes(batchIssueType(problem));
 export function batchCapability(problem) {
   const kind = batchIssueKind(problem);
@@ -30,8 +35,19 @@ export function batchCapability(problem) {
         : 'La meta description può essere rigenerata in batch e richiede anteprima/approvazione prima della scrittura.';
     return { state: 'PENDING', reason, kind };
   }
-  if (!kind || problem.correctability === 'not_supported' || ['manual', 'assisted'].includes(problem.correctability)) return { state: 'PENDING', reason: 'Gestione batch assistita: il sistema prepara automaticamente un intervento/task senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task' };
-  return { state: 'PENDING', reason: 'Auto-fix con approvazione; disponibilità confermata dal preflight.', kind };
+  const directKinds = new Set(['title', 'meta_description', 'h1', 'content', 'excerpt', 'canonical', 'noindex', 'external_link']);
+  if (kind && directKinds.has(kind)) {
+    const highRisk = ['canonical', 'noindex', 'h1', 'content', 'external_link'].includes(kind);
+    return {
+      state: 'PENDING',
+      reason: highRisk
+        ? 'Auto-fix condizionale: il preflight deve dimostrare target e ownership univoci prima di preparare la modifica.'
+        : 'Auto-fix diretto: il preflight prepara una modifica verificabile sul campo corretto.',
+      kind,
+      batchMode: 'direct_preflight',
+    };
+  }
+  return { state: 'PENDING', reason: 'Gestione batch assistita: il sistema prepara automaticamente un intervento/task senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task' };
 }
 export function visibleBatchSelection(rows, keys) {
   const wanted = new Set(keys);
@@ -112,10 +128,14 @@ export function batchSummary(run) {
   const applied = operations.filter(e => ['RESOLVED_VERIFIED', 'APPLIED_UNVERIFIED', 'VERIFYING'].includes(e.state));
   const resolved = run.entries.filter(e => e.state === 'RESOLVED_VERIFIED');
   const managed = run.entries.filter(e => e.state === 'MANAGED_ASSISTED');
+  const direct = run.entries.filter(e => e.batchMode === 'direct_preflight');
+  const assisted = run.entries.filter(e => e.batchMode === 'assisted_task');
   return { ...counts, selected: run.entries.length, operations: operations.length,
     applied: applied.length, pagesModified: new Set(applied.map(e => e.preview.resourceIdentity)).size,
     resolvedProblems: resolved.reduce((n, e) => n + e.problemKeys.length, 0),
     managedAssisted: managed.reduce((n, e) => n + e.problemKeys.length, 0),
+    directCandidates: direct.reduce((n, e) => n + e.problemKeys.length, 0),
+    assistedCandidates: assisted.reduce((n, e) => n + e.problemKeys.length, 0),
     highRisk: operations.filter(e => e.state === 'PREPARED' && e.highRisk).length };
 }
 export function verificationState(result) {

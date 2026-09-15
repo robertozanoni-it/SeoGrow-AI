@@ -34,6 +34,15 @@ test('all active problems are batch-manageable while already resolved findings a
   for(const extra of [{correctability:'manual'},{ownershipBlocked:true},{pageKind:'archive'},{issueType:'broken-link'},{interventionState:'applied'}]) assert.equal(batchCapability(problem('a',extra)).state,'PENDING');
   assert.equal(batchCapability(problem('a',{problemState:'resolved'})).state,'SKIPPED');
 });
+
+test('supported assisted kinds are promoted to direct preflight instead of task fallback',()=>{
+  for (const issueType of ['canonical','noindex','broken-external-link','broken-link']) {
+    const capability=batchCapability(problem(issueType,{issueType,correctability:'assisted'}));
+    assert.equal(capability.state,'PENDING');
+    assert.equal(capability.batchMode,'direct_preflight');
+    assert.notEqual(capability.kind,'assisted');
+  }
+});
 test('planner deduplicates repeated selection IDs without losing independent pages',()=>{
   assert.equal(runFor([problem('a'),problem('a'),problem('b')]).entries.length,2);
 });
@@ -104,7 +113,7 @@ test('stop request settles the current operation and blocks subsequent ones',asy
   await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);assert.deepEqual(t.applied,['op-1']);assert.equal(run.entries[1].state,'BLOCKED');
 });
 test('realistic 10-problem scenario: 6 fixes, duplicate, manual, failure, stale',async()=>{
-  const problems=Array.from({length:10},(_,i)=>problem(String(i),i===7?{correctability:'manual'}:{}));
+  const problems=Array.from({length:10},(_,i)=>problem(String(i),i===7?{correctability:'manual',issueType:'image-alt',title:'Immagine senza alt'}:{}));
   const run=runFor(problems);const t=portsFor({prepare:async e=>preview(e,{resource:e.id==='op-7'?'shared':e.id==='op-1'?'shared':e.id,changes:{title:['op-1','op-7'].includes(e.id)?'shared':'new'+e.id}}),
     validate:async e=>{if(e.id==='op-9')throw new Error('isolated');if(e.id==='op-10')throw Object.assign(new Error('stale'),{code:'STALE_TARGET'});}});
   await prepareBatch(run,t.ports);await executeBatch(run,approve(run),t.ports);
@@ -145,6 +154,6 @@ test('non-editable WordPress resources are absorbed by the assisted batch fallba
 });
 
 test('assisted fallback is completed inside the batch without WordPress writes',async()=>{
-  const run=runFor([problem('manual',{correctability:'manual'})]);const t=portsFor();await prepareBatch(run,t.ports);
+  const run=runFor([problem('manual',{correctability:'manual',issueType:'image-alt',title:'Immagine senza alt'})]);const t=portsFor();await prepareBatch(run,t.ports);
   assert.equal(run.entries[0].state,'MANAGED_ASSISTED');assert.equal(run.status,'SUCCESS');assert.equal(t.applied.length,0);assert.equal(batchSummary(run).managedAssisted,1);
 });

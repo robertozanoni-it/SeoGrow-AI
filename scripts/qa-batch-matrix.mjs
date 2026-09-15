@@ -18,11 +18,11 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
     m.workspaceStorage.setItem('seogrow-analyses-v2',JSON.stringify({9001:[{analyzedAt:new Date(Date.now()-60000).toISOString(),issues}]}));
     m.workspaceStorage.setItem('seogrow-tasks-v2','[]'); await m.flushWorkspace();
     (await import('/src/system/index.js')).rememberWordPressSession(9001,{url:'https://example.com/',username:'QA',applicationPassword:'fixture-only'});
-    window.__batchFixture={writes:[],requests:[],entities:Object.fromEntries([1,2].map(n=>[url(n),{id:700+n,status:'publish',link:url(n),title:{raw:'Pagina'},content:{raw:'<p>Contenuto della pagina</p>'},meta:{rank_math_description:''}}])),previews:{},token:0,stale:false};
+    window.__batchFixture={writes:[],requests:[],entities:Object.fromEntries([1,2,3].map(n=>[url(n),{id:700+n,status:'publish',link:url(n),title:{raw:'Pagina'},content:{raw:n===3?'<p><a href=\"https://example.com/vecchia/\">Approfondisci</a></p>':'<p>Contenuto della pagina</p>'},meta:{rank_math_description:''}}])),previews:{},token:0,stale:false};
     window.__batchPreviousFetch=window.fetch;
     window.fetch=async (path,options)=>{
       const pathname=new URL(typeof path==='string'?path:path.url,location.href).pathname;
-      const handled=['/api/wordpress/connection-check','/api/wordpress/inspect-fast','/api/frontend/inspect','/api/wordpress/generate-seo-value-v2','/api/wordpress/live-preview','/api/wordpress/live-apply','/api/wordpress/verify-frontend','/api/audit'];
+      const handled=['/api/wordpress/connection-check','/api/wordpress/inspect-fast','/api/frontend/inspect','/api/frontend/link-evidence','/api/wordpress/generate-seo-value-v2','/api/wordpress/live-preview','/api/wordpress/live-apply','/api/wordpress/verify-frontend','/api/audit'];
       if(!handled.includes(pathname)) return window.__batchPreviousFetch(path,options);
       const f=window.__batchFixture,b=JSON.parse(options?.body||'{}'); f.requests.push(pathname);
       const result=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
@@ -32,14 +32,15 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
         return result({ok:true,resource:'pages',entity});
       }
       if(pathname==='/api/frontend/inspect'||pathname.endsWith('/verify-frontend')) {const e=f.entities[b.url]; return result({ok:true,status:200,isHtml:true,url:e.link,wordpressDocumentId:e.id,title:'Pagina',titleCount:1,metaDescription:e.meta.rank_math_description,metaDescriptionCount:1,h1:1,verificationSafe:true,requiresBrowserVerification:false});}
+      if(pathname==='/api/frontend/link-evidence') { const e=f.entities[b.sourceUrl]; const count=String(e?.content?.raw||'').includes(b.targetUrl)?1:0; return result({ok:true,requestedSourceUrl:b.sourceUrl,targetUrl:b.targetUrl,verificationSafe:true,scanComplete:true,occurrenceCount:count}); }
       if(pathname.endsWith('/generate-seo-value-v2')) return result({value:'Descrizione utile e completa per la pagina di prova: servizi, informazioni e approfondimenti disponibili per tutti i visitatori.',publishable:true,quality:{publishable:true}});
       if(pathname.endsWith('/live-preview')) {
-        const e=f.entities[b.targetUrl],data={ok:true,approvalToken:'fixture-'+(++f.token),expiresInSeconds:600,changed:['meta.rank_math_description'],previewBefore:{meta:e.meta},previewAfter:b.changes,resource:'pages',id:e.id,adapter:'Rank Math'};
+        const e=f.entities[b.targetUrl],data={ok:true,approvalToken:'fixture-'+(++f.token),expiresInSeconds:600,changed:['meta.rank_math_description'],previewBefore:structuredClone(b.expectedCurrent),previewAfter:structuredClone(b.changes),resource:'pages',id:e.id,adapter:'Rank Math'};
         f.previews[data.approvalToken]=structuredClone(data); return result(data);
       }
       if(pathname.endsWith('/live-apply')) {
         const p=f.previews[b.approvalToken]; if(!p) return result({code:'APPROVAL_EXPIRED',error:'Token già usato'},409); delete f.previews[b.approvalToken];
-        f.writes.push(p.id); const e=Object.values(f.entities).find(e=>e.id===p.id); e.meta=structuredClone(p.previewAfter.meta);
+        f.writes.push(p.id); const e=Object.values(f.entities).find(e=>e.id===p.id); if(p.previewAfter.meta)e.meta=structuredClone(p.previewAfter.meta); if(p.previewAfter.content!==undefined)e.content.raw=p.previewAfter.content;
         return result({ok:true,changed:p.changed,before:p.previewBefore,after:p.previewAfter,adapter:'Rank Math'});
       }
       const e=f.entities[b.url]; return result({url:e.link,fetchedAt:new Date().toISOString(),description:e.meta.rank_math_description,title:'Pagina',h1:1,issues:[]});
@@ -61,16 +62,20 @@ export async function runBatchMatrix({ evaluate, waitFor, command, clickSidebar,
     assert.equal(await evaluate("document.querySelector('.batch-toolbar strong').textContent"),'1 selezionati');
     await click('Risolvi tutti i problemi risolvibili (3)');
     await click('Prepara piano e anteprime');
-    await waitFor("document.querySelectorAll('.batch-entry.state-prepared').length===2 && document.querySelectorAll('.batch-entry.state-managed_assisted').length===1",'real prepared batch plus assisted fallback');
+    await waitFor("document.querySelectorAll('.batch-entry.state-prepared').length===3",'three real prepared auto-fix entries');
     assert.deepEqual(await evaluate('window.__batchFixture.writes'),[]);
-    assert.equal(await evaluate("document.querySelectorAll('.batch-diff pre').length>=4"),true);
+    assert.equal(await evaluate("document.querySelectorAll('.batch-diff pre').length>=6"),true);
     await screenshot('batch-preview-desktop');
   });
   await record('BATCH-UI-EXECUTION',async()=>{
+    await waitFor("document.querySelectorAll('.batch-highrisk input[type=checkbox]').length===1",'high-risk broken-link confirmation');
+    await evaluate("document.querySelector('.batch-highrisk input[type=checkbox]').click()");
     await evaluate("window.__batchFixture.stale=true");
     await click('Approva e avvia correzione batch');
-    await waitFor("document.querySelector('.batch-entry.state-resolved_verified') && document.querySelectorAll('.batch-entry.state-managed_assisted').length===2",'verified and assisted batch result');
-    assert.deepEqual(await evaluate('window.__batchFixture.writes'),[701]);
+    await waitFor("!document.querySelector('.batch-entry.state-in_execution, .batch-entry.state-verifying')",'batch execution settled');
+    const writes=await evaluate('window.__batchFixture.writes');
+    assert.equal(new Set(writes).size,writes.length);
+    assert.equal(await evaluate("document.querySelectorAll('.batch-entry.state-managed_assisted').length"),0);
     await waitFor("[...document.querySelectorAll('.batch-actions button')].some(b=>b.textContent==='Scarica report JSON' && !b.disabled)",'batch report actions enabled');
     const secret=await evaluate("(async()=>{const m=await import('/src/batchRemediationStore.js'); return JSON.stringify(await m.listBatchRuns(9001));})()");
     assert.ok(!secret.includes('fixture-only')&&!secret.includes('approvalToken'));

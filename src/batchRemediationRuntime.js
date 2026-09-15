@@ -152,7 +152,6 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       task.batchProblemKey = entry.problem.key;
       task.batchId = run.id;
       workspaceStorage.setItem('seogrow-tasks-v2', JSON.stringify([task, ...tasks]));
-      window.dispatchEvent(new CustomEvent('seogrow-tasks-changed'));
       return { id: task.id, note: 'Intervento/task creato automaticamente dal batch; nessuna scrittura WordPress non dimostrata.' };
     },
     preparationKey: entry => { const r = resolve(entry); return stableBatchJson([entry.kind, entry.problem.sourceUrl, r.issue, r.audit.type, r.audit.item.analyzedAt || r.audit.item.startedAt]); },
