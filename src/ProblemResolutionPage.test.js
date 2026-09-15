@@ -30,6 +30,14 @@ test("la pagina di risoluzione conserva dati, prove e azioni reali", () => {
   assert.match(page, /Chiedi a SeoGrow/);
 });
 
+test("un mismatch frontend espone valori e percorso concreto di nuova correzione", () => {
+  assert.match(page, /verificationFailure\?\.nextAction === "PREPARE_AND_REVERIFY"/);
+  assert.match(page, /Valore rilevato nel frontend/);
+  assert.match(page, /verificationSnapshot\.expected/);
+  assert.match(page, /Correggi e verifica/);
+  assert.match(page, /if \(verificationMismatch\) return prepareApprovalSolution\(\)/);
+});
+
 test("il bootstrap monta la nuova pagina e il CSS nasconde il vecchio contenuto core", () => {
   assert.match(main, /import ProblemResolutionPage from ['"]\.\/ProblemResolutionPage['"]/);
   assert.match(main, /<ProblemResolutionPage \/>/);
