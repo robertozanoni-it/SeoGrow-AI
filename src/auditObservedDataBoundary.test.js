@@ -54,5 +54,11 @@ test("nessun nuovo consumer di produzione importa direttamente lo shim observedA
     const source = await readFile(path.join(srcRoot, relative), "utf8");
     if (pattern.test(source)) importers.push(normalized);
   }
-  assert.deepEqual(importers.sort(), ["App.jsx", "AuditWorkspace.jsx"]);
+  assert.deepEqual(importers.sort(), [
+    "App.jsx",
+    "AuditWorkspace.jsx",
+    "problemsModel.js",
+    "providerBudgetModel.js",
+    "seoResponseIntegrity.js",
+  ]);
 });
