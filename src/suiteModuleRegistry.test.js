@@ -84,6 +84,13 @@ test("navigazione e route reconciler usano il nuovo Core senza cambiare il contr
   assert.match(reconciler, /WORKSPACE_KEYS\.selectedPage/);
 });
 
+test("il wizard usa il registry invece di mantenere una seconda lista autonoma", async () => {
+  const wizard = await readFile(new URL("./WizardStepNavigation.js", import.meta.url), "utf8");
+  assert.match(wizard, /import \{ REGISTERED_PAGES \} from "\.\/core\/modules\/moduleRegistry\.js"/);
+  assert.match(wizard, /REGISTERED_PAGES\.filter/);
+  assert.doesNotMatch(wizard, /WIZARD_DESTINATION_PAGES = Object\.freeze\(\[/);
+});
+
 test("gli id modulo sono stabili e univoci", () => {
   const ids = SUITE_MODULES.map((moduleDefinition) => moduleDefinition.id);
   assert.equal(new Set(ids).size, ids.length);
