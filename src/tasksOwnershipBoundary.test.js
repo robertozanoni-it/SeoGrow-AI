@@ -6,11 +6,6 @@ import { fileURLToPath } from "node:url";
 import {
   sameTask,
   archiveDuplicateTasks,
-  isLegalSeoTask,
-  archiveLegalSeoTasks,
-  missingCanonicalTask,
-  activeClientTasks,
-  completeVerifiedCanonicals,
   normalizeStoredTasks,
   tasksFromAnalysis,
 } from "./experience/tasks/index.js";
