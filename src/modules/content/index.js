@@ -6,3 +6,8 @@
 export { contentManifest } from "./manifest.js";
 export { contentPlan } from "../../platform.js";
 export { contentSafetyErrors } from "./contentSafety.js";
+export {
+  validateSeoSuggestion,
+  assertPublishableSeoSuggestion,
+  stripHtml,
+} from "./editorialQuality.js";
