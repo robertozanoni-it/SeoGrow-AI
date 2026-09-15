@@ -1,4 +1,4 @@
-import { transformBrokenLinkAnchors } from "./brokenLinkHref.js";
+import { transformBrokenLinkAnchors } from "./modules/links/index.js";
 
 const clone = (value) => {
   if (typeof structuredClone === "function") return structuredClone(value);
