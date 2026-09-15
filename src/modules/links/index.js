@@ -11,5 +11,7 @@ export {
 } from "./selectors.js";
 export {
   decodeLinkEntities,
+  matchBrokenLinkHref,
   singleAnchorHref,
-} from "../../brokenLinkHref.js";
+  transformBrokenLinkAnchors,
+} from "./brokenLinkHref.js";
