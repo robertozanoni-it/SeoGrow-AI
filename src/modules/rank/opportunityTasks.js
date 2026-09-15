@@ -1,5 +1,5 @@
 import { suggestPageForQuery } from "../../seoHelpers.js";
-import { sameTask } from "../../taskDuplicates.js";
+import { sameTask } from "../../experience/tasks/index.js";
 import { normalizeClientId } from "../../reliabilityModel.js";
 
 const normalizedQuery = (value) => String(value || "").trim().toLocaleLowerCase("it");

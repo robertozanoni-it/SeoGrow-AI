@@ -105,15 +105,9 @@ test("Tasks owns task business logic while legacy exports remain identical", asy
 });
 
 test("nessun nuovo consumer di produzione importa direttamente gli shim Tasks", async () => {
-  assert.deepEqual(await legacyImporters("taskDuplicates.js"), [
-    "TaskCleanup.jsx",
-    "modules/rank/opportunityTasks.js",
-  ]);
+  assert.deepEqual(await legacyImporters("taskDuplicates.js"), []);
   assert.deepEqual(await legacyImporters("taskScope.js"), [
-    "auditTaskReconciliation.js",
     "platform.js",
   ]);
-  assert.deepEqual(await legacyImporters("taskReview.js"), [
-    "TaskCleanup.jsx",
-  ]);
+  assert.deepEqual(await legacyImporters("taskReview.js"), []);
 });

@@ -1,4 +1,4 @@
-import { archiveLegalSeoTasks, isLegalSeoTask } from './taskScope.js';
+import { archiveLegalSeoTasks, isLegalSeoTask } from './experience/tasks/index.js';
 import { issueIdentity } from './reliabilityModel.js';
 
 export const auditTaskIdentity = task => issueIdentity({
