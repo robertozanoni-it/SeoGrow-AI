@@ -4,32 +4,32 @@ const item = (page, label, icon, advancedOnly = false) => Object.freeze({ page, 
 const group = (label, items) => Object.freeze({ label, items: Object.freeze(items) });
 
 export const SUITE_NAVIGATION = Object.freeze([
-  group("Overview", [
-    item("Panoramica", "Overview", "overview"),
+  group("CONTROLLO", [
+    item("Panoramica", "Panoramica", "overview"),
     item("Clienti", "Clienti", "clients"),
     item("Centro progetto", "Centro progetto", "project", true),
     item("Storico", "Storico", "history", true),
   ]),
-  group("GROW", [
+  group("CRESCITA", [
     item("Audit SEO", "Audit", "audit"),
     item("Problemi", "Problemi", "problems"),
-    item("Posizionamenti", "Rankings", "rankings"),
+    item("Posizionamenti", "Posizionamenti", "rankings"),
     item("Opportunità", "Opportunità", "opportunities", true),
-    item("Piano editoriale", "Content", "content"),
-    item("Link interni", "Links", "links"),
+    item("Piano editoriale", "Piano editoriale", "content"),
+    item("Link interni", "Link interni", "links"),
     item("GEO AI", "GEO", "geo"),
   ]),
-  group("ACT", [
-    item("Correzioni", "Publish", "fix"),
-    item("Task", "Tasks", "tasks"),
+  group("AZIONI", [
+    item("Correzioni", "Correzioni", "fix"),
+    item("Task", "Task", "tasks"),
   ]),
   group("AI", [
-    item("SEO Agent", "SeoGrow Agent", "agent"),
-    item("SeoGrow AI", "SeoGrow AI", "ai-overview", true),
+    item("SEO Agent", "SEO Agent", "agent"),
+    item("SeoGrow AI", "Hub AI", "ai-overview", true),
   ]),
-  group("SYSTEM", [
-    item("Integrazioni", "Integrations", "integrations"),
-    item("Impostazioni", "Settings", "settings"),
+  group("SISTEMA", [
+    item("Integrazioni", "Integrazioni", "integrations"),
+    item("Impostazioni", "Impostazioni", "settings"),
   ]),
 ]);
 

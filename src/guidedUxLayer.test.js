@@ -17,14 +17,14 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
 });
 
 test("la sidebar presenta la Suite senza rinominare le route legacy", () => {
-  assert.deepEqual(SUITE_NAVIGATION.map((group) => group.label), ["Overview", "GROW", "ACT", "AI", "SYSTEM"]);
+  assert.deepEqual(SUITE_NAVIGATION.map((group) => group.label), ["CONTROLLO", "CRESCITA", "AZIONI", "AI", "SISTEMA"]);
   assert.equal(suiteNavigationItem("Audit SEO").label, "Audit");
-  assert.equal(suiteNavigationItem("Posizionamenti").label, "Rankings");
-  assert.equal(suiteNavigationItem("Piano editoriale").label, "Content");
-  assert.equal(suiteNavigationItem("Link interni").label, "Links");
+  assert.equal(suiteNavigationItem("Posizionamenti").label, "Posizionamenti");
+  assert.equal(suiteNavigationItem("Piano editoriale").label, "Piano editoriale");
+  assert.equal(suiteNavigationItem("Link interni").label, "Link interni");
   assert.equal(suiteNavigationItem("GEO AI").label, "GEO");
-  assert.equal(suiteNavigationItem("Correzioni").label, "Publish");
-  assert.equal(suiteNavigationItem("SEO Agent").label, "SeoGrow Agent");
+  assert.equal(suiteNavigationItem("Correzioni").label, "Correzioni");
+  assert.equal(suiteNavigationItem("SEO Agent").label, "SEO Agent");
   assert.equal(suiteNavigationItem("Problemi").advancedOnly, false);
   assert.equal(suiteNavigationItem("Opportunità").advancedOnly, true);
   assert.equal(suiteNavigationItem("Correzioni").advancedOnly, false);
