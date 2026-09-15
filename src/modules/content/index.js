@@ -4,7 +4,7 @@
 // consumers should depend on this API instead of importing editorial behavior
 // from legacy monolith files directly.
 export { contentManifest } from "./manifest.js";
-export { contentPlan } from "../../platform.js";
+export { contentPlan } from "./contentPlan.js";
 export { contentSafetyErrors } from "./contentSafety.js";
 export {
   validateSeoSuggestion,
