@@ -7,3 +7,8 @@ export {
   mergeGoogleStatus,
   normalizeGoogleProperties,
 } from "./integrations/googleProperties.js";
+export {
+  rememberWordPressSession,
+  getWordPressSession,
+  forgetWordPressSession,
+} from "./integrations/wordpressSession.js";
