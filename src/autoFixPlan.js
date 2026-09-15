@@ -1,4 +1,4 @@
-import { isLegalPage } from "./legalPageScope.js";
+import { isLegalPage } from "./modules/audit/data.js";
 import { normalizeClientId } from './reliabilityModel.js';
 
 export const AUTO_FIX_LIMIT = 10;

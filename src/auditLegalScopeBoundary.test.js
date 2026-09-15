@@ -73,11 +73,12 @@ test("Audit owns legal-page SEO scope while legacy exports remain identical", ()
   assert.equal(legalUrls.has("https://example.com/cookie-policy/"), true);
 });
 
-test("legal-page scope implementation lives under Audit and the legacy shim stays thin", async () => {
+test("legal-page scope implementation lives under Audit and consumers use public APIs", async () => {
   const dataApi = await readFile(new URL("./modules/audit/data.js", import.meta.url), "utf8");
   const owner = await readFile(new URL("./modules/audit/legalPageScope.js", import.meta.url), "utf8");
   const shim = await readFile(new URL("./legalPageScope.js", import.meta.url), "utf8");
   const tasksScope = await readFile(new URL("./experience/tasks/taskScope.js", import.meta.url), "utf8");
+  const autoFixPlan = await readFile(new URL("./autoFixPlan.js", import.meta.url), "utf8");
 
   assert.match(dataApi, /from ["']\.\/legalPageScope\.js["']/);
   assert.match(owner, /function isLegalPage/);
@@ -87,6 +88,8 @@ test("legal-page scope implementation lives under Audit and the legacy shim stay
   assert.match(shim, /modules\/audit\/legalPageScope\.js/);
   assert.match(tasksScope, /from ["']\.\.\/\.\.\/modules\/audit\/data\.js["']/);
   assert.doesNotMatch(tasksScope, /legalPageScope\.js/);
+  assert.match(autoFixPlan, /from ["']\.\/modules\/audit\/data\.js["']/);
+  assert.doesNotMatch(autoFixPlan, /legalPageScope\.js/);
 });
 
 test("nessun nuovo consumer di produzione importa lo shim legalPageScope", async () => {
@@ -103,7 +106,6 @@ test("nessun nuovo consumer di produzione importa lo shim legalPageScope", async
   }
   assert.deepEqual(importers.sort(), [
     "server/index.js",
-    "src/autoFixPlan.js",
     "src/problemsModel.js",
     "src/seoResponseIntegrity.js",
   ]);
