@@ -60,7 +60,7 @@ export function metadataVerificationPatch(record, response, at = new Date().toIS
     lastVerificationAttemptAt: at,
     verificationNote: matches
       ? `Il valore di ${target.label} nel codice HTML pubblico coincide con quello inviato a WordPress.${caseOnlyMatch ? " Il plugin ha modificato soltanto maiuscole e minuscole del titolo." : ""} ${metadataAuditInstruction(record, target)}`
-      : `Verifica fallita: ${target.label} atteso “${target.expected}”, ma il frontend pubblico espone “${observed}”. La correzione non è confermata. SeoGrow deve preparare una nuova correzione e riverificare; se il mismatch persiste, controllare cache e possibili sovrascritture del plugin SEO o del tema.`,
+      : `Verifica fallita: il valore di ${target.label} sul sito non coincide con quello inviato a WordPress. Atteso “${target.expected}”, rilevato nel frontend pubblico “${observed}”. La correzione non è confermata. SeoGrow deve preparare una nuova correzione e riverificare; se il mismatch persiste, controllare cache e possibili sovrascritture del plugin SEO o del tema.`,
     frontendSnapshot: { url: response.url, [target.publicField]: observed, field: target.field, label: target.label, expected: target.expected, observed, checkedAt: at },
   };
 }
