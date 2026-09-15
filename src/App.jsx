@@ -249,12 +249,13 @@ function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze 
   const resolvedTotal = history.reduce((sum, item) => sum + (item.resolvedIssues?.length || 0), 0);
   const issueTotal = history.reduce((sum, item) => sum + (item.issues?.length || 0), 0);
   const timeline = buildProjectHistory({ audits: history, tasks, corrections });
+  const exportTimeline = () => downloadCsv(timeline.map((item) => ({ data: item.date, tipo: item.type, titolo: item.title, seo_score: item.score ?? "", risultato: item.detail || "", risorsa: item.url || "" })), `storico-${client.name}.csv`);
   return (
     <div className="reference-history-page">
       <section className="reference-history-project">
         <div className="reference-history-mark"><img src="/favicon.svg" alt="" /></div>
         <div><small>Storico progetto</small><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}</a><p>Timeline unificata di audit, correzioni, contenuti e task completate.</p></div>
-        <div className="reference-history-actions"><button className="secondary" onClick={() => downloadCsv(history.map((item) => ({ data:item.analyzedAt, score:item.score, pagine:item.pagesChecked, problemi:item.issues?.length || 0, risolti:item.resolvedIssues?.length || 0 })), `storico-${client.name}.csv`)}><Download /> Esporta CSV</button><button className="primary" onClick={onAnalyze}><Plus /> Nuovo audit</button></div>
+        <div className="reference-history-actions"><button className="secondary" onClick={exportTimeline}><Download /> Esporta CSV</button><button className="primary" onClick={onAnalyze}><Plus /> Nuovo audit</button></div>
       </section>
       <section className="reference-history-kpis">
         <article className="blue"><Search /><span><strong>{history.length}</strong><small>Audit eseguiti</small><em>Storico locale disponibile</em></span></article>
@@ -270,7 +271,7 @@ function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze 
         <aside className="reference-history-aside">
           <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>
           <section className="reference-history-progress"><Target /><h2>Il tuo progresso</h2><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta} punti`}</strong><p>{resolvedTotal} problemi risultano risolti nello storico disponibile.</p></section>
-          <section><Download /><h2>Esporta storico</h2><p>Scarica gli audit in formato CSV.</p><button className="secondary" onClick={() => downloadCsv(history.map((item) => ({ data:item.analyzedAt, score:item.score, pagine:item.pagesChecked, problemi:item.issues?.length || 0, risolti:item.resolvedIssues?.length || 0 })), `storico-${client.name}.csv`)}>Esporta CSV</button></section>
+          <section><Download /><h2>Esporta storico</h2><p>Scarica la timeline completa in formato CSV.</p><button className="secondary" onClick={exportTimeline}>Esporta CSV</button></section>
         </aside>
       </div>
     </div>
