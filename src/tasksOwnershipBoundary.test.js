@@ -11,6 +11,8 @@ import {
   missingCanonicalTask,
   activeClientTasks,
   completeVerifiedCanonicals,
+  normalizeStoredTasks,
+  tasksFromAnalysis,
 } from "./experience/tasks/index.js";
 import {
   sameTask as legacySameTask,
@@ -25,6 +27,10 @@ import {
   activeClientTasks as legacyActiveClientTasks,
   completeVerifiedCanonicals as legacyCompleteVerifiedCanonicals,
 } from "./taskReview.js";
+import {
+  normalizeStoredTasks as platformNormalizeStoredTasks,
+  tasksFromAnalysis as platformTasksFromAnalysis,
+} from "./platform.js";
 
 const srcRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +57,7 @@ async function legacyImporters(fileName) {
   return importers.sort();
 }
 
-test("Tasks owns task business logic while legacy exports remain identical", async () => {
+test("Tasks owns task business logic while compatibility exports remain identical", async () => {
   assert.equal(sameTask, legacySameTask);
   assert.equal(archiveDuplicateTasks, legacyArchiveDuplicateTasks);
   assert.equal(isLegalSeoTask, legacyIsLegalSeoTask);
@@ -59,6 +65,8 @@ test("Tasks owns task business logic while legacy exports remain identical", asy
   assert.equal(missingCanonicalTask, legacyMissingCanonicalTask);
   assert.equal(activeClientTasks, legacyActiveClientTasks);
   assert.equal(completeVerifiedCanonicals, legacyCompleteVerifiedCanonicals);
+  assert.equal(normalizeStoredTasks, platformNormalizeStoredTasks);
+  assert.equal(tasksFromAnalysis, platformTasksFromAnalysis);
 
   assert.equal(sameTask(
     { kind: "search", query: "SEO Audit" },
@@ -74,18 +82,26 @@ test("Tasks owns task business logic while legacy exports remain identical", asy
   assert.equal(deduped[1].stale, true);
   assert.equal(deduped[1].duplicateOf, "keep");
 
-  const active = activeClientTasks([
-    { sourceClientId: 4, status: "Da fare", stale: false },
-    { sourceClientId: 4, status: "Completato", stale: false },
-    { sourceClientId: 5, status: "Da fare", stale: false },
-  ], 4);
-  assert.equal(active.length, 1);
-  assert.equal(missingCanonicalTask({ kind: "canonical", title: "Canonical non rilevata" }), true);
+  const normalized = normalizeStoredTasks([{ id: " t1 ", title: " Task ", priority: "Urgente" }]);
+  assert.equal(normalized[0].id, "t1");
+  assert.equal(normalized[0].priority, "Media");
+  assert.equal(normalized[0].status, "Da fare");
+
+  const generated = tasksFromAnalysis(
+    { analyzedAt: "2026-09-15T00:00:00.000Z", issues: [{ label: "Title mancante", severity: "alta", type: "title", url: "https://example.com/" }] },
+    { id: 4, name: "Cliente", url: "https://example.com/" },
+  );
+  assert.equal(generated.length, 1);
+  assert.equal(generated[0].priority, "Alta");
+  assert.equal(generated[0].sourceClientId, 4);
 
   const facade = await readFile(new URL("./experience/tasks/index.js", import.meta.url), "utf8");
   const duplicateOwner = await readFile(new URL("./experience/tasks/taskDuplicates.js", import.meta.url), "utf8");
   const scopeOwner = await readFile(new URL("./experience/tasks/taskScope.js", import.meta.url), "utf8");
   const reviewOwner = await readFile(new URL("./experience/tasks/taskReview.js", import.meta.url), "utf8");
+  const persistenceOwner = await readFile(new URL("./experience/tasks/taskPersistence.js", import.meta.url), "utf8");
+  const auditOwner = await readFile(new URL("./experience/tasks/auditTasks.js", import.meta.url), "utf8");
+  const platform = await readFile(new URL("./platform.js", import.meta.url), "utf8");
   const duplicateShim = await readFile(new URL("./taskDuplicates.js", import.meta.url), "utf8");
   const scopeShim = await readFile(new URL("./taskScope.js", import.meta.url), "utf8");
   const reviewShim = await readFile(new URL("./taskReview.js", import.meta.url), "utf8");
@@ -93,9 +109,17 @@ test("Tasks owns task business logic while legacy exports remain identical", asy
   assert.match(facade, /from ["']\.\/taskDuplicates\.js["']/);
   assert.match(facade, /from ["']\.\/taskScope\.js["']/);
   assert.match(facade, /from ["']\.\/taskReview\.js["']/);
+  assert.match(facade, /from ["']\.\/taskPersistence\.js["']/);
+  assert.match(facade, /from ["']\.\/auditTasks\.js["']/);
   assert.match(duplicateOwner, /function archiveDuplicateTasks/);
   assert.match(scopeOwner, /function archiveLegalSeoTasks/);
   assert.match(reviewOwner, /function completeVerifiedCanonicals/);
+  assert.match(persistenceOwner, /function normalizeStoredTasks/);
+  assert.match(auditOwner, /function tasksFromAnalysis/);
+  assert.doesNotMatch(platform, /function normalizeStoredTasks/);
+  assert.doesNotMatch(platform, /function tasksFromAnalysis/);
+  assert.match(platform, /experience\/tasks\/taskPersistence\.js/);
+  assert.match(platform, /experience\/tasks\/auditTasks\.js/);
   assert.doesNotMatch(duplicateShim, /function archiveDuplicateTasks/);
   assert.doesNotMatch(scopeShim, /function archiveLegalSeoTasks/);
   assert.doesNotMatch(reviewShim, /function completeVerifiedCanonicals/);
@@ -104,10 +128,8 @@ test("Tasks owns task business logic while legacy exports remain identical", asy
   assert.match(reviewShim, /experience\/tasks\/taskReview\.js/);
 });
 
-test("nessun nuovo consumer di produzione importa direttamente gli shim Tasks", async () => {
+test("nessun consumer di produzione importa direttamente gli shim Tasks", async () => {
   assert.deepEqual(await legacyImporters("taskDuplicates.js"), []);
-  assert.deepEqual(await legacyImporters("taskScope.js"), [
-    "platform.js",
-  ]);
+  assert.deepEqual(await legacyImporters("taskScope.js"), []);
   assert.deepEqual(await legacyImporters("taskReview.js"), []);
 });
