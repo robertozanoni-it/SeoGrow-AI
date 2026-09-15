@@ -1,6 +1,8 @@
+import { resolvePageAlias } from "./core/modules/moduleRegistry.js";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 
-const SELECTED_PAGE_KEY = "seogrow-selected-page-v1";
+const SELECTED_PAGE_KEY = WORKSPACE_KEYS.selectedPage;
 
 const notifyStoredPage = (page) => {
   const serialized = JSON.stringify(page);
@@ -22,10 +24,11 @@ const closeMobileNavigation = () => {
 
 export const activateNativePageState = (page) => {
   if (typeof document === "undefined") return false;
+  const resolvedPage = resolvePageAlias(page);
   const buttons = [...document.querySelectorAll(".sidebar > nav:not(.guided-nav) button")];
   const target = buttons.find((button) => {
     const label = button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "";
-    return label === page;
+    return label === resolvedPage;
   });
   if (!target || target.disabled) return false;
   target.click();
@@ -42,12 +45,13 @@ const notifyLocationChange = (oldURL = "") => {
 };
 
 export function navigatePage(page) {
-  const next = `#${encodeURIComponent(page)}`;
-  if (page === "Correzioni") {
+  const resolvedPage = resolvePageAlias(page);
+  const next = `#${encodeURIComponent(resolvedPage)}`;
+  if (resolvedPage === "Correzioni") {
     window.__seogrowCorrectionsMode = true;
     const oldURL = String(window.location?.href || "");
     if (window.location.hash !== next) window.history.pushState(null, "", next);
-    notifyStoredPage(page);
+    notifyStoredPage(resolvedPage);
     notifyLocationChange(oldURL);
     closeMobileNavigation();
     return;
@@ -58,15 +62,15 @@ export function navigatePage(page) {
   // the hidden native control when it exists. This prevents a rapid reload or
   // remount from leaving #Audit%20SEO in the URL while App still renders the
   // previous page (for example Centro progetto).
-  activateNativePageState(page);
+  activateNativePageState(resolvedPage);
 
   if (window.location.hash !== next) {
     const oldURL = String(window.location?.href || "");
     window.location.hash = next;
-    notifyStoredPage(page);
+    notifyStoredPage(resolvedPage);
     notifyLocationChange(oldURL);
   } else {
-    notifyStoredPage(page);
+    notifyStoredPage(resolvedPage);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
   }
   closeMobileNavigation();
