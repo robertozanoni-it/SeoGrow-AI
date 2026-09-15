@@ -80,8 +80,10 @@ test("nessun nuovo consumer di produzione importa lo shim editorialQuality", asy
     if (pattern.test(source)) importers.push(relative);
   }
   assert.deepEqual(importers.sort(), [
-    "server/metaDescriptionFallback.js",
     "server/wordpressPatchV2Hook.js",
     "server/wordpressSeoAdapterV2Hook.js",
   ]);
+
+  const fallback = await readFile(new URL("../server/metaDescriptionFallback.js", import.meta.url), "utf8");
+  assert.match(fallback, /from ["']\.\.\/src\/modules\/content\/index\.js["']/);
 });
