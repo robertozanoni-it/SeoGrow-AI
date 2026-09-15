@@ -8,6 +8,8 @@ export {
   observedPageCount,
   observedScoreDelta,
   metadataDuplicateGroups,
+  isLegalPage,
+  excludeLegalSeo,
 } from "./data.js";
 export { default as ProblemsNavBridge } from "../../ProblemsNavBridge.jsx";
 export { default as ProblemsWorkspaceMount } from "../../ProblemsWorkspaceMount.jsx";
