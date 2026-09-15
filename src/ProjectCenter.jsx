@@ -21,6 +21,7 @@ import {
   Target,
 } from "lucide-react";
 import { reportSections, reportTemplate } from "./projectPlanning.js";
+import { buildProjectIntelligence } from "./projectIntelligence.js";
 import "./ProjectCenterCards.css";
 import "./ProjectCenterReference.css";
 
@@ -83,6 +84,8 @@ export default function ProjectCenter({
   client,
   dataset,
   analysis,
+  tasks = [],
+  opportunityCount = 0,
   connection,
   aiConfigured,
   settings = {},
@@ -300,13 +303,8 @@ export default function ProjectCenter({
   const contentIssues = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue.type || ""} ${issue.label || ""}`)).length;
   const topPages = [...(dataset?.pages || [])].toSorted((a, b) => Number(b.clicks || 0) - Number(a.clicks || 0)).slice(0, 5);
   const trend = trendPoints(dataset?.graph || []);
-  const projectActions = [
-    criticalIssues ? { title: `Correggi ${criticalIssues} problemi critici`, detail: `${issues.length} problemi nell’ultimo audit`, page: "Problemi", level: "Alto" } : null,
-    top10 ? { title: `Monitora ${top10} keyword in Top 10`, detail: `${dataset?.queries?.length || 0} keyword importate`, page: "Posizionamenti", level: "Medio" } : null,
-    contentIssues ? { title: `Migliora ${contentIssues} contenuti`, detail: "Problemi editoriali o on-page rilevati", page: "Piano editoriale", level: "Medio" } : null,
-    !dataset ? { title: "Collega Search Console", detail: "Importa query, pagine e andamento organico", page: "Integrazioni", level: "Alto" } : null,
-    !verified ? { title: "Verifica WordPress", detail: "Controlla la connessione prima delle correzioni", page: "Integrazioni", level: "Basso" } : null,
-  ].filter(Boolean).slice(0, 5);
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, wordpressConnected: verified, opportunityCount });
+  const projectActions = intelligence.actions;
   const activity = [
     analysis?.analyzedAt && { label: "Audit completato", date: analysis.analyzedAt, Icon: ScanSearch },
     dataset?.importedAt && { label: "Dati Search Console aggiornati", date: dataset.importedAt, Icon: BarChart3 },
@@ -335,9 +333,9 @@ export default function ProjectCenter({
       </nav>
 
       <section className="reference-project-main-grid">
-        <article className="reference-project-status-panel"><header><h2>Stato del progetto</h2><span>{setupCompleted === 4 ? "Sito analizzato" : `${setupCompleted}/4 configurato`}</span></header><div><CheckCircle2 className={verified ? "ok" : "pending"}/><span>Connessione WordPress</span><strong>{verified ? "Attiva" : "Da verificare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Search Console</span><strong>{dataset ? "Collegata" : "Da collegare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Dati keyword</span><strong>{dataset ? "Aggiornati" : "Non disponibili"}</strong></div><div><CheckCircle2 className={analysis ? "ok" : "pending"}/><span>Ultimo audit</span><strong>{analysis ? formatDate(analysis.analyzedAt || analysis.startedAt) : "Da eseguire"}</strong></div><footer><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Esegui nuovo audit</button><button className="secondary" onClick={() => onNavigate("Storico")}><Clock3 /> Vedi storico</button></footer></article>
+        <article className="reference-project-status-panel"><header><h2>Project Intelligence</h2><span>{intelligence.readiness}% copertura dati</span></header><div><CheckCircle2 className={verified ? "ok" : "pending"}/><span>Connessione WordPress</span><strong>{verified ? "Attiva" : "Da verificare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Search Console</span><strong>{dataset ? "Collegata" : "Da collegare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Dati keyword</span><strong>{dataset ? "Aggiornati" : "Non disponibili"}</strong></div><div><CheckCircle2 className={analysis ? "ok" : "pending"}/><span>Ultimo audit</span><strong>{analysis ? formatDate(analysis.analyzedAt || analysis.startedAt) : "Da eseguire"}</strong></div><footer><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Esegui nuovo audit</button><button className="secondary" onClick={() => onNavigate("Storico")}><Clock3 /> Vedi storico</button></footer></article>
         <article className="reference-project-trend"><header><h2>Andamento SEO</h2><span>{dataset?.graph?.length ? `${dataset.graph.length} giorni` : "Dati non disponibili"}</span></header>{trend ? <div className="reference-project-trend-chart"><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="Andamento dei clic Search Console"><polyline points={trend} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg><div className="reference-project-chart-grid" /></div> : <div className="reference-project-empty-chart"><BarChart3 /><span>Importa Search Console per vedere l’andamento.</span></div>}</article>
-        <article className="reference-project-actions"><header><h2>Prossime azioni</h2><button onClick={() => onNavigate("Task")}>Vedi tutte →</button></header>{projectActions.length ? projectActions.map((item, index) => <button key={item.title} onClick={() => onNavigate(item.page)}><b>{index + 1}</b><span><strong>{item.title}</strong><small>{item.detail}</small></span><em className={item.level.toLowerCase()}>{item.level}</em></button>) : <div className="reference-project-no-actions"><CheckCircle2 /><span><strong>Nessuna urgenza</strong><small>Il progetto non presenta azioni prioritarie nei dati disponibili.</small></span></div>}</article>
+        <article className="reference-project-actions"><header><h2>Prossime azioni</h2><button onClick={() => onNavigate("Task")}>Vedi tutte →</button></header>{projectActions.length ? projectActions.map((item, index) => <button key={item.id} onClick={() => onNavigate(item.page)}><b>{index + 1}</b><span><strong>{item.title}</strong><small>{item.detail}</small></span><em className={item.level.toLowerCase()}>{item.level} · {item.score}</em></button>) : <div className="reference-project-no-actions"><CheckCircle2 /><span><strong>Nessuna urgenza</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}</article>
       </section>
 
       <section className="reference-project-secondary-grid">

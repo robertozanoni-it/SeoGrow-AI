@@ -12,6 +12,7 @@ import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { completeTaskById } from "./taskCompletion.js";
 import { buildProjectHistory } from "./projectHistory.js";
+import { buildProjectIntelligence } from "./projectIntelligence.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
@@ -1396,11 +1397,23 @@ function Dashboard({
   const comparison = compareDatasets(dataset, previousDataset);
   const score = Number.isFinite(Number(analysis?.score)) ? Number(analysis.score) : null;
   const contentTasks = activeTasks.filter((task) => /contenut|articol|meta|title/i.test(`${task.title || ""} ${task.kind || ""}`)).length;
-  const priorityActions = [
-    critical ? { title: `${critical} problemi critici`, detail: "Richiedono una revisione prioritaria", label: "Correggi", page: "Problemi", tone: "danger", Icon: AlertTriangle } : null,
-    opportunities.length ? { title: `${opportunities.length} opportunità SEO`, detail: "Query e pagine con margine di crescita", label: "Analizza", page: "Opportunità", tone: "success", Icon: Target } : null,
-    activeTasks.length ? { title: `${activeTasks.length} task aperte`, detail: "Attività operative del progetto", label: "Apri", page: "Task", tone: "info", Icon: ClipboardCheck } : null,
-  ].filter(Boolean).slice(0, 3);
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected, opportunityCount: opportunities.length });
+  const actionUi = {
+    audit: [Search, "info", "Avvia"],
+    "audit-refresh": [RefreshCw, "info", "Aggiorna"],
+    gsc: [Database, "info", "Collega"],
+    "gsc-refresh": [RefreshCw, "info", "Aggiorna"],
+    critical: [AlertTriangle, "danger", "Correggi"],
+    verify: [CheckCircle2, "danger", "Verifica"],
+    tasks: [ClipboardCheck, "info", "Apri"],
+    opportunities: [Target, "success", "Analizza"],
+    content: [FileText, "success", "Pianifica"],
+    wordpress: [Plug, "info", "Verifica"],
+  };
+  const priorityActions = intelligence.actions.slice(0, 3).map((item) => {
+    const [Icon, tone, label] = actionUi[item.id] || [Target, "info", "Apri"];
+    return { ...item, Icon, tone, label };
+  });
   return (
     <div className="reference-dashboard">
       <section className="reference-dashboard-head">
@@ -1419,7 +1432,7 @@ function Dashboard({
         <button className="reference-overview-card content" onClick={() => setPage("Piano editoriale")}><FileText /><div><h2>Azioni & contenuti</h2><div className="reference-card-numbers"><span><strong>{contentTasks}</strong><small>Da migliorare</small></span><span><strong>{activeTasks.length}</strong><small>Task aperte</small></span></div></div><b>›</b></button>
       </section>
       <section className="reference-health-strip"><div className="reference-health-title"><Activity /><span><strong>Salute sito</strong><small>Controlli principali del tuo sito</small></span></div><div><Check /><span><strong>Indicizzazione</strong><small>{analysis ? "Controllata" : "Da verificare"}</small></span></div><div><Check /><span><strong>WordPress</strong><small>{wordpressConnected ? "Connesso" : "Da collegare"}</small></span></div><div><Check /><span><strong>Search Console</strong><small>{dataset ? "Connesso" : "Da collegare"}</small></span></div><div className={comparison?.clicks < -10 ? "warning" : "ok"}><CircleGauge /><span><strong>Performance</strong><small>{comparison?.clicks != null ? `${comparison.clicks >= 0 ? "+" : ""}${comparison.clicks.toFixed(1)}%` : "Da monitorare"}</small></span></div></section>
-      <section className="reference-priority-panel"><div className="reference-section-title"><Target /><div><h2>Azioni prioritarie</h2><p>Interventi con maggiore impatto sul progetto.</p></div><button className="text-link" onClick={() => setPage("Task")}>Vedi tutte le azioni →</button></div>{priorityActions.length ? priorityActions.map(({ title, detail, label, page, tone, Icon }) => <div className="reference-priority-row" key={title}><span className={`reference-priority-icon ${tone}`}><Icon /></span><span><strong>{title}</strong><small>{detail}</small></span><span className={`reference-impact ${tone}`}>{tone === "danger" ? "Impatto alto" : tone === "success" ? "Crescita" : "Priorità"}</span><button className="primary" onClick={() => setPage(page)}>{label} →</button></div>) : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>Puoi rieseguire l’audit per aggiornare la situazione.</small></span></div>}</section>
+      <section className="reference-priority-panel"><div className="reference-section-title"><Target /><div><h2>Next Best Action</h2><p>SeoGrow ordina le prossime azioni usando impatto, urgenza, affidabilità ed effort.</p></div><button className="text-link" onClick={() => setPage("Task")}>Vedi tutte le azioni →</button></div>{priorityActions.length ? priorityActions.map(({ title, detail, label, page, tone, Icon, score }) => <div className="reference-priority-row" key={title}><span className={`reference-priority-icon ${tone}`}><Icon /></span><span><strong>{title}</strong><small>{detail}</small></span><span className={`reference-impact ${tone}`}>Priorità {score}</span><button className="primary" onClick={() => setPage(page)}>{label} →</button></div>) : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}</section>
       <div className="reference-dashboard-lower"><VisibilityChart dataset={dataset} /><RecentClients clients={clients} setPage={setPage} gscData={gscData} onOpenClient={onOpenClient} /></div>
     </div>
   );
@@ -4372,7 +4385,7 @@ export default function App() {
   const content = (() => {
     // These pages render through their dedicated portals.
     if (["Problemi", "Correzioni"].includes(page)) return null;
-    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
+    if (page === "Centro progetto") return <ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} analysis={selectedAnalysis || auditResults[selectedClient]} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter>;
     if (page === "Panoramica")
       return (
         <Dashboard
