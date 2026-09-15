@@ -1,5 +1,6 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { contentPlan } from "./modules/content/index.js";
+import { internalLinkSuggestions } from "./modules/links/index.js";
 import { opportunityGroups } from "./modules/rank/index.js";
 
 export const AgentDecision = Object.freeze({ CONTINUE: "CONTINUE", REPLAN: "REPLAN", COMPLETE: "COMPLETE", BLOCKED: "BLOCKED" });
@@ -269,5 +270,5 @@ export function createSeoGrowToolRegistry() {
     .register(readTool("seo.opportunities", "Riutilizza il motore opportunità della 1.4.2.", (_input, context) => opportunityGroups(observed(context, "data.gsc")).quickWins))
     .register(readTool("seo.trafficDrop", "Riutilizza il confronto storico Search Console.", (_input, context) => (observed(context, "data.gsc")?.changes || []).filter((row) => row.clickDelta < 0 || row.positionDelta > 2).slice(0, 50)))
     .register(readTool("seo.contentDecay", "Combina cali Search Console e contenuti tecnici da aggiornare.", (_input, context) => [...(observed(context, "data.gsc")?.changes || []).filter((row) => row.clickDelta < 0), ...contentPlan(observed(context, "data.gsc"), observed(context, "data.analysis")).filter((row) => row.type === "Aggiornamento")].slice(0, 50)))
-    .register(readTool("seo.internalLinks", "Riutilizza i suggerimenti di linking dell’audit.", (_input, context) => observed(context, "data.analysis")?.internalLinkSuggestions || []));
+    .register(readTool("seo.internalLinks", "Riutilizza i suggerimenti di linking dell’audit.", (_input, context) => internalLinkSuggestions(observed(context, "data.analysis"))));
 }
