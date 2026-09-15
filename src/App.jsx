@@ -11,6 +11,7 @@ import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { completeTaskById } from "./taskCompletion.js";
+import { buildProjectHistory } from "./projectHistory.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
@@ -241,17 +242,18 @@ function useStoredState(key, fallback) {
   return [value, setValue];
 }
 
-function HistoryPage({ history, client, onAnalyze }) {
+function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze }) {
   const current = history[0];
   const oldest = history.at(-1);
   const scoreDelta = current?.score != null && oldest?.score != null ? current.score - oldest.score : null;
   const resolvedTotal = history.reduce((sum, item) => sum + (item.resolvedIssues?.length || 0), 0);
   const issueTotal = history.reduce((sum, item) => sum + (item.issues?.length || 0), 0);
+  const timeline = buildProjectHistory({ audits: history, tasks, corrections });
   return (
     <div className="reference-history-page">
       <section className="reference-history-project">
         <div className="reference-history-mark"><img src="/favicon.svg" alt="" /></div>
-        <div><small>Storico progetto</small><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}</a><p>Tutti gli audit salvati del progetto in ordine cronologico.</p></div>
+        <div><small>Storico progetto</small><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}</a><p>Timeline unificata di audit, correzioni, contenuti e task completate.</p></div>
         <div className="reference-history-actions"><button className="secondary" onClick={() => downloadCsv(history.map((item) => ({ data:item.analyzedAt, score:item.score, pagine:item.pagesChecked, problemi:item.issues?.length || 0, risolti:item.resolvedIssues?.length || 0 })), `storico-${client.name}.csv`)}><Download /> Esporta CSV</button><button className="primary" onClick={onAnalyze}><Plus /> Nuovo audit</button></div>
       </section>
       <section className="reference-history-kpis">
@@ -263,11 +265,7 @@ function HistoryPage({ history, client, onAnalyze }) {
       <nav className="reference-history-tabs" aria-label="Filtri storico"><span className="active">Tutti</span><span>Audit</span><span>Correzioni</span><span>Contenuti</span><span>Link interni</span><span>Note</span></nav>
       <div className="reference-history-layout">
         <section className="reference-history-table">
-          <div className="table-scroll"><table><caption className="sr-only">Storico degli audit SEO del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Principali risultati</th><th>Azioni</th></tr></thead><tbody>{history.length ? history.map((item, index) => {
-            const previous = history[index + 1];
-            const delta = previous?.score != null && item.score != null ? item.score - previous.score : null;
-            return <tr key={`${item.analyzedAt || "missing"}-${index}`}><td><strong>{item.analyzedAt ? new Date(item.analyzedAt).toLocaleDateString("it-IT") : "—"}</strong><small>{item.analyzedAt ? new Date(item.analyzedAt).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"}) : ""}</small></td><td><span className="reference-history-type"><Search />Audit</span></td><td><strong>{index === 0 ? "Audit completo" : `Audit #${history.length - index}`}</strong><small>{item.pagesChecked || 0} pagine controllate</small></td><td><span className={`reference-history-score ${Number(item.score || 0) >= 80 ? "good" : Number(item.score || 0) >= 60 ? "medium" : "low"}`}>{item.score ?? "—"}</span>{delta != null && <em className={delta >= 0 ? "green" : "red"}>{delta >= 0 ? "+" : ""}{delta}</em>}</td><td><strong>{item.issues?.length || 0} problemi</strong><small>{item.resolvedIssues?.length || 0} risolti · {item.newIssues?.length || 0} nuovi</small></td><td><button className="secondary mini" onClick={onAnalyze}>Nuovo confronto</button></td></tr>;
-          }) : <tr><td colSpan="6" className="empty-row">Nessun audit salvato per questo progetto.</td></tr>}</tbody></table></div>
+          <div className="table-scroll"><table><caption className="sr-only">Storico unificato del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Risultato</th><th>Risorsa</th></tr></thead><tbody>{timeline.length ? timeline.map((item) => <tr key={item.id}><td><strong>{new Date(item.date).toLocaleDateString("it-IT")}</strong><small>{new Date(item.date).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})}</small></td><td><span className="reference-history-type">{item.type}</span></td><td><strong>{item.title}</strong></td><td>{item.score != null ? <span className={`reference-history-score ${Number(item.score) >= 80 ? "good" : Number(item.score) >= 60 ? "medium" : "low"}`}>{item.score}</span> : "—"}</td><td><small>{item.detail || "—"}</small></td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Apri</a> : "—"}</td></tr>) : <tr><td colSpan="6" className="empty-row">Nessuna attività storica disponibile.</td></tr>}</tbody></table></div>
         </section>
         <aside className="reference-history-aside">
           <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>
@@ -4350,6 +4348,12 @@ export default function App() {
       task.sourceClientId === selectedClient ||
       (!task.sourceClientId && task.client === selectedClientRecord?.name),
   );
+  const [correctionHistory, setCorrectionHistory] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    listCorrections({ clientId: selectedClient }).then(items => { if (!cancelled) setCorrectionHistory(items); }).catch(() => { if (!cancelled) setCorrectionHistory([]); });
+    return () => { cancelled = true; };
+  }, [selectedClient, tasks]);
   const notifications = preferences.notifications
     ? buildNotifications({
         tasks: selectedTasks,
@@ -4416,6 +4420,8 @@ export default function App() {
       return (
         <HistoryPage
           history={selectedAnalysisHistory}
+          tasks={selectedTasks}
+          corrections={correctionHistory}
           client={selectedClientRecord}
           onAnalyze={() => setQuickAudit(true)}
         />

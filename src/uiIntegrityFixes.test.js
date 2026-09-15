@@ -23,10 +23,11 @@ test('responsive hardening copre breakpoint tablet e mobile', () => {
   assert.match(css, /\.opportunity-table thead[\s\S]*display: none/);
 });
 
-test('HistoryPage usa una chiave univoca anche con timestamp duplicati o mancanti', () => {
+test('HistoryPage usa eventi unificati con identificatori stabili', () => {
   const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
-  assert.match(app, /history\.map\(\(item, index\) =>/);
-  assert.match(app, /key=\{`\$\{item\.analyzedAt \|\| ["']missing["']\}-\$\{index\}`\}/);
+  assert.match(app, /buildProjectHistory\(\{ audits: history, tasks, corrections \}\)/);
+  assert.match(app, /timeline\.map\(\(item\) =>/);
+  assert.match(app, /key=\{item\.id\}/);
 });
 
 test('index dichiara un favicon servito dall app', () => {
