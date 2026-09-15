@@ -10,6 +10,7 @@ import EditorialCalendar from "./EditorialCalendar.jsx";
 import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
+import { completeTaskById } from "./taskCompletion.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
@@ -2089,6 +2090,7 @@ function ContentPage({
   onSaveSchedule,
   onDataForSeoUsage,
   workflowContext,
+  onWorkflowComplete,
 }) {
   const editorRef = useRef(null);
   const topicalItems = (topicalMap?.ideas || [])
@@ -2249,8 +2251,10 @@ function ContentPage({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Creazione bozza non riuscita");
+      const editLink = data.editLink || data.link || "";
       setPublishResult(`Bozza WordPress creata (ID ${data.id}).`);
-      setPublishLink(data.editLink || data.link || "");
+      setPublishLink(editLink);
+      if (workflowContext?.taskId) onWorkflowComplete?.(workflowContext.taskId, "Bozza WordPress creata e verificata dal workflow editoriale", { result: `WordPress draft ${data.id}`, url: editLink });
     } catch (error) {
       setPublishLink("");
       setPublishResult(`Errore WordPress: ${error.message}`);
@@ -4537,6 +4541,13 @@ export default function App() {
           draft={contentDrafts[selectedClient]}
           onSaveDraft={saveContentDraft}
           workflowContext={taskWorkflowContextState}
+          onWorkflowComplete={(taskId, reason, metadata) => {
+            const result = completeTaskById(tasksRef.current, taskId, reason, metadata);
+            if (!result.changed) return;
+            tasksRef.current = result.tasks;
+            setTasks(result.tasks);
+            setToast({ kind: "success", message: "Task completata: bozza WordPress creata.", taskId, clientId: selectedClient });
+          }}
           onDataForSeoUsage={(monthlyCost) =>
             setDataForSeo((current) => ({ ...current, monthlyCost }))
           }
