@@ -4,7 +4,7 @@
 // consumers should depend on this API instead of importing Rank/GSC helpers
 // from legacy monolith files directly.
 export { rankManifest } from "./manifest.js";
-export { opportunityQueries } from "../../gscImport.js";
+export { opportunityQueries } from "./opportunityQueries.js";
 export {
   opportunityGroups,
   queryChanges,
