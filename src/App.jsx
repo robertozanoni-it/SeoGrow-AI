@@ -243,13 +243,15 @@ function useStoredState(key, fallback) {
 }
 
 function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze }) {
+  const [historyFilter, setHistoryFilter] = useState("Tutti");
   const current = history[0];
   const oldest = history.at(-1);
   const scoreDelta = current?.score != null && oldest?.score != null ? current.score - oldest.score : null;
   const resolvedTotal = history.reduce((sum, item) => sum + (item.resolvedIssues?.length || 0), 0);
   const issueTotal = history.reduce((sum, item) => sum + (item.issues?.length || 0), 0);
   const timeline = buildProjectHistory({ audits: history, tasks, corrections });
-  const exportTimeline = () => downloadCsv(timeline.map((item) => ({ data: item.date, tipo: item.type, titolo: item.title, seo_score: item.score ?? "", risultato: item.detail || "", risorsa: item.url || "" })), `storico-${client.name}.csv`);
+  const filteredTimeline = historyFilter === "Tutti" ? timeline : timeline.filter((item) => item.type === historyFilter);
+  const exportTimeline = () => downloadCsv(filteredTimeline.map((item) => ({ data: item.date, tipo: item.type, titolo: item.title, seo_score: item.score ?? "", risultato: item.detail || "", risorsa: item.url || "" })), `storico-${client.name}.csv`);
   return (
     <div className="reference-history-page">
       <section className="reference-history-project">
@@ -263,10 +265,10 @@ function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze 
         <article className="blue"><BarChart3 /><span><strong>{resolvedTotal}</strong><small>Problemi risolti</small><em>Registrati negli audit</em></span></article>
         <article className="green"><FileText /><span><strong>{current?.pagesChecked || 0}</strong><small>Pagine ultimo audit</small><em>{issueTotal} segnalazioni nello storico</em></span></article>
       </section>
-      <nav className="reference-history-tabs" aria-label="Filtri storico"><span className="active">Tutti</span><span>Audit</span><span>Correzioni</span><span>Contenuti</span><span>Link interni</span><span>Note</span></nav>
+      <nav className="reference-history-tabs" aria-label="Filtri storico">{["Tutti","Audit","Correzione","Contenuto","Task"].map((filter) => <button type="button" key={filter} className={historyFilter === filter ? "active" : ""} onClick={() => setHistoryFilter(filter)}>{filter === "Correzione" ? "Correzioni" : filter === "Contenuto" ? "Contenuti" : filter}</button>)}</nav>
       <div className="reference-history-layout">
         <section className="reference-history-table">
-          <div className="table-scroll"><table><caption className="sr-only">Storico unificato del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Risultato</th><th>Risorsa</th></tr></thead><tbody>{timeline.length ? timeline.map((item) => <tr key={item.id}><td><strong>{new Date(item.date).toLocaleDateString("it-IT")}</strong><small>{new Date(item.date).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})}</small></td><td><span className="reference-history-type">{item.type}</span></td><td><strong>{item.title}</strong></td><td>{item.score != null ? <span className={`reference-history-score ${Number(item.score) >= 80 ? "good" : Number(item.score) >= 60 ? "medium" : "low"}`}>{item.score}</span> : "—"}</td><td><small>{item.detail || "—"}</small></td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Apri</a> : "—"}</td></tr>) : <tr><td colSpan="6" className="empty-row">Nessuna attività storica disponibile.</td></tr>}</tbody></table></div>
+          <div className="table-scroll"><table><caption className="sr-only">Storico unificato del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Risultato</th><th>Risorsa</th></tr></thead><tbody>{filteredTimeline.length ? filteredTimeline.map((item) => <tr key={item.id}><td><strong>{new Date(item.date).toLocaleDateString("it-IT")}</strong><small>{new Date(item.date).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})}</small></td><td><span className="reference-history-type">{item.type}</span></td><td><strong>{item.title}</strong></td><td>{item.score != null ? <span className={`reference-history-score ${Number(item.score) >= 80 ? "good" : Number(item.score) >= 60 ? "medium" : "low"}`}>{item.score}</span> : "—"}</td><td><small>{item.detail || "—"}</small></td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Apri</a> : "—"}</td></tr>) : <tr><td colSpan="6" className="empty-row">Nessuna attività disponibile per questo filtro.</td></tr>}</tbody></table></div>
         </section>
         <aside className="reference-history-aside">
           <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>

@@ -12,3 +12,8 @@ test("project history preserves exportable resource and result fields", () => {
   assert.equal(row.detail,"Bozza creata");
   assert.equal(row.url,"https://example.com/edit");
 });
+
+test("project history exposes stable event types usable by UI filters", () => {
+  const rows = buildProjectHistory({ audits:[{analyzedAt:"2026-09-10",issues:[]}], corrections:[{id:"c",verifiedAt:"2026-09-11",status:"Verificato"}], tasks:[{id:"a",status:"Completato",completedAt:"2026-09-12",workflowResult:"draft"},{id:"b",status:"Completato",completedAt:"2026-09-13"}] });
+  assert.deepEqual(new Set(rows.map(row => row.type)), new Set(["Audit","Correzione","Contenuto","Task"]));
+});

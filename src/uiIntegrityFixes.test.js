@@ -26,7 +26,7 @@ test('responsive hardening copre breakpoint tablet e mobile', () => {
 test('HistoryPage usa eventi unificati con identificatori stabili', () => {
   const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
   assert.match(app, /buildProjectHistory\(\{ audits: history, tasks, corrections \}\)/);
-  assert.match(app, /timeline\.map\(\(item\) =>/);
+  assert.match(app, /filteredTimeline\.map\(\(item\) =>/);
   assert.match(app, /key=\{item\.id\}/);
 });
 
