@@ -26,13 +26,15 @@ import GuidedUxLayer from './GuidedUxLayer';
 import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
-import ProblemsNavBridge from './ProblemsNavBridge';
-import ProblemsWorkspaceMount from './ProblemsWorkspaceMount';
-import ProblemResolutionPage from './ProblemResolutionPage';
-import AutomaticProposalPage from './AutomaticProposalPage';
-import AuditWorkspace from './AuditWorkspace';
-import RemediationRuntime from './RemediationRuntime';
-import CorrectionsWorkspace from './CorrectionsWorkspace';
+import {
+  ProblemsNavBridge,
+  ProblemsWorkspaceMount,
+  ProblemResolutionPage,
+  AutomaticProposalPage,
+  AuditWorkspace,
+  RemediationRuntime,
+  CorrectionsWorkspace,
+} from './modules/audit/index.js';
 import './styles.css';
 import './responsiveIntegrity.css';
 import './reflowNavigationFix.css';
