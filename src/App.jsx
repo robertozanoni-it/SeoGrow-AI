@@ -10,6 +10,7 @@ import EditorialCalendar from "./EditorialCalendar.jsx";
 import ProjectCenter from "./ProjectCenter.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
+import { taskWorkflowTarget } from "./taskWorkflow.js";
 import { navigatePage, searchWorkspace } from "./navigationUx.js";
 import { listCorrections } from "./remediationStore.js";
 import { buildUnifiedProblems } from "./problemsModel.js";
@@ -684,6 +685,7 @@ function TaskTable({
   views,
   onSaveViews,
   onTaskOpened,
+  onContinueTask,
 }) {
   const [editing, setEditing] = useState(
     () => tasks.find((item) => item.id === openTaskId) || null,
@@ -968,13 +970,17 @@ function TaskTable({
                 }
               : null
           }
+          onContinueTask={(task) => {
+            setEditing(null);
+            onContinueTask?.(task);
+          }}
         />
       )}
     </section>
   );
 }
 
-function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveViews, openTaskId, onTaskOpened, onOpenTask }) {
+function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveViews, openTaskId, onTaskOpened, onOpenTask, onContinueTask }) {
   const active = tasks.filter((task) => !task.stale);
   const counts = {
     total: active.length,
@@ -1007,7 +1013,7 @@ function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveView
         <article className="orange"><CheckCircle2 /><span><strong>{counts.done}</strong><small>Completati</small><em>Storico verificato</em></span></article>
       </section>
       <div className="reference-task-layout">
-        <TaskTable tasks={tasks} setTasks={setTasks} client={client} clients={clients} views={views} onSaveViews={onSaveViews} openTaskId={openTaskId} onTaskOpened={onTaskOpened} />
+        <TaskTable tasks={tasks} setTasks={setTasks} client={client} clients={clients} views={views} onSaveViews={onSaveViews} openTaskId={openTaskId} onTaskOpened={onTaskOpened} onContinueTask={onContinueTask} />
         <aside className="reference-task-aside">
           <section><h2>Distribuzione task</h2><div className="reference-task-ring" style={{"--todo":`${todoDeg}deg`,"--progress":`${progressDeg}deg`,"--review":`${reviewDeg}deg`}}><span><strong>{counts.total}</strong><small>task</small></span></div><ul><li><i className="red" />Da fare <strong>{counts.todo}</strong></li><li><i className="blue" />In corso <strong>{counts.progress}</strong></li><li><i className="purple" />In revisione <strong>{counts.review}</strong></li><li><i className="green" />Completati <strong>{counts.done}</strong></li></ul></section>
           <section><h2>Priorità</h2>{Object.entries(priorities).map(([label,value]) => <div className="reference-task-priority" key={label}><span>{label}</span><i><b className={label.toLowerCase()} style={{width:`${counts.total ? Math.max(4,value/counts.total*100) : 0}%`}} /></i><strong>{value}</strong></div>)}</section>
@@ -1018,7 +1024,7 @@ function TaskReferencePage({ tasks, setTasks, client, clients, views, onSaveView
   );
 }
 
-function TaskEditor({ task, save, remove, close, clients = [] }) {
+function TaskEditor({ task, save, remove, close, clients = [], onContinueTask }) {
   const submissionPending = useRef(false);
   const [form, setForm] = useState(task);
   const suggested = form.associationStatus === "suggested";
@@ -1208,6 +1214,11 @@ function TaskEditor({ task, save, remove, close, clients = [] }) {
           />
         </label>
         <div className="modal-actions">
+          {taskWorkflowTarget(form) && onContinueTask && (
+            <button type="button" className="secondary" onClick={() => onContinueTask(form)}>
+              <ExternalLink /> {taskWorkflowTarget(form).label}
+            </button>
+          )}
           {remove && (
             <button
               type="button"
@@ -4540,6 +4551,12 @@ export default function App() {
           openTaskId={requestedTask?.id}
           onTaskOpened={() => setRequestedTask(null)}
           onOpenTask={(id) => setRequestedTask({ id, nonce: Date.now() })}
+          onContinueTask={(task) => {
+            const target = taskWorkflowTarget(task);
+            if (!target) return;
+            setRequestedTask(null);
+            setPage(target.page);
+          }}
         />
       );
     if (page === "Integrazioni")
