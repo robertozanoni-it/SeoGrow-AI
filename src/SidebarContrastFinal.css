@@ -49,3 +49,15 @@ body[data-seogrow-ui-mode] .sidebar .side-foot {
   background: rgba(255, 255, 255, .44) !important;
   border-color: #c1ccd8 !important;
 }
+
+/* 2026-09-16: section contrast requested at ~30% visual separation. */
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) {
+  background: rgba(20, 108, 245, .30) !important;
+  border-radius: 12px !important;
+  padding: 8px 6px !important;
+}
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) {
+  background: rgba(28, 174, 118, .30) !important;
+  border-radius: 12px !important;
+  padding: 8px 6px !important;
+}

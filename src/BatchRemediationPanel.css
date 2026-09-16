@@ -12,7 +12,8 @@
 .batch-credentials label { display:grid; gap:7px; }
 .batch-credentials input { padding:10px; border:1px solid #b8cbd8; border-radius:8px; }
 .batch-kpis { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin:18px 0; }
-.batch-kpis>div { display:flex; flex-direction:column; gap:8px; background:#f0f6fa; border-radius:10px; padding:14px; }
+.batch-kpis>button { border:0; text-align:left; cursor:pointer; color:inherit; font:inherit; display:flex; flex-direction:column; gap:8px; background:#f0f6fa; border-radius:10px; padding:14px; }
+.batch-kpis>button:hover { outline:2px solid #9fc5f8; }
 .batch-kpis strong { font-size:1.6rem; }.batch-kpis span { font-size:.8rem; }
 .batch-workspace progress { width:min(500px,65%); height:14px; margin:12px 8px 12px 0; }
 .batch-entry-list { display:grid; gap:16px; margin:18px 0; }

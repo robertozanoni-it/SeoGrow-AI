@@ -19,6 +19,7 @@ const PAGE = PROPOSAL_ROUTE_PAGE;
 const FOCUS_KEY = RESOLUTION_FOCUS_KEY;
 const REMEDIATION_FOCUS_KEY = "seogrow-remediation-focus-v1";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
+const AGENT_AUTORUN_KEY = "seogrow-agent-autorun-v1";
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const TASKS_KEY = "seogrow-tasks-v2";
@@ -123,6 +124,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
       detail: problem.detail,
     };
     sessionStorage.setItem(AGENT_PREFILL_KEY, JSON.stringify(detail));
+    sessionStorage.setItem(AGENT_AUTORUN_KEY, "1");
     navigatePage("SEO Agent");
     window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-agent-prefill", { detail })), 0);
   };

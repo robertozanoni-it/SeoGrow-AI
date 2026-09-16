@@ -8,6 +8,7 @@ import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
 
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
+const AGENT_AUTORUN_KEY = "seogrow-agent-autorun-v1";
 const quickGoals = ["Trova le 10 migliori opportunità SEO", "Perché il traffico organico è diminuito?", "Quali pagine posso portare in Top 10?", "Quali contenuti devo aggiornare?", "Trova opportunità di internal linking"];
 
 const toolLabels = { "data.gsc": ["Dati Search Console", "Dataset salvato del progetto"], "data.analysis": ["Audit SEO", "Ultima analisi tecnica salvata"], "data.rankings": ["Ranking DataForSEO", "Storico posizionamenti salvato"], "seo.opportunities": ["Calcolo opportunità", "Motore opportunità SeoGrow"], "seo.trafficDrop": ["Analisi calo traffico", "Confronto periodi Search Console"], "seo.contentDecay": ["Analisi content decay", "Cali e piano contenuti"], "seo.internalLinks": ["Suggerimenti link interni", "Risultati del crawl salvato"] };
@@ -66,6 +67,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const [currentRun, setCurrentRun] = useState(null);
   const [running, setRunning] = useState(false);
   const operationLock = useRef(false);
+  const autorunPending = useRef(false);
   const [mode, setMode] = useState(AgentMode.ASSISTED);
   const [selectedRunId, setSelectedRunId] = useState("");
   const [actionError, setActionError] = useState("");
@@ -90,7 +92,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
       const raw = sessionStorage.getItem(AGENT_PREFILL_KEY);
       if (raw) {
         const detail = JSON.parse(raw);
-        if (applyPrefill(detail)) sessionStorage.removeItem(AGENT_PREFILL_KEY);
+        if (applyPrefill(detail)) { sessionStorage.removeItem(AGENT_PREFILL_KEY); autorunPending.current = sessionStorage.getItem(AGENT_AUTORUN_KEY) === "1"; sessionStorage.removeItem(AGENT_AUTORUN_KEY); }
       }
     } catch {
       sessionStorage.removeItem(AGENT_PREFILL_KEY);
@@ -115,6 +117,14 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     catch (error) { setActionError(error?.message || "Non è stato possibile avviare l’analisi."); }
     finally { operationLock.current = false; setRunning(false); }
   };
+  useEffect(() => {
+    if (!autorunPending.current || !goal.trim() || running) return;
+    autorunPending.current = false;
+    start();
+  // start intentionally reads the freshly applied prefill state in this one-shot handoff.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goal]);
+
   const decide = async (approved) => {
     if (!run?.pendingApproval || operationLock.current) return;
     operationLock.current = true;
