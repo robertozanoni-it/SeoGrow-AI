@@ -159,18 +159,16 @@ const validateStoredValue = (key, value, initial) => {
 };
 
 function useStoredState(key, fallback) {
+  const [defaultValue] = useState(() => typeof fallback === "function" ? fallback() : fallback);
   const [value, setValue] = useState(() => {
-    const initial = () =>
-      typeof fallback === "function" ? fallback() : fallback;
     try {
-      const defaultValue = initial();
       return validateStoredValue(
         key,
         JSON.parse(localStorage.getItem(key)) ?? defaultValue,
         defaultValue,
       );
     } catch {
-      return initial();
+      return defaultValue;
     }
   });
   useEffect(() => {
@@ -206,7 +204,11 @@ function useStoredState(key, fallback) {
   }, [key, value]);
   useEffect(() => {
     const sync = (event) => {
-      if (event.key !== key || event.newValue == null) return;
+      if (event.key !== key) return;
+      if (event.newValue == null) {
+        setValue(defaultValue);
+        return;
+      }
       try {
         const parsedRaw = JSON.parse(event.newValue);
         setValue((current) => {
@@ -224,7 +226,7 @@ function useStoredState(key, fallback) {
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, [key]);
+  }, [key, defaultValue]);
   return [value, setValue];
 }
 

@@ -277,6 +277,7 @@ function useUiSnapshot() {
 
   useEffect(() => {
     let frame = 0;
+    let attempts = 0;
     let cancelled = false;
     const syncTargets = () => {
       if (cancelled) return;
@@ -290,20 +291,23 @@ function useUiSnapshot() {
           ? current
           : next,
       );
+      if ((!next.sidebar || !next.topbar || !next.main) && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(syncTargets);
+      }
     };
     const scheduleSync = () => {
       window.cancelAnimationFrame(frame);
+      attempts = 0;
       frame = window.requestAnimationFrame(syncTargets);
     };
     scheduleSync();
-    const interval = window.setInterval(syncTargets, 300);
     window.addEventListener("hashchange", scheduleSync);
     window.addEventListener("popstate", scheduleSync);
     window.addEventListener("seogrow-locationchange", scheduleSync);
     window.addEventListener("seogrow-storage-ok", scheduleSync);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("hashchange", scheduleSync);
       window.removeEventListener("popstate", scheduleSync);

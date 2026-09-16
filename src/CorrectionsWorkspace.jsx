@@ -112,14 +112,12 @@ export default function CorrectionsWorkspace() {
       frame = window.requestAnimationFrame(syncTargets);
     };
     frame = window.requestAnimationFrame(syncTargets);
-    const interval = window.setInterval(syncTargets, 300);
     window.addEventListener("hashchange", refreshNavigation);
     window.addEventListener("popstate", refreshNavigation);
     window.addEventListener("storage", refreshNavigation);
     window.addEventListener("seogrow-locationchange", refreshNavigation);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.clearInterval(interval);
       window.removeEventListener("hashchange", refreshNavigation);
       window.removeEventListener("popstate", refreshNavigation);
       window.removeEventListener("storage", refreshNavigation);

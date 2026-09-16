@@ -15,9 +15,8 @@ test("route reconciler riallinea hash e pagina React tramite il canale useStored
   assert.match(source, /workspaceStorage\.setItem\(SELECTED_PAGE_KEY, serialized\)/);
   assert.match(source, /\.app main/);
   assert.match(source, /dataset\?\.page/);
-  assert.match(source, /StorageEvent/);
-  assert.match(source, /newValue:\s*serialized/);
-  assert.match(source, /dispatchEvent\(event\)/);
+  assert.doesNotMatch(source, /StorageEvent/);
+  assert.doesNotMatch(source, /dispatchEvent\(event\)/);
 });
 
 test("route reconciler risolve la terminologia Suite senza riscrivere le route legacy", () => {

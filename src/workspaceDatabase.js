@@ -128,6 +128,11 @@ function queueWrite(key, value) {
   if ((before ?? null) === value) return;
   if (value === null) cache.delete(key); else cache.set(key, value);
   pendingWrites += 1;
+  const detail = { key, newValue: value };
+  const storageEvent = typeof StorageEvent === "function"
+    ? new StorageEvent("storage", detail)
+    : Object.assign(new Event("storage"), detail);
+  window.dispatchEvent(storageEvent);
   pending = pending.then(async () => {
     let db;
     try {
