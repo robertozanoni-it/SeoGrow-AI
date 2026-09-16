@@ -28,9 +28,20 @@ async function visualScreenshot(name) {
   await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
 }
 async function reload() {
+  // Let the app's 120 ms debounce enqueue persistence, then wait until the
+  // workspace queue is actually idle before CDP destroys the old document.
+  await sleep(200);
+  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
   await evaluate("window.__qaOldDocument = true");
   await command("Page.reload", {});
   await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
+}
+async function reloadImmediate() {
+  // TASK-004 intentionally reloads while a native IndexedDB transaction is
+  // held open. Do not wait for workspace idle in that one interruption test.
+  await evaluate("window.__qaOldDocument = true");
+  await command("Page.reload", {});
+  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after immediate reload");
 }
 
 const candidates = [
@@ -443,7 +454,7 @@ try {
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "ritorno dopo test persistenza opportunità");
 
   browserReport.scenarios.push({ id: "EXISTING-REGRESSION", status: "PASS", covers: ["OPPORTUNITY-001", "OPPORTUNITY-002", "OPPORTUNITY-003", "OPPORTUNITY-005", "OPPORTUNITY-006", "VIEWS-001", "GOOGLE-001", "NAV-001"] });
-  await runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode: process.env.QA_MODE || "release" });
+  await runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, reloadImmediate, record, screenshot, mode: process.env.QA_MODE || "release" });
   await runFormMatrix({ evaluate, waitFor, clickSidebar, reload, record, screenshot, command, mode: process.env.QA_MODE || "release" });
   await clickSidebar("Audit SEO");
   await waitFor("document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')", "audit ready for existing responsive checks");

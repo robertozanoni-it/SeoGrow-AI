@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 // Scenarios operate on the existing real-browser profile, never on user data.
-export async function runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, record, screenshot, mode }) {
+export async function runBrowserMatrix({ evaluate, waitFor, command, clickSidebar, reload, reloadImmediate, record, screenshot, mode }) {
   const tasks = () => evaluate("(async () => { const m = await import('/src/workspaceDatabase.js'); return JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2') || '[]'); })()");
   const persisted = async (condition) => {
     await waitFor("(async () => { const m = await import('/src/workspaceDatabase.js'); const tasks = JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2') || '[]'); return " + condition + "; })()", "task state persisted");
@@ -112,7 +112,7 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       })()`);
       await select(status, "In revisione");
       await waitFor("window.__qaWriteInFlight === true", "native task write transaction is in flight before reload");
-      await reload(); await clickSidebar("Task");
+      await reloadImmediate(); await clickSidebar("Task");
       const after = await tasks();
       assert.equal(after.length, before.length);
       assert.equal(new Set(after.map(t => t.id)).size, after.length);
