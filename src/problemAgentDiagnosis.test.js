@@ -77,3 +77,9 @@ test("review-only canonical richiede intent esplicito prima di preparare la solu
   assert.match(path.instructions, /Conferma/i);
   assert.match(path.instructions, /Prima\/Dopo/i);
 });
+
+test("un problema con URL ma senza finding corrente richiede audit fresco", async () => {
+  const { problemNeedsFreshAudit } = await import("./problemAgentDiagnosis.js");
+  assert.equal(problemNeedsFreshAudit({ issues: [] }, { sourceUrl: "https://example.com/page", title: "Finding vecchio" }), true);
+  assert.equal(problemNeedsFreshAudit({ issues: [{ label: "Finding vecchio", url: "https://example.com/page" }] }, { sourceUrl: "https://example.com/page", title: "Finding vecchio" }), false);
+});

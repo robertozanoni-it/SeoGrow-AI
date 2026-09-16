@@ -3,7 +3,8 @@ import { agentModeLabels, agentModeHelp, agentStatusLabel, agentCostLabel } from
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
-import { buildProblemAgentRun } from "./problemAgentDiagnosis.js";
+import { buildProblemAgentRun, problemNeedsFreshAudit } from "./problemAgentDiagnosis.js";
+import { runConfirmationAudit } from "./confirmationAudit.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
 
@@ -110,7 +111,20 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     setRunning(true); setActionError("");
     try {
       const contextualProblem = problemContext && Number(problemContext.clientId) === Number(client.id) ? problemContext : null;
-      const result = contextualProblem
+      let result;
+      if (contextualProblem && problemNeedsFreshAudit(analysis, contextualProblem)) {
+        const confirmation = await runConfirmationAudit({
+          clientId: client.id, siteUrl: client.url, sourceUrl: contextualProblem.sourceUrl || contextualProblem.url,
+          issueType: contextualProblem.issueType, issueLabel: contextualProblem.title || contextualProblem.issueLabel,
+        });
+        if (confirmation.covered && !confirmation.stillPresent) {
+          result = buildProblemAgentRun({ goal, detail: { ...contextualProblem, title: contextualProblem.title || contextualProblem.issueLabel }, analysis: confirmation.audit, projectId: client.id });
+          result = { ...result, status: "COMPLETED", observations: [...(result.observations || []), { id:`fresh-audit-${Date.now()}`, tool:"audit.page", status:"COMPLETED", usable:true, result:{ data:confirmation.audit, source:"LIVE_AUDIT", freshness:"fresh", observedAt:new Date().toISOString(), durationMs:0, estimatedCost:0, actualCost:0 } }], errors:[], recommendations:[], resolutionOutcome:{ kind:"obsolete", note:"Verifica automatica completata: il finding non è più presente. Nessuna modifica necessaria." } };
+        } else {
+          result = buildProblemAgentRun({ goal, detail: contextualProblem, analysis: confirmation.audit, projectId: client.id });
+          if (!result.recommendations?.length) result = { ...result, errors:[confirmation.note] };
+        }
+      } else result = contextualProblem
         ? buildProblemAgentRun({ goal, detail: contextualProblem, analysis, projectId: client.id })
         : await orchestrator.run(goal, input);
       setCurrentRun(result);
@@ -180,6 +194,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     {run && <section className="panel agent-run" aria-live="polite">
       <div className="panel-head"><div><h2>{agentStatusLabel(run.status)}</h2><p>{run.goal}</p></div><span className={`priority ${run.status === AgentStatus.COMPLETED ? "bassa" : "media"}`}>{agentStatusLabel(run.status)}</span></div>
       <ol className="agent-steps">{(run.plan?.steps || []).map((step) => { const observation = (run.observations || []).findLast((item) => item.tool === step.tool); const [label, description] = toolLabels[step.tool] || [step.tool, "Tool agentico"]; return <li key={step.id} className={`agent-step-${String(step.status || "pending").toLowerCase()}`}>{["COMPLETED", "CACHED"].includes(step.status) ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<div><strong>{label}</strong><small>{description}</small><span>Stato: {agentStatusLabel(step.status || "PENDING")} · Fonte: {observation?.result?.source || "—"} · Aggiornamento dati: {observation?.result?.freshness || "—"} · Durata: {observation?.result?.durationMs ?? "—"} ms · Costo: {agentCostLabel(observation?.result)}</span>{observation?.error && <em>{observation.error}</em>}</div></li>; })}</ol>
+      {run.resolutionOutcome?.note && <div className="empty-state agent-resolution-outcome"><p>{run.resolutionOutcome.note}</p></div>}
       {run.errors?.length > 0 && <div className="empty-state"><p>{run.errors.join(" ")}</p></div>}
       {run.status === AgentStatus.WAITING_APPROVAL && run.pendingApproval && <div className="agent-approval"><h3>Approvazione richiesta</h3><dl><dt>Operazione</dt><dd>{toolLabels[run.pendingApproval.tool]?.[0] || run.pendingApproval.tool}</dd><dt>Rischio</dt><dd>{run.pendingApproval.risk || "non disponibile"}</dd><dt>Costo stimato</dt><dd>{agentCostLabel({ estimatedCost: run.pendingApproval.estimatedCost })}</dd><dt>Anteprima</dt><dd><pre>{JSON.stringify(run.pendingApproval.preview || {}, null, 2)}</pre></dd></dl><div className="agent-controls"><button className="primary" disabled={running} onClick={() => decide(true)}>Approva</button><button className="secondary" disabled={running} onClick={() => decide(false)}>Rifiuta</button></div></div>}
     </section>}

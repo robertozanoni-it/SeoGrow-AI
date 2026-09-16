@@ -178,3 +178,7 @@ export function buildProblemAgentRun({ goal, detail, analysis, projectId }) {
     errors: hasEvidence ? [] : ["Il finding non è presente nell’ultimo audit disponibile e non contiene evidenze sufficienti. Riesegui l’audit della pagina prima di intervenire."],
   };
 }
+
+export function problemNeedsFreshAudit(analysis, detail = {}) {
+  return Boolean((detail?.sourceUrl || detail?.url) && !findProblemFinding(analysis, detail));
+}
