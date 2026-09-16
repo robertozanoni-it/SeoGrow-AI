@@ -46,7 +46,6 @@ import './ProjectCenterCardFlow.css';
 import './ReadableTypographyAndSidebar.css';
 import './GuidedWizardSurface.css';
 import './ExternalLinkDestinationUx.css';
-import './SidebarContrastFinal.css';
 import './ReferenceLayout.css';
 import './ProjectCenterReference.css';
 import './ProblemsReference.css';
@@ -66,6 +65,7 @@ import './LinksReference.css';
 import './OpportunitiesReference.css';
 import './ReferenceFidelityFinal.css';
 import './SemanticVisualSystem.css';
+import './SidebarContrastFinal.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {

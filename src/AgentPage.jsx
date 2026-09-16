@@ -3,7 +3,8 @@ import { agentModeLabels, agentModeHelp, agentStatusLabel, agentCostLabel } from
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
-import { buildProblemAgentRun, problemNeedsFreshAudit } from "./problemAgentDiagnosis.js";
+import { buildProblemAgentRun, problemNeedsFreshAudit, retireObsoleteProblemTasks } from "./problemAgentDiagnosis.js";
+import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { runConfirmationAudit } from "./confirmationAudit.js";
 import { openProblemResolution } from "./AutomaticProposalNavigation.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
@@ -119,7 +120,12 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
         });
         if (confirmation.covered && !confirmation.stillPresent) {
           result = buildProblemAgentRun({ goal, detail: { ...contextualProblem, title: contextualProblem.title || contextualProblem.issueLabel }, analysis: confirmation.audit, projectId: client.id });
-          result = { ...result, status: "COMPLETED", observations: [...(result.observations || []), { id:`fresh-audit-${Date.now()}`, tool:"audit.page", status:"COMPLETED", usable:true, result:{ data:confirmation.audit, source:"LIVE_AUDIT", freshness:"fresh", observedAt:new Date().toISOString(), durationMs:0, estimatedCost:0, actualCost:0 } }], errors:[], recommendations:[], resolutionOutcome:{ kind:"obsolete", note:"Verifica automatica completata: il finding non è più presente. Nessuna modifica necessaria." } };
+          const retired = retireObsoleteProblemTasks(readWorkspaceJson("seogrow-tasks-v2", []), contextualProblem, client.id);
+          if (retired.changed) {
+            writeWorkspaceJson("seogrow-tasks-v2", retired.tasks);
+            window.dispatchEvent(new CustomEvent("seogrow-tasks-changed"));
+          }
+          result = { ...result, status: "COMPLETED", observations: [...(result.observations || []), { id:`fresh-audit-${Date.now()}`, tool:"audit.page", status:"COMPLETED", usable:true, result:{ data:confirmation.audit, source:"LIVE_AUDIT", freshness:"fresh", observedAt:new Date().toISOString(), durationMs:0, estimatedCost:0, actualCost:0 } }], errors:[], recommendations:[], resolutionOutcome:{ kind:"obsolete", note:"Verifica automatica completata: il finding non è più presente. Il problema è stato chiuso e rimosso dall’elenco dei problemi aperti." } };
         } else {
           result = buildProblemAgentRun({ goal, detail: contextualProblem, analysis: confirmation.audit, projectId: client.id });
           if (!result.recommendations?.length) result = { ...result, errors:[confirmation.note] };

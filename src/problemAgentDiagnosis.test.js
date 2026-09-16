@@ -83,3 +83,17 @@ test("un problema con URL ma senza finding corrente richiede audit fresco", asyn
   assert.equal(problemNeedsFreshAudit({ issues: [] }, { sourceUrl: "https://example.com/page", title: "Finding vecchio" }), true);
   assert.equal(problemNeedsFreshAudit({ issues: [{ label: "Finding vecchio", url: "https://example.com/page" }] }, { sourceUrl: "https://example.com/page", title: "Finding vecchio" }), false);
 });
+
+test("finding obsoleto chiude e archivia la task sorgente del progetto", async () => {
+  const { retireObsoleteProblemTasks } = await import("./problemAgentDiagnosis.js");
+  const tasks = [
+    { id: "a", sourceClientId: 7, kind: "batch-assisted", title: "Intervento SEO: Ottimizza buenaonda", sourceUrl: "https://example.com/", status: "Da fare" },
+    { id: "b", sourceClientId: 8, kind: "batch-assisted", title: "Intervento SEO: Ottimizza buenaonda", sourceUrl: "https://example.com/", status: "Da fare" },
+  ];
+  const result = retireObsoleteProblemTasks(tasks, { title: "Ottimizza buenaonda", sourceUrl: "https://example.com/" }, 7, "2026-09-16T12:00:00.000Z");
+  assert.equal(result.changed, true);
+  assert.equal(result.tasks[0].status, "Completato");
+  assert.equal(result.tasks[0].stale, true);
+  assert.equal(result.tasks[0].excludedFromSeo, true);
+  assert.equal(result.tasks[1].status, "Da fare");
+});

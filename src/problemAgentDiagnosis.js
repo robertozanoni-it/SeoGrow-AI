@@ -182,3 +182,26 @@ export function buildProblemAgentRun({ goal, detail, analysis, projectId }) {
 export function problemNeedsFreshAudit(analysis, detail = {}) {
   return Boolean((detail?.sourceUrl || detail?.url) && !findProblemFinding(analysis, detail));
 }
+
+export function retireObsoleteProblemTasks(tasks, detail = {}, clientId, now = new Date().toISOString()) {
+  const source = normalizeUrl(detail?.sourceUrl || detail?.url || "");
+  const title = String(detail?.title || detail?.issueLabel || "").trim().toLowerCase();
+  const type = String(detail?.issueType || "").trim().toLowerCase();
+  let changed = false;
+  const next = (Array.isArray(tasks) ? tasks : []).map((task) => {
+    if (Number(task?.sourceClientId) !== Number(clientId)) return task;
+    if (task?.status === "Completato" && task?.excludedFromSeo && task?.stale) return task;
+    const taskSource = normalizeUrl(task?.sourceUrl || task?.targetUrl || "");
+    const taskTitle = String(task?.title || "").trim().toLowerCase();
+    const taskKind = String(task?.kind || "").trim().toLowerCase();
+    const normalizedTaskTitle = taskTitle.replace(/^intervento seo:\s*/i, "");
+    const sourceMatches = Boolean(source && taskSource === source);
+    const identityMatches = (type && taskKind === type) || (title && (taskTitle.includes(title) || title.includes(normalizedTaskTitle)));
+    if (!sourceMatches || !identityMatches) return task;
+    changed = true;
+    return { ...task, status: "Completato", stale: true, excludedFromSeo: true, completedAt: now, updatedAt: now,
+      completionReason: "Finding non più presente dopo verifica automatica aggiornata.",
+      staleReason: "Finding obsoleto: audit recente non lo rileva più." };
+  });
+  return { tasks: next, changed };
+}
