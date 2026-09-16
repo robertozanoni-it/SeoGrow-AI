@@ -419,7 +419,9 @@ export default function ProblemsWorkspace() {
     };
   }, [active, selectedClientId, revision]);
 
-  const storeErrors = [clientsStore, tasksStore, analysesStore, pagesStore, selectedStore]
+  const closuresStore = readStore("seogrow-problem-closures-v1", "array");
+
+  const storeErrors = [clientsStore, tasksStore, analysesStore, pagesStore, selectedStore, closuresStore]
     .filter((store) => !store.ok)
     .map((store) => store.error);
 
@@ -431,8 +433,9 @@ export default function ProblemsWorkspace() {
       pageHistory: pagesStore.value[client.id] || pagesStore.value[String(client.id)] || [],
       tasks: tasksStore.value,
       corrections,
+      closures: closuresStore.value,
     });
-  }, [client, analysesStore.value, pagesStore.value, tasksStore.value, corrections]);
+  }, [client, analysesStore.value, pagesStore.value, tasksStore.value, corrections, closuresStore.value]);
 
   const rows = model.rows;
   const typeOptions = [...new Set(rows.map((row) => row.issueType).filter(Boolean))].toSorted();

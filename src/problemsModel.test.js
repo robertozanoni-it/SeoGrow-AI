@@ -141,3 +141,13 @@ test("le pagine GDPR non entrano nel centro problemi SEO", () => {
   });
   assert.deepEqual(result.rows.map((row) => row.title), ["Title contenuto"]);
 });
+
+test('chiusura persistente prevale su audit storico e nuova evidenza successiva la rende ricomparsa', () => {
+  const audit={analyzedAt:'2026-09-16T10:00:00Z',url:'https://example.com/a',issues:[{type:'noindex',label:'Pagina impostata noindex',url:'https://example.com/a'}]};
+  const closure={clientId:1,issueType:'noindex',sourceUrl:'https://example.com/a',closedAt:'2026-09-16T11:00:00Z'};
+  const closed=buildUnifiedProblems({clientId:1,pageHistory:[audit],closures:[closure],now:Date.parse('2026-09-16T12:00:00Z')});
+  assert.equal(closed.rows[0].problemState,'resolved');
+  const newer={...audit,analyzedAt:'2026-09-16T13:00:00Z'};
+  const reappeared=buildUnifiedProblems({clientId:1,pageHistory:[newer],closures:[closure],now:Date.parse('2026-09-16T14:00:00Z')});
+  assert.equal(reappeared.rows[0].problemState,'reappeared');
+});

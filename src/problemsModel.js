@@ -13,7 +13,7 @@ import {
   taskEvent,
 } from "./reliabilityModel.js";
 
-const timestamp = (value) => Date.parse(value || 0) || 0;
+const timestamp = (value) => value ? (Date.parse(value) || 0) : 0;
 
 const pageKindFromUrl = (value) => {
   if (isLegalPage(value)) return "gdpr";
@@ -218,6 +218,7 @@ export function buildUnifiedProblems({
   pageHistory = [],
   tasks = [],
   corrections = [],
+  closures = [],
   now = Date.now(),
 } = {}) {
   const normalizedClientId = normalizeClientId(clientId);
@@ -347,6 +348,13 @@ export function buildUnifiedProblems({
     });
   }
 
+  const closureFor = (group) => (Array.isArray(closures) ? closures : []).filter((item) =>
+    normalizeClientId(item.clientId) === normalizedClientId &&
+    normalizeHttpUrl(item.sourceUrl || "", { stripSlash:true }) === normalizeHttpUrl(group.sourceUrl || "", { stripSlash:true }) &&
+    String(item.issueType || "").toLowerCase() === String(group.issueType || "").toLowerCase() &&
+    (!item.targetUrl || group.targetUrls.has(normalizeHttpUrl(item.targetUrl || "", { stripSlash:true })) || group.targetUrls.has(item.targetUrl))
+  ).toSorted((a,b)=>timestamp(b.closedAt)-timestamp(a.closedAt))[0] || null;
+
   const rows = [...groups.values()].map((group) => {
     const state = deriveProblemState(group.events);
     const clearanceAt = group.auditClearedAt || "";
@@ -358,8 +366,12 @@ export function buildUnifiedProblems({
     const isolatedQaCompleted = String(group.issueType || "").trim().toLowerCase() === "qa-isolated" && state.interventionState === "rolled_back";
     const reviewOnly = group.sources.some((source) => source.kind === "audit-review") && !group.sources.some((source) => source.kind === "audit");
     const reviewObservedAfterVerification = reviewOnly && (!state.verifiedAt || timestamp(group.latestAuditAt) > timestamp(state.verifiedAt));
-    const problemState = isolatedQaCompleted ? "intentional" : clearedByNewerAudit ? "resolved" : reviewObservedAfterVerification ? "needs_verification" : state.problemState;
-    const verifiedAt = clearedByNewerAudit ? clearanceAt : state.verifiedAt;
+    const closure = closureFor(group);
+    const closureTime = timestamp(closure?.closedAt);
+    const reobservedAfterClosure = closureTime > 0 && group.events.some((event) => timestamp(event?.at) > closureTime && event?.kind === "audit_detected");
+    const closedPersistently = closureTime > 0 && !reobservedAfterClosure;
+    const problemState = isolatedQaCompleted ? "intentional" : reobservedAfterClosure ? "reappeared" : closedPersistently ? "resolved" : clearedByNewerAudit ? "resolved" : reviewObservedAfterVerification ? "needs_verification" : state.problemState;
+    const verifiedAt = closedPersistently ? closure?.closedAt : clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
     const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;

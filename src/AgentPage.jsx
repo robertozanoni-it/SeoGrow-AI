@@ -127,6 +127,11 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
         });
         if (confirmation.covered && !confirmation.stillPresent) {
           result = buildProblemAgentRun({ goal, detail: { ...contextualProblem, title: contextualProblem.title || contextualProblem.issueLabel }, analysis: confirmation.audit, projectId: client.id });
+          const closedAt = new Date().toISOString();
+          const closures = readWorkspaceJson("seogrow-problem-closures-v1", []);
+          const closure = { clientId:client.id, issueKey:contextualProblem.issueKey || "", issueType:contextualProblem.issueType || "", sourceUrl:contextualProblem.sourceUrl || contextualProblem.url, targetUrl:Array.isArray(contextualProblem.targetUrls) && contextualProblem.targetUrls.length===1 ? contextualProblem.targetUrls[0] : "", closedAt, reason:"verified-not-present" };
+          writeWorkspaceJson("seogrow-problem-closures-v1", [closure, ...closures.filter(item => !(Number(item.clientId)===Number(client.id) && item.issueType===closure.issueType && item.sourceUrl===closure.sourceUrl && (item.targetUrl||"")===(closure.targetUrl||"")))].slice(0,1000));
+          window.dispatchEvent(new CustomEvent("seogrow-problem-closures-changed"));
           const retired = retireObsoleteProblemTasks(readWorkspaceJson("seogrow-tasks-v2", []), contextualProblem, client.id);
           if (retired.changed) {
             writeWorkspaceJson("seogrow-tasks-v2", retired.tasks);
