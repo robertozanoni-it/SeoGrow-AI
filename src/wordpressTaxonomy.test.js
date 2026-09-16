@@ -46,7 +46,8 @@ const rankInspection = () => normalizeTaxonomyInspection({
 
 test("Connector conserva ispezione esatta e scrittura tassonomia single-field nel pacchetto 1.3.8", () => {
   assert.match(connectorLoader, /Version: 1\.3\.8/);
-  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '[^']+'/);
+  assert.match(connectorCore, /Version: 1\.3\.8/);
+  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.8'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
   assert.match(connector, /get_term_link\(\$term\)/);
