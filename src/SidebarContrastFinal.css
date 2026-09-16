@@ -59,12 +59,21 @@ body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) .guided-n
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button,
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button svg { color:#173b63 !important; }
 
-/* Selected Task is the only navigation state highlighted in red. */
-body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"].active,
-body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"][aria-current="page"] {
+/* Active navigation item: red background for the currently selected task/section. */
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] {
   background: #d92d20 !important;
   color: #fff !important;
   box-shadow: inset 4px 0 #ff6b61, 0 5px 15px rgba(130, 20, 15, .24) !important;
 }
-body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"].active svg,
-body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"][aria-current="page"] svg { color:#fff !important; }
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg { color:#fff !important; }
+
+/* High-contrast copy on the lighter azure sections. */
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) .guided-nav-label,
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) button,
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) button span,
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) button svg {
+  color: #173b63 !important;
+  opacity: 1 !important;
+}
