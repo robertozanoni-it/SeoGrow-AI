@@ -54,6 +54,13 @@ const problemFromRecommendation = (context, item) => {
   };
 };
 
+
+const agentRunDisplayStatus = (run) => {
+  if (run?.resolutionOutcome?.kind === "obsolete") return "Problema chiuso";
+  if (run?.status === AgentStatus.COMPLETED) return "Analisi completata";
+  return agentStatusLabel(run?.status);
+};
+
 const saveRecommendationTask = (onCreateTask, run, item) => onCreateTask({
   title: run?.plan?.workflow === "PROBLEM_DIAGNOSIS" ? (item.query || "Verifica finding SEO") : (item.recommendation || "Rivedi raccomandazione SEO"),
   priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media",
@@ -196,9 +203,9 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
       {!running && !goal.trim() && <p className="agent-help">Scegli un esempio qui sopra oppure descrivi il tuo obiettivo per abilitare Avvia analisi.</p>}
       {actionError && <div className="empty-state" role="alert"><p>{actionError}</p></div>}
     </section>
-    {savedRuns.length > 0 && <section className="panel agent-history"><div className="panel-head"><div><h2>Cronologia analisi</h2><p>Conservata per il progetto selezionato.</p></div></div><div className="agent-form-field"><label htmlFor="agent-history">Esecuzione</label><select id="agent-history" disabled={running} value={selectedRunId} onChange={(event) => { setCurrentRun(null); setSelectedRunId(event.target.value); }}><option value="">Più recente</option>{savedRuns.filter(Boolean).map((item) => <option value={item.id} key={item.id}>{item.startedAt ? new Date(item.startedAt).toLocaleString("it-IT") : "Data sconosciuta"} · {agentStatusLabel(item.status)}</option>)}</select></div>{run?.id && <button className="secondary" disabled={running} onClick={() => { if (confirmAction("Eliminare questa analisi dalla cronologia SEO Agent?")) { onDeleteRun(run.id); setCurrentRun(null); setSelectedRunId(""); } }}>Elimina analisi</button>}</section>}
+    {savedRuns.length > 0 && <section className="panel agent-history"><div className="panel-head"><div><h2>Cronologia analisi</h2><p>Conservata per il progetto selezionato.</p></div></div><div className="agent-form-field"><label htmlFor="agent-history">Esecuzione</label><select id="agent-history" disabled={running} value={selectedRunId} onChange={(event) => { setCurrentRun(null); setSelectedRunId(event.target.value); }}><option value="">Più recente</option>{savedRuns.filter(Boolean).map((item) => <option value={item.id} key={item.id}>{item.startedAt ? new Date(item.startedAt).toLocaleString("it-IT") : "Data sconosciuta"} · {agentRunDisplayStatus(item)}</option>)}</select></div>{run?.id && <button className="secondary" disabled={running} onClick={() => { if (confirmAction("Eliminare questa analisi dalla cronologia SEO Agent?")) { onDeleteRun(run.id); setCurrentRun(null); setSelectedRunId(""); } }}>Elimina analisi</button>}</section>}
     {run && <section className="panel agent-run" aria-live="polite">
-      <div className="panel-head"><div><h2>{agentStatusLabel(run.status)}</h2><p>{run.goal}</p></div><span className={`priority ${run.status === AgentStatus.COMPLETED ? "bassa" : "media"}`}>{agentStatusLabel(run.status)}</span></div>
+      <div className="panel-head"><div><h2>{agentRunDisplayStatus(run)}</h2><p>{run.goal}</p></div><span className={`priority ${run.status === AgentStatus.COMPLETED ? "bassa" : "media"}`}>{agentRunDisplayStatus(run)}</span></div>
       <ol className="agent-steps">{(run.plan?.steps || []).map((step) => { const observation = (run.observations || []).findLast((item) => item.tool === step.tool); const [label, description] = toolLabels[step.tool] || [step.tool, "Tool agentico"]; return <li key={step.id} className={`agent-step-${String(step.status || "pending").toLowerCase()}`}>{["COMPLETED", "CACHED"].includes(step.status) ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<div><strong>{label}</strong><small>{description}</small><span>Stato: {agentStatusLabel(step.status || "PENDING")} · Fonte: {observation?.result?.source || "—"} · Aggiornamento dati: {observation?.result?.freshness || "—"} · Durata: {observation?.result?.durationMs ?? "—"} ms · Costo: {agentCostLabel(observation?.result)}</span>{observation?.error && <em>{observation.error}</em>}</div></li>; })}</ol>
       {run.resolutionOutcome?.note && <div className="empty-state agent-resolution-outcome"><p>{run.resolutionOutcome.note}</p></div>}
       {run.errors?.length > 0 && <div className="empty-state"><p>{run.errors.join(" ")}</p></div>}
