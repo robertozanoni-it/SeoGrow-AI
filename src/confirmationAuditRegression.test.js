@@ -72,3 +72,11 @@ test("explicit verification chains frontend verification into an automatic confi
   assert.match(audit, /reviewItems/);
   assert.match(audit, /sourceCovered/);
 });
+
+test('confirmation audit contiene fallback frontend puntuale per canonical senza coverage', async () => {
+  const source = await readFile(new URL('./confirmationAudit.js', import.meta.url), 'utf8');
+  assert.match(source, /targetedFrontendDecision/);
+  assert.match(source, /canonical attuale/);
+  assert.match(source, /canonical è corretta e coincide con la URL finale/);
+  assert.match(source, /\/api\/frontend\/inspect/);
+});
