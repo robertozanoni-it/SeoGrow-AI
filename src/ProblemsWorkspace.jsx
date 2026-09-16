@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { buildUnifiedProblems } from "./problemsModel";
+import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { listCorrections } from "./remediationStore";
 import { recheckCorrectionById } from "./remediationIntegrity";
 import {
@@ -41,6 +42,8 @@ const TASKS_KEY = "seogrow-tasks-v2";
 const ANALYSES_KEY = "seogrow-analyses-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
+const AGENT_RUNS_KEY = "seogrow-agent-runs-v1";
+const PROBLEM_CLOSURES_KEY = "seogrow-problem-closures-v1";
 
 const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
@@ -419,7 +422,8 @@ export default function ProblemsWorkspace() {
     };
   }, [active, selectedClientId, revision]);
 
-  const closuresStore = readStore("seogrow-problem-closures-v1", "array");
+  const closuresStore = readStore(PROBLEM_CLOSURES_KEY, "array");
+  const agentRunsStore = readStore(AGENT_RUNS_KEY, "object");
 
   const storeErrors = [clientsStore, tasksStore, analysesStore, pagesStore, selectedStore, closuresStore]
     .filter((store) => !store.ok)
@@ -436,6 +440,15 @@ export default function ProblemsWorkspace() {
       closures: closuresStore.value,
     });
   }, [client, analysesStore.value, pagesStore.value, tasksStore.value, corrections, closuresStore.value]);
+
+  useEffect(() => {
+    if (!active || !selectedClientId) return;
+    const migrated = closuresFromAgentRuns(agentRunsStore.value, closuresStore.value, model.rows);
+    if (JSON.stringify(migrated) === JSON.stringify(closuresStore.value)) return;
+    localStorage.setItem(PROBLEM_CLOSURES_KEY, JSON.stringify(migrated));
+    window.dispatchEvent(new CustomEvent("seogrow-problem-closures-changed"));
+    window.setTimeout(() => setRevision(value => value + 1), 0);
+  }, [active, selectedClientId, agentRunsStore.value, closuresStore.value, model.rows]);
 
   const rows = model.rows;
   const typeOptions = [...new Set(rows.map((row) => row.issueType).filter(Boolean))].toSorted();
