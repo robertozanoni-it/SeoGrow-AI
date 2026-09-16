@@ -194,8 +194,12 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
   const askAgent = () => {
     const detail = {
       clientId,
+      issueKey: problem.key,
+      issueType: problem.issueType,
+      problemIdentity: [problem.key || "", problem.issueType || "", problem.sourceUrl || "", (problem.targetUrls || []).join("|")].join("::"),
       title: problem.title,
       sourceUrl: problem.sourceUrl,
+      targetUrls: problem.targetUrls || [],
       problemState: labelMap.problem[problem.problemState] || problem.problemState,
       evidence: problem.evidence,
       detail: problem.detail,

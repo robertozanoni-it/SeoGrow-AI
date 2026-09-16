@@ -14,6 +14,7 @@ export function problemNavigationFocus(problem, clientId, currentClientId, opene
     issueType: String(problem.issueType || problem.type || ""),
     issueKey: problem.key || "",
     targetUrl: targetUrl || "",
+    identity: [problem.key || "", String(problem.issueType || problem.type || ""), sourceUrl, targetUrl || ""].join("::"),
     correctability: problem.correctability || "manual",
     openedFrom,
     createdAt: Date.now(),

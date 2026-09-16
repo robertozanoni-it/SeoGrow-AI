@@ -20,6 +20,8 @@ export function findProblemFinding(analysis, detail = {}) {
   const wantedTitle = String(detail?.title || detail?.issueLabel || "").trim().toLowerCase();
   const wantedType = String(detail?.issueType || "").trim().toLowerCase();
   const wantedUrl = normalizeUrl(detail?.sourceUrl || detail?.url || "");
+  const wantedTargets = (Array.isArray(detail?.targetUrls) ? detail.targetUrls : []).map(normalizeUrl).filter(Boolean);
+  if (!wantedUrl) return null;
 
   return rows.find(({ item }) => {
     const title = findingTitle(item).toLowerCase();
@@ -27,8 +29,10 @@ export function findProblemFinding(analysis, detail = {}) {
     const url = normalizeUrl(findingUrl(item, analysis?.url));
     const titleMatches = !wantedTitle || title === wantedTitle || title.includes(wantedTitle) || wantedTitle.includes(title);
     const typeMatches = !wantedType || type === wantedType;
-    const urlMatches = !wantedUrl || url === wantedUrl;
-    return titleMatches && typeMatches && urlMatches;
+    const urlMatches = url === wantedUrl;
+    const itemTargets = [item?.targetUrl, ...(Array.isArray(item?.targetUrls) ? item.targetUrls : [])].map(normalizeUrl).filter(Boolean);
+    const targetMatches = !wantedTargets.length || wantedTargets.every(target => itemTargets.includes(target));
+    return titleMatches && typeMatches && urlMatches && targetMatches;
   }) || null;
 }
 

@@ -73,7 +73,7 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   const automatic = shouldOpenAutomaticProposal(problem) || controlledLink || controlledReview || controlledContext || forcedAutomatic;
   try {
     if (!automatic) {
-      const detail = { clientId: focus.clientId, issueKey: focus.issueKey, issueType: focus.issueType, title: focus.title, sourceUrl: focus.sourceUrl, problemState: focus.problemState, interventionStateCode: focus.interventionState, correctability: focus.correctability, reviewOnly: focus.reviewOnly === true, ownershipBlocked: focus.ownershipBlocked === true, stale: focus.stale === true, targetUrls: focus.targetUrl ? [focus.targetUrl] : [], evidence: focus.evidence || [], detail: focus.detail || "" };
+      const detail = { clientId: focus.clientId, issueKey: focus.issueKey, issueType: focus.issueType, problemIdentity: focus.identity, title: focus.title, sourceUrl: focus.sourceUrl, problemState: focus.problemState, interventionStateCode: focus.interventionState, correctability: focus.correctability, reviewOnly: focus.reviewOnly === true, ownershipBlocked: focus.ownershipBlocked === true, stale: focus.stale === true, targetUrls: focus.targetUrl ? [focus.targetUrl] : [], evidence: focus.evidence || [], detail: focus.detail || "" };
       sessionStorage.setItem("seogrow-agent-prefill-v1", JSON.stringify(detail));
       sessionStorage.setItem("seogrow-agent-autorun-v1", "1");
       navigatePage("SEO Agent");

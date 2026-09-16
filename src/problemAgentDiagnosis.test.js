@@ -97,3 +97,13 @@ test("finding obsoleto chiude e archivia la task sorgente del progetto", async (
   assert.equal(result.tasks[0].excludedFromSeo, true);
   assert.equal(result.tasks[1].status, "Da fare");
 });
+
+test("non associa due canonical dello stesso tipo su URL diverse", () => {
+  const analysis={issues:[
+    {type:"canonical",label:"Canonical differente dall’URL analizzato",url:"https://example.com/a"},
+    {type:"canonical",label:"Canonical differente dall’URL analizzato",url:"https://example.com/b"},
+  ]};
+  const found=findProblemFinding(analysis,{issueType:"canonical",title:"Canonical differente dall’URL analizzato",sourceUrl:"https://example.com/b"});
+  assert.equal(found.item.url,"https://example.com/b");
+  assert.equal(findProblemFinding(analysis,{issueType:"canonical",title:"Canonical differente dall’URL analizzato",sourceUrl:"https://example.com/c"}),null);
+});
