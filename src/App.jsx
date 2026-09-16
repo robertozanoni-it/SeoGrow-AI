@@ -205,11 +205,7 @@ function useStoredState(key, fallback) {
       }
     };
     const timer = window.setTimeout(flush, 120);
-    window.addEventListener("pagehide", flush);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("pagehide", flush);
-    };
+    return () => window.clearTimeout(timer);
   }, [key, value]);
   useEffect(() => {
     const sync = (event) => {
@@ -1285,7 +1281,7 @@ function ClientsPage({
             const dataset = gscData[c.id];
             const wpConnected = Boolean(wordpressConnections[c.id]);
             const score = Number(c.score || 0) || null;
-            return <article className="reference-client-card client-card" key={c.id} onClick={(event) => { if (!event.target.closest("a,button")) openClient(event, c.id); }}>
+            return <article className="reference-client-card client-card" key={c.id} role="button" tabIndex={0} aria-label={`Apri progetto ${c.name}`} onClick={(event) => { if (!event.target.closest("a,button")) openClient(event, c.id); }} onKeyDown={(event) => { if (event.target === event.currentTarget) openClient(event, c.id); }}>
               <header><div className="reference-client-mark" style={{ background: c.color || "#edf4ff" }}>{c.name.slice(0, 2).toUpperCase()}</div><div><h2>{c.name}</h2><a href={c.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{c.url.replace(/^https?:\/\//, "")} <ExternalLink /></a></div><div className={`reference-client-score ${score && score < 65 ? "low" : score && score >= 80 ? "high" : ""}`}><small>SEO Score</small><strong>{score ?? "—"}<span>{score ? "/100" : ""}</span></strong></div></header>
               <div className="reference-client-status"><span><Globe2 /><small>WordPress</small><b className={wpConnected ? "ok" : "pending"}>{wpConnected ? "Connesso" : "Da collegare"}</b></span><span><Database /><small>Search Console</small><b className={dataset ? "ok" : "pending"}>{dataset ? "Connesso" : "Da collegare"}</b></span><span><CircleGauge /><small>Audit</small><b>{score ? "Disponibile" : "Da eseguire"}</b></span></div>
               <footer><span>{dataset ? `${dataset.queries.length} query importate` : "Dati Search Console non disponibili"}</span><div><button className="primary" onClick={(event) => openClient(event, c.id)}>Apri scheda →</button><button className="secondary mini" onClick={(event) => { event.stopPropagation(); onDownloadReport(c.id); }}><Download /></button><button className="secondary mini" data-client-action="edit" aria-label={`Modifica ${c.name}`} onClick={(event) => { event.stopPropagation(); setEditingId(c.id); setForm({ name: c.name, url: c.url }); setFormError(""); setOpen(true); }}>•••</button><button className="secondary mini danger-text" aria-label={`Elimina ${c.name}`} onClick={(event) => { event.stopPropagation(); onDeleteClient(c.id); }}><Trash2 /></button></div></footer>
@@ -3349,6 +3345,16 @@ function Toast({ message, kind = "info", onOpen, onClose }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const flushOnPageHide = () => {
+      void flushWorkspace().catch((error) => {
+        console.error("Impossibile completare il salvataggio workspace in uscita:", error);
+        window.dispatchEvent(new CustomEvent("seogrow-storage-error", { detail: { key: "workspace", message: error.message } }));
+      });
+    };
+    window.addEventListener("pagehide", flushOnPageHide);
+    return () => window.removeEventListener("pagehide", flushOnPageHide);
+  }, []);
   const [clients, setClients] = useStoredState(
     "seogrow-clients",
     initialClients,

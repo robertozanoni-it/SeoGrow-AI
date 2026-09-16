@@ -487,6 +487,8 @@ try {
   if (uncaught.length) throw new Error("Uncaught browser exceptions: " + JSON.stringify(uncaught));
   const consoleErrors = browserEvents.filter(event => event.method === "Runtime.consoleAPICalled" && event.params?.type === "error");
   if (consoleErrors.length) throw new Error("Browser console errors: " + JSON.stringify(consoleErrors.slice(-20)));
+  const unexpectedNetworkFailures = browserEvents.filter(event => event.method === "Network.loadingFailed" && event.params?.canceled !== true);
+  if (unexpectedNetworkFailures.length) throw new Error("Unexpected browser network failures: " + JSON.stringify(unexpectedNetworkFailures.slice(-20)));
   browserReport.ok = true;
   console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO e visibilità desktop/tablet/mobile verificate.`);
 } catch (error) {
