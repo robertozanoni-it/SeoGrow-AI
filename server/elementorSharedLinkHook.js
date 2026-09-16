@@ -13,6 +13,14 @@ const APPROVALS = new Map();
 const TTL_MS = 30 * 60_000;
 const MAX_IMPACT_URLS = 300;
 const IMPACT_CONCURRENCY = 4;
+const SHARED_WRITES_ENABLED = process.env.SEOGROW_ELEMENTOR_SHARED_WRITES_ENABLED === "1";
+
+function assertSharedElementorWritesEnabled() {
+  if (SHARED_WRITES_ENABLED) return;
+  const error = new Error("Scritture shared Elementor disabilitate finché il gate live #163 non è certificato.");
+  error.code = "SHARED_ELEMENTOR_WRITES_DISABLED";
+  throw error;
+}
 
 const canonical = (value) => {
   try {
@@ -325,6 +333,7 @@ async function verifyAffectedUrls(approval) {
 }
 
 export async function applySharedElementorLinkApproval({ approvalToken, username, applicationPassword } = {}) {
+  assertSharedElementorWritesEnabled();
   cleanupApprovals();
   const token = String(approvalToken || "");
   const approval = APPROVALS.get(token);
@@ -399,6 +408,7 @@ export async function rollbackSharedElementorLink({
   expectedCurrent,
   restoreValue,
 } = {}) {
+  assertSharedElementorWritesEnabled();
   if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
   const base = await safeBase(siteUrl);
   const headers = authHeaders(username, applicationPassword);
