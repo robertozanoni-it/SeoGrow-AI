@@ -82,7 +82,7 @@ const findAuditContext = (clientId, source, target) => {
     const entrySource = normalized(item?.url || source);
     const sourceMatches = !item?.url || entrySource === normalized(source);
     return sourceMatches && (item?.issues || []).some((issue) => issueTarget(issue) === target);
-  }).sort((a, b) => Date.parse(auditTimestamp(b.item) || 0) - Date.parse(auditTimestamp(a.item) || 0));
+  }).sort((a, b) => (Date.parse(auditTimestamp(b.item) || "") || 0) - (Date.parse(auditTimestamp(a.item) || "") || 0));
   const match = candidates[0];
   return {
     auditType: match?.type || "page",

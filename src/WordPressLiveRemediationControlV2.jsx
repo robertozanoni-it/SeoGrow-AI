@@ -50,7 +50,7 @@ const candidates = (clientId) => {
   return [
     ...(Array.isArray(pages) ? pages.map((item) => ({ type: "page", item })) : []),
     ...sites.map((item) => ({ type: "site", item })),
-  ].toSorted((a, b) => Date.parse(auditTimestamp(b) || 0) - Date.parse(auditTimestamp(a) || 0));
+  ].toSorted((a, b) => (Date.parse(auditTimestamp(b) || "") || 0) - (Date.parse(auditTimestamp(a) || "") || 0));
 };
 
 const selectAudit = (clientId, requested) => {

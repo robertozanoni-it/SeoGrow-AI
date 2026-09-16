@@ -29,7 +29,7 @@ const safeHttpUrl = (value) => {
   }
 };
 
-const timestamp = (value) => Date.parse(value?.analyzedAt || value?.startedAt || 0) || 0;
+const timestamp = (value) => Date.parse(value?.analyzedAt || value?.startedAt || "") || 0;
 
 const latestEntry = (value) => {
   const list = Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];

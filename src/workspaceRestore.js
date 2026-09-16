@@ -18,6 +18,7 @@ const sections = {
   pageAuditHistory: WORKSPACE_KEYS.pageAuditHistory,
   auditResults: WORKSPACE_KEYS.auditResults,
   agentRuns: WORKSPACE_KEYS.agentRuns,
+  problemClosures: WORKSPACE_KEYS.problemClosures,
   preferences: WORKSPACE_KEYS.preferences,
 };
 
@@ -28,14 +29,15 @@ export async function prepareWorkspaceRestore(input, { snapshots = [], correctio
   const entries = new Map();
   for (const [section, key] of Object.entries(sections)) {
     if (section === "auditMonitor" && backup.auditMonitor == null) continue; // Old backups restore the same key set; the transaction clears obsolete monitor data.
-    entries.set(key, JSON.stringify(backup[section] ?? (section === "tasks" ? [] : {})));
+    const arraySection = ["tasks", "problemClosures"].includes(section);
+    entries.set(key, JSON.stringify(backup[section] ?? (arraySection ? [] : {})));
   }
   entries.set(WORKSPACE_KEYS.gscHistory, JSON.stringify(backup.gscHistory || Object.fromEntries(Object.entries(backup.gscData).map(([id, data]) => [id, [data]]))));
   const selected = backup.clients.some(client => client.id === Number(backup.selectedClient)) ? Number(backup.selectedClient) : backup.clients[0].id;
   entries.set(WORKSPACE_KEYS.selectedClient, JSON.stringify(selected));
   entries.set(WORKSPACE_KEYS.selectedPage, JSON.stringify("Panoramica"));
   entries.set(WORKSPACE_KEYS.snapshots, JSON.stringify(snapshots));
-  const records = (backup.corrections || []).toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+  const records = (backup.corrections || []).toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0));
   entries.set(WORKSPACE_KEYS.remediationHistory, JSON.stringify(records.map(metadataOf)));
   entries.set(WORKSPACE_KEYS.remediationLastBatch, JSON.stringify(records[0]?.batchId || ""));
   return { entries, corrections: records };

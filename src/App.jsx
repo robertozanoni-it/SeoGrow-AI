@@ -3001,6 +3001,7 @@ function SettingsPage({
   wordpressProfiles,
   auditResults,
   agentRuns,
+  problemClosures,
   snapshots,
   preferences,
   setPreferences,
@@ -3191,6 +3192,7 @@ function SettingsPage({
                     wordpressProfiles,
                     auditResults,
                     agentRuns,
+                    problemClosures,
                     auditMonitor: readAuditMonitor(),
                     preferences,
                   },
@@ -3687,6 +3689,7 @@ export default function App() {
             wordpressProfiles,
             auditResults,
             agentRuns,
+            problemClosures,
             auditMonitor: readAuditMonitor(),
             preferences,
           },
@@ -4401,6 +4404,7 @@ export default function App() {
         wordpressProfiles={wordpressProfiles}
         auditResults={auditResults}
         agentRuns={agentRuns}
+        problemClosures={problemClosures}
         snapshots={snapshots}
         preferences={preferences}
         setPreferences={setPreferences}

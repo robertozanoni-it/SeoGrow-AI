@@ -16,7 +16,7 @@ const view = (moduleId, names) => Object.freeze({
 export const MODULE_WORKSPACE_VIEWS = Object.freeze([
   view("hub", [
     "clients", "selectedClient", "selectedPage", "tasks", "gsc", "analyses",
-    "rankings", "agentRuns", "snapshots",
+    "rankings", "agentRuns", "problemClosures", "snapshots",
   ]),
   view("audit", [
     "clients", "selectedClient", "analyses", "auditMonitor", "pageAuditHistory",
@@ -39,7 +39,7 @@ export const MODULE_WORKSPACE_VIEWS = Object.freeze([
   ]),
   view("agent", [
     "clients", "selectedClient", "gsc", "analyses", "rankings", "agentRuns",
-    "approvalLedger", "tasks",
+    "problemClosures", "approvalLedger", "tasks",
   ]),
   view("publish", [
     "clients", "selectedClient", "wordpressProfiles", "cmsRouter", "analyses",

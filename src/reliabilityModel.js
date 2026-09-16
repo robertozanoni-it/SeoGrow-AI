@@ -105,11 +105,17 @@ export const exactProblemStatus = (value) => {
   return "open";
 };
 
+const reliableTimestamp = (value) => {
+  if (typeof value !== "string" || !value.trim()) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export function deriveProblemState(events = []) {
   const ordered = [...events]
     .filter(Boolean)
     .map((event) => ({ ...event, at: event.at || event.observedAt || event.updatedAt || event.createdAt || "" }))
-    .sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
+    .sort((a, b) => reliableTimestamp(a.at) - reliableTimestamp(b.at));
 
   let problemState = "open";
   let interventionState = "not_prepared";
@@ -122,7 +128,7 @@ export function deriveProblemState(events = []) {
     if (at) lastEventAt = at;
     if (event.kind === "audit_detected") {
       lastAuditAt = at || lastAuditAt;
-      if (verifiedAt && Date.parse(at || 0) > Date.parse(verifiedAt || 0)) problemState = "reappeared";
+      if (verifiedAt && reliableTimestamp(at) > reliableTimestamp(verifiedAt)) problemState = "reappeared";
       else if (problemState !== "resolved") problemState = "open";
       continue;
     }
@@ -252,8 +258,8 @@ export function latestAudit(entries = [], { scope = "any" } = {}) {
   const valid = entries
     .filter((entry) => entry?.item && (scope === "any" || entry.type === scope))
     .toSorted((a, b) =>
-      Date.parse(b.item?.analyzedAt || b.item?.startedAt || 0) -
-      Date.parse(a.item?.analyzedAt || a.item?.startedAt || 0),
+      reliableTimestamp(b.item?.analyzedAt || b.item?.startedAt) -
+      reliableTimestamp(a.item?.analyzedAt || a.item?.startedAt),
     );
   return valid[0] || null;
 }

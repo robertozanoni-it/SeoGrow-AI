@@ -151,3 +151,15 @@ test('chiusura persistente prevale su audit storico e nuova evidenza successiva 
   const reappeared=buildUnifiedProblems({clientId:1,pageHistory:[newer],closures:[closure],now:Date.parse('2026-09-16T14:00:00Z')});
   assert.equal(reappeared.rows[0].problemState,'reappeared');
 });
+
+
+test('una chiusura legacy senza target non chiude tutti i broken link della stessa pagina', () => {
+  const audit={analyzedAt:'2026-09-16T10:00:00Z',issues:[
+    {type:'broken-external-link',label:'Link esterno non raggiungibile (404)',sourceUrl:'https://example.com/pagina',targetUrl:'https://a.example/manca'},
+    {type:'broken-external-link',label:'Link esterno non raggiungibile (404)',sourceUrl:'https://example.com/pagina',targetUrl:'https://b.example/manca'},
+  ]};
+  const closure={clientId:1,issueType:'broken-external-link',sourceUrl:'https://example.com/pagina',closedAt:'2026-09-16T11:00:00Z'};
+  const result=buildUnifiedProblems({clientId:1,siteHistory:[audit],closures:[closure],now:Date.parse('2026-09-16T12:00:00Z')});
+  assert.equal(result.rows.length,2);
+  assert.ok(result.rows.every(row=>row.problemState==='open'));
+});

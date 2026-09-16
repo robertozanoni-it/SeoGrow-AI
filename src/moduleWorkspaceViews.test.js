@@ -44,3 +44,10 @@ test("CMS routing e prefill Agent sono registrati senza confondere workspace e s
   assert.ok(moduleWorkspaceView("publish").names.includes("cmsRouter"));
   assert.equal(moduleWorkspaceView("missing"), null);
 });
+
+
+test("Hub e Agent condividono il registro delle chiusure problemi", () => {
+  assert.equal(WORKSPACE_KEYS.problemClosures, "seogrow-problem-closures-v1");
+  assert.equal(moduleCanAccessWorkspaceKey("hub", "problemClosures"), true);
+  assert.equal(moduleCanAccessWorkspaceKey("agent", WORKSPACE_KEYS.problemClosures), true);
+});

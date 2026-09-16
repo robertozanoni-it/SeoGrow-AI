@@ -135,3 +135,12 @@ test("una pagina GDPR non è mai classificata come correzione automatica SEO", (
   assert.equal(issueCorrectability(issue, { pageKind: "gdpr" }), "not_supported");
   assert.equal(issueCorrectability(issue, { pageKind: "content" }), "automatic");
 });
+
+
+test("un evento senza timestamp non viene interpretato come una data del 2000 e non riapre un finding", () => {
+  const state = deriveProblemState([
+    { kind: "correction_verified", at: "1999-12-31T23:00:00Z" },
+    { kind: "audit_detected", at: "" },
+  ]);
+  assert.equal(state.problemState, "resolved");
+});

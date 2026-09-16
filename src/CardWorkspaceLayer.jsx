@@ -281,7 +281,7 @@ const buildAuditCards = (clientId, siteStore, pageStore) => {
     actionPage: "Problemi",
     actionLabel: "Apri problemi",
   }));
-  return [...site, ...pages].sort((a, b) => Date.parse(b.date || 0) - Date.parse(a.date || 0));
+  return [...site, ...pages].sort((a, b) => (Date.parse(b.date || "") || 0) - (Date.parse(a.date || "") || 0));
 };
 
 const buildRankingCards = (clientId, store) => {
@@ -363,7 +363,7 @@ const buildCorrectionCards = (clientId, store) => (Array.isArray(store) ? store 
     actionPage: "Problemi",
     actionLabel: "Torna ai problemi",
   }))
-  .sort((a, b) => Date.parse(b.date || 0) - Date.parse(a.date || 0));
+  .sort((a, b) => (Date.parse(b.date || "") || 0) - (Date.parse(a.date || "") || 0));
 
 const buildTaskCards = (tasks, client) => clientTasks(tasks, client)
   .map((item, index) => card({
@@ -384,7 +384,7 @@ const buildTaskCards = (tasks, client) => clientTasks(tasks, client)
     ],
     solutions: ["Apri evidenze e URL coinvolte.", "Esegui l’intervento nel modulo corretto.", "Aggiorna stato e note dopo la verifica."],
   }))
-  .sort((a, b) => Date.parse(b.date || 0) - Date.parse(a.date || 0));
+  .sort((a, b) => (Date.parse(b.date || "") || 0) - (Date.parse(a.date || "") || 0));
 
 const buildOpportunityCards = (dataset) => {
   if (!dataset) return [];

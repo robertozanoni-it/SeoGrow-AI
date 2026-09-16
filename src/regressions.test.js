@@ -368,3 +368,12 @@ test("il piano mensile riserva spazio ai problemi tecnici", () => {
   assert.equal(plan.length, 12);
   assert.ok(plan.some((item) => item.type === "Architettura"));
 });
+
+
+test("backup conserva e valida il registro delle chiusure problemi", async () => {
+  const base={schemaVersion:4,clients:[{id:1,name:"Test",url:"https://example.com"}],tasks:[],gscData:{}};
+  const problemClosures=[{clientId:1,issueKey:"k",issueType:"noindex",sourceUrl:"https://example.com/a/",targetUrl:"",closedAt:"2026-09-16T12:00:00Z"}];
+  const restored=await readWorkspaceBackup({size:100,text:async()=>JSON.stringify({...base,problemClosures})});
+  assert.deepEqual(restored.problemClosures,problemClosures);
+  await assert.rejects(()=>readWorkspaceBackup({size:100,text:async()=>JSON.stringify({...base,problemClosures:[{...problemClosures[0],sourceUrl:"javascript:alert(1)"}]})}),/chiusure problemi non valide/);
+});

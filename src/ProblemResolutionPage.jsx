@@ -50,7 +50,7 @@ function ResolutionView({ problem, client, corrections, onRefresh }) {
   const href = safeHttpHref(problem.sourceUrl);
   const latestCorrection = corrections
     .filter((item) => sameProblemCorrection(problem, item))
-    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))[0] || null;
+    .toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0))[0] || null;
 
   const path = resolutionPath(problem, latestCorrection);
   const priority = problemResolutionPriority(problem, latestCorrection);

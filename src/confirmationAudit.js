@@ -21,14 +21,20 @@ const sameFinding = (record, item, audit) => {
   const label = String(item?.label || item?.title || item?.type || "").trim().toLowerCase();
   const sourceMatches = comparableUrl(findingUrl(item, audit?.url)) === comparableUrl(record?.sourceUrl);
   if (!sourceMatches) return false;
-  if (wantedType) return type === wantedType;
+  if (wantedType && type !== wantedType) return false;
+  const wantedTarget = comparableUrl(record?.targetUrl || record?.issue?.targetUrl || "");
+  if (wantedTarget) {
+    const observedTarget = comparableUrl(item?.targetUrl || item?.brokenUrl || item?.destinationUrl || item?.href || "");
+    if (observedTarget !== wantedTarget) return false;
+  }
+  if (wantedType) return true;
   return Boolean(wantedLabel && (label === wantedLabel || label.includes(wantedLabel) || wantedLabel.includes(label)));
 };
 
 const sourceCovered = (record, audit, mode) => {
   const wanted = comparableUrl(record?.sourceUrl);
   if (!wanted) return false;
-  if (mode === "page") return comparableUrl(audit?.url || record?.sourceUrl) === wanted;
+  if (mode === "page") return Boolean(audit?.url) && comparableUrl(audit.url) === wanted;
   return (Array.isArray(audit?.pages) ? audit.pages : []).some((page) => comparableUrl(page?.url) === wanted && page?.ok !== false);
 };
 

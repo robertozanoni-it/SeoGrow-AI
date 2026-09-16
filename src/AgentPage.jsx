@@ -124,6 +124,7 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
         const confirmation = await runConfirmationAudit({
           clientId: client.id, siteUrl: client.url, sourceUrl: contextualProblem.sourceUrl || contextualProblem.url,
           issueType: contextualProblem.issueType, issueLabel: contextualProblem.title || contextualProblem.issueLabel,
+          targetUrl: Array.isArray(contextualProblem.targetUrls) && contextualProblem.targetUrls.length === 1 ? contextualProblem.targetUrls[0] : "",
         });
         if (confirmation.covered && !confirmation.stillPresent) {
           result = buildProblemAgentRun({ goal, detail: { ...contextualProblem, title: contextualProblem.title || contextualProblem.issueLabel }, analysis: confirmation.audit, projectId: client.id });

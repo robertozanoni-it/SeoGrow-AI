@@ -163,7 +163,7 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
 
   const latestCorrection = corrections
     .filter((item) => sameProblemCorrection(problem, item))
-    .toSorted((a, b) => Date.parse(b.verifiedAt || b.appliedAt || 0) - Date.parse(a.verifiedAt || a.appliedAt || 0))[0] || null;
+    .toSorted((a, b) => (Date.parse(b.verifiedAt || b.appliedAt || "") || 0) - (Date.parse(a.verifiedAt || a.appliedAt || "") || 0))[0] || null;
   const href = safeHttpHref(problem.sourceUrl);
 
   const openSpecificIntervention = () => {
@@ -443,7 +443,8 @@ export default function ProblemsWorkspace() {
 
   useEffect(() => {
     if (!active || !selectedClientId) return;
-    const migrated = closuresFromAgentRuns(agentRunsStore.value, closuresStore.value, model.rows);
+    const selectedRuns = { [selectedClientId]: agentRunsStore.value[selectedClientId] || agentRunsStore.value[String(selectedClientId)] || [] };
+    const migrated = closuresFromAgentRuns(selectedRuns, closuresStore.value, model.rows);
     if (JSON.stringify(migrated) === JSON.stringify(closuresStore.value)) return;
     localStorage.setItem(PROBLEM_CLOSURES_KEY, JSON.stringify(migrated));
     window.dispatchEvent(new CustomEvent("seogrow-problem-closures-changed"));

@@ -14,6 +14,7 @@ const EXPECTED_KEYS = {
   auditMonitor: "seogrow-audit-monitor-v1",
   pageAuditHistory: "seogrow-page-audit-history-v2",
   auditResults: "seogrow-quick-audits-v1",
+  problemClosures: "seogrow-problem-closures-v1",
   preferences: "seogrow-preferences-v1",
   snapshots: "seogrow-snapshots-v1",
   remediationLastBatch: "seogrow-remediation-last-batch-v1",

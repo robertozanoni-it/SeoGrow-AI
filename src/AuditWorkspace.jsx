@@ -77,7 +77,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const history = [
     ...pageHistory.map((item) => ({ type: "page", item: normalizeSiteAnalysis({ ...item }) })),
     ...siteHistory.map((item) => ({ type: "site", item })),
-  ].toSorted((a, b) => Date.parse(resultTimestamp(b.item) || 0) - Date.parse(resultTimestamp(a.item) || 0));
+  ].toSorted((a, b) => (Date.parse(resultTimestamp(b.item) || "") || 0) - (Date.parse(resultTimestamp(a.item) || "") || 0));
   const initial = latestAudit(history);
 
   const [url, setUrl] = useState(client.url);

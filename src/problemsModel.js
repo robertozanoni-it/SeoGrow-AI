@@ -348,12 +348,17 @@ export function buildUnifiedProblems({
     });
   }
 
-  const closureFor = (group) => (Array.isArray(closures) ? closures : []).filter((item) =>
-    normalizeClientId(item.clientId) === normalizedClientId &&
-    normalizeHttpUrl(item.sourceUrl || "", { stripSlash:true }) === normalizeHttpUrl(group.sourceUrl || "", { stripSlash:true }) &&
-    String(item.issueType || "").toLowerCase() === String(group.issueType || "").toLowerCase() &&
-    (!item.targetUrl || group.targetUrls.has(normalizeHttpUrl(item.targetUrl || "", { stripSlash:true })) || group.targetUrls.has(item.targetUrl))
-  ).toSorted((a,b)=>timestamp(b.closedAt)-timestamp(a.closedAt))[0] || null;
+  const closureFor = (group) => (Array.isArray(closures) ? closures : []).filter((item) => {
+    if (normalizeClientId(item.clientId) !== normalizedClientId) return false;
+    if (normalizeHttpUrl(item.sourceUrl || "", { stripSlash:true }) !== normalizeHttpUrl(group.sourceUrl || "", { stripSlash:true })) return false;
+    if (String(item.issueType || "").toLowerCase() !== String(group.issueType || "").toLowerCase()) return false;
+    if (item.issueKey && item.issueKey === group.key) return true;
+    const targetScoped = /broken-(?:external-)?link|link esterno|link interno/i.test(String(group.issueType || ""));
+    const wantedTarget = normalizeHttpUrl(item.targetUrl || "", { stripSlash:true });
+    if (targetScoped && !wantedTarget) return false;
+    if (!wantedTarget) return true;
+    return [...group.targetUrls].some((target) => normalizeHttpUrl(target || "", { stripSlash:true }) === wantedTarget);
+  }).toSorted((a,b)=>timestamp(b.closedAt)-timestamp(a.closedAt))[0] || null;
 
   const rows = [...groups.values()].map((group) => {
     const state = deriveProblemState(group.events);

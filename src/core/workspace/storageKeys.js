@@ -16,6 +16,7 @@ export const WORKSPACE_KEYS = Object.freeze({
   pageAuditHistory: "seogrow-page-audit-history-v2",
   auditResults: "seogrow-quick-audits-v1",
   agentRuns: "seogrow-agent-runs-v1",
+  problemClosures: "seogrow-problem-closures-v1",
   preferences: "seogrow-preferences-v1",
   snapshots: "seogrow-snapshots-v1",
   remediationHistory: "seogrow-remediation-history-v1",

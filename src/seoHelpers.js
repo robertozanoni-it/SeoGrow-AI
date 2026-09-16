@@ -302,6 +302,19 @@ export async function readWorkspaceBackup(file, passphrase = "") {
     if (key in data && !validRecord(data[key]))
       throw new Error(`Il backup contiene una sezione non valida: ${key}.`);
   }
+
+  if (data.problemClosures != null) {
+    if (!Array.isArray(data.problemClosures) || data.problemClosures.length > 5000)
+      throw new Error("Il backup contiene chiusure problemi non valide.");
+    const validClosure = (item) => item &&
+      data.clients.some((client) => Number(client.id) === Number(item.clientId)) &&
+      typeof item.issueType === "string" && item.issueType.trim() &&
+      Boolean(safeReportUrl(item.sourceUrl)) &&
+      (item.targetUrl == null || item.targetUrl === "" || Boolean(safeReportUrl(item.targetUrl))) &&
+      typeof item.closedAt === "string" && Number.isFinite(Date.parse(item.closedAt));
+    if (!data.problemClosures.every(validClosure))
+      throw new Error("Il backup contiene chiusure problemi non valide.");
+  }
   if (data.wordpressProfiles) {
     for (const [clientId, profile] of Object.entries(data.wordpressProfiles)) {
       if (

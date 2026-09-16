@@ -18,7 +18,8 @@
     "seogrow-snapshots-v1": "[]",
     "seogrow-tasks-v2": "[{\"id\":\"qa-B-9201\",\"title\":\"QA B: controllare titolo fittizio\",\"status\":\"Da fare\",\"priority\":\"Media\",\"sourceClientId\":9201,\"sourceUrl\":\"https://qa-b-1.example/\"},{\"id\":\"qa-B-9202\",\"title\":\"QA B: controllare titolo fittizio\",\"status\":\"Da fare\",\"priority\":\"Media\",\"sourceClientId\":9202,\"sourceUrl\":\"https://qa-b-2.example/\"}]",
     "seogrow-topical-maps-v1": "{}",
-    "seogrow-wordpress-profiles-v1": "{}"
+    "seogrow-wordpress-profiles-v1": "{}",
+    "seogrow-problem-closures-v1": "[]"
   },
   "corrections": [
     {

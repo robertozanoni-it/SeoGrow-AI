@@ -126,13 +126,13 @@ export const metadataOf = (input) => {
 const syncIndex = (record) => {
   const current = readJson(REMEDIATION_INDEX_KEY, []);
   const next = [metadataOf(record), ...current.filter((item) => item.id !== record.id)]
-    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+    .toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0));
   const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, next, { id: record.id });
   window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: record.id, indexUpdated: written } }));
 };
 
 const replaceIndex = (records) => {
-  const index = records.map(metadataOf).toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+  const index = records.map(metadataOf).toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0));
   const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, index, { restored: true });
   window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { restored: true, indexUpdated: written } }));
 };
@@ -213,7 +213,7 @@ export async function listCorrections({ clientId, batchId, includeOrphans = fals
       (!batchId || item.batchId === batchId),
     )
     .map(migrateIdentity)
-    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+    .toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0));
 }
 
 export async function replaceCorrections(records) {

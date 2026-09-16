@@ -52,3 +52,11 @@ test("QA-IMPORT-001 serialized backup restores tasks and rejects duplicate IDs b
   assert.deepEqual(normalizeStoredTasks([{ id: "partial" }], ["invalid"]), ["invalid"]);
   db.close();
 });
+
+
+test("QA-IMPORT-002 ripristina anche le chiusure problemi persistenti", async () => {
+  const closure={clientId:1,issueKey:"k",issueType:"noindex",sourceUrl:"https://example.com/a/",targetUrl:"",closedAt:"2026-09-16T12:00:00Z"};
+  const backup={schemaVersion:4,clients:[{id:1,name:"QA",url:"https://example.com/"}],tasks:[],gscData:{},problemClosures:[closure]};
+  const prepared=await prepareWorkspaceRestore(backup);
+  assert.deepEqual(JSON.parse(prepared.entries.get("seogrow-problem-closures-v1")),[closure]);
+});
