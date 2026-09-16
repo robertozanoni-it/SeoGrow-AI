@@ -50,14 +50,17 @@ body[data-seogrow-ui-mode] .sidebar .side-foot {
   border-color: #c1ccd8 !important;
 }
 
-/* 2026-09-16: section contrast requested at ~30% visual separation. */
+/* 2026-09-16: one original blue, alternating full tone and <30% tint. */
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) {
-  background: rgba(20, 108, 245, .30) !important;
+  background: #146cf5 !important;
   border-radius: 12px !important;
   padding: 8px 6px !important;
 }
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) {
-  background: rgba(28, 174, 118, .30) !important;
+  background: rgba(20, 108, 245, .24) !important;
   border-radius: 12px !important;
   padding: 8px 6px !important;
 }
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) .guided-nav-label,
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button,
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button svg { color:#fff !important; }
