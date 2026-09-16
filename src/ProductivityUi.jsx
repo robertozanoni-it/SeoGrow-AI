@@ -22,7 +22,7 @@ export function CommandPalette({ pages, onNavigate, onNewAudit }) {
     return () => window.removeEventListener("keydown", shortcut);
   }, []);
   useEffect(() => { if (open) dialog.current?.showModal(); else dialog.current?.close(); }, [open]);
-  const commands = [...pages.map(page => ({ label: `Apri ${page}`, action: () => onNavigate(page) })), { label: "Prepara una nuova analisi", action: onNewAudit }];
+  const commands = [...new Set(pages)].map(page => ({ label: `Apri ${page}`, action: () => onNavigate(page) })).concat({ label: "Prepara una nuova analisi", action: onNewAudit });
   const matching = commands.filter(item => item.label.toLocaleLowerCase("it").includes(query.trim().toLocaleLowerCase("it")));
   return <><button className="secondary" onClick={() => { setQuery(""); setOpen(true); }}>Comandi <kbd>⌘ / Ctrl K</kbd></button><dialog className="command-dialog" ref={dialog} onCancel={() => setOpen(false)} aria-labelledby="command-title"><h2 id="command-title">Cosa vuoi fare?</h2><label>Cerca un comando<input autoFocus value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && matching[0]) { event.preventDefault(); setOpen(false); matching[0].action(); } }} /></label><p role="status">{matching.length} comandi disponibili</p><div className="command-results">{matching.map(item => <button className="secondary" key={item.label} onClick={() => { setOpen(false); item.action(); }}>{item.label}</button>)}</div><button className="secondary" onClick={() => setOpen(false)}>Chiudi</button></dialog></>;
 }

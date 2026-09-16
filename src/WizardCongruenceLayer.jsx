@@ -66,7 +66,13 @@ const decorateCards = (page) => {
     const destination = wizardStepAction(page, index).page;
     const label = active.querySelector(".guided-step-copy strong")?.textContent?.trim() || `Passaggio ${index + 1}`;
     const detail = active.querySelector(".guided-step-copy small")?.textContent?.trim() || "";
-    footerText.innerHTML = `<strong>${label}</strong> · ${detail} <b class="guided-footer-destination">→ Pagina: ${destination}</b>`;
+    footerText.replaceChildren();
+    const strong = document.createElement("strong");
+    strong.textContent = label;
+    const destinationNode = document.createElement("b");
+    destinationNode.className = "guided-footer-destination";
+    destinationNode.textContent = `→ Pagina: ${destination}`;
+    footerText.append(strong, document.createTextNode(` · ${detail} `), destinationNode);
   }
   return true;
 };

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { IDBFactory } from "fake-indexeddb";
 import { openWorkspaceDb, workspaceTransaction, readWorkspace, commitWorkspaceRestore } from "./workspaceDatabase.js";
 import { normalizeStoredTasks } from "./platform.js";
@@ -59,4 +60,12 @@ test("QA-IMPORT-002 ripristina anche le chiusure problemi persistenti", async ()
   const backup={schemaVersion:4,clients:[{id:1,name:"QA",url:"https://example.com/"}],tasks:[],gscData:{},problemClosures:[closure]};
   const prepared=await prepareWorkspaceRestore(backup);
   assert.deepEqual(JSON.parse(prepared.entries.get("seogrow-problem-closures-v1")),[closure]);
+});
+
+
+test("QA-BROWSER-ERROR-001 il gate fallisce su console.error del browser", async () => {
+  const source = await readFile(new URL("../scripts/browser-smoke.mjs", import.meta.url), "utf8");
+  assert.match(source, /Runtime\.consoleAPICalled/);
+  assert.match(source, /params\?\.type === "error"/);
+  assert.match(source, /Browser console errors/);
 });

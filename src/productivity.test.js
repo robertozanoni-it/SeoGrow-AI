@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { taskChange, undoTaskChange, savedViews } from "./productivity.js";
 test("task undo restores edit/create/delete while preserving unrelated new work", () => {
   const before = [{ id: "a", title: "A" }, { id: "b", title: "B" }];
@@ -15,4 +16,10 @@ test("task undo fails closed after concurrent changes or duplicate IDs", () => {
 test("restored views reject malformed data", () => {
   assert.deepEqual(savedViews({}), []);
   assert.equal(savedViews([null, { id: "a", name: "Work", filters: {} }]).length, 1);
+});
+
+test("CommandPalette deduplica pagine duplicate prima di creare i comandi React", async () => {
+  const source = await readFile(new URL("./ProductivityUi.jsx", import.meta.url), "utf8");
+  assert.match(source, /new Set\(pages\)/);
+  assert.match(source, /key=\{item\.label\}/);
 });
