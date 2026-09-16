@@ -21,6 +21,7 @@ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
+import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -3433,6 +3434,12 @@ export default function App() {
     {},
   );
   const [agentRuns, setAgentRuns] = useStoredState("seogrow-agent-runs-v1", {});
+  const [problemClosures, setProblemClosures] = useStoredState("seogrow-problem-closures-v1", []);
+  useEffect(() => {
+    const migrated = closuresFromAgentRuns(agentRuns, problemClosures);
+    if (JSON.stringify(migrated) !== JSON.stringify(problemClosures)) setProblemClosures(migrated);
+  }, [agentRuns, problemClosures, setProblemClosures]);
+
   const [wordpressProfiles, setWordpressProfiles] = useStoredState(
     "seogrow-wordpress-profiles-v1",
     {},
