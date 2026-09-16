@@ -529,7 +529,7 @@ export default function ProblemsWorkspace() {
               <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
-              <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{autoResolvable ? "Risolvi automaticamente" : problemEntryLabel(problem)} <ChevronRight /></button>
+              <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (problemEntryLabel(problem) === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{autoResolvable ? "Risolvi automaticamente" : problemEntryLabel(problem)} <ChevronRight /></button>
             </article>
           );
         }) : (

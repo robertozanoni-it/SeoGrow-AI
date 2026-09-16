@@ -17,6 +17,7 @@ const problemPrompt = (detail) => {
   const title = String(detail?.title || detail?.issueLabel || "Problema SEO").trim();
   const url = String(detail?.sourceUrl || detail?.url || "").trim();
   const state = String(detail?.problemState || detail?.status || "").trim();
+  const targets = Array.isArray(detail?.targetUrls) ? detail.targetUrls.filter(Boolean).join(", ") : "";
   const evidence = Array.isArray(detail?.evidence)
     ? detail.evidence.map((item) => typeof item === "string" ? item : `${item?.label || item?.source || "evidenza"}: ${item?.value || item?.detail || ""}`).filter(Boolean).join("; ")
     : String(detail?.evidence || detail?.detail || "").trim();
@@ -24,6 +25,7 @@ const problemPrompt = (detail) => {
     `Analizza e aiutami a risolvere questo problema specifico: ${title}.`,
     url ? `URL: ${url}.` : "",
     state ? `Stato attuale: ${state}.` : "",
+    targets ? `Target interessati: ${targets}.` : "",
     evidence ? `Evidenze disponibili: ${evidence}.` : "",
     "Usa solo dati verificabili del progetto, distingui osservazioni da inferenze e non dichiarare risolto il problema senza una verifica recente.",
   ].filter(Boolean).join(" ");

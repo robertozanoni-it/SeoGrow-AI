@@ -22,8 +22,8 @@ test("titolo pagina precede sempre contesto, wizard e card senza spostare il nod
 
 test("sidebar finale è sensibilmente più scura delle superfici precedenti", () => {
   assert.match(sidebar, /background:\s*#dfe7ef\s*!important/);
-  assert.match(sidebar, /#cfdeed/);
-  assert.match(sidebar, /#d0e5dd/);
+  assert.match(sidebar, /#78b8f5/);
+  assert.match(sidebar, /#cfe6fb/);
   assert.match(main, /import '\.\/SidebarContrastFinal\.css'/);
 });
 

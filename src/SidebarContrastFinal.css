@@ -4,14 +4,8 @@ body[data-seogrow-ui-mode] .sidebar {
   border-right-color: #c5d0dc !important;
 }
 
-body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(odd) {
-  background: linear-gradient(135deg, #cfdeed 0%, #dae6f1 100%) !important;
-  border-color: #bccddd !important;
-}
-
-body[data-seogrow-ui-mode] .guided-nav-group:nth-of-type(even) {
-  background: linear-gradient(135deg, #d0e5dd 0%, #dcebe5 100%) !important;
-  border-color: #bbd7cd !important;
+body[data-seogrow-ui-mode] .guided-nav-group {
+  border-color: #a9c9ea !important;
 }
 
 body[data-seogrow-ui-mode] .sidebar nav.guided-nav button {
@@ -52,15 +46,25 @@ body[data-seogrow-ui-mode] .sidebar .side-foot {
 
 /* 2026-09-16: one original blue, alternating full tone and <30% tint. */
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) {
-  background: #146cf5 !important;
+  background: #78b8f5 !important;
   border-radius: 12px !important;
   padding: 8px 6px !important;
 }
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(even) {
-  background: rgba(20, 108, 245, .24) !important;
+  background: #cfe6fb !important;
   border-radius: 12px !important;
   padding: 8px 6px !important;
 }
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) .guided-nav-label,
 body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button,
-body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button svg { color:#fff !important; }
+body[data-seogrow-ui-mode] .sidebar .guided-nav-group:nth-of-type(odd) button svg { color:#173b63 !important; }
+
+/* Selected Task is the only navigation state highlighted in red. */
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"].active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"][aria-current="page"] {
+  background: #d92d20 !important;
+  color: #fff !important;
+  box-shadow: inset 4px 0 #ff6b61, 0 5px 15px rgba(130, 20, 15, .24) !important;
+}
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"].active svg,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[data-seogrow-page="Task"][aria-current="page"] svg { color:#fff !important; }
