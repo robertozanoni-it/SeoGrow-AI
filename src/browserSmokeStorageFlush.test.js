@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../scripts/browser-smoke.mjs", import.meta.url), "utf8");
+const workspace = await readFile(new URL("./workspaceDatabase.js", import.meta.url), "utf8");
 
-test("browser QA gives debounced workspace writes time to settle before forced reload", () => {
+test("browser QA waits for workspace idle before forcing a CDP reload", () => {
   const reload = source.match(/async function reload\(\) \{[\s\S]*?\n\}/)?.[0] || "";
-  assert.match(reload, /await sleep\(350\)/);
-  assert.doesNotMatch(reload, /flushWorkspace\(\)/);
-  assert.ok(reload.indexOf("sleep(350)") < reload.indexOf('command("Page.reload"'), "settle delay must complete before Page.reload");
+  assert.match(reload, /sleep\(200\)/);
+  assert.match(reload, /isWorkspaceIdle\(\)/);
+  assert.ok(reload.indexOf("isWorkspaceIdle()") < reload.indexOf('command("Page.reload"'), "idle gate must complete before Page.reload");
+  assert.match(workspace, /export function isWorkspaceIdle\(\)/);
+  assert.match(workspace, /pendingWrites/);
 });

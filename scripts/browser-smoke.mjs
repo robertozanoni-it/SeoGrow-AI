@@ -28,10 +28,10 @@ async function visualScreenshot(name) {
   await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
 }
 async function reload() {
-  // Persisted React state is flushed on a 120 ms debounce. Give that cycle a
-  // bounded margin before CDP destroys the old document, without awaiting the
-  // workspace queue from inside the page (which can deadlock under reload QA).
-  await sleep(350);
+  // Let the app's 120 ms debounce enqueue persistence, then wait until the
+  // workspace queue is actually idle before CDP destroys the old document.
+  await sleep(200);
+  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
   await evaluate("window.__qaOldDocument = true");
   await command("Page.reload", {});
   await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");

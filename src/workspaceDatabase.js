@@ -7,6 +7,7 @@ let committedCache = null;
 let generation = null;
 let frozen = false;
 let pending = Promise.resolve();
+let pendingWrites = 0;
 let lastError = null;
 let channel = null;
 
@@ -112,10 +113,11 @@ function queueWrite(key, value) {
   const before = cache.get(key);
   if ((before ?? null) === value) return;
   if (value === null) cache.delete(key); else cache.set(key, value);
+  pendingWrites += 1;
   pending = pending.then(async () => {
-    if (lastError) return;
     let db;
     try {
+      if (lastError) return;
       db = await openWorkspaceDb();
       await workspaceTransaction(db, tx => guardWorkspaceTransaction(tx, () => {
         const store = tx.objectStore(WORKSPACE_STORE);
@@ -130,7 +132,7 @@ function queueWrite(key, value) {
       lastError = error;
       frozen = true;
       window.dispatchEvent(new CustomEvent("seogrow-storage-error", { detail: { key, message: error.message } }));
-    } finally { db?.close(); }
+    } finally { db?.close(); pendingWrites = Math.max(0, pendingWrites - 1); }
   });
 }
 
@@ -139,6 +141,7 @@ export const workspaceStorage = {
   setItem(key, value) { if (!cache) return globalThis.localStorage.setItem(key, value); queueWrite(key, String(value)); },
   removeItem(key) { if (!cache) return globalThis.localStorage.removeItem(key); queueWrite(key, null); },
 };
+export function isWorkspaceIdle() { return pendingWrites === 0; }
 export async function flushWorkspace() { await pending; if (lastError) throw lastError; }
 
 // The only commit point of an import: all keys, all snapshots and generation
