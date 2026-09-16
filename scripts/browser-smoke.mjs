@@ -28,7 +28,10 @@ async function visualScreenshot(name) {
   await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
 }
 async function reload() {
-  await evaluate("window.__qaOldDocument = true");
+  // A CDP reload can terminate the old document while IndexedDB writes are still
+  // pending. Flush the app queue first so the QA harness does not manufacture
+  // a transaction abort that a user-driven persisted navigation would not need.
+  await evaluate("(async()=>{const m=await import('/src/workspaceDatabase.js');await m.flushWorkspace();window.__qaOldDocument=true})()");
   await command("Page.reload", {});
   await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
 }
