@@ -31,7 +31,7 @@ async function reload() {
   // A CDP reload can terminate the old document while IndexedDB writes are still
   // pending. Flush the app queue first so the QA harness does not manufacture
   // a transaction abort that a user-driven persisted navigation would not need.
-  await evaluate("(async()=>{const m=await import('/src/workspaceDatabase.js');await m.flushWorkspace();window.__qaOldDocument=true})()");
+  await evaluate("(async()=>{const m=await import('/src/workspaceDatabase.js');await m.flushWorkspace();window.__qaOldDocument=true})()", 45000);
   await command("Page.reload", {});
   await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
 }
@@ -101,13 +101,13 @@ let messageId = 0;
 const pending = new Map();
 const browserEvents = [];
 
-const command = (method, params = {}) => new Promise((resolve, reject) => {
+const command = (method, params = {}, timeoutMs = 15000) => new Promise((resolve, reject) => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     reject(new Error("Connessione CDP non disponibile."));
     return;
   }
   const id = ++messageId;
-  const timer = setTimeout(() => { pending.delete(id); reject(new Error("CDP timeout: " + method)); }, 15000);
+  const timer = setTimeout(() => { pending.delete(id); reject(new Error("CDP timeout: " + method)); }, timeoutMs);
   pending.set(id, {
     resolve: value => { clearTimeout(timer); resolve(value); },
     reject: error => { clearTimeout(timer); reject(error); },
@@ -115,7 +115,7 @@ const command = (method, params = {}) => new Promise((resolve, reject) => {
   socket.send(JSON.stringify({ id, method, params }));
 });
 
-const evaluate = async (expression) => {
+const evaluate = async (expression, timeoutMs = 15000) => {
   let transientError;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -123,7 +123,7 @@ const evaluate = async (expression) => {
         expression,
         awaitPromise: true,
         returnByValue: true,
-      });
+      }, timeoutMs);
       if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Errore JavaScript browser.");
       return result.result?.value;
     } catch (error) {

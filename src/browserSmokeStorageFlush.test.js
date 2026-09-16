@@ -7,5 +7,6 @@ const source = await readFile(new URL("../scripts/browser-smoke.mjs", import.met
 test("browser QA flushes workspace writes before forcing a CDP reload", () => {
   const reload = source.match(/async function reload\(\) \{[\s\S]*?\n\}/)?.[0] || "";
   assert.match(reload, /flushWorkspace\(\)/);
+  assert.match(reload, /45000/);
   assert.ok(reload.indexOf("flushWorkspace()") < reload.indexOf('command("Page.reload"'), "flush must complete before Page.reload");
 });
