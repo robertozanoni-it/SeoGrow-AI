@@ -12,4 +12,7 @@ test("browser QA waits for workspace idle before forcing a CDP reload", () => {
   assert.ok(reload.indexOf("isWorkspaceIdle()") < reload.indexOf('command("Page.reload"'), "idle gate must complete before Page.reload");
   assert.match(workspace, /export function isWorkspaceIdle\(\)/);
   assert.match(workspace, /pendingWrites/);
+  const immediate = source.match(/async function reloadImmediate\(\) \{[\s\S]*?\n\}/)?.[0] || "";
+  assert.doesNotMatch(immediate, /isWorkspaceIdle\(\)/);
+  assert.match(immediate, /Page\.reload/);
 });
