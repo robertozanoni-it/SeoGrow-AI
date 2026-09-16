@@ -136,6 +136,10 @@ export function batchSummary(run) {
     managedAssisted: managed.reduce((n, e) => n + e.problemKeys.length, 0),
     directCandidates: direct.reduce((n, e) => n + e.problemKeys.length, 0),
     assistedCandidates: assisted.reduce((n, e) => n + e.problemKeys.length, 0),
+    assistedPrepared: managed.reduce((n, e) => n + e.problemKeys.length, 0),
+    awaitingApproval: run.entries.filter(e => e.state === 'PREPARED').reduce((n,e) => n + e.problemKeys.length, 0),
+    appliedAwaitingVerification: run.entries.filter(e => ['APPLIED_UNVERIFIED','VERIFYING'].includes(e.state)).reduce((n,e) => n + e.problemKeys.length, 0),
+    stillOpen: run.entries.filter(e => !['RESOLVED_VERIFIED'].includes(e.state)).reduce((n,e) => n + e.problemKeys.length, 0),
     highRisk: operations.filter(e => e.state === 'PREPARED' && e.highRisk).length };
 }
 export function verificationState(result) {

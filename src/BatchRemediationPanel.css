@@ -37,3 +37,7 @@
 @media(max-width:640px) { .batch-workspace { padding:14px; }.batch-toolbar { align-items:stretch; }.batch-toolbar button { width:100%; }.batch-diff,.batch-credentials { grid-template-columns:1fr; }.batch-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }.batch-entry { padding:13px; } }
 
 .problem-batch-facts { display: grid; gap: .3rem; font-size: .85rem; }
+.batch-outcome { display:flex; flex-direction:column; gap:6px; padding:16px 18px; margin:16px 0 4px; border-radius:12px; border:1px solid #f1b7b2; background:#fff2f1; color:#5c211c; }
+.batch-outcome.has-resolved { border-color:#a9dec7; background:#edf9f3; color:#174d35; }
+.batch-outcome strong { font-size:1rem; }
+.batch-outcome span { font-size:.9rem; }

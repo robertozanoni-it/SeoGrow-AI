@@ -12,7 +12,7 @@ import { navigatePage } from './navigationUx.js';
 import './BatchRemediationPanel.css';
 
 const runLabels = { PLANNING: 'Preparazione in corso', AWAITING_APPROVAL: 'Revisione correzione batch', RUNNING: 'Correzione batch in corso',
-  SUCCESS: 'Correzione batch completata', PARTIAL_SUCCESS: 'Batch completato con problemi ancora aperti', COMPLETED_WITH_OPEN: 'Batch concluso: interventi da completare', INTERRUPTED: 'Batch interrotto' };
+  SUCCESS: 'Correzione batch completata', PARTIAL_SUCCESS: 'Batch completato con problemi ancora aperti', COMPLETED_WITH_OPEN: 'Batch concluso: nessuna correzione ancora confermata', INTERRUPTED: 'Batch interrotto' };
 const date = at => at ? new Date(at).toLocaleString('it-IT') : 'Non disponibile';
 function download(name, content, mime) {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
@@ -127,7 +127,8 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       </>}
       {run && <>
         <p className="batch-note">{run.id} · {date(run.createdAt)}{run.parentRunId ? ` · Retry di ${run.parentRunId}` : ''}</p>
-        <div className="batch-kpis">{[['Selezionati',summary.selected],['Auto-fix candidati',summary.directCandidates],['Gestione assistita',summary.assistedCandidates],['Operazioni',summary.operations],['Risolti e verificati',summary.resolvedProblems],['Gestiti in batch',summary.managedAssisted],['Applicati',summary.applied],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <button type="button" key={label} onClick={() => { setShown(false); onShowOpen?.(); }} aria-label={`Apri problemi: ${label}`}><strong>{value}</strong><span>{label}</span></button>)}</div>
+        <div className={`batch-outcome ${summary.resolvedProblems ? 'has-resolved' : 'has-open'}`}><strong>{summary.resolvedProblems ? `${summary.resolvedProblems} problemi risolti e verificati.` : 'Nessun problema è stato ancora corretto e verificato.'}</strong><span>{summary.pagesModified ? `${summary.pagesModified} pagine modificate.` : 'Nessuna pagina del sito è stata modificata.'} {summary.stillOpen ? `${summary.stillOpen} problemi richiedono ancora una conclusione.` : 'Non restano problemi aperti in questo batch.'}</span></div>
+        <div className="batch-kpis">{[['Analizzati',summary.selected],['Risolti e rimossi',summary.resolvedProblems],['Soluzioni da approvare',summary.awaitingApproval],['Applicati da verificare',summary.appliedAwaitingVerification],['Interventi assistiti preparati',summary.assistedPrepared],['Ancora aperti',summary.stillOpen],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <button type="button" key={label} onClick={() => { setShown(false); onShowOpen?.(); }} aria-label={`Apri problemi: ${label}`}><strong>{value}</strong><span>{label}</span></button>)}</div>
         <p>Costo AI stimato: {run.estimatedCost ?? 'non disponibile'} · Costo reale: {run.cost ?? 'non disponibile'} · Modello: {run.model || 'configurazione corrente; dato non restituito'}</p>
         <div aria-live="polite"><progress max={run.entries.length} value={done} aria-label="Avanzamento batch" /> <span>{done} / {run.entries.length} problemi elaborati</span></div>
         {historyOnly && <p className="batch-note">Vista storica: i token di approvazione non vengono conservati. Un nuovo tentativo richiede nuove anteprime e una nuova approvazione.</p>}
