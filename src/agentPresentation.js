@@ -4,7 +4,7 @@ export const agentModeHelp = {
   ASSISTED: "Le operazioni di modifica richiedono la tua approvazione.",
   AUTONOMOUS: "Opera entro i limiti configurati. Le azioni ad alto rischio richiedono comunque approvazione.",
 };
-const statuses = { PLANNING: "Pianificazione", RUNNING: "Analisi in corso", WAITING_APPROVAL: "In attesa di approvazione", COMPLETED: "Completata", PARTIAL: "Risultato parziale", BLOCKED: "Esecuzione bloccata", FAILED: "Errore", CANCELLED: "Interrotta", PENDING: "Da eseguire", CACHED: "Risultato riutilizzato", SKIPPED: "Non eseguita" };
+const statuses = { PLANNING: "Pianificazione", RUNNING: "Analisi in corso", WAITING_APPROVAL: "In attesa di approvazione", COMPLETED: "Analisi completata", PARTIAL: "Risultato parziale", BLOCKED: "Esecuzione bloccata", FAILED: "Errore", CANCELLED: "Interrotta", PENDING: "Da eseguire", CACHED: "Risultato riutilizzato", SKIPPED: "Non eseguita" };
 export const agentStatusLabel = status => statuses[status] || status || "Non disponibile";
 
 // Preserve zero as a real observation; absent costs must not look free.

@@ -12,6 +12,7 @@ test("agent costs distinguish absent, zero, estimate and actual values", () => {
 
 test("blocked runs do not assume insufficient data, and unknown states remain visible", () => {
   assert.equal(agentStatusLabel("BLOCKED"), "Esecuzione bloccata");
+  assert.equal(agentStatusLabel("COMPLETED"), "Analisi completata");
   assert.equal(agentStatusLabel("CACHED"), "Risultato riutilizzato");
   assert.equal(agentStatusLabel("NEW_STATE"), "NEW_STATE");
 });
