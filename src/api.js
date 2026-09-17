@@ -2,6 +2,7 @@ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 import { normalizeClientId } from "./reliabilityModel.js";
+import { excludeLegalSeo } from "./modules/audit/data.js";
 import {
   buildEditorialProjectContext,
   serializeEditorialProjectContext,
@@ -86,6 +87,24 @@ export const assertProjectPolicyAllowsRequest = (path, method, body) => {
     error.code = "PROJECT_FEATURE_DISABLED";
     throw error;
   }
+};
+
+const applyProjectAuditExclusions = async (response, path) => {
+  if (!["/api/site-analysis", "/api/audit"].includes(path) || !response?.ok) return response;
+  const excludedPaths = activeProjectPolicy()?.audit?.excludedPaths || [];
+  if (!excludedPaths.length) return response;
+  let data;
+  try { data = await response.clone().json(); }
+  catch { return response; }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return response;
+  excludeLegalSeo(data, { excludedPaths });
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "application/json");
+  return new Response(JSON.stringify(data), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 };
 
 export const prepareEditorialGenerateBody = (body) => {
@@ -320,9 +339,10 @@ export async function apiFetch(input, init = {}) {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           continue;
         }
+        const projectFilteredResponse = await applyProjectAuditExclusions(response, path);
         const integrityResponse = path === "/api/site-analysis"
-          ? await normalizeSiteAnalysisResponse(response)
-          : response;
+          ? await normalizeSiteAnalysisResponse(projectFilteredResponse)
+          : projectFilteredResponse;
         const normalized = await normalizeGdprResponse(integrityResponse, path, preparedInit);
         assertProjectStillSelected(scopeEntry);
         return normalized;
