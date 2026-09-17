@@ -16,7 +16,7 @@ const normalizedUrl = (value) => {
     return url.href;
   } catch { return ""; }
 };
-const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const finite = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const impactFromSeverity = (value) => ({ high: "Alto", medium: "Medio", low: "Basso" })[String(value || "").toLowerCase()] || "Medio";
 const impactFromPlanPriority = (value) => ({ alta: "Alto", media: "Medio", bassa: "Basso" })[String(value || "").toLowerCase()] || "Medio";
 const effortFromCorrectability = (value) => value === "automatic" ? "Basso" : value === "assisted" ? "Medio" : "Alto";
