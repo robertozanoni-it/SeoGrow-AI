@@ -84,6 +84,6 @@ test("wizard usa solo moduli canonici e Problemi resta una sottovista di Audit S
   const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
   const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
   assert.match(main, /<ProblemsNavBridge \/>/);
-  assert.match(bridge, /data-seogrow-page=\"Audit SEO\"/);
-  assert.match(bridge, /data-seogrow-subview=\"Audit SEO:Problemi\"/);
+  assert.match(bridge, /data-seogrow-page="Audit SEO"/);
+  assert.match(bridge, /data-seogrow-subview="Audit SEO:Problemi"/);
 });
