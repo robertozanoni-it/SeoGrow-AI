@@ -13,6 +13,7 @@ import { workspaceStorage } from "./workspaceDatabase.js";
 import { writeTaskWorkflowContext } from "./taskWorkflow.js";
 import { contentPlan } from "./modules/content/index.js";
 import { analyzeInternalLinkSuggestions } from "./modules/links/index.js";
+import { geoOpportunityInputs } from "./modules/geo/index.js";
 import {
   validRankingRuns,
   comparableRankingRuns,
@@ -33,7 +34,7 @@ const historyForClient = (store, clientId) => {
 const latestByDate = (items) => (Array.isArray(items) ? items : []).toSorted((left, right) =>
   (Date.parse(right?.analyzedAt || right?.startedAt || 0) || 0) - (Date.parse(left?.analyzedAt || left?.startedAt || 0) || 0),
 )[0] || null;
-const sourceLabels = Object.freeze({ audit: "Audit SEO", ranking: "Ranking", content: "Contenuti", links: "Link interni" });
+const sourceLabels = Object.freeze({ audit: "Audit SEO", ranking: "Ranking", content: "Contenuti", links: "Link interni", geo: "GEO AI" });
 const actionIcon = (kind) => kind === "correction" ? Wrench : kind === "content" ? FileText : ListTodo;
 const taskPriority = (priority) => ["Alta", "Media", "Bassa"].includes(priority) ? priority : "Media";
 
@@ -113,6 +114,7 @@ export default function OpportunitiesWorkspaceLayer() {
     pageAudits: readJson(WORKSPACE_KEYS.pageAuditHistory, {}),
     rankings: readJson(WORKSPACE_KEYS.rankings, {}),
     gsc: readJson(WORKSPACE_KEYS.gsc, {}),
+    geo: readJson(WORKSPACE_KEYS.geoData, {}),
     closures: readJson(WORKSPACE_KEYS.problemClosures, []),
   }), [revision]);
 
@@ -132,6 +134,7 @@ export default function OpportunitiesWorkspaceLayer() {
   const pageHistory = historyForClient(stores.pageAudits, selectedClientId);
   const analysis = latestByDate(siteHistory);
   const gscDataset = forClient(stores.gsc, selectedClientId, null);
+  const geoSaved = forClient(stores.geo, selectedClientId, null);
   const corrections = useMemo(
     () => correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.rows : [],
     [correctionSnapshot, selectedClientId],
@@ -150,13 +153,15 @@ export default function OpportunitiesWorkspaceLayer() {
   const rankingRows = useMemo(() => buildPositioningRows(currentRanking, comparisonRanking, rankingRuns), [currentRanking, comparisonRanking, rankingRuns]);
   const contentItems = useMemo(() => contentPlan(gscDataset, analysis), [gscDataset, analysis]);
   const safeLinks = useMemo(() => analyzeInternalLinkSuggestions(analysis?.internalLinkSuggestions || []).valid, [analysis]);
+  const geoItems = useMemo(() => geoOpportunityInputs({ audit: geoSaved?.audit, simulation: geoSaved?.simulation, observation: geoSaved?.observation }), [geoSaved]);
   const opportunityGate = useMemo(() => buildSeoOpportunities({
     auditProblems: problems,
     rankingRows,
     contentItems,
     linkSuggestions: safeLinks,
+    geoItems,
     gscDataset,
-  }), [problems, rankingRows, contentItems, safeLinks, gscDataset]);
+  }), [problems, rankingRows, contentItems, safeLinks, geoItems, gscDataset]);
 
   const visible = opportunityGate.opportunities.filter((item) => {
     const haystack = `${item.title} ${item.reason} ${item.url} ${item.targetUrl}`.toLocaleLowerCase("it");
@@ -205,7 +210,7 @@ export default function OpportunitiesWorkspaceLayer() {
   ) : (
     <section className="seo-opportunities-workspace" aria-label="Opportunità SEO azionabili">
       <header className="seo-opportunities-head">
-        <div><span className="eyebrow"><ShieldCheck /> Gate azionabilità attivo</span><h2>Opportunità SEO</h2><p>Audit, ranking, contenuti e link interni raccolti in una sola coda deduplicata e operativa.</p></div>
+        <div><span className="eyebrow"><ShieldCheck /> Gate azionabilità attivo</span><h2>Opportunità SEO</h2><p>Audit, ranking, contenuti, link interni e segnali GEO raccolti in una sola coda deduplicata e operativa.</p></div>
         <div className="seo-opportunities-source-summary">{bySource.map(([type, count]) => <span key={type}><strong>{count}</strong><small>{sourceLabels[type]}</small></span>)}</div>
       </header>
 
@@ -243,7 +248,7 @@ export default function OpportunitiesWorkspaceLayer() {
         </tbody></table></div>
       )}
 
-      <footer className="seo-opportunities-foot"><span><Link2 /> Duplicati fusi per problema, query o coppia sorgente→destinazione.</span><span><Wrench /> Impatto e sforzo sono stime operative derivate da evidenze e fattibilità, non metriche inventate.</span><span><ListTodo /> Ogni riga visibile supera il Gate e possiede una CTA verso Task, Correzione o Contenuto.</span></footer>
+      <footer className="seo-opportunities-foot"><span><Link2 /> Duplicati fusi per problema, query, coppia sorgente→destinazione o evidenza GEO.</span><span><Wrench /> Impatto e sforzo sono stime operative del modulo Opportunità; GEO fornisce evidenze grezze e non score sintetici.</span><span><ListTodo /> Ogni riga visibile supera il Gate e possiede una CTA verso Task, Correzione o Contenuto.</span></footer>
     </section>
   );
 
