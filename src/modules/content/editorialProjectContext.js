@@ -2,7 +2,7 @@ export const EDITORIAL_CONTEXT_SCHEMA = "seogrow-editorial-context-v1";
 
 const text = (value) => String(value ?? "").trim();
 const safeArray = (value) => Array.isArray(value) ? value : [];
-const finiteOrNull = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const finiteOrNull = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 
 const safeHttpUrl = (value) => {
   try {
