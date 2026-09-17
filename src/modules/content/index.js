@@ -24,3 +24,10 @@ export {
   parseEditorialProjectContext,
   serializeEditorialProjectContext,
 } from "./editorialProjectContext.js";
+export {
+  EDITORIAL_STATUSES,
+  buildEditorialPlanRows,
+  patchEditorialPlanState,
+  editorialPlanEvidence,
+  editorialPlanIdentity,
+} from "./editorialPlanModel.js";
