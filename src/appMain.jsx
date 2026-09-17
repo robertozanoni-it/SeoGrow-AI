@@ -27,7 +27,6 @@ import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import {
-  ProblemsNavBridge,
   ProblemsWorkspaceMount,
   ProblemResolutionPage,
   AuditWorkspace,
@@ -98,7 +97,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <WizardCongruenceLayer />
       <CardWorkspaceLayer />
       <ProjectSelectionGuard />
-      <ProblemsNavBridge />
       <ProblemsWorkspaceMount />
       <ProblemResolutionPage />
       <AutomaticProposalPage />
