@@ -1,7 +1,7 @@
 import { apiFetch } from "./api.js";
 import { applyJournaledCorrection } from "./correctionJournal.js";
 import { previewIdentity } from "./remediationPlanSafety.js";
-import { createWordPressCorrection, flattenState } from "./wordpressRemediationEngine.js";
+import { createWordPressCorrection, flattenState } from "./modules/publish/index.js";
 import { brokenExternalTarget } from "./brokenLinkRemediation.js";
 
 const fail = (message, code) => Object.assign(new Error(message), { code });
