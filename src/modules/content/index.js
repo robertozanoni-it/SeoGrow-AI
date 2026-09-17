@@ -17,3 +17,10 @@ export {
   planItems,
   scheduleItem,
 } from "./editorialPlanning.js";
+export {
+  EDITORIAL_CONTEXT_SCHEMA,
+  buildEditorialProjectContext,
+  validateEditorialProjectContext,
+  parseEditorialProjectContext,
+  serializeEditorialProjectContext,
+} from "./editorialProjectContext.js";
