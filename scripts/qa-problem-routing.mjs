@@ -6,8 +6,8 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const clientId=await read('seogrow-selected-client-v1');
     const clients=await read('seogrow-clients');
     const client=clients.find(c=>Number(c.id)===Number(clientId));
-    const siteKey='seogrow-analyses-v2',pageKey='seogrow-page-audit-history-v2',profileKey='seogrow-wordpress-profiles-v1';
-    const sites=await read(siteKey),pages=await read(pageKey),profiles=await read(profileKey);
+    const siteKey='seogrow-analyses-v2',pageKey='seogrow-page-audit-history-v2',profileKey='seogrow-wordpress-profiles-v1',closureKey='seogrow-problem-closures-v1';
+    const sites=await read(siteKey),pages=await read(pageKey),profiles=await read(profileKey),closures=await read(closureKey);
     const originals=await evaluate("(async()=>{const m=await import('/src/remediationStore.js');return m.listCorrections({includeOrphans:true})})()");
     const url=new URL('content-h1-wordpress-routing/',client.url).href;
     const issue={type:'duplicate-title',label:'Title duplicato',severity:'alta',sourceUrl:url,url,detail:'Title duplicato sulla pagina '+url};
@@ -105,7 +105,12 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(await evaluate("Boolean(document.querySelector('#seo-agent-goal'))"),false,'Manual problem no longer skips directly to SEO Agent');
       await waitFor("document.querySelector('.problem-resolution-actions .problem-resolution-auto')",'Manual problem exposes one primary next action');
       await screenshot('manual-problem-correction-flow');
-      await button('Torna ai problemi','.problem-resolution-root');
+      await button('Non modificare','.problem-resolution-root');
+      await waitFor("decodeURIComponent(location.hash.slice(1))==='Problemi' && !document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"]')",'Do not modify removes the problem from active list');
+      const excluded=await read(closureKey);
+      assert.equal(excluded.some(item=>Number(item.clientId)===Number(clientId)&&item.issueType==='url-alias'&&item.disposition==='do_not_modify'&&item.permanent===true),true,'Permanent exclusion persisted');
+      await revisit('Problemi');
+      await waitFor("!document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"]')",'Do not modify survives reload and reopen');
       await waitFor("document.querySelector('.native-problem-cards [data-problem-key*=\"second-link\"]')",'Second external-link card');
       await click('.native-problem-cards [data-problem-key*=\"second-link\"]');
       await waitFor("decodeURIComponent(location.hash.slice(1))==='Correzioni' && (document.querySelector('.automatic-proposal-page') || document.querySelector('.problem-resolution-root'))",'Second external-link opens the correction flow');
@@ -131,7 +136,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     } finally {
       await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
       await evaluate("(async()=>{const n=await import('/src/AutomaticProposalNavigation.js');n.clearAutomaticProposalFocus();sessionStorage.removeItem(n.RESOLUTION_FOCUS_KEY);window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-close'));window.dispatchEvent(new CustomEvent('seogrow-problem-resolution-open'))})()");
-      await write(siteKey,sites);await write(pageKey,pages);await write(profileKey,profiles);
+      await write(siteKey,sites);await write(pageKey,pages);await write(profileKey,profiles);await write(closureKey,closures);
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals)})})()`);
       await revisit('Centro progetto');
     }
