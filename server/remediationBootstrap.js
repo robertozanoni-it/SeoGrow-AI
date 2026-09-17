@@ -79,6 +79,7 @@ const remediationModules = await Promise.all([
   import("./linkEvidenceHook.js"),
   import("./elementorSharedLinkHook.js"),
 ]);
+const auditEvidenceModule = await import("./auditEvidenceRoutes.js");
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 7;
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
@@ -147,6 +148,7 @@ export function registerRemediationRoutes(app) {
     }
     module.registerRoutes(app);
   }
+  auditEvidenceModule.registerRoutes(app);
 }
 
 export const explicitRemediationRouteModules = remediationModules
