@@ -443,8 +443,10 @@ function pageObservationIssues(observation) {
   for (const link of observation.linkResults || []) {
     const broken = !link.status || [404, 410].includes(link.status) || link.status === 429 || link.status >= 500;
     if (!broken || isLegalPage(link.url)) continue;
-    let external = false;
-    try { external = new URL(link.url).hostname.replace(/^www\./, "") !== sourceHost; } catch { external = true; }
+    const external = (() => {
+      try { return new URL(link.url).hostname.replace(/^www\./, "") !== sourceHost; }
+      catch { return true; }
+    })();
     issues.push({
       type: external ? "broken-external-link" : "broken-link",
       severity: link.temporary ? "media" : "alta",
