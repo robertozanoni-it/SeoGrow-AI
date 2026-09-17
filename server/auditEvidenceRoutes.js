@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { isLegalPage } from "../src/modules/audit/data.js";
 import { normalizeHttpUrl } from "../src/reliabilityModel.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
