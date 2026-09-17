@@ -16,7 +16,7 @@ const projectState = {
   },
   tasks: [
     { id: "t1", title: "Controlla pagina", sourceClientId: 7, status: "Da fare", priority: "Alta", kind: "noindex", sourceUrl: "https://qa.example/a" },
-    { id: "t2", title: "Task chiusa", sourceClientId: 7, status: "Completato", priority: "Media", kind: "manual" },
+    { id: "t2", title: "Task chiusa", sourceClientId: 7, status: "Completato", priority: "Media", kind: "seo-agent" },
   ],
   corrections: [
     { id: "c1", clientId: 7, issueType: "noindex", issueLabel: "Pagina noindex", sourceUrl: "https://qa.example/a", status: "Verificato", verifiedAt: "2026-09-17T08:30:00Z" },
