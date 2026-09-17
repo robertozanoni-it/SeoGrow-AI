@@ -30,7 +30,8 @@ const checks = {
   noImplementationMarkers: markers.length === 0,
   appShellBounded: appLines < 5000,
   mainBundleBelow700k: !mainBundle || mainBundle.bytes < 700 * 1024,
-  geoTabsFunctional: /setActiveTab/.test(geoPage) && /GeoInsightsPanel/.test(geoPage) && /Query Monitor GEO/.test(geoPanel) && /Competitor osservati/.test(geoPanel),
+  geoTabsFunctional: /setActiveTab/.test(geoPage) && /GeoInsightsPanel/.test(geoPage) && /Entità e schema osservati/.test(geoPanel) && /Azioni GEO verificabili/.test(geoPanel),
+  geoEvidenceNotDecorative: /Cosa NON misura/.test(geoPage) && /Nessun entity score/.test(geoPanel) && /onOpenOpportunities/.test(geoPanel) && /onCreateTask/.test(geoPanel),
   sidebarTonesAlternating: /groupIndex % 2/.test(guided) && /tone-blue/.test(guidedCss) && /tone-mint/.test(guidedCss),
   centralizedTaskFactory: /sourceClientId/.test(taskFactory) && /priority/.test(taskFactory),
 };
