@@ -19,13 +19,17 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     return { mode: "verify", action: path.action, label: path.label, title: path.title, instructions: path.instructions, kind };
   }
 
+  if (path.action === "audit") {
+    return { mode: "audit", action: "audit", label: path.label, title: path.title, instructions: path.instructions, kind };
+  }
+
   if (problem.correctability === "automatic" && path.action === "prepare" && !problem.ownershipBlocked && hasUrl) {
     return {
       mode: "automatic",
       action: "prepare",
-      label: "Risolvi automaticamente",
-      title: "Correzione automatica prioritaria",
-      instructions: "SeoGrow prepara la modifica con l’adapter verificato, controlla il Prima/Dopo e applica solo attraverso il flusso protetto già previsto. La risoluzione SEO viene confermata soltanto dalla verifica successiva.",
+      label: "Correggi automaticamente",
+      title: "Correzione automatica controllata",
+      instructions: "SeoGrow prepara il confronto Prima/Dopo con l’adapter verificato. La scrittura avviene soltanto nel flusso protetto e la risoluzione SEO viene confermata dalla verifica successiva.",
       kind,
     };
   }
@@ -34,9 +38,9 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     return {
       mode: "approval",
       action: "prepare",
-      label: kind === "external_link" ? path.label : "Prepara soluzione",
-      title: "Soluzione pronta per approvazione",
-      instructions: "SeoGrow prepara una proposta concreta e verificabile. Prima di qualunque scrittura mostra il confronto Prima/Dopo e richiede la tua approvazione.",
+      label: "Prepara correzione",
+      title: "Correzione da preparare",
+      instructions: "Serve una proposta controllata prima della scrittura. SeoGrow prepara il Prima/Dopo e richiede approvazione esplicita prima di applicare la modifica.",
       kind,
     };
   }
@@ -45,22 +49,21 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
     return {
       mode: "confirm",
       action: "confirm",
-      label: "Verifica e prepara soluzione",
+      label: "Prepara correzione",
       title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione",
       instructions: kind === "canonical"
-        ? "Conferma che questa URL debba essere la versione canonica pubblica. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione."
-        : "Conferma che questa pagina debba essere indicizzabile. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione.",
+        ? "Prima conferma che questa URL debba essere la versione canonica pubblica. SeoGrow mostrerà poi il Prima/Dopo prima di qualunque scrittura."
+        : "Prima conferma che questa pagina debba essere indicizzabile. SeoGrow mostrerà poi il Prima/Dopo prima di qualunque scrittura.",
       kind,
     };
   }
 
-  const specificGuidedLabel = ["audit", "manual"].includes(path.action);
   return {
-    mode: "guided",
-    action: path.action === "audit" ? "audit" : "guide",
-    label: specificGuidedLabel ? path.label : "Prepara soluzione guidata",
-    title: path.title || "Soluzione guidata",
-    instructions: path.instructions || "SeoGrow prepara i passaggi operativi e le verifiche necessarie. Se manca un adapter sicuro non viene simulata alcuna scrittura automatica.",
+    mode: "manual",
+    action: path.action === "audit" ? "audit" : "manual",
+    label: "Richiede intervento manuale",
+    title: path.title || "Intervento manuale richiesto",
+    instructions: path.instructions || "Non esiste un adapter sicuro per applicare automaticamente questa modifica. SeoGrow può mostrare evidenze e passaggi, ma non simula una scrittura automatica.",
     kind,
   };
 };
