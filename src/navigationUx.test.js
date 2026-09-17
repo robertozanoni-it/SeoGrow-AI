@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { isRegisteredPage } from "./core/modules/moduleRegistry.js";
 import { searchWorkspace, isNavigationItemVisible, navigatePage } from "./navigationUx.js";
 
 const workspace = {
@@ -76,9 +77,11 @@ test("la terminologia Suite naviga sulle route legacy senza cambiare il valore p
   }
 });
 
-test("Problemi resta una destinazione primaria anche in modalità semplice", async () => {
+test("le viste legacy restano compatibili ma non sono destinazioni primarie", async () => {
   const { SUITE_NAVIGATION } = await import("./suite/navigationModel.js");
-  const item = SUITE_NAVIGATION.flatMap(group => group.items).find(entry => entry.page === "Problemi");
-  assert.equal(item.advancedOnly, false);
-  assert.equal(isNavigationItemVisible(item.page, item.advancedOnly, "simple", "Task"), true);
+  const pages = SUITE_NAVIGATION.flatMap((group) => group.items.map((entry) => entry.page));
+  for (const legacyPage of ["Problemi", "Storico", "SeoGrow AI"]) {
+    assert.equal(isRegisteredPage(legacyPage), true);
+    assert.equal(pages.includes(legacyPage), false);
+  }
 });
