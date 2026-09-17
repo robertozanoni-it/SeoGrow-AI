@@ -24,6 +24,7 @@ import './BrokenLinkCleanupChoiceUx';
 import './SharedElementorBrokenLinkUx';
 import './ProviderBudgetUx';
 import './ProposalBeforeAfterLinks';
+import './FinalUxSemantics';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -80,6 +81,7 @@ import './OpportunitiesReference.css';
 import './ReferenceFidelityFinal.css';
 import './SemanticVisualSystem.css';
 import './SidebarContrastFinal.css';
+import './FinalUxContract.css';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
