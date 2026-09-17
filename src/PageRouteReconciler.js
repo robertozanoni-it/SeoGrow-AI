@@ -8,9 +8,22 @@ const MAX_FRAMES = 120;
 let frame = 0;
 let generation = 0;
 
+const RETIRED_LEGACY_ROUTES = Object.freeze({
+  Storico: "Centro progetto",
+  "SeoGrow AI": "SEO Agent",
+});
+
+export const canonicalRuntimePage = (page) => RETIRED_LEGACY_ROUTES[page] || page;
+
 const readRequestedPage = () => {
-  try { return resolvePageAlias(decodeURIComponent(window.location.hash.slice(1)) || "Panoramica"); }
-  catch { return "Panoramica"; }
+  try {
+    const requested = resolvePageAlias(decodeURIComponent(window.location.hash.slice(1)) || "Panoramica");
+    // Problemi resta una sottovista operativa di Audit SEO con route propria.
+    // Le vecchie pagine Storico/SeoGrow AI sono invece alias verso i loro owner canonici.
+    return canonicalRuntimePage(requested);
+  } catch {
+    return "Panoramica";
+  }
 };
 
 const dispatchPageState = (page) => {
