@@ -24,9 +24,9 @@ test("Audit espone le sue superfici e Problemi resta una sottovista, non un modu
     assert.match(facade, new RegExp(`default as ${surface}`));
     assert.match(main, new RegExp(`<${surface} \\/>`));
   }
-  assert.match(problemsBridge, /data-seogrow-page=\"Audit SEO\"/);
+  assert.match(problemsBridge, /data-seogrow-page="Audit SEO"/);
   assert.match(problemsBridge, /guided-audit-subnav-host/);
-  assert.match(problemsBridge, /data-seogrow-subview=\"Audit SEO:Problemi\"/);
+  assert.match(problemsBridge, /data-seogrow-subview="Audit SEO:Problemi"/);
   for (const surface of PUBLISH_SURFACES) {
     assert.doesNotMatch(facade, new RegExp(`default as ${surface}`));
   }
