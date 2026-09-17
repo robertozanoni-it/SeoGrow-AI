@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Archive, CheckCircle2, Flag, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
@@ -112,9 +112,8 @@ export default function SettingsWorkspaceLayer() {
           <label>Ranking<input type="number" min="1" max="100" value={draft.retention.rankingRuns} onChange={(event) => patch("retention", { rankingRuns: Number(event.target.value) })} /></label>
           <label>Agent log<input type="number" min="1" max="100" value={draft.retention.agentRuns} onChange={(event) => patch("retention", { agentRuns: Number(event.target.value) })} /></label>
           <label>GEO snapshot<input type="number" min="1" max="100" value={draft.retention.geoSnapshots} onChange={(event) => patch("retention", { geoSnapshots: Number(event.target.value) })} /></label>
-          <label>Correzioni<input type="number" min="50" max="2000" value={draft.retention.correctionRecords} onChange={(event) => patch("retention", { correctionRecords: Number(event.target.value) })} /></label>
         </div>
-        <small><Archive /> Limiti massimi conservati per progetto; la pulizia mantiene i record più recenti.</small>
+        <small><Archive /> La retention automatica riguarda soltanto storici non autoritativi. Le Correzioni verificate non vengono eliminate perché partecipano alla riconciliazione di problemi e Task.</small>
       </article>
 
       <article>
