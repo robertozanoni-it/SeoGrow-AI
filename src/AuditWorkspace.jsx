@@ -84,6 +84,70 @@ const taskIssueKey = auditTaskIdentity;
 const normalizePageAudit = (item) => enforceAuditEvidence(normalizeSiteAnalysis({ ...item, pagesChecked: 1, auditMode: "page" }));
 const normalizeSiteAudit = (item) => enforceAuditEvidence(normalizeSiteAnalysis({ ...item, auditMode: "site" }));
 
+const supplementPageAudit = async (data, fallbackUrl, signal) => {
+  const sourceUrl = data?.url || fallbackUrl;
+  if (!sourceUrl || data?.legalOnly) return data;
+  try {
+    const response = await apiFetch("/api/frontend/inspect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: sourceUrl }),
+      signal,
+    });
+    const inspection = await response.json();
+    if (!response.ok) throw new Error(inspection.error || "Ispezione frontend non riuscita");
+    const issues = Array.isArray(data?.issues) ? [...data.issues] : [];
+    const reviewItems = Array.isArray(data?.reviewItems) ? [...data.reviewItems] : [];
+    if (inspection.pageKind === "content" && Number(inspection.words) >= 300 && Number(inspection.h2) === 0) {
+      issues.push({
+        type: "h2",
+        severity: "bassa",
+        label: "Nessun H2 rilevato",
+        sourceUrl: inspection.url || sourceUrl,
+        observedValue: "0 H2 visibili",
+        detail: `Pagina di contenuto con ${inspection.words} parole visibili senza sottotitoli H2.`,
+      });
+    }
+    if (inspection.noindex) {
+      reviewItems.push({
+        type: "indexability",
+        severity: "bassa",
+        label: "Pagina impostata noindex",
+        sourceUrl: inspection.url || sourceUrl,
+        observedValue: [inspection.robots, inspection.googlebot, inspection.xRobotsTag].filter(Boolean).join(" · ") || "noindex",
+        detail: "Direttiva noindex osservata nell'HTML pubblico o nelle intestazioni HTTP.",
+        diagnosisState: "needs-confirmation",
+        evidenceNature: "observed-signal",
+        reviewReason: "Il noindex può essere intenzionale: verificare intento, sitemap e link interni prima di modificarlo.",
+      });
+    }
+    return {
+      ...data,
+      h2: Number(inspection.h2) || 0,
+      noindex: Boolean(inspection.noindex),
+      robots: inspection.robots || "",
+      xRobotsTag: inspection.xRobotsTag || "",
+      canonicalCount: Number(inspection.canonicalCount) || 0,
+      frontendEvidence: {
+        source: "HTML pubblico",
+        url: inspection.url || sourceUrl,
+        status: inspection.status,
+        visibilityModel: inspection.visibilityModel,
+        visibilityConfidence: inspection.visibilityConfidence,
+      },
+      auditCoverage: { ...(data?.auditCoverage || {}), frontend: "observed" },
+      issues,
+      reviewItems,
+    };
+  } catch (error) {
+    return {
+      ...data,
+      auditCoverage: { ...(data?.auditCoverage || {}), frontend: "unavailable" },
+      auditCoverageWarning: error instanceof Error ? error.message : "Ispezione frontend non disponibile",
+    };
+  }
+};
+
 function AuditWorkspaceView({ client, clientId, refresh }) {
   const pageStore = readJson(PAGE_HISTORY_KEY, {});
   const siteStore = readJson(SITE_HISTORY_KEY, {});
@@ -266,8 +330,9 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
         body: JSON.stringify(mode === "page" ? { url, progressId: nextProgressId } : { url, maxPages, progressId: nextProgressId }),
         signal: controller.signal,
       });
-      const data = await response.json();
+      let data = await response.json();
       if (!response.ok) throw new Error(data.error || "Analisi non riuscita");
+      if (mode === "page") data = await supplementPageAudit(data, url, controller.signal);
       const base = {
         ...data,
         auditMode: mode,
