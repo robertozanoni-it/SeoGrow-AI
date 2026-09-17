@@ -35,6 +35,7 @@ export const auditDataSource = (issue = {}) => {
   const type = inferType(issue).toLowerCase();
   if (/broken|http-status|crawl/.test(type)) return "Controllo HTTP riproducibile";
   if (/x-robots/.test(type)) return "Header HTTP X-Robots-Tag";
+  if (/indexability/.test(type)) return "Meta robots / Header HTTP X-Robots-Tag";
   if (/orphan/.test(type)) return "Sitemap + grafo link interni";
   if (/performance/.test(type)) return "Tempo risposta HTTP";
   return "HTML osservato dal crawler";
@@ -48,7 +49,10 @@ export function auditIssuesForDisplay(input, resultUrl = "") {
     const sourceUrl = raw.sourceUrl || raw.url || resultUrl || "";
     const targetUrl = raw.targetUrl || "";
     const severity = normalizeAuditSeverity(raw.severity);
-    const dataSource = raw.dataSource || auditDataSource({ ...raw, type });
+    const inferredSource = auditDataSource({ ...raw, type });
+    const dataSource = type.toLowerCase() === "indexability"
+      ? inferredSource
+      : raw.dataSource || inferredSource;
     const issue = {
       ...raw,
       type,
@@ -56,11 +60,12 @@ export function auditIssuesForDisplay(input, resultUrl = "") {
       sourceUrl,
       dataSource,
       auditIndex,
-      evidence: raw.evidence || {
+      evidence: {
+        ...(raw.evidence || {}),
         source: dataSource,
         sourceUrl,
         targetUrl,
-        observed: raw.detail || raw.label || "Segnale rilevato dall’audit.",
+        observed: raw.evidence?.observed || raw.detail || raw.label || "Segnale rilevato dall’audit.",
       },
     };
     const identity = [type.toLowerCase(), normalizeUrl(sourceUrl), normalizeUrl(targetUrl)].join("::");
