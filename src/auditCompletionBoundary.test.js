@@ -13,9 +13,10 @@ test("Audit SEO mantiene pagina e sito con progress server reale", async () => {
   assert.match(workspace, /\/api\/audit/);
   assert.match(workspace, /\/api\/site-analysis/);
   assert.match(workspace, /progressId/);
-  assert.match(progress, /\/api\/analysis-progress\//);
-  assert.match(progress, /progress\.done/);
-  assert.match(progress, /progress\.total/);
+  assert.match(progress, /endpoint\s*=\s*["']\/api\/analysis-progress["']/);
+  assert.match(progress, /apiFetch\(`\$\{endpoint\}\/\$\{encodeURIComponent\(progressId\)\}`/);
+  assert.match(progress, /state\.done|progress\.done/);
+  assert.match(progress, /state\.total|progress\.total/);
   assert.match(server, /reportProgress\(\{ phase: "Pagine", done:/);
   assert.match(server, /reportProgress\(\{ phase: "Link interni", done:/);
   assert.match(server, /reportProgress\(\{ phase: "Link esterni", done:/);
