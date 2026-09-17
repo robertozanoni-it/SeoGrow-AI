@@ -17,3 +17,13 @@ export {
 } from "./datasetHistory.js";
 export { suggestPageForQuery } from "./pageSuggestion.js";
 export { opportunityTask, findExistingTask } from "./opportunityTasks.js";
+export {
+  RANKING_SOURCE,
+  rankingRunIdentity,
+  validRankingRuns,
+  comparableRankingRuns,
+  rankingPositionLabel,
+  buildPositioningRows,
+  opportunityEvidenceForKeyword,
+  positioningFilter,
+} from "./positioningModel.js";
