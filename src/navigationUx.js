@@ -53,6 +53,11 @@ export function navigatePage(page) {
     if (window.location.hash !== next) window.history.pushState(null, "", next);
     notifyStoredPage(resolvedPage);
     notifyLocationChange(oldURL);
+    // Correzioni renders through an overlay, but the underlying App page state
+    // must still move synchronously to the same destination. Otherwise a stale
+    // Centro progetto/Panoramica render can win a remount race and replace the
+    // hash before the remediation controls mount.
+    activateNativePageState(resolvedPage);
     closeMobileNavigation();
     return;
   }
