@@ -27,6 +27,7 @@ import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProjectContinuityLayer from './ProjectContinuityLayer';
+import AuditResolutionCtaLabel from './AuditResolutionCtaLabel';
 import {
   ProblemsNavBridge,
   ProblemsWorkspaceMount,
@@ -105,6 +106,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProblemResolutionPage />
       <AutomaticProposalPage />
       <AuditWorkspace />
+      <AuditResolutionCtaLabel />
       <RemediationRuntime />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
