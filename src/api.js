@@ -1,6 +1,7 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
+import { normalizeAuditEvidenceResponse } from "./auditEvidenceContract.js";
 import { normalizeClientId } from "./reliabilityModel.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
@@ -185,9 +186,12 @@ export async function apiFetch(input, init = {}) {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           continue;
         }
-        const integrityResponse = path === "/api/site-analysis"
+        const auditResponse = ["/api/audit", "/api/site-analysis"].includes(path)
           ? await normalizeSiteAnalysisResponse(response)
           : response;
+        const integrityResponse = ["/api/audit", "/api/site-analysis"].includes(path)
+          ? await normalizeAuditEvidenceResponse(auditResponse)
+          : auditResponse;
         const normalized = await normalizeGdprResponse(integrityResponse, path, preparedInit);
         assertProjectStillSelected(scopeEntry);
         return normalized;
