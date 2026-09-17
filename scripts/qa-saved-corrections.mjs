@@ -14,7 +14,9 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     const before = 'Descrizione precedente conservata nello storico.';
     const after = 'Descrizione aggiornata approvata: testo completo con accenti, è, perché e un collegamento preciso alla pagina.';
     const issue = { type:'duplicate-description', label:'Meta description duplicata', severity:'alta', url:targetUrl, sourceUrl:targetUrl, detail:'Descrizione duplicata nella fixture controllata.' };
-    const audit = { url:client.url, analyzedAt:'2026-09-10T08:00:00.000Z', score:80, issues:[issue] };
+    // This scenario tests the live correction flow, not stale-audit blocking. Keep
+    // its synthetic audit deliberately recent so the gate cannot expire with wall time.
+    const audit = { url:client.url, analyzedAt:new Date(Date.now()-60_000).toISOString(), score:80, issues:[issue] };
     const publicResponse = { ok:true, url:targetUrl, status:200, isHtml:true, titleCount:1, metaDescriptionCount:1, title:'Pagina test', metaDescription:after, wordpressDocumentId:123, h1:1, words:300 };
     const receipt = '.automatic-proposal-page .saved-correction-details[data-correction-id]';
     const snapshotValues = scope => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(scope)});const saved=[...(r?.querySelectorAll('.saved-correction-field .saved-correction-diff pre')||[])].map(n=>n.textContent);if(saved.length)return saved;const before=[...(r?.querySelectorAll('.correction-diff-grid .before p')||[])].map(n=>n.textContent);const after=[...(r?.querySelectorAll('.correction-diff-grid .after p')||[])].map(n=>n.textContent);return [...before,...after]})()`);
