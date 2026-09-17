@@ -11,3 +11,12 @@ export {
   suiteToolForLegacyAgentTool,
   validateLegacyAgentToolCapabilityMap,
 } from "./legacyToolCapabilityMap.js";
+export {
+  AGENT_STATE_ROLE,
+  REAL_AGENT_TOOLS,
+  validateRealAgentCapabilities,
+  asAgentAnalysisLog,
+  appendAgentLog,
+  reconcileAgentLog,
+  agentRunIsNonAuthoritative,
+} from "./agentSuiteContract.js";
