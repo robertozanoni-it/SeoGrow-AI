@@ -140,6 +140,7 @@ export default function ProjectContinuityLayer() {
   const [providerStatus, setProviderStatus] = useState({ dataForSeo: {}, openAI: {} });
   const [continuity, setContinuity] = useState(null);
   const [host, setHost] = useState(null);
+  const activePage = ["Clienti", "Centro progetto"].includes(page);
 
   const refreshPage = useCallback(() => {
     setPage(currentPage());
@@ -164,26 +165,26 @@ export default function ProjectContinuityLayer() {
   }, [refreshPage]);
 
   useEffect(() => {
-    if (!["Clienti", "Centro progetto"].includes(page)) return undefined;
+    if (!activePage) return undefined;
     let cancelled = false;
     Promise.all([providerRequest("/api/dataforseo/status"), providerRequest("/api/openai/status")])
       .then(([dataForSeo, openAI]) => { if (!cancelled) setProviderStatus({ dataForSeo, openAI }); });
     return () => { cancelled = true; };
-  }, [page]);
+  }, [activePage, page]);
 
   useEffect(() => {
-    if (!["Clienti", "Centro progetto"].includes(page)) { setContinuity(null); return undefined; }
+    if (!activePage) return undefined;
     const clientId = projectId();
-    if (!Number.isSafeInteger(clientId) || clientId <= 0) { setContinuity(null); return undefined; }
+    if (!Number.isSafeInteger(clientId) || clientId <= 0) return undefined;
     let cancelled = false;
     loadProjectContinuity(clientId, providerStatus)
       .then((result) => { if (!cancelled) setContinuity(result); })
       .catch(() => { if (!cancelled) setContinuity(null); });
     return () => { cancelled = true; };
-  }, [page, revision, providerStatus]);
+  }, [activePage, page, revision, providerStatus]);
 
   useEffect(() => {
-    if (!["Clienti", "Centro progetto"].includes(page)) { setHost(null); return undefined; }
+    if (!activePage) return undefined;
     let frame = 0;
     let disposed = false;
     const find = () => {
@@ -202,9 +203,10 @@ export default function ProjectContinuityLayer() {
       setHost(node);
     };
     find();
-    return () => { disposed = true; window.cancelAnimationFrame(frame); setHost(null); };
-  }, [page]);
+    return () => { disposed = true; window.cancelAnimationFrame(frame); };
+  }, [activePage, page]);
 
-  if (!host || !continuity) return null;
+  const selectedClientId = projectId();
+  if (!activePage || !host || !continuity || continuity.clientId !== selectedClientId) return null;
   return createPortal(page === "Centro progetto" ? <CenterContinuity continuity={continuity} /> : <ClientActiveProject continuity={continuity} />, host);
 }
