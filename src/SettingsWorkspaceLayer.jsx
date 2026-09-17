@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Archive, CheckCircle2, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { registerPageHost } from "./PageStartHierarchy.js";
@@ -117,21 +117,20 @@ export default function SettingsWorkspaceLayer() {
     };
   }, [page]);
 
-  const state = useMemo(() => {
-    revision;
-    const clients = readWorkspaceJson(WORKSPACE_KEYS.clients, []);
-    const clientId = Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
-    const client = clients.find((item) => Number(item?.id) === clientId) || null;
-    const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
-    const policy = client ? projectPolicyFromPreferences(preferences, clientId) : null;
-    return { clientId, client, policy, fingerprint: JSON.stringify(policy) };
-  }, [revision]);
+  // revision intentionally triggers a fresh workspace read after storage events.
+  void revision;
+  const clients = readWorkspaceJson(WORKSPACE_KEYS.clients, []);
+  const clientId = Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
+  const client = clients.find((item) => Number(item?.id) === clientId) || null;
+  const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
+  const policy = client ? projectPolicyFromPreferences(preferences, clientId) : null;
+  const fingerprint = JSON.stringify(policy);
 
   if (page !== "Impostazioni" || !host) return null;
-  if (!state.client || !state.policy) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
+  if (!client || !policy) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
 
   return createPortal(
-    <ProjectPolicyEditor key={`${state.clientId}:${state.fingerprint}`} clientId={state.clientId} client={state.client} policy={state.policy} />,
+    <ProjectPolicyEditor key={`${clientId}:${fingerprint}`} clientId={clientId} client={client} policy={policy} />,
     host,
   );
 }
