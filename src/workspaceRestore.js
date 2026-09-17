@@ -1,7 +1,8 @@
+import { canonicalCorrections, canonicalizeWorkspaceEntries } from "./core/workspace/projectState.js";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { metadataOf } from "./remediationStore.js";
 import { readWorkspaceBackup } from "./seoHelpers.js";
 import { restoreWorkspace, workspaceStorage } from "./workspaceDatabase.js";
-import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 
 const sections = {
   clients: WORKSPACE_KEYS.clients,
@@ -37,10 +38,10 @@ export async function prepareWorkspaceRestore(input, { snapshots = [], correctio
   entries.set(WORKSPACE_KEYS.selectedClient, JSON.stringify(selected));
   entries.set(WORKSPACE_KEYS.selectedPage, JSON.stringify("Panoramica"));
   entries.set(WORKSPACE_KEYS.snapshots, JSON.stringify(snapshots));
-  const records = (backup.corrections || []).toSorted((a, b) => (Date.parse(b.appliedAt || "") || 0) - (Date.parse(a.appliedAt || "") || 0));
+  const records = canonicalCorrections(backup.corrections || []);
   entries.set(WORKSPACE_KEYS.remediationHistory, JSON.stringify(records.map(metadataOf)));
   entries.set(WORKSPACE_KEYS.remediationLastBatch, JSON.stringify(records[0]?.batchId || ""));
-  return { entries, corrections: records };
+  return { entries: canonicalizeWorkspaceEntries(entries), corrections: records };
 }
 
 export async function restoreValidatedWorkspace(backup, { preserveSnapshots = false } = {}) {

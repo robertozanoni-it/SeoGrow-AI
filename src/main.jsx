@@ -1,4 +1,5 @@
 import { initializeWorkspace } from "./workspaceDatabase.js";
+import { normalizeWorkspacePersistence } from "./core/workspace/normalizePersistence.js";
 
 async function exposeWorkspaceCrashHarnessInDev() {
   if (!import.meta.env.DEV) return;
@@ -20,6 +21,7 @@ async function exposeMasterQaInDev() {
 }
 
 initializeWorkspace().then(async () => {
+  await normalizeWorkspacePersistence();
   await exposeWorkspaceCrashHarnessInDev();
   await exposeMasterQaInDev();
   return import("./appMain.jsx");
