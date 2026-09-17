@@ -1,6 +1,7 @@
 import { readWorkspaceJson as readJson, writeWorkspaceJson as writeJson } from "./core/workspace/jsonStorage.js";
 import { openWorkspaceDb, guardWorkspaceTransaction } from "./workspaceDatabase.js";
 import { exactProblemStatus, issueIdentity } from "./reliabilityModel.js";
+import { hasAutoFixCompletionEvidence } from "./autoFixCompletionEvidence.js";
 
 const STORE_NAME = "corrections";
 const CLIENTS_KEY = "seogrow-clients";
@@ -8,8 +9,6 @@ const CLIENTS_KEY = "seogrow-clients";
 export const REMEDIATION_INDEX_KEY = "seogrow-remediation-history-v1";
 export const REMEDIATION_LAST_BATCH_KEY = "seogrow-remediation-last-batch-v1";
 export const TASKS_KEY = "seogrow-tasks-v2";
-
-
 
 const writeJsonBestEffort = (key, value, detail = {}) => {
   try {
@@ -82,15 +81,25 @@ const issueKeyCandidates = (record = {}) => new Set([
   record.legacyIssueKey,
 ].filter(Boolean));
 
+const completionSafeRecord = (record = {}) => {
+  if (record.liveApproval !== true || record.status !== "Verificato" || hasAutoFixCompletionEvidence(record)) return record;
+  return {
+    ...record,
+    status: "Da verificare",
+    verifiedAt: "",
+    completionGatePending: true,
+  };
+};
+
 const migrateIdentity = (record = {}) => {
   const nextKey = stableIssueKey(record);
   const legacy = record.issueKey && record.issueKey !== nextKey ? record.issueKey : record.legacyIssueKey;
-  return {
+  return completionSafeRecord({
     ...record,
     issueKey: nextKey,
     ...(legacy ? { legacyIssueKey: legacy } : {}),
     identityVersion: 2,
-  };
+  });
 };
 
 export const metadataOf = (input) => {
@@ -259,6 +268,7 @@ const sameIssue = (left, right) => {
 };
 
 export function removeVerifiedTask(record) {
+  if (record?.liveApproval === true && !hasAutoFixCompletionEvidence(record)) return;
   const tasks = readJson(TASKS_KEY, []);
   let changed = false;
   const next = tasks.map((task) => {
