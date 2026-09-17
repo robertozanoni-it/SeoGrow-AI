@@ -3,6 +3,7 @@ import { observedScoreDelta } from "./modules/audit/data.js";
 import AnalysisProgress from "./AnalysisProgress.jsx";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { auditTaskIdentity } from './auditTaskReconciliation.js';
+import { enforceAuditEvidence } from "./auditEvidenceContract.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -35,14 +36,13 @@ import {
 import { normalizeSiteAnalysis } from "./seoResponseIntegrity";
 import "./AuditWorkspace.css";
 import "./AuditReference.css";
+import "./AuditEvidenceUx.css";
 
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const TASKS_KEY = "seogrow-tasks-v2";
 const FOCUS_KEY = "seogrow-remediation-focus-v1";
 const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
-
-
 
 const severityPriority = (severity) => {
   const value = String(severity || "").toLowerCase();
@@ -58,6 +58,19 @@ const currentPage = () => {
 const resultTimestamp = (item) => item?.analyzedAt || item?.startedAt || "";
 const resultSourceUrl = (issue, result, client) => issue?.sourceUrl || issue?.url || issue?.targetUrl || result?.url || client?.url || "";
 
+const issueEvidenceText = (issue) => {
+  const evidence = issue?.evidence || {};
+  return [
+    evidence.sourceType ? `Sorgente: ${evidence.sourceType}` : "",
+    evidence.field ? `campo: ${evidence.field}` : "",
+    evidence.observed ? `osservato: ${evidence.observed}` : "",
+    evidence.url ? `URL: ${evidence.url}` : "",
+    evidence.observedAt && Number.isFinite(Date.parse(evidence.observedAt))
+      ? `rilevato: ${new Date(evidence.observedAt).toLocaleString("it-IT")}`
+      : "",
+  ].filter(Boolean).join(" · ");
+};
+
 const pageKindFromUrl = (value) => {
   try {
     const first = new URL(value).pathname.toLowerCase().split("/").filter(Boolean)[0] || "";
@@ -68,14 +81,16 @@ const pageKindFromUrl = (value) => {
 };
 
 const taskIssueKey = auditTaskIdentity;
+const normalizePageAudit = (item) => enforceAuditEvidence(normalizeSiteAnalysis({ ...item, pagesChecked: 1, auditMode: "page" }));
+const normalizeSiteAudit = (item) => enforceAuditEvidence(normalizeSiteAnalysis({ ...item, auditMode: "site" }));
 
 function AuditWorkspaceView({ client, clientId, refresh }) {
   const pageStore = readJson(PAGE_HISTORY_KEY, {});
   const siteStore = readJson(SITE_HISTORY_KEY, {});
   const pageHistory = Array.isArray(pageStore[clientId]) ? pageStore[clientId] : [];
-  const siteHistory = normalizeAnalysisHistory(siteStore[clientId]).map((item) => normalizeSiteAnalysis({ ...item }));
+  const siteHistory = normalizeAnalysisHistory(siteStore[clientId]).map(normalizeSiteAudit);
   const history = [
-    ...pageHistory.map((item) => ({ type: "page", item: normalizeSiteAnalysis({ ...item }) })),
+    ...pageHistory.map((item) => ({ type: "page", item: normalizePageAudit(item) })),
     ...siteHistory.map((item) => ({ type: "site", item })),
   ].toSorted((a, b) => (Date.parse(resultTimestamp(b.item) || "") || 0) - (Date.parse(resultTimestamp(a.item) || "") || 0));
   const initial = latestAudit(history);
@@ -224,7 +239,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       title: issue.label || issue.type || "Problema SEO",
       sourceUrl: resultSourceUrl(issue, result, client),
       problemState: issue.diagnosisState || "confirmed",
-      evidence: [{ source: "Audit SeoGrow", detail: issue.detail || issue.label || "", at: resultTimestamp(result) }],
+      evidence: [{ source: issue?.evidence?.sourceType || "Audit SeoGrow", detail: issueEvidenceText(issue) || issue.detail || issue.label || "", at: resultTimestamp(result) }],
       detail: issue.detail || "",
     };
     sessionStorage.setItem(AGENT_PREFILL_KEY, JSON.stringify(detail));
@@ -253,12 +268,13 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Analisi non riuscita");
-      const normalized = normalizeSiteAnalysis({
+      const base = {
         ...data,
         auditMode: mode,
         startedAt,
         analyzedAt: data.analyzedAt || new Date().toISOString(),
-      });
+      };
+      const normalized = mode === "page" ? normalizePageAudit(base) : normalizeSiteAudit(base);
       const result = mode === "page" ? normalized : saveSiteAudit(normalized);
       if (mode === "page") savePageAudit(result);
       setSelectedResult({ type: mode, data: result });
@@ -279,9 +295,9 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const categoryCount = (pattern) => issues.filter((issue) => pattern.test(`${issue.type || ""} ${issue.label || ""}`)).length;
   const categoryStats = [
     ["Tecnica", categoryCount(/crawl|http|redirect|canonical|robots|index|status/i), "technical"],
-    ["Contenuti", categoryCount(/content|contenut|title|meta|h1|image|immagin/i), "content"],
+    ["Contenuti", categoryCount(/content|contenut|title|meta|h1|h2|image|immagin/i), "content"],
     ["Link", categoryCount(/link/i), "links"],
-    ["Altri segnali", Math.max(0, issues.length - categoryCount(/crawl|http|redirect|canonical|robots|index|status|content|contenut|title|meta|h1|image|immagin|link/i)), "other"],
+    ["Altri segnali", Math.max(0, issues.length - categoryCount(/crawl|http|redirect|canonical|robots|index|status|content|contenut|title|meta|h1|h2|image|immagin|link/i)), "other"],
   ];
   const categoryMax = Math.max(1, ...categoryStats.map(([, value]) => value));
 
@@ -349,18 +365,20 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
         {actionable.length > 0 && <div className="gptsites-bulk-slot" />}
 
         <section className="panel issues audit-issues-list">
-          <div className="panel-head"><div><h2>Problemi confermati</h2><p>Le azioni cambiano in base alla correggibilità reale del problema.</p></div></div>
+          <div className="panel-head"><div><h2>Problemi confermati</h2><p>Ogni problema mostra la sorgente osservata e apre la risoluzione soltanto quando il tipo è supportato.</p></div></div>
           {issues.length ? issues.map((issue, index) => {
             const sourceUrl = resultSourceUrl(issue, result, client);
             const correctability = issueCorrectability(issue, { pageKind: pageKindFromUrl(sourceUrl) });
             const href = safeHttpHref(sourceUrl);
+            const evidenceText = issueEvidenceText(issue) || "Sorgente audit non disponibile: ripetere il controllo prima di intervenire.";
             return <div key={issueIdentity({ issueType: issue.type, issueLabel: issue.label, sourceUrl, issue })}>
               <span className={`priority ${issue.severity || "media"}`}>{issue.severity || "media"}</span>
               <strong>{issue.label}</strong>
-              {["automatic", "assisted"].includes(correctability) ? <button type="button" className="primary mini audit-agent-action" onClick={() => openRemediation(index)}><Sparkles />{correctability === "automatic" ? "Prepara correzione" : "Esamina e prepara"}</button> : <button type="button" className="secondary mini" onClick={() => askAgent(issue, result)}><Sparkles />Apri guida</button>}
+              {["automatic", "assisted"].includes(correctability) ? <button type="button" className="primary mini audit-agent-action" aria-label="Vai alla risoluzione del problema" onClick={() => openRemediation(index)}><Sparkles />Vai alla risoluzione</button> : <button type="button" className="secondary mini" onClick={() => askAgent(issue, result)}><Sparkles />Apri guida</button>}
               {href && <a className="task-link" href={href} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
               <button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
               <small className="audit-correctability-note">Correggibilità: {correctability === "automatic" ? "automatica con approvazione" : correctability === "assisted" ? "assistita" : correctability === "manual" ? "manuale" : "non supportata"}</small>
+              <small className="audit-evidence-source" data-reproducible={issue?.evidence?.reproducible === true ? "true" : "false"}>{evidenceText}</small>
             </div>;
           }) : <div className="success"><Check />Nessun problema confermato tra quelli controllati.</div>}
         </section>
@@ -370,11 +388,12 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
           {reviewItems.map((issue) => {
             const sourceUrl = resultSourceUrl(issue, result, client);
             const href = safeHttpHref(sourceUrl);
-            return <article key={issueIdentity({ issueType: issue.type, issueLabel: issue.label, sourceUrl, issue })} className="audit-review-row"><AlertTriangle /><div><strong>{issue.label}</strong><p>{issue.reviewReason || issue.detail || "Serve una verifica del contesto."}</p><small>Segnale osservato · non incluso nello score come problema confermato</small></div><div className="inline-actions">{href && <a className="secondary mini" href={href} target="_blank" rel="noreferrer">Apri pagina</a>}<button type="button" className="secondary mini" onClick={() => askAgent(issue, result)}>Esamina configurazione</button><button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button></div></article>;
+            const evidenceText = issueEvidenceText(issue) || "Sorgente audit non disponibile: ripetere il controllo prima di intervenire.";
+            return <article key={issueIdentity({ issueType: issue.type, issueLabel: issue.label, sourceUrl, issue })} className="audit-review-row"><AlertTriangle /><div><strong>{issue.label}</strong><p>{issue.reviewReason || issue.detail || "Serve una verifica del contesto."}</p><small>Segnale osservato · non incluso nello score come problema confermato</small><small className="audit-evidence-source" data-reproducible={issue?.evidence?.reproducible === true ? "true" : "false"}>{evidenceText}</small></div><div className="inline-actions">{href && <a className="secondary mini" href={href} target="_blank" rel="noreferrer">Apri pagina</a>}<button type="button" className="secondary mini" onClick={() => askAgent(issue, result)}>Esamina configurazione</button><button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button></div></article>;
           })}
         </section>}
 
-        {selectedResult.type === "page" && <section className="panel audit-details"><h2>Controlli principali</h2><dl><div><dt>Title</dt><dd>{result.title || "Mancante"} <small>{result.titleLength ?? 0} caratteri</small></dd></div><div><dt>Meta description</dt><dd>{result.description || "Mancante"} <small>{result.descriptionLength ?? 0} caratteri</small></dd></div><div><dt>H1</dt><dd>{result.h1 || "Mancante"}</dd></div><div><dt>Canonical</dt><dd>{result.canonical || "Non rilevata"}</dd></div><div><dt>Immagini</dt><dd>{result.images || 0} totali · {result.missingAlt || 0} senza alt</dd></div></dl></section>}
+        {selectedResult.type === "page" && <section className="panel audit-details"><h2>Controlli principali</h2><dl><div><dt>Title</dt><dd>{result.title || "Mancante"} <small>{result.titleLength ?? 0} caratteri</small></dd></div><div><dt>Meta description</dt><dd>{result.description || "Mancante"} <small>{result.descriptionLength ?? 0} caratteri</small></dd></div><div><dt>H1</dt><dd>{Number.isFinite(Number(result.h1)) ? `${Number(result.h1)} rilevati` : "Non disponibile"}</dd></div><div><dt>H2</dt><dd>{Number.isFinite(Number(result.h2)) ? `${Number(result.h2)} rilevati` : "Non disponibile"}</dd></div><div><dt>Canonical</dt><dd>{result.canonical || "Non rilevata"}</dd></div><div><dt>Indicizzazione</dt><dd>{result.noindex ? "noindex rilevato — da confermare" : "Nessun noindex rilevato"}</dd></div><div><dt>Immagini</dt><dd>{result.images || 0} totali · {result.missingAlt || 0} senza alt</dd></div></dl></section>}
       </div>}
     </div>
   );
