@@ -9,6 +9,8 @@ import './seoResponseIntegrity';
 import './taskClientIdIntegrity';
 import './taskCauseReconciliation';
 import './projectRetention';
+import './projectPolicyIntegrity';
+import './BatchFeatureFlagGuard';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
