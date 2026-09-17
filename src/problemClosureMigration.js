@@ -5,6 +5,7 @@ const clean = value => String(value || '').trim().toLowerCase().replace(/\s+/g,'
 const timestamp = value => { const parsed = typeof value === 'string' && value ? Date.parse(value) : NaN; return Number.isFinite(parsed) ? parsed : 0; };
 const targetScoped = type => /broken-(?:external-)?link|link esterno|link interno/i.test(String(type || ''));
 const key = item => [Number(item.clientId)||0, String(item.issueType||'').toLowerCase(), norm(item.sourceUrl), norm(item.targetUrl)].join('::');
+const permanent = item => item?.permanent === true || item?.disposition === 'do_not_modify' || item?.reason === 'user-do-not-modify';
 
 const contextFromRun = run => {
   for (const observation of Array.isArray(run?.observations) ? run.observations : []) {
@@ -48,6 +49,7 @@ export function closuresFromAgentRuns(agentRuns = {}, existing = [], problems = 
       const item = { clientId:Number(clientId), issueKey:context.issueKey || '', issueType, sourceUrl, targetUrl,
         closedAt, reason:'migrated-agent-obsolete', migratedFromRunId:run.id || '' };
       const current = byKey.get(key(item));
+      if (permanent(current)) continue;
       if (!current || timestamp(item.closedAt) > timestamp(current.closedAt)) byKey.set(key(item), item);
     }
   }
