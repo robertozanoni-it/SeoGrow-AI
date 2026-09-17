@@ -1,4 +1,5 @@
 import { issueIdentity, normalizeClientId, normalizeHttpUrl } from "../../reliabilityModel.js";
+import { taskLinkageKey } from "./taskLinkage.js";
 
 const text = value => String(value || "").trim().toLocaleLowerCase("it");
 const url = value => normalizeHttpUrl(value) || String(value || "").trim();
@@ -6,6 +7,9 @@ const auditKind = task => /^(?:title|h1|thin|duplicate-title|duplicate-descripti
   (task.kind === "content" && /contenuto breve|\d+ parole/i.test(task.title || ""));
 
 export function sameTask(a, b) {
+  const leftLink = taskLinkageKey(a);
+  const rightLink = taskLinkageKey(b);
+  if (leftLink && rightLink) return leftLink === rightLink;
   if (a.kind !== b.kind) return false;
   if (a.kind === "search" && a.query && b.query) return text(a.query) === text(b.query);
   if (auditKind(a) && auditKind(b)) {
