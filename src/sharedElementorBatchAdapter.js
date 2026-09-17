@@ -20,7 +20,7 @@ export const sharedElementorOwnershipCandidate = (entry, error) =>
   entry?.kind === "external_link" &&
   /OWNERSHIP_UNDETERMINED|ownership|template condiviso|theme builder/i.test(`${error?.code || ""} ${error?.message || error || ""}`);
 
-export async function prepareSharedElementorBatchPreview({ entry, resolved, inspected, frontendContext, targetUrl, wp, contextSnapshot }) {
+export async function prepareSharedElementorBatchPreview({ resolved, inspected, frontendContext, targetUrl, wp, contextSnapshot }) {
   const brokenTarget = brokenExternalTarget(resolved.issue);
   if (!brokenTarget) throw fail("Link esterno 404 non disponibile per il writer shared Elementor.", "SHARED_LINK_TARGET_REQUIRED");
   const data = await request("/api/wordpress/elementor-shared-link-preview", {
