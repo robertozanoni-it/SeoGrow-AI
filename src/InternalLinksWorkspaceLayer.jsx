@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link2, ExternalLink, Eye, CheckCircle2, RotateCcw, ShieldCheck, AlertTriangle, Plug, RefreshCw } from "lucide-react";
 import { registerPageHost } from "./PageStartHierarchy.js";
@@ -230,7 +230,8 @@ export default function InternalLinksWorkspaceLayer() {
         patchFlow(suggestion.key, { stage: "applied", record, error: `Modifica applicata; verifica non conclusa: ${readableError(verificationError)}` });
         return;
       }
-      patchFlow(suggestion.key, { stage: verifiedRecord.status === "Verificato" ? "verified" : "applied", record: verifiedRecord, preview: null, error: verifiedRecord.verificationNote || "" });
+      const verified = verifiedRecord.status === "Verificato";
+      patchFlow(suggestion.key, { stage: verified ? "verified" : "applied", record: verifiedRecord, preview: null, error: verified ? "" : verifiedRecord.verificationNote || "" });
       window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: verifiedRecord.id } }));
     } catch (error) {
       patchFlow(suggestion.key, { stage: "preview", error: readableError(error) });
@@ -244,7 +245,8 @@ export default function InternalLinksWorkspaceLayer() {
     try {
       assertContext();
       const updated = await verifyRecord(record, suggestion);
-      patchFlow(suggestion.key, { stage: updated.status === "Verificato" ? "verified" : "applied", record: updated, error: updated.verificationNote || "" });
+      const verified = updated.status === "Verificato";
+      patchFlow(suggestion.key, { stage: verified ? "verified" : "applied", record: updated, error: verified ? "" : updated.verificationNote || "" });
       window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: updated.id } }));
     } catch (error) { patchFlow(suggestion.key, { stage: "applied", error: readableError(error) }); }
     finally { setBusyKey(""); }
@@ -290,20 +292,22 @@ export default function InternalLinksWorkspaceLayer() {
             const record = flow.record || persisted;
             const stage = flow.stage || (record?.status === "Verificato" ? "verified" : record?.status === "Da verificare" ? "applied" : record?.status === "Ripristinato" ? "rolledback" : "idle");
             const isBusy = busyKey === suggestion.key;
-            return <tr key={suggestion.key} data-link-state={stage}>
-              <td><a href={suggestion.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink /> {shortUrl(suggestion.sourceUrl)}</a></td>
-              <td><a href={suggestion.targetUrl} target="_blank" rel="noreferrer"><ExternalLink /> {shortUrl(suggestion.targetUrl)}</a></td>
-              <td><strong>{suggestion.anchor}</strong></td>
-              <td><small>{suggestion.reason}</small></td>
-              <td><span className={`internal-link-status ${stage}`}>{stage === "preview" ? "Anteprima pronta" : stage === "existing" ? "Già collegata" : stage === "manual" ? "Manuale" : stage === "applying" ? "Applicazione…" : stage === "verifying" ? "Verifica…" : stage === "verified" ? "Verificato" : stage === "applied" ? statusLabel(record) : stage === "rolledback" ? "Ripristinato" : "Opportunità"}</span>{flow.error && <small className="internal-link-error">{flow.error}</small>}</td>
-              <td><div className="internal-link-buttons">
-                {["idle", "rolledback", "manual", "existing"].includes(stage) && <button type="button" className="secondary mini" disabled={isBusy || stage === "existing"} onClick={() => prepare(suggestion)}><Eye /> Preview</button>}
-                {stage === "preview" && <button type="button" className="primary mini" disabled={isBusy} onClick={() => apply(suggestion)}>Apply</button>}
-                {["applied", "verified"].includes(stage) && record && <button type="button" className="secondary mini" disabled={isBusy} onClick={() => verify(suggestion, record)}><CheckCircle2 /> Verify</button>}
-                {["applied", "verified"].includes(stage) && record && <button type="button" className="secondary mini" onClick={() => openRollback(suggestion, record)}><RotateCcw /> Rollback</button>}
-              </div></td>
-              {stage === "preview" && flow.preview && <td className="internal-link-preview-cell" colSpan="6"><div className="internal-link-preview"><div><small>Prima</small><code>{flow.preview.linkPatch.beforeSnippet}</code></div><div><small>Dopo</small><code>{flow.preview.linkPatch.afterSnippet}</code></div><p>Nessuna modifica è stata ancora applicata. Prima di Apply il sistema ricontrolla che la destinazione non sia già collegata.</p></div></td>}
-            </tr>;
+            return <Fragment key={suggestion.key}>
+              <tr data-link-state={stage}>
+                <td><a href={suggestion.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink /> {shortUrl(suggestion.sourceUrl)}</a></td>
+                <td><a href={suggestion.targetUrl} target="_blank" rel="noreferrer"><ExternalLink /> {shortUrl(suggestion.targetUrl)}</a></td>
+                <td><strong>{suggestion.anchor}</strong></td>
+                <td><small>{suggestion.reason}</small></td>
+                <td><span className={`internal-link-status ${stage}`}>{stage === "preview" ? "Anteprima pronta" : stage === "existing" ? "Già collegata" : stage === "manual" ? "Manuale" : stage === "applying" ? "Applicazione…" : stage === "verifying" ? "Verifica…" : stage === "verified" ? "Verificato" : stage === "applied" ? statusLabel(record) : stage === "rolledback" ? "Ripristinato" : "Opportunità"}</span>{flow.error && <small className="internal-link-error">{flow.error}</small>}</td>
+                <td><div className="internal-link-buttons">
+                  {["idle", "rolledback", "manual", "existing"].includes(stage) && <button type="button" className="secondary mini" disabled={isBusy || stage === "existing"} onClick={() => prepare(suggestion)}><Eye /> Preview</button>}
+                  {stage === "preview" && <button type="button" className="primary mini" disabled={isBusy} onClick={() => apply(suggestion)}>Apply</button>}
+                  {["applied", "verified"].includes(stage) && record && <button type="button" className="secondary mini" disabled={isBusy} onClick={() => verify(suggestion, record)}><CheckCircle2 /> Verify</button>}
+                  {["applied", "verified"].includes(stage) && record && <button type="button" className="secondary mini" onClick={() => openRollback(suggestion, record)}><RotateCcw /> Rollback</button>}
+                </div></td>
+              </tr>
+              {stage === "preview" && flow.preview && <tr className="internal-link-preview-row"><td colSpan="6"><div className="internal-link-preview"><div><small>Prima</small><code>{flow.preview.linkPatch.beforeSnippet}</code></div><div><small>Dopo</small><code>{flow.preview.linkPatch.afterSnippet}</code></div><p>Nessuna modifica è stata ancora applicata. Prima di Apply il sistema ricontrolla che la destinazione non sia già collegata.</p></div></td></tr>}
+            </Fragment>;
           })}
         </tbody></table></div>
       )}
