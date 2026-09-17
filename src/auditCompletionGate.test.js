@@ -6,6 +6,7 @@ import {
   pageObservationIssues,
   traceabilitySummary,
 } from "../server/auditTraceabilityDecorator.js";
+import { restoreBrokenLegalTargets } from "../server/auditLegalLinkSourcePolicy.js";
 
 const page = "https://example.com/servizio/";
 const at = "2026-09-17T09:00:00.000Z";
@@ -53,6 +54,24 @@ test("pagine GDPR non producono problemi operativi", () => {
     { type: "h1", severity: "alta", label: "0 H1 rilevati", sourceUrl: page },
   ], { analyzedAt: at });
   assert.deepEqual(issues.map((issue) => issue.type), ["h1"]);
+});
+
+test("un link rotto verso pagina GDPR resta visibile se la sorgente è SEO", () => {
+  const payload = restoreBrokenLegalTargets({
+    url: page,
+    analyzedAt: at,
+    issues: [],
+    brokenLinks: [{
+      url: "https://example.com/privacy-policy/",
+      status: 404,
+      temporary: false,
+      sources: [page],
+    }],
+  });
+  assert.equal(payload.issues.length, 1);
+  assert.equal(payload.issues[0].sourceUrl, page);
+  assert.equal(payload.issues[0].targetUrl, "https://example.com/privacy-policy/");
+  assert.equal(payload.traceability.complete, true);
 });
 
 test("H2 noindex canonical e link HTTP derivano da osservazioni riproducibili", () => {
