@@ -52,7 +52,8 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
       await button('Prepara solo questo problema','.proposal-remediation-slot');
       await waitFor("document.querySelector('.proposal-remediation-slot .wp-live-apply-one')",'Ready individual preview');
       assert.equal(await evaluate("window.__qaFormRequests.some(r=>/live-apply|rollback/.test(r.path))"),false,'Preparation never writes');
-      await visibleClick('.proposal-remediation-slot .wp-live-apply-one');
+      await waitFor("(()=>{const e=document.querySelector('.proposal-remediation-slot .wp-live-apply-one');if(!e||e.disabled)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0})()",'Apply control is visible and enabled');
+      await button('Applica questa modifica sul sito','.proposal-remediation-slot');
       await waitFor(`document.querySelector(${JSON.stringify(receipt)})?.textContent.includes(${JSON.stringify(after)})`,'Saved comparison remains after actual UI apply');
       correctionId = await evaluate(`document.querySelector(${JSON.stringify(receipt)}).dataset.correctionId`);
       // The writer is intentionally unmounted as soon as the saved result requires verification.
