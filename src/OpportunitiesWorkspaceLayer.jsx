@@ -35,7 +35,6 @@ const latestByDate = (items) => (Array.isArray(items) ? items : []).toSorted((le
 )[0] || null;
 const sourceLabels = Object.freeze({ audit: "Audit SEO", ranking: "Ranking", content: "Contenuti", links: "Link interni" });
 const actionIcon = (kind) => kind === "correction" ? Wrench : kind === "content" ? FileText : ListTodo;
-const actionLabel = (kind) => kind === "correction" ? "Correzione" : kind === "content" ? "Contenuto" : "Task";
 const taskPriority = (priority) => ["Alta", "Media", "Bassa"].includes(priority) ? priority : "Media";
 
 const ensureOpportunityTask = (opportunity, client, clientId) => {
@@ -133,7 +132,10 @@ export default function OpportunitiesWorkspaceLayer() {
   const pageHistory = historyForClient(stores.pageAudits, selectedClientId);
   const analysis = latestByDate(siteHistory);
   const gscDataset = forClient(stores.gsc, selectedClientId, null);
-  const corrections = correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.rows : [];
+  const corrections = useMemo(
+    () => correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.rows : [],
+    [correctionSnapshot, selectedClientId],
+  );
   const problems = useMemo(() => client ? buildUnifiedProblems({
     clientId: selectedClientId,
     siteHistory,
