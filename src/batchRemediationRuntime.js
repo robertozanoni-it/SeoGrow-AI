@@ -10,7 +10,7 @@ import { brokenExternalTarget } from './brokenLinkRemediation.js';
 import { assertSeoPatchLengths } from './seoTextPolicy.js';
 import { correctionCredentials } from './correctionCredentials.js';
 import { listCorrections, readCorrection, saveCorrection, updateCorrection, removeVerifiedTask } from './remediationStore.js';
-import { recheckCorrectionById } from './remediationIntegrity.js';
+import { verifyAutoFixCorrectionById } from './autoFixVerification.js';
 import { exactPageKey, assertPublicObservation } from './remediationEvidence.js';
 import { requiresDuplicateAudit, metadataVerificationTarget } from './metadataCorrectionVerification.js';
 import { remediationIssueKind } from './remediationIssueKind.js';
@@ -248,12 +248,13 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
         throw error;
       }
     },
-    verify: entry => recheckCorrectionById(entry.correctionId, { ...context, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword }),
+    verify: entry => verifyAutoFixCorrectionById(entry.correctionId, { ...context, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword }),
     deltaVerify: async entry => {
       const record = await readCorrection(entry.correctionId);
       if (!record || record.writeConfirmed !== true || record.status === 'Ripristinato') return null;
       // Duplicates need comparison across documents. A single-page pass is never enough.
       if (requiresDuplicateAudit(record)) return { record, needsAudit: true };
+      if (entry.kind === 'external_link') return verifyAutoFixCorrectionById(entry.correctionId, { ...context, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword });
       const p = entry.preview;
       const current = await inspectWordPress(p.targetUrl, wp);
       if (current.entity?.id !== record.entityId || stableBatchJson(expectedState(current.entity, p.plan.changes)) !== stableBatchJson(p.data.previewAfter)) return { record, needsAudit: true };
@@ -285,10 +286,6 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
         const actualMatches = entry.kind === 'h1' ? frontend.h1 === 1 && auditEvidence.h1 === 1 :
           count === 1 && typeof expected === 'string' && normalized(expected) === normalized(observed) && normalized(auditValue) === normalized(expected);
         fixed = samePage && fresh && !unresolved && actualMatches;
-      } else if (entry.kind === 'external_link') {
-        const evidence = await inspectLinkEvidence(p.targetUrl, brokenExternalTarget(p.issue));
-        fixed = evidence.verificationSafe === true && evidence.scanComplete === true && evidence.occurrenceCount === 0;
-        auditEvidence = evidence;
       }
       if (!fixed) return { record, needsAudit: true };
       await assertContext();
