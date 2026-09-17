@@ -19,7 +19,11 @@ const evidenceRows = () => {
   const pages = readWorkspaceJson(WORKSPACE_KEYS.pageAuditHistory, {});
   const audits = [...rowsForClient(pages, clientId), ...rowsForClient(site, clientId)];
   return audits.flatMap((audit) => {
-    const normalized = enforceAuditEvidence({ ...audit, issues: [...(audit?.issues || [])], reviewItems: [...(audit?.reviewItems || [])] });
+    const normalized = enforceAuditEvidence({
+      ...audit,
+      issues: [...(audit?.issues || [])],
+      reviewItems: [...(audit?.reviewItems || [])],
+    });
     return [
       ...(normalized?.issues || []).map((issue) => ({ ...issue, bucket: "issue" })),
       ...(normalized?.reviewItems || []).map((issue) => ({ ...issue, bucket: "review" })),
@@ -98,13 +102,29 @@ const decorate = () => {
 if (typeof window !== "undefined" && !window.__seoGrowAuditEvidenceUx) {
   window.__seoGrowAuditEvidenceUx = true;
   let timer = 0;
-  const schedule = () => {
+  let observing = false;
+  const observer = new MutationObserver(() => {
+    if (auditPageActive()) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(decorate, 0);
+    }
+  });
+  const sync = () => {
     window.clearTimeout(timer);
+    if (!auditPageActive()) {
+      if (observing) {
+        observer.disconnect();
+        observing = false;
+      }
+      return;
+    }
+    if (!observing) {
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      observing = true;
+    }
     timer = window.setTimeout(decorate, 0);
   };
-  const observer = new MutationObserver(schedule);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
   for (const event of ["hashchange", "popstate", "seogrow-locationchange", "seogrow-storage-ok"])
-    window.addEventListener(event, schedule);
-  schedule();
+    window.addEventListener(event, sync);
+  sync();
 }
