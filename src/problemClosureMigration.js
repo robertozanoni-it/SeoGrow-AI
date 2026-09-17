@@ -6,6 +6,7 @@ const timestamp = value => { const parsed = typeof value === 'string' && value ?
 const targetScoped = type => /broken-(?:external-)?link|link esterno|link interno/i.test(String(type || ''));
 const key = item => [Number(item.clientId)||0, String(item.issueType||'').toLowerCase(), norm(item.sourceUrl), norm(item.targetUrl)].join('::');
 const permanent = item => item?.permanent === true || item?.disposition === 'do_not_modify' || item?.reason === 'user-do-not-modify';
+const nonAuthoritativeAgentLog = run => run?.stateRole === 'analysis-log';
 
 const contextFromRun = run => {
   for (const observation of Array.isArray(run?.observations) ? run.observations : []) {
@@ -32,10 +33,14 @@ const contextFromGoal = (run, problems = []) => {
   return { issueKey:match.key || '', issueType:match.issueType || '', sourceUrl:match.sourceUrl, targetUrls:targets, title:match.title };
 };
 
+// Legacy-only compatibility: runs produced by the current SEO Agent are marked
+// `analysis-log` and can never mutate canonical problem state. Old pre-contract
+// runs may still be migrated once so existing workspaces keep their history.
 export function closuresFromAgentRuns(agentRuns = {}, existing = [], problems = []) {
   const byKey = new Map((Array.isArray(existing) ? existing : []).map(item => [key(item), item]));
   for (const [clientId, runs] of Object.entries(agentRuns || {})) {
     for (const run of Array.isArray(runs) ? runs : []) {
+      if (nonAuthoritativeAgentLog(run)) continue;
       if (run?.resolutionOutcome?.kind !== 'obsolete') continue;
       const context = contextFromRun(run) || contextFromGoal(run, problems);
       if (!context) continue;
