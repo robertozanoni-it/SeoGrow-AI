@@ -1,4 +1,4 @@
-import { archiveLegalSeoTasks, isLegalSeoTask } from './experience/tasks/index.js';
+import { archiveLegalSeoTasks, isLegalSeoTask, normalizeTaskLinks } from './experience/tasks/index.js';
 import { issueIdentity } from './reliabilityModel.js';
 
 export const auditTaskIdentity = task => issueIdentity({
@@ -54,10 +54,16 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
       sourceUrl: task.sourceUrl,
       linkLabel: task.linkLabel,
       detail: task.detail,
+      origin: task.origin || previous.origin || 'audit',
+      automatic: task.automatic !== false,
+      taskLinks: {
+        ...normalizeTaskLinks(previous.taskLinks),
+        ...normalizeTaskLinks(task.taskLinks),
+      },
       lastObservedAt: observedAt,
       ...(reappeared ? {
         status: 'Da fare', regression: true, reopenedAt: observedAt,
-        completedAt: '', completionReason: '',
+        completedAt: '', completionReason: '', causeReconciled: false,
         previousCompletedAt: previous.completedAt || '',
       } : {}),
     };
