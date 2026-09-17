@@ -6,8 +6,8 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const clientId=await read('seogrow-selected-client-v1');
     const clients=await read('seogrow-clients');
     const client=clients.find(c=>Number(c.id)===Number(clientId));
-    const siteKey='seogrow-analyses-v2',pageKey='seogrow-page-audit-history-v2',profileKey='seogrow-wordpress-profiles-v1';
-    const sites=await read(siteKey),pages=await read(pageKey),profiles=await read(profileKey);
+    const siteKey='seogrow-analyses-v2',pageKey='seogrow-page-audit-history-v2',profileKey='seogrow-wordpress-profiles-v1',closureKey='seogrow-problem-closures-v1';
+    const sites=await read(siteKey),pages=await read(pageKey),profiles=await read(profileKey),closures=await read(closureKey);
     const originals=await evaluate("(async()=>{const m=await import('/src/remediationStore.js');return m.listCorrections({includeOrphans:true})})()");
     const url=new URL('content-h1-wordpress-routing/',client.url).href;
     const issue={type:'duplicate-title',label:'Title duplicato',severity:'alta',sourceUrl:url,url,detail:'Title duplicato sulla pagina '+url};
@@ -61,7 +61,6 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       assert.equal(requests.find(r=>r.path==='/api/wordpress/generate-seo-value-v2').body.kind,'seo_title');
       assert.deepEqual(requests.find(r=>r.path==='/api/wordpress/live-preview').body.changes,{meta:{rank_math_title:newTitle}},'SEO provider selected even when public title equals post_title');
       assert.equal(requests.some(r=>r.path==='/api/wordpress/generate-patch-v2'),false,'No unrelated core/content patch');
-      // Download while preparation is available; a saved correction closes the writer.
       await evaluate("window.__qaOrigCreate=URL.createObjectURL;window.__qaOrigAnchor=HTMLAnchorElement.prototype.click;URL.createObjectURL=function(b){if(b.type==='application/zip')window.__qaConnectorBlob=b;return window.__qaOrigCreate(b)};HTMLAnchorElement.prototype.click=function(){if(!this.download.endsWith('.zip'))return window.__qaOrigAnchor.call(this)}");
       try {
         await button('Scarica SeoGrow Connector',scope);
@@ -102,14 +101,23 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
       await button('Torna ai problemi','.automatic-proposal-header');
       await waitFor("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"] .problem-main button')",'URL alias problem action');
       await evaluate("document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"] .problem-main button').click()");
-      await waitFor("location.hash.includes('SEO%20Agent') && document.querySelector('#seo-agent-goal')?.value.includes('Due URL')",'Manual diagnosis routes directly to SEO Agent solution');
-      await waitFor("document.querySelector('.agent-run')",'Guided solution autoruns without intermediate intervention page');
-      await screenshot('manual-problem-direct-solution');
+      await waitFor("decodeURIComponent(location.hash.slice(1))==='Correzioni' && document.querySelector('.problem-resolution-root h1')?.textContent.includes('Due URL')",'Manual diagnosis opens canonical Problem to Correction page');
+      assert.equal(await evaluate("Boolean(document.querySelector('#seo-agent-goal'))"),false,'Manual problem no longer skips directly to SEO Agent');
+      await waitFor("document.querySelector('.problem-resolution-actions .problem-resolution-auto')",'Manual problem exposes one primary next action');
+      await screenshot('manual-problem-correction-flow');
+      await button('Non modificare','.problem-resolution-root');
+      await waitFor("decodeURIComponent(location.hash.slice(1))==='Problemi' && !document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"]')",'Do not modify removes the problem from active list');
+      const excluded=await read(closureKey);
+      assert.equal(excluded.some(item=>Number(item.clientId)===Number(clientId)&&item.issueType==='url-alias'&&item.disposition==='do_not_modify'&&item.permanent===true),true,'Permanent exclusion persisted');
       await revisit('Problemi');
+      await waitFor("!document.querySelector('.native-problem-cards .problem-row[data-issue-type=\"url-alias\"]')",'Do not modify survives reload and reopen');
+      await waitFor("document.querySelector('.native-problem-cards [data-problem-key*=\"second-link\"]')",'Second external-link card');
       await click('.native-problem-cards [data-problem-key*=\"second-link\"]');
-      await waitFor("location.hash.includes('SEO%20Agent') && document.querySelector('#seo-agent-goal')?.value.includes('second-link')",'Second external-link card keeps its own exact destination in direct solution context');
-      assert.equal(await evaluate("document.querySelector('#seo-agent-goal')?.value.includes('first-link')"),false,'Never substitute the first problem on the same source page');
-      await screenshot('external-problem-direct-solution');
+      await waitFor("decodeURIComponent(location.hash.slice(1))==='Correzioni' && (document.querySelector('.automatic-proposal-page') || document.querySelector('.problem-resolution-root'))",'Second external-link opens the correction flow');
+      const focusedTarget=await evaluate("(()=>{const raw=sessionStorage.getItem('seogrow-problem-proposal-v1')||sessionStorage.getItem('seogrow-problem-resolution-v1');try{return JSON.parse(raw||'null')?.targetUrl||''}catch{return ''}})()");
+      assert.equal(focusedTarget,'https://www.external.example/second-link','Second external-link keeps its own exact destination');
+      assert.notEqual(focusedTarget,'https://www.external.example/first-link','Never substitute the first problem on the same source page');
+      await screenshot('external-problem-correction-flow');
       await revisit('Audit SEO');
       await waitFor("[...document.querySelectorAll('.audit-issues-list > div')].some(row => row.querySelector('strong')?.textContent === 'Title duplicato' && row.querySelector('.audit-agent-action'))",'Title issue available in reference Audit UI');
       await evaluate("[...document.querySelectorAll('.audit-issues-list > div')].find(row => row.querySelector('strong')?.textContent === 'Title duplicato').querySelector('.audit-agent-action').click()");
@@ -128,7 +136,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     } finally {
       await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
       await evaluate("(async()=>{const n=await import('/src/AutomaticProposalNavigation.js');n.clearAutomaticProposalFocus();sessionStorage.removeItem(n.RESOLUTION_FOCUS_KEY);window.dispatchEvent(new CustomEvent('seogrow-automatic-proposal-close'));window.dispatchEvent(new CustomEvent('seogrow-problem-resolution-open'))})()");
-      await write(siteKey,sites);await write(pageKey,pages);await write(profileKey,profiles);
+      await write(siteKey,sites);await write(pageKey,pages);await write(profileKey,profiles);await write(closureKey,closures);
       await evaluate(`(async()=>{const m=await import('/src/remediationStore.js');await m.replaceCorrections(${JSON.stringify(originals)})})()`);
       await revisit('Centro progetto');
     }

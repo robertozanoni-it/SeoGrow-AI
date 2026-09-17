@@ -91,17 +91,19 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
       assert.equal(contentRequest.manualValue,expanded);assert.equal(JSON.parse(contentRequest.context).page.content,original);
       await noWrite();
 
+      // A broken external link is assisted, not automatic: it must enter the canonical Problem → Correction flow.
       await seed({type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:target},false);
-      await waitFor("location.hash.includes('SEO%20Agent')",'Broken-link opens direct guided solution');
-      assert.equal(await evaluate("Boolean(document.querySelector('.problem-resolution-page'))"),false,'Legacy intervention page is bypassed');
-      await revisit('Problemi');
+      await waitFor("document.querySelector('.problem-resolution-root .problem-resolution-auto')?.textContent.includes('Prepara correzione')",'Broken-link opens unified correction flow');
+      assert.equal(await evaluate("document.querySelector('.problem-resolution-root')?.textContent.includes('Correggi automaticamente')"),false,'Assisted broken link cannot expose automatic CTA');
+      assert.equal(await evaluate("document.querySelectorAll('.problem-resolution-section').length"),4,'Unified flow keeps four explicit steps');
       await noWrite();
+      await revisit('Problemi');
 
-      // Multiple broken destinations also use the direct guided solution; the legacy intervention page is not reopened.
+      // Multiple broken destinations still enter the same canonical flow for the selected destination.
       const otherTarget='https://www.yogaalliance.org/credentialing/credentials-for-teachers';
       await seed({type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:otherTarget},false,[{type:'broken-external-link',label:'Link esterno non raggiungibile (404)',targetUrl:target}]);
-      await waitFor("location.hash.includes('SEO%20Agent')",'Selected broken destination opens direct guided solution');
-      assert.equal(await evaluate("Boolean(document.querySelector('.problem-resolution-page'))"),false);
+      await waitFor("document.querySelector('.problem-resolution-root .problem-resolution-auto')?.textContent.includes('Prepara correzione')",'Selected broken destination opens unified correction flow');
+      assert.equal(await evaluate("document.querySelector('.problem-resolution-root')?.textContent.includes('Correggi automaticamente')"),false);
       await noWrite();
 
     } finally {

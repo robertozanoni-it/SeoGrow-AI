@@ -74,7 +74,7 @@ const labelMap = {
     needs_verification: "Da confermare",
     resolved: "Risolto",
     reappeared: "Ricomparso",
-    intentional: "Intenzionale",
+    intentional: "Non modificare",
   },
   intervention: {
     not_prepared: "Da preparare",
@@ -100,7 +100,6 @@ const labelMap = {
   severity: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non classificata" },
   priority: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non assegnata" },
 };
-
 
 const compactText = (value, max = 220) => {
   const text = String(value || "").replace(/\s+/g, " ").trim();
@@ -298,7 +297,7 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
           ) : problem.interventionState === "applied" || problem.interventionState === "verified" || problem.problemState === "needs_verification" ? (
             <button className="primary" onClick={verifyNow} disabled={working}><RefreshCw /> {working ? "Verifica…" : "Verifica ora"}</button>
           ) : (
-            <button className="primary" onClick={openSpecificIntervention}>{problem.ownershipBlocked ? "Identifica widget" : problem.correctability === "not_supported" ? "Apri istruzioni" : "Apri intervento"}</button>
+            <button className="primary" onClick={() => { openProblemResolution(problem, clientId, "problem-card"); onClose(); }}>{problemEntryLabel(problem)}</button>
           )}
           <button className="secondary" onClick={askAgent}><Sparkles /> Chiedi a SeoGrow</button>
         </div>
@@ -430,7 +429,7 @@ export default function ProblemsWorkspace() {
     .map((store) => store.error);
 
   const model = useMemo(() => {
-    if (!client) return { rows: [], warnings: [], coverage: null };
+    if (!client) return { rows: [], activeRows: [], warnings: [], coverage: null };
     return buildUnifiedProblems({
       clientId: client.id,
       siteHistory: analysesStore.value[client.id] || analysesStore.value[String(client.id)] || [],
@@ -452,6 +451,7 @@ export default function ProblemsWorkspace() {
   }, [active, selectedClientId, agentRunsStore.value, closuresStore.value, model.rows]);
 
   const rows = model.rows;
+  const activeRows = Array.isArray(model.activeRows) ? model.activeRows : rows.filter((row) => !["resolved", "intentional"].includes(row.problemState));
   const typeOptions = [...new Set(rows.map((row) => row.issueType).filter(Boolean))].toSorted();
   const adapterOptions = [...new Set(rows.flatMap((row) => row.adapters).filter(Boolean))].toSorted();
   const sourceOptions = [...new Set(rows.flatMap((row) => row.sources.map((source) => source.kind)).filter(Boolean))].toSorted();
@@ -459,10 +459,10 @@ export default function ProblemsWorkspace() {
   const filtered = filterProblemRows(rows, filters);
 
   const counts = {
-    active: rows.filter((row) => !["resolved", "intentional"].includes(row.problemState)).length,
-    high: rows.filter((row) => row.severity === "high" && !["resolved", "intentional"].includes(row.problemState)).length,
-    verify: rows.filter((row) => row.problemState === "needs_verification").length,
-    reappeared: rows.filter((row) => row.problemState === "reappeared").length,
+    active: activeRows.length,
+    high: activeRows.filter((row) => row.severity === "high").length,
+    verify: activeRows.filter((row) => row.problemState === "needs_verification").length,
+    reappeared: activeRows.filter((row) => row.problemState === "reappeared").length,
     resolved: rows.filter((row) => row.problemState === "resolved").length,
   };
   const selected = rows.find((row) => row.key === selectedKey) || null;
@@ -538,7 +538,8 @@ export default function ProblemsWorkspace() {
       <section className={`problems-list card-record-grid native-problem-cards ${view}`} aria-live="polite">
         {filtered.length ? filtered.map((problem, index) => {
           const href = safeHttpHref(problem.sourceUrl);
-          const autoResolvable = problem.correctability === "automatic" && problem.problemState === "open" && !problem.ownershipBlocked && !["applied", "verified"].includes(problem.interventionState);
+          const entryLabel = problemEntryLabel(problem);
+          const autoResolvable = entryLabel === "Correggi automaticamente";
           return (
             <article className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} role="button" tabIndex={batchBusy ? -1 : 0} aria-label={`Apri problema ${problem.title}`} onClick={event => { if (!event.target.closest("a,button,input,label") && !batchBusy) openProblemResolution(problem, selectedClientId, "problem-row"); }} onKeyDown={event => { if (!batchBusy && event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); openProblemResolution(problem, selectedClientId, "problem-row"); } }}>
               <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={batchSelection.clientId === client.id && batchSelection.keys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
@@ -550,7 +551,7 @@ export default function ProblemsWorkspace() {
               <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag">Obsoleto</span>}
-              <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (problemEntryLabel(problem) === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{autoResolvable ? "Risolvi automaticamente" : problemEntryLabel(problem)} <ChevronRight /></button>
+              <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (entryLabel === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{entryLabel} <ChevronRight /></button>
             </article>
           );
         }) : (

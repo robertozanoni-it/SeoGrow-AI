@@ -20,7 +20,7 @@ test("il Centro Problemi unifica Audit Task e Correzioni senza scritture", () =>
 });
 
 test("gli stati visuali del Centro Problemi sono coerenti con il modello di affidabilità", () => {
-  for (const status of ["Aperto", "Da confermare", "Risolto", "Ricomparso", "Intenzionale"]) {
+  for (const status of ["Aperto", "Da confermare", "Risolto", "Ricomparso", "Non modificare"]) {
     assert.match(workspace, new RegExp(status));
   }
   for (const intervention of ["Da preparare", "Pronto", "Approvato", "Applicato", "Verificato tecnicamente", "Fallito", "Ripristinato", "Task completata"]) {

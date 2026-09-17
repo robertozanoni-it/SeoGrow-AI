@@ -24,7 +24,7 @@ const problem = {
 test("il finding SERP width usa l'adapter meta description ma resta in preview controllata", () => {
   assert.equal(remediationIssueKind(finding), "meta_description");
   assert.equal(resolutionPath(problem).action, "prepare");
-  assert.equal(resolutionPath(problem).label, "Prepara soluzione");
+  assert.equal(resolutionPath(problem).label, "Prepara correzione");
   assert.equal(canOpenControlledReviewPreview(problem), true);
   assert.equal(controlledPreviewAllowed(problem, { controlledReviewPreview: true }), true);
 });
