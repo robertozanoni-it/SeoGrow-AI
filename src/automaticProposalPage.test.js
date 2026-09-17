@@ -27,9 +27,7 @@ test("la pagina proposta ospita il motore reale di anteprima e approvazione", ()
   assert.match(page, /proposal-remediation-slot/);
   assert.match(page, /Adesso sul sito/);
   assert.match(page, /Dopo la modifica/);
-  assert.match(runtime, /const page = currentPage\(\)/);
-  assert.match(runtime, /page === PROPOSAL_ROUTE_PAGE/);
-  assert.doesNotMatch(runtime, /state\.page/);
+  assert.match(runtime, /state\.page === PROPOSAL_ROUTE_PAGE/);
   assert.match(runtime, /readAutomaticProposalFocus/);
   assert.match(runtime, /slotSelector=\{proposalMode \? "\.proposal-remediation-slot" : ""\}/);
   assert.match(runtime, /WordPressLiveRemediationControlV2/);
