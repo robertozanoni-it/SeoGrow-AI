@@ -26,6 +26,17 @@ const normalizeGeneratedAuditTask = task => {
   };
 };
 
+const mergeLinks = (previous, current) => {
+  const before = normalizeTaskLinks(previous);
+  const after = normalizeTaskLinks(current);
+  return {
+    problemKey: after.problemKey || before.problemKey,
+    correctionId: after.correctionId || before.correctionId,
+    opportunityId: after.opportunityId || before.opportunityId,
+    opportunityKey: after.opportunityKey || before.opportunityKey,
+  };
+};
+
 // An absent finding in a partial crawl is not evidence of resolution.
 export function reconcileAuditTasks(current, generated, clientId, observedAt) {
   const next = [...archiveLegalSeoTasks(current)];
@@ -56,10 +67,7 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
       detail: task.detail,
       origin: task.origin || previous.origin || 'audit',
       automatic: task.automatic !== false,
-      taskLinks: {
-        ...normalizeTaskLinks(previous.taskLinks),
-        ...normalizeTaskLinks(task.taskLinks),
-      },
+      taskLinks: mergeLinks(previous.taskLinks, task.taskLinks),
       lastObservedAt: observedAt,
       ...(reappeared ? {
         status: 'Da fare', regression: true, reopenedAt: observedAt,
