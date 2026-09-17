@@ -28,6 +28,7 @@ export {
   writeProjectPolicy,
   pathExcludedByProjectPolicy,
   projectWriteAllowed,
+  projectFeatureEnabled,
 } from "./settings/projectPolicy.js";
 export {
   budgetMoney,
