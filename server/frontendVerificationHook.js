@@ -36,7 +36,6 @@ function firstMatch(value, pattern) {
   return String(value || "").match(pattern)?.[1]?.replace(/\s+/g, " ").trim() || "";
 }
 
-
 function canonicalHref(html) {
   return firstMatch(html, /<link[^>]+rel=["'][^"']*canonical[^"']*["'][^>]+href=["']([^"']+)["']/i) ||
     firstMatch(html, /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*canonical[^"']*["']/i);
@@ -55,7 +54,6 @@ export function canonicalCount(html) {
 }
 
 const decodeEntity = decodePublicEntities;
-
 const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
 const inertMarkupPattern = /<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi;
 
@@ -77,8 +75,7 @@ export function elementorRenderedDocuments(html) {
 }
 
 function stripAlwaysHiddenMarkup(html) {
-  let value = String(html || "")
-    .replace(inertMarkupPattern, " ");
+  let value = String(html || "").replace(inertMarkupPattern, " ");
   const hiddenBlock = new RegExp(
     `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
     "gi",
@@ -114,47 +111,32 @@ export function contentOwnershipEvidence(expectedContent, visibleContent, fronte
   const visible = normalizeText(visibleContent);
   const words = expected ? expected.split(/\s+/).filter(Boolean) : [];
   const expectedWords = words.length;
-  if (!expectedWords || !visible) {
-    return { expectedWords, contentProbeMatches: 0, contentProbeCount: 0, contentCoverageStrong: false };
-  }
-
+  if (!expectedWords || !visible) return { expectedWords, contentProbeMatches: 0, contentProbeCount: 0, contentCoverageStrong: false };
   const probes = [];
   const addProbe = (start, length) => {
     const probe = words.slice(start, start + length).join(" ").trim();
     if (probe && !probes.includes(probe)) probes.push(probe);
   };
-
-  if (expectedWords < 20) {
-    addProbe(0, expectedWords);
-  } else {
+  if (expectedWords < 20) addProbe(0, expectedWords);
+  else {
     const width = Math.min(18, Math.max(10, Math.floor(expectedWords / 4)));
     addProbe(0, width);
     addProbe(Math.max(0, Math.floor((expectedWords - width) / 2)), width);
     addProbe(Math.max(0, expectedWords - width), width);
   }
-
   const contentProbeMatches = probes.filter((probe) => visible.includes(probe)).length;
   const ratio = Number(frontendWords) > 0 ? expectedWords / Number(frontendWords) : 0;
   const allMatched = probes.length > 0 && contentProbeMatches === probes.length;
   const contentCoverageStrong = expectedWords < 20
     ? allMatched && ratio >= 0.4
     : probes.length >= 2 && allMatched && ratio >= 0.55;
-
-  return {
-    expectedWords,
-    contentProbeMatches,
-    contentProbeCount: probes.length,
-    contentCoverageStrong,
-  };
+  return { expectedWords, contentProbeMatches, contentProbeCount: probes.length, contentCoverageStrong };
 }
 
 export function pageKind(pathname) {
   let segments;
   try {
-    segments = decodeURIComponent(String(pathname || ""))
-      .toLowerCase()
-      .split("/")
-      .filter(Boolean);
+    segments = decodeURIComponent(String(pathname || "")).toLowerCase().split("/").filter(Boolean);
   } catch {
     segments = String(pathname || "").toLowerCase().split("/").filter(Boolean);
   }
@@ -182,8 +164,7 @@ async function fetchPage(initialUrl) {
       await response.body?.cancel();
       if (!location) throw new Error("Redirect frontend senza destinazione.");
       const next = await safeTarget(new URL(location, current).href);
-      if (canonicalHost(next.hostname) !== originalHost)
-        throw new Error("La pagina frontend reindirizza verso un altro dominio.");
+      if (canonicalHost(next.hostname) !== originalHost) throw new Error("La pagina frontend reindirizza verso un altro dominio.");
       current = next;
       continue;
     }
@@ -192,21 +173,23 @@ async function fetchPage(initialUrl) {
     const isHtml = /(?:text\/html|application\/xhtml\+xml)/i.test(contentType);
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > 5 * 1024 * 1024) throw new Error("Pagina frontend troppo grande per la verifica.");
-    const html = isHtml ? bytes.toString("utf8") : "";
     return {
       url: current.href,
       status: response.status,
       contentType,
       isHtml,
-      html,
+      html: isHtml ? bytes.toString("utf8") : "",
       xRobotsTag: response.headers.get("x-robots-tag") || "",
     };
   }
   throw new Error("Troppi redirect durante la verifica frontend.");
 }
 
-function visibleH1Count(html) {
-  return [...String(html || "").matchAll(/<h1\b([^>]*)>/gi)].filter((match) => {
+function visibleHeadingCount(html, level) {
+  const wanted = Number(level);
+  if (![1, 2].includes(wanted)) return 0;
+  const pattern = new RegExp(`<h${wanted}\\b([^>]*)>`, "gi");
+  return [...String(html || "").matchAll(pattern)].filter((match) => {
     const attrs = String(match[1] || "");
     if (/\bhidden(?:\s|=|$)/i.test(attrs)) return false;
     if (/aria-hidden\s*=\s*["']?true/i.test(attrs)) return false;
@@ -215,10 +198,14 @@ function visibleH1Count(html) {
   }).length;
 }
 
+function visibleH1Count(html) { return visibleHeadingCount(html, 1); }
+function visibleH2Count(html) { return visibleHeadingCount(html, 2); }
+
 function signals(page) {
   const { title, titleCount, metaDescription, metaDescriptionCount, robots, googlebot } = publicHeadMetadata(page.html);
   const conservativeMarkup = stripAlwaysHiddenMarkup(page.html);
   const h1 = visibleH1Count(conservativeMarkup);
+  const h2 = visibleH2Count(conservativeMarkup);
   const text = visibleText(conservativeMarkup);
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const kind = pageKind(new URL(page.url).pathname);
@@ -235,6 +222,7 @@ function signals(page) {
     metaDescription,
     metaDescriptionCount,
     h1,
+    h2,
     text,
     words,
     pageKind: kind,
@@ -267,6 +255,7 @@ async function inspect(url) {
     metaDescription: result.metaDescription,
     metaDescriptionCount: result.metaDescriptionCount,
     h1: result.h1,
+    h2: result.h2,
     words: result.words,
     pageKind: result.pageKind,
     minimumWords: result.minimumWords,
@@ -296,17 +285,10 @@ function publicResult(result) {
 function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
-
   app.post("/api/frontend/inspect", async (req, res) => {
-    try {
-      return res.json(publicResult(await inspect(req.body?.url)));
-    } catch (error) {
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : "Ispezione frontend non riuscita.",
-      });
-    }
+    try { return res.json(publicResult(await inspect(req.body?.url))); }
+    catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "Ispezione frontend non riuscita." }); }
   });
-
   app.post("/api/wordpress/verify-frontend", async (req, res) => {
     try {
       const { url, expected = {} } = req.body || {};
@@ -327,11 +309,9 @@ function registerRoutes(app) {
         contentProbeVisible: contentProbe ? normalizedVisible.includes(contentProbe) : null,
       });
     } catch (error) {
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : "Verifica frontend non riuscita.",
-      });
+      return res.status(400).json({ error: error instanceof Error ? error.message : "Verifica frontend non riuscita." });
     }
   });
 }
 
-export { inspect, registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count };
+export { inspect, registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count, visibleH2Count };
