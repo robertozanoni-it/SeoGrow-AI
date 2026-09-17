@@ -49,19 +49,20 @@ test("audit pagina completa H2 e noindex tramite osservazione frontend reale", a
   assert.match(frontend, /xRobotsTag/);
 });
 
-test("ogni issue passa dal contratto evidenza e la UI espone Vai alla risoluzione", async () => {
-  const [api, contract, ux, bootstrap] = await Promise.all([
+test("ogni issue passa dal contratto evidenza e AuditWorkspace espone Vai alla risoluzione", async () => {
+  const [api, contract, workspace, bootstrap] = await Promise.all([
     source("./api.js"),
     source("./auditEvidenceContract.js"),
-    source("./AuditEvidenceUx.js"),
+    source("./AuditWorkspace.jsx"),
     source("./appMain.jsx"),
   ]);
   assert.match(api, /normalizeAuditEvidenceResponse/);
   assert.match(contract, /issueEvidenceComplete/);
-  assert.match(contract, /Sorgente|sourceType/);
+  assert.match(contract, /sourceType/);
   assert.match(contract, /auditIssueIdentity/);
-  assert.match(ux, /Vai alla risoluzione/);
-  assert.match(ux, /audit-evidence-source/);
-  assert.match(ux, /evidence\.observed/);
-  assert.match(bootstrap, /AuditEvidenceUx/);
+  assert.match(workspace, /Vai alla risoluzione/);
+  assert.match(workspace, /audit-evidence-source/);
+  assert.match(workspace, /evidence\.observed/);
+  assert.match(workspace, /enforceAuditEvidence/);
+  assert.doesNotMatch(bootstrap, /AuditEvidenceUx/);
 });
