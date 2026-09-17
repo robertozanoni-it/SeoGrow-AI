@@ -15,3 +15,13 @@ export {
   singleAnchorHref,
   transformBrokenLinkAnchors,
 } from "./brokenLinkHref.js";
+export {
+  INTERNAL_LINK_ISSUE_TYPE,
+  validateInternalLinkSuggestion,
+  analyzeInternalLinkSuggestions,
+  inspectAnchorInsertion,
+  insertInternalLinkIntoHtml,
+  buildInternalLinkPatch,
+  assessInternalLinkPreflight,
+  assessInternalLinkVerification,
+} from "./internalLinkRemediation.js";
