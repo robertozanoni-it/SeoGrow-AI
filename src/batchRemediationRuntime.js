@@ -17,6 +17,11 @@ import { remediationIssueKind } from './remediationIssueKind.js';
 import { safeHttpHref } from './reliabilityModel.js';
 import { stableBatchJson } from './batchRemediationModel.js';
 import { createTaskDraft } from './experience/tasks/index.js';
+import {
+  applySharedElementorBatchPreview,
+  prepareSharedElementorBatchPreview,
+  sharedElementorOwnershipCandidate,
+} from './sharedElementorBatchAdapter.js';
 
 const read = (key, fallback) => { try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const fail = (message, code) => Object.assign(new Error(message), { code });
@@ -172,10 +177,28 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
         const evidence = await inspectElementorImpactEvidence(inspected.entity, wp, candidates);
         if (evidence) attachElementorImpactEvidence(inspected.entity, evidence);
       }
-      const plan = await buildPlan(entry.kind, resolved.issue, inspected, targetUrl, frontendContext, {
-        linkCleanupMode: 'unlink-preserve-text',
-        linkEvidence: entry.kind === 'external_link' ? await inspectLinkEvidence(targetUrl, brokenExternalTarget(resolved.issue)) : undefined,
-      });
+      const contextSnapshot = {
+        clientId: run.clientId,
+        clientName: run.clientName,
+        siteUrl: run.siteUrl,
+        auditType: resolved.audit.type,
+        analyzedAt: resolved.audit.item.analyzedAt || resolved.audit.item.startedAt,
+        auditFingerprint: JSON.stringify(resolved.audit.item),
+      };
+      let plan;
+      try {
+        plan = await buildPlan(entry.kind, resolved.issue, inspected, targetUrl, frontendContext, {
+          linkCleanupMode: 'unlink-preserve-text',
+          linkEvidence: entry.kind === 'external_link' ? await inspectLinkEvidence(targetUrl, brokenExternalTarget(resolved.issue)) : undefined,
+        });
+      } catch (error) {
+        if (!sharedElementorOwnershipCandidate(entry, error)) throw error;
+        await assertContext();
+        if (stableBatchJson(resolve(entry).audit.item) !== stableBatchJson(resolved.audit.item)) throw fail('Audit cambiato durante la preparazione.', 'STALE_TARGET');
+        const preview = await prepareSharedElementorBatchPreview({ entry, resolved, inspected, frontendContext, targetUrl, wp, contextSnapshot });
+        if (await pendingCorrection(entry, preview)) throw fail('Un’altra correzione sul template condiviso è ancora da verificare.', 'UNCERTAIN_PENDING_WRITE');
+        return preview;
+      }
       if (plan.alreadyResolved) return plan;
       assertSeoPatchLengths(plan.changes);
       await assertContext();
@@ -187,8 +210,7 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       if (data.ok !== true || stableBatchJson(data.previewBefore) !== stableBatchJson(expectedCurrent)) throw fail('Snapshot della preview diverso dalla lettura usata per generarla.', 'STALE_TARGET');
       const preview = { status: 'preview', targetUrl, issue: resolved.issue, inspected, frontendContext, plan, data,
         expiresAt: Date.now() + Number(data.expiresInSeconds || 0) * 1000,
-        contextSnapshot: { clientId: run.clientId, clientName: run.clientName, siteUrl: run.siteUrl, auditType: resolved.audit.type,
-          analyzedAt: resolved.audit.item.analyzedAt || resolved.audit.item.startedAt, auditFingerprint: JSON.stringify(resolved.audit.item) },
+        contextSnapshot,
         ...previewIdentity({ issue: resolved.issue, inspected, targetUrl, frontend: frontendContext }) };
       if (await pendingCorrection(entry, preview)) throw fail('Un’altra correzione sul campo è ancora da verificare.', 'UNCERTAIN_PENDING_WRITE');
       return preview;
@@ -233,11 +255,23 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
       if (!p?.data?.approvalToken || !Number.isFinite(p.expiresAt) || Date.now() >= p.expiresAt) throw fail('Anteprima scaduta: rigenera e approva di nuovo.', 'APPROVAL_EXPIRED');
       if (JSON.stringify(resolve(entry).audit.item) !== p.contextSnapshot.auditFingerprint) throw fail('L’audit è cambiato dopo l’anteprima.', 'STALE_TARGET');
       if (await pendingCorrection(entry, p)) throw fail('Scrittura precedente ancora da riconciliare/verificare.', 'UNCERTAIN_PENDING_WRITE');
+      if (p.sharedElementor) {
+        await assertContext();
+        return;
+      }
       const current = await inspectWordPress(p.targetUrl, wp);
       if (current.resource !== p.inspected.resource || current.entity?.id !== p.inspected.entity.id || current.entity.status !== p.inspected.entity.status || exactPageKey(current.entity.link) !== exactPageKey(p.targetUrl) ||
           stableBatchJson(expectedState(current.entity, p.plan.changes)) !== stableBatchJson(p.data.previewBefore)) throw fail('Target o campo cambiato: la vecchia proposta non viene applicata.', 'STALE_TARGET');
     },
     apply: async entry => {
+      if (entry.preview?.sharedElementor) {
+        try { return await applySharedElementorBatchPreview({ entry, run, wp, assertContext }); }
+        catch (error) {
+          const stored = await readCorrection(entry.correctionId);
+          if (!stored || (stored.status === 'Bloccato' && stored.writeConfirmed === false)) error.definitelyNoWrite = true;
+          throw error;
+        }
+      }
       const record = createWordPressCorrection(entry.preview, wp, run.id, entry.correctionId);
       record.batchProblemKeys = [...entry.problemKeys];
       record.batchIssues = run.entries.filter(e => entry.problemKeys.includes(e.problem.key)).map(e => ({ issue: e.preview?.issue || entry.preview.issue, sourceUrl: e.problem.sourceUrl }));
@@ -252,7 +286,6 @@ export function createBatchWordPressPorts({ run, credentials, save, progress, st
     deltaVerify: async entry => {
       const record = await readCorrection(entry.correctionId);
       if (!record || record.writeConfirmed !== true || record.status === 'Ripristinato') return null;
-      // Duplicates need comparison across documents. A single-page pass is never enough.
       if (requiresDuplicateAudit(record)) return { record, needsAudit: true };
       if (entry.kind === 'external_link') return verifyAutoFixCorrectionById(entry.correctionId, { ...context, siteUrl: wp.url, username: wp.username, applicationPassword: wp.applicationPassword });
       const p = entry.preview;
