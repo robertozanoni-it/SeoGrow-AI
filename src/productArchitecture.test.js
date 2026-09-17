@@ -78,9 +78,12 @@ test("le vecchie pagine duplicate sono viste legacy con un solo owner canonico",
   }
 });
 
-test("wizard e bootstrap non reintroducono navigazioni parallele", async () => {
+test("wizard usa solo moduli canonici e Problemi resta una sottovista di Audit SEO", async () => {
   assert.deepEqual(WIZARD_DESTINATION_PAGES, EXPECTED_MODULES);
   assert.equal(wizardActionCoverageComplete(), true);
   const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
-  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
+  const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
+  assert.match(main, /<ProblemsNavBridge \/>/);
+  assert.match(bridge, /data-seogrow-page=\"Audit SEO\"/);
+  assert.match(bridge, /data-seogrow-subview=\"Audit SEO:Problemi\"/);
 });
