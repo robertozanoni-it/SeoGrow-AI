@@ -1,7 +1,7 @@
 import { confirmAction } from "./ui/dialogs.js";
 import { agentStatusLabel, agentCostLabel } from "./agentPresentation.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CheckCircle2, Circle, FileText, Link2, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { CheckCircle2, Circle, LoaderCircle, Play, ShieldCheck, Sparkles } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 import { buildProblemAgentRun, problemNeedsFreshAudit } from "./problemAgentDiagnosis.js";
 import { readWorkspaceJson } from "./core/workspace/jsonStorage.js";
@@ -68,8 +68,8 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
 
   const run = currentRun || savedRuns.find((item) => item?.id === selectedRunId) || savedRuns[0];
   const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode: AgentMode.READ_ONLY };
-  const canonicalTasks = useMemo(() => { canonicalRevision; return readWorkspaceJson(TASKS_KEY, []).filter((task) => Number(task?.sourceClientId) === Number(client.id)); }, [canonicalRevision, client.id]);
-  const canonicalCorrections = useMemo(() => { canonicalRevision; return remediationIndex().filter((row) => Number(row?.clientId) === Number(client.id)); }, [canonicalRevision, client.id]);
+  const canonicalTasks = useMemo(() => readWorkspaceJson(TASKS_KEY, []).filter((task) => Number(task?.sourceClientId) === Number(client.id)), [canonicalRevision, client.id]);
+  const canonicalCorrections = useMemo(() => remediationIndex().filter((row) => Number(row?.clientId) === Number(client.id)), [canonicalRevision, client.id]);
   const reconciliation = useMemo(() => reconcileAgentLog(run, { tasks: canonicalTasks, corrections: canonicalCorrections }), [run, canonicalTasks, canonicalCorrections]);
   const persistRun = (value) => { const logged = asAgentAnalysisLog(value); setCurrentRun(logged); onSaveRun(logged); return logged; };
   const logAction = (baseRun, entry) => { if (!baseRun?.id) return baseRun; const next = appendAgentLog(baseRun, entry); setCurrentRun(next); onSaveRun(next); return next; };
@@ -96,7 +96,13 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
     } catch (error) { setActionError(error?.message || "Non è stato possibile avviare l’analisi."); }
     finally { operationLock.current = false; setRunning(false); }
   };
-  useEffect(() => { if (!autorunPending.current || !goal.trim() || running) return; autorunPending.current = false; start(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [goal]);
+  useEffect(() => {
+    if (!autorunPending.current || !goal.trim() || running) return;
+    autorunPending.current = false;
+    start();
+    // start intentionally reads the freshly applied prefill state in this one-shot handoff.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goal]);
 
   const saveRecommendationTask = (item) => {
     if (!run?.id || running) return null;
