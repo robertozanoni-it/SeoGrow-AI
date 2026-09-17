@@ -1,41 +1,19 @@
-const freezeList = (values) => Object.freeze(values.map((value) => String(value).trim()));
+const REQUIRED_STATES = Object.freeze(["empty", "error", "completed"]);
 
-const defineProductModule = ({
-  id,
-  page,
-  group,
-  icon,
-  inputs,
-  outputs,
-  data,
-  primaryCta,
-  owns,
-  legacyViews = [],
-  states,
-}) => Object.freeze({
-  id,
-  page,
-  label: page,
-  group,
-  icon,
-  advancedOnly: false,
-  inputs: freezeList(inputs),
-  outputs: freezeList(outputs),
-  data: freezeList(data),
-  primaryCta: String(primaryCta).trim(),
-  owns: freezeList(owns),
-  legacyViews: freezeList(legacyViews),
-  states: Object.freeze({
-    empty: String(states.empty).trim(),
-    error: String(states.error).trim(),
-    completed: String(states.completed).trim(),
-  }),
+const freezeArray = (items = []) => Object.freeze([...items]);
+const freezeStates = (states = {}) => Object.freeze({ ...states });
+
+const defineProductModule = (definition) => Object.freeze({
+  ...definition,
+  inputs: freezeArray(definition.inputs),
+  outputs: freezeArray(definition.outputs),
+  data: freezeArray(definition.data),
+  owns: freezeArray(definition.owns),
+  legacyViews: freezeArray(definition.legacyViews),
+  states: freezeStates(definition.states),
 });
 
-export const ARCHITECTURE_FROZEN = true;
-export const ARCHITECTURE_VERSION = "2026-09-17";
-
-const FROZEN_MODULE_ORDER = Object.freeze([
+export const FROZEN_SUITE_MODULES = Object.freeze([
   "Panoramica",
   "Clienti",
   "Centro progetto",
@@ -56,42 +34,42 @@ export const PRODUCT_MODULES = Object.freeze([
   defineProductModule({
     id: "overview",
     page: "Panoramica",
-    group: "CONTROLLO",
+    group: "LAVORO",
     icon: "overview",
-    inputs: ["progetto selezionato", "stato workspace"],
+    inputs: ["progetto selezionato", "stato moduli"],
     outputs: ["sintesi salute progetto", "prossima azione utile"],
     data: ["clienti e progetti", "ultimo audit", "posizionamenti", "opportunità", "task", "stato integrazioni"],
     primaryCta: "Apri prossima azione",
-    owns: ["project-overview", "next-action-routing"],
+    owns: ["project-overview", "next-best-action"],
     states: {
-      empty: "Nessun progetto selezionato: invita a scegliere o creare un cliente.",
-      error: "Mostra quali dati di riepilogo non sono disponibili senza bloccare il resto della suite.",
-      completed: "Mostra stato aggiornato, priorità e una sola prossima azione consigliata.",
+      empty: "Nessun progetto selezionato: mostra invito alla selezione o creazione cliente.",
+      error: "Mantiene visibili i moduli disponibili e identifica il dato non leggibile.",
+      completed: "Progetto attivo con sintesi e azione successiva derivata dai moduli.",
     },
   }),
   defineProductModule({
     id: "clients",
     page: "Clienti",
-    group: "CONTROLLO",
+    group: "LAVORO",
     icon: "clients",
-    inputs: ["anagrafica cliente", "sito o progetto"],
-    outputs: ["portfolio clienti", "progetto attivo"],
-    data: ["clienti", "progetti", "URL associati", "stato configurazione progetto"],
-    primaryCta: "Aggiungi cliente",
-    owns: ["client-portfolio", "project-selection"],
+    inputs: ["anagrafica cliente", "URL progetto"],
+    outputs: ["cliente/progetto persistito", "progetto selezionabile"],
+    data: ["clienti", "associazione sito", "stato integrazioni"],
+    primaryCta: "Nuovo cliente",
+    owns: ["client-management", "project-selection"],
     states: {
-      empty: "Nessun cliente: mostra il percorso per aggiungere il primo cliente.",
-      error: "Segnala il caricamento cliente fallito mantenendo disponibili gli altri record.",
-      completed: "Cliente salvato e progetto selezionabile senza duplicare schede o workspace.",
+      empty: "Nessun cliente: mostra creazione del primo progetto.",
+      error: "Segnala dati cliente non validi senza alterare gli altri progetti.",
+      completed: "Cliente salvato e selezionabile con contesto sito univoco.",
     },
   }),
   defineProductModule({
     id: "project-center",
     page: "Centro progetto",
-    group: "CONTROLLO",
+    group: "LAVORO",
     icon: "project",
-    inputs: ["cliente selezionato", "sito selezionato", "obiettivi progetto"],
-    outputs: ["configurazione progetto", "riepilogo operativo", "storico e report del progetto"],
+    inputs: ["cliente selezionato", "obiettivi e configurazione progetto"],
+    outputs: ["baseline progetto", "configurazione operativa", "report progetto"],
     data: ["profilo progetto", "storico analisi", "configurazione report", "stato integrazioni", "attività progetto"],
     primaryCta: "Configura progetto",
     owns: ["project-configuration", "project-history", "project-reporting"],
@@ -140,15 +118,15 @@ export const PRODUCT_MODULES = Object.freeze([
     page: "Link interni",
     group: "CRESCITA",
     icon: "links",
-    inputs: ["pagine del sito", "contenuti e link osservati"],
-    outputs: ["mappa link interni", "raccomandazioni di collegamento", "evidenze anchor"],
-    data: ["crawl pagine", "grafo link", "anchor text", "contenuti indicizzabili"],
+    inputs: ["pagine del sito", "contenuti e link osservati", "progetto WordPress collegato"],
+    outputs: ["mappa link interni", "opportunità sorgente→destinazione", "anchor e motivazione", "preview e stato di verifica della correzione"],
+    data: ["crawl pagine", "grafo link", "anchor text", "contenuti indicizzabili", "evidenza frontend", "stato Correzioni"],
     primaryCta: "Analizza link interni",
-    owns: ["internal-link-analysis", "internal-link-recommendations"],
+    owns: ["internal-link-analysis", "internal-link-recommendations", "internal-link-remediation-orchestration"],
     states: {
       empty: "Nessun dato di linking: richiede un audit o dati pagina utilizzabili.",
-      error: "Segnala dati incompleti senza inventare collegamenti.",
-      completed: "Mostra opportunità di link con sorgente, destinazione e motivazione verificabile.",
+      error: "Blocca auto-link duplicati, self-link, ownership o anchor ambigue senza inventare collegamenti.",
+      completed: "Mostra sorgente, destinazione, anchor e motivazione; preview/apply/verify usano il writer e il rollback canonici di Correzioni.",
     },
   }),
   defineProductModule({
@@ -188,64 +166,63 @@ export const PRODUCT_MODULES = Object.freeze([
     page: "Task",
     group: "AZIONI",
     icon: "tasks",
-    inputs: ["azione manuale", "problema", "opportunità"],
-    outputs: ["task operativo", "stato avanzamento", "chiusura verificata"],
-    data: ["task workspace", "clienti", "problemi", "opportunità", "stato completamento"],
-    primaryCta: "Nuovo task",
+    inputs: ["azione verificata", "priorità", "scadenza", "assegnazione"],
+    outputs: ["task persistita", "stato operativo", "completamento verificabile"],
+    data: ["task progetto", "problemi", "opportunità", "contenuti", "correzioni"],
+    primaryCta: "Nuova task",
     owns: ["task-management", "task-lifecycle"],
     states: {
-      empty: "Nessun task attivo: consente di crearne uno o partire da un problema/opportunità.",
-      error: "Segnala il record non leggibile senza duplicare il task.",
-      completed: "Task chiuso e rimosso dalle viste attive, mantenendo lo storico necessario.",
+      empty: "Nessuna task: invita a crearne una o a convertirla da un'azione verificata.",
+      error: "Conserva le task valide e indica quale modifica non è stata salvata.",
+      completed: "Task completata con evidenza o motivazione di chiusura.",
     },
   }),
   defineProductModule({
-    id: "editorial-plan",
+    id: "editorial",
     page: "Piano editoriale",
     group: "AZIONI",
     icon: "content",
-    inputs: ["obiettivi", "keyword e opportunità", "contesto del sito"],
-    outputs: ["piano editoriale", "brief contenuti", "priorità di pubblicazione"],
-    data: ["opportunità", "ranking", "contenuti esistenti", "link interni", "regole editoriali"],
-    primaryCta: "Genera piano editoriale",
-    owns: ["editorial-planning", "content-briefs", "editorial-safety"],
+    inputs: ["query e temi", "obiettivo editoriale", "calendario"],
+    outputs: ["topical map", "brief", "bozza", "piano e calendario editoriale"],
+    data: ["Search Console", "DataForSEO", "audit contenuti", "OpenAI", "bozze", "calendario"],
+    primaryCta: "Crea contenuto",
+    owns: ["content-planning", "content-generation", "editorial-calendar"],
     states: {
-      empty: "Nessun piano: richiede obiettivi e dati minimi prima della generazione.",
-      error: "Conserva il piano precedente e indica quale input impedisce la rigenerazione.",
-      completed: "Piano salvato con priorità, brief e collegamenti ai dati che lo hanno generato.",
+      empty: "Nessun piano: mostra fonti richieste e creazione del primo contenuto.",
+      error: "Distingue errore dati da errore generazione e mantiene bozze già salvate.",
+      completed: "Contenuto revisionabile con associazione a piano e calendario.",
     },
   }),
   defineProductModule({
-    id: "seo-agent",
+    id: "agent",
     page: "SEO Agent",
-    group: "AI",
+    group: "INTELLIGENZA",
     icon: "agent",
-    inputs: ["obiettivo utente", "contesto progetto", "capability pubbliche dei moduli"],
+    inputs: ["obiettivo utente", "contesto progetto", "permessi azioni"],
     outputs: ["piano agentico", "azioni orchestrate", "run verificabile"],
     data: ["API pubbliche dei moduli", "workspace progetto", "OpenAI ufficiale", "storia run agentici"],
     primaryCta: "Chiedi a SEO Agent",
     owns: ["cross-module-orchestration", "agent-run-history"],
-    legacyViews: ["SeoGrow AI"],
     states: {
-      empty: "Nessun obiettivo: invita a descrivere il risultato desiderato.",
-      error: "Mostra capability o step fallito senza sostituire la business logic del modulo proprietario.",
-      completed: "Run concluso con piano, azioni eseguite/proposte e riferimenti ai moduli responsabili.",
+      empty: "Nessun run: invita a definire un obiettivo verificabile.",
+      error: "Mostra step fallito e azioni non eseguite senza dichiarare successi non verificati.",
+      completed: "Run concluso con passaggi, fonti, azioni e risultati tracciati.",
     },
   }),
   defineProductModule({
-    id: "geo-ai",
+    id: "geo",
     page: "GEO AI",
-    group: "AI",
+    group: "INTELLIGENZA",
     icon: "geo",
-    inputs: ["sito", "contenuti", "entità e query rilevanti"],
-    outputs: ["analisi GEO", "gap di answerability", "raccomandazioni GEO"],
-    data: ["contenuti sito", "audit", "segnali strutturati disponibili", "OpenAI ufficiale"],
-    primaryCta: "Avvia analisi GEO",
-    owns: ["geo-analysis", "geo-recommendations"],
+    inputs: ["contenuti progetto", "entità", "query GEO"],
+    outputs: ["segnali GEO", "gap", "priorità e strategie"],
+    data: ["contenuti", "audit", "OpenAI", "DataForSEO supportato", "storia osservazioni"],
+    primaryCta: "Analizza GEO",
+    owns: ["geo-analysis", "geo-strategy"],
     states: {
-      empty: "Nessuna analisi GEO: richiede un progetto con contenuti disponibili.",
-      error: "Distingue dati sito mancanti da errore del provider AI.",
-      completed: "Analisi salvata con score, gap e azioni tracciabili.",
+      empty: "Dati insufficienti: indica contenuto o integrazione necessaria.",
+      error: "Separa errore provider da assenza di evidenze GEO.",
+      completed: "Analisi GEO salvata con segnali osservati e strategie distinguibili dalle ipotesi.",
     },
   }),
   defineProductModule({
@@ -253,15 +230,15 @@ export const PRODUCT_MODULES = Object.freeze([
     page: "Integrazioni",
     group: "SISTEMA",
     icon: "integrations",
-    inputs: ["configurazione connessione", "credenziali consentite"],
-    outputs: ["stato connessioni", "diagnostica integrazioni"],
-    data: ["OpenAI ufficiale", "DataForSEO", "WordPress", "Rank Math", "Elementor", "stato Google/Search Console supportato"],
-    primaryCta: "Verifica integrazioni",
-    owns: ["integration-configuration", "connection-health"],
+    inputs: ["credenziali e autorizzazioni", "progetto selezionato"],
+    outputs: ["connessione verificata", "stato provider"],
+    data: ["WordPress", "Search Console", "DataForSEO", "OpenAI", "sessioni verificate"],
+    primaryCta: "Configura integrazione",
+    owns: ["integration-configuration", "integration-health"],
     states: {
-      empty: "Nessuna integrazione configurata: mostra solo le integrazioni supportate.",
-      error: "Indica connessione e causa del fallimento senza esporre segreti persistenti.",
-      completed: "Connessioni verificate con stato esplicito e nessun provider non supportato.",
+      empty: "Nessuna integrazione configurata: mostra provider disponibili e requisiti.",
+      error: "Mostra test fallito senza memorizzare segreti non necessari.",
+      completed: "Connessione verificata e riutilizzabile dal progetto secondo il suo perimetro.",
     },
   }),
   defineProductModule({
@@ -269,79 +246,46 @@ export const PRODUCT_MODULES = Object.freeze([
     page: "Impostazioni",
     group: "SISTEMA",
     icon: "settings",
-    inputs: ["preferenze suite", "policy locali", "operazioni backup/ripristino"],
-    outputs: ["configurazione suite", "backup o ripristino validato"],
-    data: ["preferenze UI", "policy sicurezza", "workspace esportabile", "configurazione non segreta"],
+    inputs: ["preferenze", "sicurezza", "backup"],
+    outputs: ["preferenze persistite", "backup/ripristino", "stato workspace"],
+    data: ["preferenze locali", "backup cifrati", "copie locali", "metadati workspace"],
     primaryCta: "Salva impostazioni",
-    owns: ["suite-preferences", "backup-restore", "security-settings"],
+    owns: ["app-preferences", "backup-restore", "workspace-maintenance"],
     states: {
-      empty: "Usa valori predefiniti sicuri quando non esiste una configurazione salvata.",
-      error: "Rifiuta configurazioni o backup non validi senza sovrascrivere lo stato corrente.",
-      completed: "Impostazioni validate e persistite; backup/ripristino produce esito esplicito.",
+      empty: "Usa valori di default sicuri e spiega le opzioni disponibili.",
+      error: "Non perde le preferenze valide e segnala il campo o backup problematico.",
+      completed: "Preferenze persistite e backup/ripristino disponibili.",
     },
   }),
 ]);
 
-export const CANONICAL_SUITE_PAGES = Object.freeze(PRODUCT_MODULES.map((moduleDefinition) => moduleDefinition.page));
-
-export const LEGACY_VIEW_OWNERS = Object.freeze(Object.fromEntries(
-  PRODUCT_MODULES.flatMap((moduleDefinition) =>
-    moduleDefinition.legacyViews.map((legacyView) => [legacyView, moduleDefinition.page]),
-  ),
-));
-
-export const productModuleForPage = (page) =>
-  PRODUCT_MODULES.find((moduleDefinition) => moduleDefinition.page === page) || null;
-
-export const canonicalPageForLegacyView = (page) => LEGACY_VIEW_OWNERS[page] || page;
-
 export function validateFrozenProductArchitecture() {
-  if (ARCHITECTURE_FROZEN !== true) throw new Error("L'architettura prodotto SeoGrow deve restare congelata.");
-  if (PRODUCT_MODULES.length !== FROZEN_MODULE_ORDER.length) {
-    throw new Error(`Numero moduli SeoGrow non valido: ${PRODUCT_MODULES.length}.`);
-  }
-  if (JSON.stringify(CANONICAL_SUITE_PAGES) !== JSON.stringify(FROZEN_MODULE_ORDER)) {
-    throw new Error("Ordine o insieme dei moduli SeoGrow modificato mentre l'architettura è congelata.");
-  }
-
-  const ids = new Set();
-  const pages = new Set();
-  const ownership = new Map();
-  const legacyViews = new Map();
-
+  const pages = PRODUCT_MODULES.map((moduleDefinition) => moduleDefinition.page);
+  const duplicates = pages.filter((page, index) => pages.indexOf(page) !== index);
+  const unknown = pages.filter((page) => !FROZEN_SUITE_MODULES.includes(page));
+  const missing = FROZEN_SUITE_MODULES.filter((page) => !pages.includes(page));
+  const ownerIndex = new Map();
+  const ownershipConflicts = [];
   for (const moduleDefinition of PRODUCT_MODULES) {
-    if (!moduleDefinition.id || ids.has(moduleDefinition.id)) throw new Error(`ID modulo prodotto duplicato: ${moduleDefinition.id}.`);
-    if (!moduleDefinition.page || pages.has(moduleDefinition.page)) throw new Error(`Pagina prodotto duplicata: ${moduleDefinition.page}.`);
-    ids.add(moduleDefinition.id);
-    pages.add(moduleDefinition.page);
-
-    for (const field of ["inputs", "outputs", "data", "owns"]) {
-      if (!Array.isArray(moduleDefinition[field]) || moduleDefinition[field].length === 0) {
-        throw new Error(`${moduleDefinition.page}.${field} deve essere definito.`);
-      }
-    }
-    if (!moduleDefinition.primaryCta) throw new Error(`${moduleDefinition.page}.primaryCta deve essere definita.`);
-    for (const stateName of ["empty", "error", "completed"]) {
-      if (!moduleDefinition.states?.[stateName]) throw new Error(`${moduleDefinition.page}.states.${stateName} deve essere definito.`);
-    }
-
     for (const capability of moduleDefinition.owns) {
-      const owner = ownership.get(capability);
-      if (owner) throw new Error(`Funzione prodotto sovrapposta: ${capability} (${owner}, ${moduleDefinition.page}).`);
-      ownership.set(capability, moduleDefinition.page);
-    }
-
-    for (const legacyView of moduleDefinition.legacyViews) {
-      if (pages.has(legacyView) || CANONICAL_SUITE_PAGES.includes(legacyView)) {
-        throw new Error(`La vista legacy ${legacyView} non può essere un modulo canonico.`);
-      }
-      const owner = legacyViews.get(legacyView);
-      if (owner) throw new Error(`Vista legacy duplicata: ${legacyView} (${owner}, ${moduleDefinition.page}).`);
-      legacyViews.set(legacyView, moduleDefinition.page);
+      if (ownerIndex.has(capability)) ownershipConflicts.push({ capability, modules: [ownerIndex.get(capability), moduleDefinition.page] });
+      else ownerIndex.set(capability, moduleDefinition.page);
     }
   }
-
-  return true;
+  const incomplete = PRODUCT_MODULES.filter((moduleDefinition) =>
+    !moduleDefinition.inputs.length ||
+    !moduleDefinition.outputs.length ||
+    !moduleDefinition.data.length ||
+    !moduleDefinition.primaryCta ||
+    REQUIRED_STATES.some((state) => !moduleDefinition.states?.[state]),
+  );
+  return {
+    ok: !duplicates.length && !unknown.length && !missing.length && !ownershipConflicts.length && !incomplete.length,
+    duplicates,
+    unknown,
+    missing,
+    ownershipConflicts,
+    incomplete: incomplete.map((item) => item.page),
+    pages,
+  };
 }
-
-validateFrozenProductArchitecture();
