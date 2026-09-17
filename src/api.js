@@ -64,12 +64,13 @@ export const prepareEditorialGenerateBody = (body) => {
     throw error;
   }
 
-  let incoming = null;
-  try {
-    incoming = typeof payload.context === "string" ? JSON.parse(payload.context) : payload.context;
-  } catch {
-    incoming = null;
-  }
+  const incoming = (() => {
+    try {
+      return typeof payload.context === "string" ? JSON.parse(payload.context) : payload.context;
+    } catch {
+      return null;
+    }
+  })();
   const workflowContext = incoming?.taskOrigine && typeof incoming.taskOrigine === "object"
     ? {
         taskId: incoming.taskOrigine.id,
