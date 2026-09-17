@@ -25,11 +25,22 @@ jobs:
             "https://sanointavola.it/"
           do
             echo "Checking $url"
-            code="$(curl -L -sS -o /tmp/site.html -w '%{http_code}' --max-time 20 "$url")"
-            case "$code" in
-              2*|3*) ;;
-              *) echo "Frontend failed for $url: HTTP $code"; exit 1 ;;
-            esac
+            success=0
+            last_code="000"
+            for attempt in 1 2 3; do
+              echo "Attempt $attempt/3"
+              code="$(curl -L -sS -o /tmp/site.html -w '%{http_code}' --connect-timeout 10 --max-time 30 --retry 1 --retry-delay 2 --retry-connrefused "$url" || true)"
+              last_code="${code:-000}"
+              case "$last_code" in
+                2*|3*) success=1; break ;;
+                *) echo "Attempt $attempt failed for $url: HTTP $last_code" ;;
+              esac
+              sleep $((attempt * 3))
+            done
+            if [ "$success" -ne 1 ]; then
+              echo "Frontend failed persistently for $url after 3 attempts: HTTP $last_code"
+              exit 1
+            fi
             if grep -qi 'elementor' /tmp/site.html; then
               echo "builder=elementor"
             else
