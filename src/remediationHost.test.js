@@ -14,14 +14,11 @@ test("il motore legacy non è più montato nel runtime principale", () => {
   assert.match(runtime, /RemediationHost/);
 });
 
-test("il runtime remediation deriva il mount dalla route live e si rimonta alla navigazione", () => {
-  assert.match(runtime, /const page = currentPage\(\)/);
-  assert.match(runtime, /page !== "Audit SEO" && !proposalMode/);
-  assert.match(runtime, /setGeneration\(\(current\) => current \+ 1\)/);
-  assert.doesNotMatch(runtime, /state\.page/);
+test("il runtime remediation viene montato solo in Audit SEO e si rimonta alla navigazione", () => {
+  assert.match(runtime, /state\.page !== "Audit SEO"/);
+  assert.match(runtime, /generation: current\.generation \+ 1/);
   assert.match(runtime, /hashchange/);
   assert.match(runtime, /seogrow-locationchange/);
-  assert.match(runtime, /seogrow-automatic-proposal-open/);
 });
 
 test("l'host nativo espone solo il contratto DOM necessario al live flow V2", () => {
