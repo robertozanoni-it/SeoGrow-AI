@@ -14,7 +14,7 @@ import {
   inspectLinkEvidence,
   createWordPressCorrection,
   applyPreparedCorrection,
-} from "./wordpressRemediationEngine.js";
+} from "./modules/publish/index.js";
 import {
   INTERNAL_LINK_ISSUE_TYPE,
   analyzeInternalLinkSuggestions,
