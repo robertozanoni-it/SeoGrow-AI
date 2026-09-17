@@ -12,4 +12,5 @@ export {
   buildPlan,
   createWordPressCorrection,
   applyPreparedCorrection,
+  flattenState,
 } from "../../wordpressRemediationEngine.js";
