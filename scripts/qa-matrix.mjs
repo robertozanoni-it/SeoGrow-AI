@@ -14,7 +14,6 @@ export const qaMatrix = [
   ["FIELDS-ASSOCIATION", "Task manual association", "P1", "E2E Browser / Fields", "Search task", "Confirm, save, reload, revoke", "Explicit association retained then revoked", "full"],
   ["FIELDS-GOOGLE-IMPORT", "GOOGLE-IMPORT controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
   ["FIELDS-AUDIT-MODAL", "AUDIT-MODAL controls", "P1", "E2E Browser / Fields", "Disposable fixture", "Enter values and submit mock request", "Exact request and visible error", "full"],
-
   ["FIELDS-AGENT", "AGENT controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-CALENDAR", "CALENDAR controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-GEO", "GEO controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
@@ -26,7 +25,6 @@ export const qaMatrix = [
   ["FIELDS-BOZZA-TYPE", "BOZZA-TYPE controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-ZIP", "ZIP controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
   ["FIELDS-BACKUP-UI", "BACKUP-UI controls", "P1", "E2E Browser / Conditional fields", "Disposable fixture", "Edit, submit or filter", "Real UI state and storage; no external writes", "full"],
-
   ["FIELDS-CLIENT", "CLIENT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-TASK", "TASK form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-PREFERENCES", "PREFERENCES form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
@@ -35,7 +33,6 @@ export const qaMatrix = [
   ["FIELDS-CONTENT", "CONTENT form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-TOPICAL", "TOPICAL form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
   ["FIELDS-WORDPRESS", "WORDPRESS form", "P1", "E2E Browser / Fields", "Disposable fixture", "Validation, edit and reload or mock response", "Field values preserved; explicit error and recovery", "full"],
-
   ["EXISTING-REGRESSION", "Opportunities, saved views, Google, navigation", "P0", "E2E Browser / Regression", "Isolated Browser QA, yoga query, no task", "Create repeatedly, save, reload, reopen; select views", "One stable task, Apri task, selected view and restored filters", "smoke"],
   ["TASK-001", "Task state and filters", "P0", "E2E Browser / Storage", "Active yoga task", "Da fare -> In corso with Da fare / In corso filters", "Same ID and fields, stored once, hidden only by filter", "smoke"],
   ["TASK-002", "Undo and reload", "P0", "E2E Browser / Regression", "TASK-001", "Undo then reload", "Da fare persisted, UI filters reset per current contract", "smoke"],
@@ -47,6 +44,7 @@ export const qaMatrix = [
   ["ERROR-001", "Google property errors", "P1", "Error Injection / E2E Browser", "Configured mock Google", "400, 500, offline, timeout exception, invalid JSON, empty response", "Visible error, loading settles, tasks preserved, retry succeeds", "full"],
   ["STRESS-500", "500 tasks and project isolation", "P1", "E2E Browser / Performance", "Two existing tasks", "Seed 500, search, filter foreign project, reload", "502 stored IDs unique, foreign task excluded, filters respond", "release"],
   ["IDB-REAL-001", "Native IndexedDB abort", "P0", "Storage/Persistence / Error Injection", "Disposable native browser DB", "Write, abort replacement, reopen", "Original complete record survives", "release"],
+  ["FUNCTIONAL-JOURNEY-18", "Continuous full functional journey", "P0", "E2E Browser / Persistence / Cross-module", "New isolated project; external providers remain explicit fixtures", "New client -> WordPress session -> audit -> problem -> correction -> verify -> rollback -> task -> ranking -> opportunity -> editorial plan -> full reload", "Same project and canonical state survive without manual resets or parallel operational stores", "release"],
   ["RESPONSIVE-001", "Task/modal layouts and keyboard", "P1", "Responsive / Visual / E2E Browser", "Populated Task UI", "1440,768,390; open modal; Escape", "No page overflow, modal contained, initial focus inside, Escape closes; PNG evidence", "smoke"],
   ["BATCH-UI-SELECTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Filter, select, real preview; zero writes", "Real UI, journal and IndexedDB; no live WordPress", "full"],
   ["BATCH-UI-EXECUTION", "Batch remediation", "P0", "E2E Browser", "Disposable API fixtures", "Approve; verified result and isolated stale target", "Real UI, journal and IndexedDB; no live WordPress", "full"],
