@@ -16,7 +16,7 @@ test("structured editorial workspace is mounted on the existing Piano editoriale
 });
 
 test("editorial workspace exposes every required field", () => {
-  for (const label of ["Topic", "Keyword", "Intento", "Cluster", "Stato", "Brief", "Data prevista", "Ranking \/ opportunità"]) {
+  for (const label of ["Topic", "Keyword", "Intento", "Cluster", "Stato", "Brief", "Data prevista", "Ranking / opportunità"]) {
     assert.match(workspace, new RegExp(label));
   }
   assert.match(workspace, /EDITORIAL_STATUSES/);
