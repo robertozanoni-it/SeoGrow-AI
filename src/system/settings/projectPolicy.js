@@ -42,7 +42,8 @@ export function normalizeProjectPolicy(value = {}) {
   const featureFlags = value?.featureFlags && typeof value.featureFlags === "object" ? value.featureFlags : {};
   return {
     audit: {
-      excludeLegalPages: bool(audit.excludeLegalPages, DEFAULT_PROJECT_POLICY.audit.excludeLegalPages),
+      // Legal/GDPR pages are never operational SEO targets.
+      excludeLegalPages: true,
       excludedPaths: list(audit.excludedPaths),
     },
     corrections: {
