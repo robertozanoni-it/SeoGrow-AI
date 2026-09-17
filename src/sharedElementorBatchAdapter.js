@@ -65,6 +65,12 @@ export async function applySharedElementorBatchPreview({ entry, run, wp, assertC
   const preview = entry.preview;
   if (!preview?.sharedElementor) throw new Error("Anteprima shared Elementor non disponibile.");
   const record = createWordPressCorrection(preview, wp, run.id, entry.correctionId);
+  const templateId = Number(preview.data.id);
+  record.resource = "elementor_library";
+  record.entityId = templateId;
+  record.wordpressResource = "elementor_library";
+  record.wordpressId = templateId;
+  record.resourceIdentity = `wp:elementor_library:${templateId}`;
   record.batchProblemKeys = [...entry.problemKeys];
   record.batchIssues = run.entries.filter(item => entry.problemKeys.includes(item.problem.key)).map(item => ({ issue: item.preview?.issue || preview.issue, sourceUrl: item.problem.sourceUrl }));
   record.sharedTemplate = preview.sharedTemplate;
