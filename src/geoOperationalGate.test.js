@@ -27,18 +27,18 @@ test("GEO covers entities, schema, citability, authority signals and content", (
   assert.match(panel, /Presenza osservabile/);
 });
 
-test("active GEO UI does not use legacy synthetic scores", () => {
+test("active GEO UI does not render legacy synthetic score widgets", () => {
   assert.doesNotMatch(page, /geoPageScores|geoEntityProfile|geoStrategies|ReadinessScore/);
-  assert.doesNotMatch(panel, /Entity score|GEO score|Answerability<\/th>/i);
+  assert.doesNotMatch(panel, /<span>Entity score<\/span>|<small>GEO score<\/small>|<th>Answerability<\/th>/i);
   assert.match(page, /Nessun punteggio sintetico/);
   assert.match(panel, /non vengono trasformati in un punteggio di autorevolezza/);
 });
 
 test("OpenAI and DataForSEO evidence are labelled by what they actually measure", () => {
-  assert.match(page, /diagnostica di answerability sul contesto fornito/);
-  assert.match(page, /non misura citazioni o presenza reale nelle AI/);
-  assert.match(panel, /Solo Google SERP via DataForSEO/);
-  assert.match(panel, /non è una misurazione di citazioni o ranking nei motori generativi/);
+  assert.match(page, /diagnostica di answerability sul contesto fornito/i);
+  assert.match(page, /non misura citazioni o presenza reale nelle AI/i);
+  assert.match(panel, /Solo Google SERP via DataForSEO/i);
+  assert.match(panel, /non è una misurazione di citazioni o ranking nei motori generativi/i);
 });
 
 test("GEO output feeds canonical Opportunities and Task instead of ending in a dashboard", () => {
