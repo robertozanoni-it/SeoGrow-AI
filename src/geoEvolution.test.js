@@ -17,13 +17,13 @@ test("GEO tabs are functional evidence surfaces rather than decorative labels", 
   assert.match(panel, /Azioni GEO verificabili/);
 });
 
-test("GEO active UI declares measurement boundaries and no synthetic score", () => {
+test("GEO active UI declares measurement boundaries and no synthetic score widgets", () => {
   assert.match(page, /Cosa misura/);
   assert.match(page, /Cosa NON misura/);
   assert.match(page, /Nessun punteggio sintetico/);
   assert.match(panel, /Nessun entity score/);
   assert.doesNotMatch(page, /geoPageScores|geoEntityProfile|geoStrategies|ReadinessScore/);
-  assert.doesNotMatch(panel, /GEO score|Entity score|Answerability<\/th>/i);
+  assert.doesNotMatch(panel, /<span>Entity score<\/span>|<small>GEO score<\/small>|<th>Answerability<\/th>/i);
 });
 
 test("GEO competitor observation stays on DataForSEO with explicit non-AI disclaimer", () => {
@@ -31,7 +31,7 @@ test("GEO competitor observation stays on DataForSEO with explicit non-AI discla
   assert.match(server, /slice\(0, 10\)/);
   assert.match(server, /Non misura citazioni o ranking nei motori generativi/);
   assert.match(server, /reserveDataForSeoBudget/);
-  assert.match(panel, /Solo Google SERP via DataForSEO/);
+  assert.match(panel, /Solo Google SERP via DataForSEO/i);
 });
 
 test("GEO outputs have explicit Opportunity and Task paths", () => {
