@@ -53,17 +53,9 @@ export function navigatePage(page) {
     if (window.location.hash !== next) window.history.pushState(null, "", next);
     notifyStoredPage(resolvedPage);
     notifyLocationChange(oldURL);
-    // Correzioni renders through an overlay, but the underlying App page state
-    // must still move to the same destination. Combined with the history guard
-    // this prevents a stale previous-page effect from reclaiming the route.
-    activateNativePageState(resolvedPage);
     closeMobileNavigation();
     return;
   }
-
-  // Any route change through the canonical navigation is intentional. Release
-  // the Corrections stale-write guard before moving away from the overlay.
-  window.__seogrowCorrectionsMode = false;
 
   // The original App navigation owns the canonical React page state. The
   // guided/card layers use the URL as their source of truth, so also trigger
