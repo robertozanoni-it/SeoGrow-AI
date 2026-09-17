@@ -1,39 +1,12 @@
 import { runConfirmationAudit } from "./confirmationAudit.js";
 import { recheckCorrectionById } from "./remediationIntegrity.js";
+import { hasAutoFixCompletionEvidence, requiresAutoFixCompletionGate } from "./autoFixCompletionEvidence.js";
 import {
   readCorrection,
   updateCorrection,
   removeVerifiedTask,
   reopenTask,
 } from "./remediationStore.js";
-
-export const requiresAutoFixCompletionGate = (record) =>
-  record?.liveApproval === true &&
-  record?.writeConfirmed === true &&
-  !["Ripristinato", "Esito incerto", "Bloccato"].includes(record?.status);
-
-const hasBatchConfirmationAudit = (record) => {
-  const audit = record?.batchDeltaEvidence?.audit;
-  return Boolean(
-    audit &&
-    Array.isArray(audit.issues) &&
-    (audit.analyzedAt || audit.fetchedAt || audit.startedAt),
-  );
-};
-
-export const hasAutoFixCompletionEvidence = (record) => {
-  if (!record) return false;
-  if (record.liveApproval !== true) return record.status === "Verificato";
-  if (record.noWriteResolution === true) {
-    return record.status === "Verificato" && record.frontendConfirmed === true && Boolean(record.verifiedAt);
-  }
-  const confirmation = record.confirmationAudit?.resolved === true || hasBatchConfirmationAudit(record);
-  return record.status === "Verificato" &&
-    record.writeConfirmed === true &&
-    record.frontendConfirmed === true &&
-    Boolean(record.verifiedAt) &&
-    confirmation;
-};
 
 const pendingPatch = (record, note, confirmation = null) => ({
   status: "Da verificare",
