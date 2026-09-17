@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const workspace = await readFile(new URL("./ProblemsWorkspace.jsx", import.meta.url), "utf8");
 const mount = await readFile(new URL("./ProblemsWorkspaceMount.jsx", import.meta.url), "utf8");
+const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./ProblemsWorkspace.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
@@ -40,9 +41,11 @@ test("il Centro Problemi offre vista compatta e dettagliata con drawer accessibi
   assert.match(css, /\.problem-drawer/);
 });
 
-test("Problemi resta montato solo come vista legacy e non viene iniettato nella navigazione", () => {
-  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
+test("Problemi è montato come sottovista di Audit SEO e non come modulo canonico", () => {
+  assert.match(main, /<ProblemsNavBridge \/>/);
   assert.match(main, /<ProblemsWorkspaceMount \/>/);
+  assert.match(bridge, /data-seogrow-page=\"Audit SEO\"/);
+  assert.match(bridge, /data-seogrow-subview=\"Audit SEO:Problemi\"/);
   assert.match(mount, /<ProblemsWorkspace key=/);
 });
 
