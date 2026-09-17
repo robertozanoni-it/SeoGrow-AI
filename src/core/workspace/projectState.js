@@ -103,8 +103,9 @@ const setJson = (entries, key, value) => entries.set(key, JSON.stringify(value))
 
 export function canonicalizeWorkspaceEntries(input) {
   const entries = new Map(input instanceof Map ? input : []);
+  const hasPersistedClients = entries.has(WORKSPACE_KEYS.clients);
   const clients = canonicalClients(parsed(entries.get(WORKSPACE_KEYS.clients), []));
-  setJson(entries, WORKSPACE_KEYS.clients, clients);
+  if (hasPersistedClients) setJson(entries, WORKSPACE_KEYS.clients, clients);
 
   let tasks = parsed(entries.get(WORKSPACE_KEYS.tasks), null);
   if (!Array.isArray(tasks)) tasks = parsed(entries.get(LEGACY_WORKSPACE_KEYS.tasks), []);
@@ -122,9 +123,11 @@ export function canonicalizeWorkspaceEntries(input) {
   setJson(entries, WORKSPACE_KEYS.problemClosures, canonicalProblemClosures(parsed(entries.get(WORKSPACE_KEYS.problemClosures), [])));
   setJson(entries, WORKSPACE_KEYS.remediationHistory, canonicalRemediationIndex(parsed(entries.get(WORKSPACE_KEYS.remediationHistory), [])));
 
-  const selected = Number(parsed(entries.get(WORKSPACE_KEYS.selectedClient), null));
-  if (!clients.some((client) => Number(client.id) === selected)) {
-    setJson(entries, WORKSPACE_KEYS.selectedClient, clients[0]?.id ?? null);
+  if (hasPersistedClients) {
+    const selected = Number(parsed(entries.get(WORKSPACE_KEYS.selectedClient), null));
+    if (!clients.some((client) => Number(client.id) === selected)) {
+      setJson(entries, WORKSPACE_KEYS.selectedClient, clients[0]?.id ?? null);
+    }
   }
   return entries;
 }
