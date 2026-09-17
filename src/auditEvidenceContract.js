@@ -114,3 +114,18 @@ export function enforceAuditEvidence(data) {
   data.issueEvidenceComplete = [...data.issues, ...data.reviewItems].every((issue) => issue?.evidence?.reproducible === true);
   return data;
 }
+
+export async function normalizeAuditEvidenceResponse(response) {
+  if (!response?.ok) return response;
+  let data;
+  try { data = await response.clone().json(); }
+  catch { return response; }
+  const normalized = enforceAuditEvidence(data);
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(normalized), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
