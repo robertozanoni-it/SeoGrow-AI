@@ -27,3 +27,7 @@ export {
   opportunityEvidenceForKeyword,
   positioningFilter,
 } from "./positioningModel.js";
+export {
+  buildSeoOpportunities,
+  validateSeoOpportunityActionability,
+} from "./seoOpportunities.js";
