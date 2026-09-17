@@ -4,15 +4,10 @@ import { readFile } from "node:fs/promises";
 
 const facade = await readFile(new URL("./modules/audit/index.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+const problemsBridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 
 const AUDIT_SURFACES = [
   "ProblemsNavBridge",
-  "ProblemsWorkspaceMount",
-  "ProblemResolutionPage",
-  "AuditWorkspace",
-];
-
-const MOUNTED_AUDIT_SURFACES = [
   "ProblemsWorkspaceMount",
   "ProblemResolutionPage",
   "AuditWorkspace",
@@ -24,14 +19,14 @@ const PUBLISH_SURFACES = [
   "CorrectionsWorkspace",
 ];
 
-test("Audit espone le superfici legacy necessarie ma non rimonta una navigazione Problemi parallela", () => {
+test("Audit espone le sue superfici e Problemi resta una sottovista, non un modulo peer", () => {
   for (const surface of AUDIT_SURFACES) {
     assert.match(facade, new RegExp(`default as ${surface}`));
-  }
-  for (const surface of MOUNTED_AUDIT_SURFACES) {
     assert.match(main, new RegExp(`<${surface} \\/>`));
   }
-  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
+  assert.match(problemsBridge, /data-seogrow-page=\"Audit SEO\"/);
+  assert.match(problemsBridge, /guided-audit-subnav-host/);
+  assert.match(problemsBridge, /data-seogrow-subview=\"Audit SEO:Problemi\"/);
   for (const surface of PUBLISH_SURFACES) {
     assert.doesNotMatch(facade, new RegExp(`default as ${surface}`));
   }
