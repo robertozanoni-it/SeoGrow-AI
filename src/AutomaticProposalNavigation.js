@@ -73,21 +73,18 @@ export const openProblemResolution = (problem, clientId, openedFrom = "problem-c
   const automatic = shouldOpenAutomaticProposal(problem) || controlledLink || controlledReview || controlledContext || forcedAutomatic;
   try {
     if (!automatic) {
-      const detail = { clientId: focus.clientId, issueKey: focus.issueKey, issueType: focus.issueType, problemIdentity: focus.identity, title: focus.title, sourceUrl: focus.sourceUrl, problemState: focus.problemState, interventionStateCode: focus.interventionState, correctability: focus.correctability, reviewOnly: focus.reviewOnly === true, ownershipBlocked: focus.ownershipBlocked === true, stale: focus.stale === true, targetUrls: focus.targetUrl ? [focus.targetUrl] : [], evidence: focus.evidence || [], detail: focus.detail || "" };
-      sessionStorage.setItem("seogrow-agent-prefill-v1", JSON.stringify(detail));
-      sessionStorage.setItem("seogrow-agent-autorun-v1", "1");
-      navigatePage("SEO Agent");
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent("seogrow-agent-prefill", { detail })), 0);
-      return true;
+      sessionStorage.removeItem(PROPOSAL_FOCUS_KEY);
+      sessionStorage.setItem(RESOLUTION_FOCUS_KEY, JSON.stringify(focus));
+    } else {
+      sessionStorage.removeItem(RESOLUTION_FOCUS_KEY);
+      sessionStorage.setItem(PROPOSAL_FOCUS_KEY, JSON.stringify(focus));
     }
-    sessionStorage.removeItem(RESOLUTION_FOCUS_KEY);
-    sessionStorage.setItem(PROPOSAL_FOCUS_KEY, JSON.stringify(focus));
   } catch {
     notifyUser("Impossibile conservare il problema selezionato. Abilita lo storage della sessione e riprova; nessuna modifica applicata.");
     return false;
   }
   navigatePage(PROPOSAL_ROUTE_PAGE);
-  window.dispatchEvent(new CustomEvent("seogrow-automatic-proposal-open", { detail: focus }));
+  window.dispatchEvent(new CustomEvent(automatic ? "seogrow-automatic-proposal-open" : "seogrow-problem-resolution-open", { detail: focus }));
   return true;
 };
 
