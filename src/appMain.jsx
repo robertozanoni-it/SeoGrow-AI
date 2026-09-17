@@ -8,6 +8,7 @@ import './PageRouteReconciler';
 import './seoResponseIntegrity';
 import './taskClientIdIntegrity';
 import './taskCauseReconciliation';
+import './projectRetention';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
