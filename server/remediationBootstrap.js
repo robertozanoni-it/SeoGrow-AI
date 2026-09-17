@@ -7,6 +7,7 @@ import {
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 import { installAuditTraceabilityDecorator } from "./auditTraceabilityDecorator.js";
+import { installAuditLegalLinkSourcePolicy } from "./auditLegalLinkSourcePolicy.js";
 
 const providerEnv = hydrateLocalProviderEnv();
 if (providerEnv.imported) {
@@ -149,10 +150,11 @@ export function registerRemediationRoutes(app) {
     module.registerRoutes(app);
   }
 
-  // The Audit endpoints are owned by server/index.js. Install only a decorator
+  // The Audit endpoints are owned by server/index.js. Install only decorators
   // after those routes already exist, so traceability/H2/progress complete the
   // current crawler instead of creating a second audit engine.
   installAuditTraceabilityDecorator(app);
+  installAuditLegalLinkSourcePolicy(app);
 }
 
 export const explicitRemediationRouteModules = remediationModules
