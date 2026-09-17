@@ -7,6 +7,7 @@ import './GuidedNavigationBridge';
 import './PageRouteReconciler';
 import './seoResponseIntegrity';
 import './taskClientIdIntegrity';
+import './taskCauseReconciliation';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
 import './AutomaticProposalNavigation';
