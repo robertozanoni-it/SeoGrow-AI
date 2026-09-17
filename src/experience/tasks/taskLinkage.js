@@ -2,10 +2,6 @@ const LINK_TYPES = new Set(["problem", "correction", "opportunity"]);
 const AUTO_COMPLETION_PREFIX = "Causa SEO chiusa:";
 
 const text = value => String(value || "").trim();
-const timestamp = value => {
-  const parsed = Date.parse(String(value || ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
 
 export function normalizeTaskLinks(value = {}) {
   const links = value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -29,9 +25,10 @@ export function taskLinkageKey(task = {}) {
 export function taskOrigin(task = {}) {
   const origin = text(task.origin).toLowerCase();
   if (["manual", "audit", "opportunity", "correction", "workflow"].includes(origin)) return origin;
-  if (normalizeTaskLinks(task.taskLinks).problemKey) return "audit";
-  if (normalizeTaskLinks(task.taskLinks).opportunityId || normalizeTaskLinks(task.taskLinks).opportunityKey) return "opportunity";
-  if (normalizeTaskLinks(task.taskLinks).correctionId) return "correction";
+  const links = normalizeTaskLinks(task.taskLinks);
+  if (links.problemKey) return "audit";
+  if (links.opportunityId || links.opportunityKey) return "opportunity";
+  if (links.correctionId) return "correction";
   return task.automatic === true ? "workflow" : "manual";
 }
 
@@ -69,23 +66,24 @@ const activeOpportunity = opportunity => Boolean(opportunity && !resolvedOpportu
 
 const causeState = (task, indexes) => {
   const links = normalizeTaskLinks(task.taskLinks);
+  const observed = [];
   if (links.correctionId) {
     const correction = indexes.corrections.get(links.correctionId);
-    if (verifiedCorrection(correction)) return { state: "closed", type: "correction", id: links.correctionId, label: "correzione verificata" };
-    if (unresolvedCorrection(correction)) return { state: "active", type: "correction", id: links.correctionId, label: "correzione da verificare" };
+    if (verifiedCorrection(correction)) observed.push({ state: "closed", type: "correction", id: links.correctionId, label: "correzione verificata" });
+    else if (unresolvedCorrection(correction)) observed.push({ state: "active", type: "correction", id: links.correctionId, label: "correzione da verificare" });
   }
   if (links.problemKey) {
     const problem = indexes.problems.get(links.problemKey);
-    if (closedProblem(problem)) return { state: "closed", type: "problem", id: links.problemKey, label: problem.problemState === "intentional" ? "problema chiuso intenzionalmente" : "problema risolto" };
-    if (activeProblem(problem)) return { state: "active", type: "problem", id: links.problemKey, label: problem.problemState === "reappeared" ? "problema ricomparso" : "problema attivo" };
+    if (closedProblem(problem)) observed.push({ state: "closed", type: "problem", id: links.problemKey, label: problem.problemState === "intentional" ? "problema chiuso intenzionalmente" : "problema risolto" });
+    else if (activeProblem(problem)) observed.push({ state: "active", type: "problem", id: links.problemKey, label: problem.problemState === "reappeared" ? "problema ricomparso" : "problema attivo" });
   }
   if (links.opportunityId || links.opportunityKey) {
     const id = links.opportunityId || `key:${links.opportunityKey}`;
     const opportunity = indexes.opportunities.get(id);
-    if (resolvedOpportunity(opportunity)) return { state: "closed", type: "opportunity", id, label: "opportunità completata" };
-    if (activeOpportunity(opportunity)) return { state: "active", type: "opportunity", id, label: "opportunità attiva" };
+    if (resolvedOpportunity(opportunity)) observed.push({ state: "closed", type: "opportunity", id, label: "opportunità completata" });
+    else if (activeOpportunity(opportunity)) observed.push({ state: "active", type: "opportunity", id, label: "opportunità attiva" });
   }
-  return { state: "unknown", type: "", id: "", label: "causa non verificabile" };
+  return observed.find(item => item.state === "closed") || observed.find(item => item.state === "active") || { state: "unknown", type: "", id: "", label: "causa non verificabile" };
 };
 
 const autoCompleted = task => Boolean(
