@@ -65,6 +65,7 @@ import './AgentReference.css';
 import './GeoReference.css';
 import './SeoGrowAiReference.css';
 import './IntegrationsReference.css';
+import './IntegrationsWorkspaceLayer.css';
 import './SettingsReference.css';
 import './HistoryReference.css';
 import './DetailReference.css';
