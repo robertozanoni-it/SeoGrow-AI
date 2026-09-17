@@ -21,8 +21,10 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     const actualClientId = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-clients')||'[]');return rows.find(c=>c.name===${q(clientName)}&&c.url===${q(siteUrl)})?.id})()`);
     assert.ok(Number(actualClientId) > 0, 'client id created');
 
-    // Keep the same selected project for the whole journey.
-    await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem('seogrow-selected-client-v1',JSON.stringify(${actualClientId}));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:'seogrow-selected-client-v1',newValue:JSON.stringify(${actualClientId})}));})()`);
+    // Select through the actual client card so React, storage and page context change together.
+    await waitFor(`[...document.querySelectorAll('.reference-client-card')].some(c=>c.textContent.includes(${q(clientName)}))`, 'journey client card');
+    await evaluate(`(()=>{const card=[...document.querySelectorAll('.reference-client-card')].find(c=>c.textContent.includes(${q(clientName)}));if(!card)throw new Error('Journey client card missing');card.click();})()`);
+    await waitFor(`(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===Number(${actualClientId})})()`, 'journey project selected by UI');
 
     // 2. WordPress connection: real central session boundary, no password persisted.
     await clickSidebar('Integrazioni');
@@ -78,6 +80,9 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial evidence after reopen');
 
     // Cleanup for subsequent legacy screenshot checks only; the tested journey itself had no reset.
-    await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem('seogrow-selected-client-v1',JSON.stringify(9001));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:'seogrow-selected-client-v1',newValue:JSON.stringify(9001)}));})()`);
+    await clickSidebar('Clienti');
+    await waitFor("[...document.querySelectorAll('.reference-client-card')].some(c=>c.textContent.includes('Browser QA'))", 'baseline client card');
+    await evaluate("(()=>{const card=[...document.querySelectorAll('.reference-client-card')].find(c=>c.textContent.includes('Browser QA'));if(!card)throw new Error('Baseline client card missing');card.click();})()");
+    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===9001})()", 'baseline project restored through UI');
   });
 }
