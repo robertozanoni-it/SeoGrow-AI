@@ -1,0 +1,56 @@
+name: Stabilization bug report
+description: Segnala un difetto durante RC o stabilizzazione post-release.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severità
+      options:
+        - P0 — perdita dati, sicurezza o blocco totale
+        - P1 — funzione core inutilizzabile senza workaround affidabile
+        - P2 — regressione importante con workaround
+        - P3 — difetto minore o cosmetico
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versione / commit
+      placeholder: 1.4.3-rc.1 oppure SHA
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passi per riprodurre
+      description: Indica cliente/progetto solo se necessario e senza inserire credenziali.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Risultato atteso
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Risultato osservato
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidenze
+      description: Log, screenshot, browser/OS, scenario QA, response code o stack trace ripuliti da segreti.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Controlli
+      options:
+        - label: Non ho inserito password, API key, token o altri segreti.
+          required: true
+        - label: Ho verificato se il problema persiste dopo reload senza reset manuali.
+          required: false
