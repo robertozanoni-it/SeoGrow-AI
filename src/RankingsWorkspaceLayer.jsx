@@ -53,6 +53,12 @@ const normalizedUrl = (value) => {
   } catch { return ""; }
 };
 const opportunityLabels = (evidence) => [...new Set(evidence.map((item) => item.label))].join(" · ");
+const readableError = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value?.message === "string") return value.message;
+  return "Dato non verificato dal provider.";
+};
 
 export default function RankingsWorkspaceLayer() {
   const [page, setPage] = useState(currentPage);
@@ -61,7 +67,7 @@ export default function RankingsWorkspaceLayer() {
   const [comparisonId, setComparisonId] = useState("");
   const [query, setQuery] = useState("");
   const [view, setView] = useState("all");
-  const [corrections, setCorrections] = useState([]);
+  const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [] });
 
   useEffect(() => {
     const refreshPage = () => { setPage(currentPage()); setComparisonId(""); setQuery(""); setView("all"); };
@@ -76,15 +82,18 @@ export default function RankingsWorkspaceLayer() {
 
   useEffect(() => {
     if (page !== "Posizionamenti") return undefined;
-    const mountedHost = document.createElement("div");
-    mountedHost.className = "rankings-workspace-host guided-next-actions-host";
-    mountedHost.dataset.rankingsIntegrityHost = "true";
-    const release = registerPageHost(page, mountedHost);
-    document.body.dataset.seogrowRankingsWorkspace = "true";
-    setHost(mountedHost);
+    let release;
+    const frame = window.requestAnimationFrame(() => {
+      const mountedHost = document.createElement("div");
+      mountedHost.className = "rankings-workspace-host guided-next-actions-host";
+      mountedHost.dataset.rankingsIntegrityHost = "true";
+      release = registerPageHost(page, mountedHost);
+      document.body.dataset.seogrowRankingsWorkspace = "true";
+      setHost(mountedHost);
+    });
     return () => {
+      window.cancelAnimationFrame(frame);
       release?.();
-      setHost(null);
       delete document.body.dataset.seogrowRankingsWorkspace;
     };
   }, [page]);
@@ -102,14 +111,11 @@ export default function RankingsWorkspaceLayer() {
   const client = stores.clients.find((item) => Number(item.id) === selectedClientId) || null;
 
   useEffect(() => {
-    if (page !== "Posizionamenti" || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) {
-      setCorrections([]);
-      return undefined;
-    }
+    if (page !== "Posizionamenti" || !Number.isSafeInteger(selectedClientId) || selectedClientId <= 0) return undefined;
     let cancelled = false;
     listCorrections({ clientId: selectedClientId })
-      .then((rows) => { if (!cancelled) setCorrections(rows); })
-      .catch(() => { if (!cancelled) setCorrections([]); });
+      .then((rows) => { if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows }); })
+      .catch(() => { if (!cancelled) setCorrectionSnapshot({ clientId: selectedClientId, rows: [] }); });
     return () => { cancelled = true; };
   }, [page, selectedClientId, revision]);
 
@@ -120,6 +126,7 @@ export default function RankingsWorkspaceLayer() {
   const rows = useMemo(() => buildPositioningRows(current, selectedComparison, runs), [current, selectedComparison, runs]);
   const dataset = clientValue(stores.gsc, selectedClientId, null);
   const opportunitySet = useMemo(() => opportunityGroups(dataset), [dataset]);
+  const corrections = correctionSnapshot.clientId === selectedClientId ? correctionSnapshot.rows : [];
   const problems = useMemo(() => {
     if (!client) return [];
     return buildUnifiedProblems({
@@ -189,7 +196,7 @@ export default function RankingsWorkspaceLayer() {
               const linkedProblems = problemIndex.get(normalizedUrl(row.url)) || [];
               const opportunityEvidence = opportunityEvidenceForKeyword(row.keyword, opportunitySet);
               return <tr key={row.keyword}>
-                <td><strong>{row.keyword || "Keyword non disponibile"}</strong>{row.error && <small className="rankings-row-error">{row.error}</small>}</td>
+                <td><strong>{row.keyword || "Keyword non disponibile"}</strong>{row.error && <small className="rankings-row-error">{readableError(row.error)}</small>}</td>
                 <td><span className="ranking-position-value">{row.positionLabel}</span></td>
                 <td className={row.delta > 0 ? "positive" : row.delta < 0 ? "negative" : ""}>{row.delta == null ? "—" : `${row.delta > 0 ? "+" : ""}${row.delta}`}</td>
                 <td>{row.url ? <a href={row.url} target="_blank" rel="noreferrer"><ExternalLink />{row.url.replace(/^https?:\/\/[^/]+/, "") || "/"}</a> : <span>URL non trovata</span>}</td>
