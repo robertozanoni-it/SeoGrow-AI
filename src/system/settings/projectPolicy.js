@@ -28,7 +28,6 @@ export const DEFAULT_PROJECT_POLICY = Object.freeze({
     rankingRuns: 20,
     agentRuns: 20,
     geoSnapshots: 24,
-    correctionRecords: 500,
   }),
   featureFlags: Object.freeze({
     geoDiagnostics: true,
@@ -64,7 +63,6 @@ export function normalizeProjectPolicy(value = {}) {
       rankingRuns: integer(retention.rankingRuns, DEFAULT_PROJECT_POLICY.retention.rankingRuns, 1, 100),
       agentRuns: integer(retention.agentRuns, DEFAULT_PROJECT_POLICY.retention.agentRuns, 1, 100),
       geoSnapshots: integer(retention.geoSnapshots, DEFAULT_PROJECT_POLICY.retention.geoSnapshots, 1, 100),
-      correctionRecords: integer(retention.correctionRecords, DEFAULT_PROJECT_POLICY.retention.correctionRecords, 50, 2000),
     },
     featureFlags: {
       geoDiagnostics: bool(featureFlags.geoDiagnostics, DEFAULT_PROJECT_POLICY.featureFlags.geoDiagnostics),
@@ -129,7 +127,6 @@ export const USER_CONTROLLABLE_SETTINGS = Object.freeze([
   "retention.rankingRuns",
   "retention.agentRuns",
   "retention.geoSnapshots",
-  "retention.correctionRecords",
   "featureFlags.geoDiagnostics",
   "featureFlags.batchAutoFix",
   "featureFlags.editorialGeneration",
