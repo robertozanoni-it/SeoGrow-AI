@@ -15,19 +15,19 @@ const base = {
   stale: false,
 };
 
-test("prima priorità: un problema automatico usa Risolvi automaticamente", () => {
+test("prima priorità: un problema automatico usa Correggi automaticamente", () => {
   const problem = { ...base, issueType: "title", title: "Title troppo lungo" };
   const priority = problemResolutionPriority(problem);
   assert.equal(priority.mode, "automatic");
-  assert.equal(priority.label, "Risolvi automaticamente");
+  assert.equal(priority.label, "Correggi automaticamente");
   assert.equal(priority.action, "prepare");
 });
 
-test("review metadata preparabile usa soluzione da approvare", () => {
+test("review metadata preparabile usa Prepara correzione", () => {
   const problem = { ...base, issueType: "description-serp-width", title: "Meta description larga nello snippet", correctability: "not_supported", reviewOnly: true, problemState: "needs_verification" };
   const priority = problemResolutionPriority(problem);
   assert.equal(priority.mode, "approval");
-  assert.equal(priority.label, "Prepara soluzione");
+  assert.equal(priority.label, "Prepara correzione");
 });
 
 test("canonical e noindex richiedono intent esplicito prima della proposta", () => {
@@ -37,7 +37,7 @@ test("canonical e noindex richiedono intent esplicito prima della proposta", () 
   ]) {
     const priority = problemResolutionPriority(problem);
     assert.equal(priority.mode, "confirm");
-    assert.equal(priority.label, "Verifica e prepara soluzione");
+    assert.equal(priority.label, "Prepara correzione");
     assert.equal(canOpenControlledContextPreview(problem), true);
   }
 });
@@ -60,11 +60,11 @@ test("link esterno assistito prepara una correzione controllata", () => {
   assert.equal(priority.label, "Prepara correzione");
 });
 
-test("problemi senza adapter restano soluzione guidata, non falsa automazione", () => {
+test("problemi senza adapter restano guidati internamente ma dichiarati manuali", () => {
   const problem = { ...base, issueType: "image-alt", title: "Immagine senza alt", correctability: "not_supported" };
   const priority = problemResolutionPriority(problem);
   assert.equal(priority.mode, "guided");
-  assert.equal(priority.label, "Prepara soluzione guidata");
+  assert.equal(priority.label, "Richiede intervento manuale");
 });
 
 test("stato già risolto o applicato privilegia la verifica e non una nuova scrittura", () => {
