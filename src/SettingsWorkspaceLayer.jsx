@@ -59,13 +59,14 @@ export default function SettingsWorkspaceLayer() {
     const clientId = Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
     const client = clients.find((item) => Number(item?.id) === clientId) || null;
     const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
-    return { clientId, client, preferences, policy: client ? projectPolicyFromPreferences(preferences, clientId) : null };
+    return { clientId, client, policy: client ? projectPolicyFromPreferences(preferences, clientId) : null };
   }, [revision]);
+  const policyFingerprint = JSON.stringify(state.policy);
 
   useEffect(() => {
     setDraft(state.policy ? normalizeProjectPolicy(state.policy) : null);
     setMessage("");
-  }, [state.clientId, state.policy && JSON.stringify(state.policy)]);
+  }, [state.clientId, policyFingerprint]);
 
   if (page !== "Impostazioni" || !host) return null;
   if (!state.client || !draft) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
@@ -73,7 +74,7 @@ export default function SettingsWorkspaceLayer() {
   const patch = (group, values) => setDraft((current) => ({ ...current, [group]: { ...current[group], ...values } }));
   const save = () => {
     const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
-    writeWorkspaceJson(WORKSPACE_KEYS.preferences, writeProjectPolicy(preferences, state.clientId, draft));
+    writeWorkspaceJson(WORKSPACE_KEYS.preferences, writeProjectPolicy({ ...preferences, approveWordPress: true }, state.clientId, draft));
     window.dispatchEvent(new CustomEvent("seogrow-project-policy-changed", { detail: { clientId: state.clientId } }));
     setMessage("Policy progetto salvate e applicate.");
   };
@@ -96,7 +97,7 @@ export default function SettingsWorkspaceLayer() {
       <article>
         <h3>Policy correzioni</h3>
         <label className="check-row"><input type="checkbox" checked={draft.corrections.requireApproval} disabled /><span>Approvazione obbligatoria prima di ogni write <small>Invariante di sicurezza: non disattivabile.</small></span></label>
-        <label className="check-row"><input type="checkbox" checked={draft.corrections.allowAutoPrepareLowRisk} onChange={(event) => patch("corrections", { allowAutoPrepareLowRisk: event.target.checked })} /><span>Permetti preparazione automatica delle correzioni a basso rischio <small>Prepara soltanto la proposta; non autorizza la scrittura.</small></span></label>
+        <p className="settings-invariants"><ShieldCheck /> SEO Agent e GEO non scrivono direttamente. Le azioni operative passano dai moduli proprietari.</p>
       </article>
 
       <article className={draft.writeSecurity.writesEnabled ? "" : "write-disabled"}>
