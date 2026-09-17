@@ -18,71 +18,20 @@ const currentPage = () => {
 };
 const lines = (value) => String(value || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 
-export default function SettingsWorkspaceLayer() {
-  const [page, setPage] = useState(currentPage);
-  const [host, setHost] = useState(null);
-  const [revision, setRevision] = useState(0);
-  const [draft, setDraft] = useState(null);
+function ProjectPolicyEditor({ clientId, client, policy }) {
+  const [draft, setDraft] = useState(() => normalizeProjectPolicy(policy));
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const onPage = () => setPage(currentPage());
-    const onData = () => setRevision((value) => value + 1);
-    for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.addEventListener(event, onPage);
-    for (const event of ["storage", "seogrow-storage-ok"]) window.addEventListener(event, onData);
-    return () => {
-      for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.removeEventListener(event, onPage);
-      for (const event of ["storage", "seogrow-storage-ok"]) window.removeEventListener(event, onData);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (page !== "Impostazioni") return undefined;
-    let release;
-    const frame = window.requestAnimationFrame(() => {
-      const node = document.createElement("div");
-      node.className = "settings-workspace-host guided-next-actions-host";
-      node.dataset.settingsPolicyHost = "true";
-      release = registerPageHost(page, node);
-      setHost(node);
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      release?.();
-      setHost(null);
-    };
-  }, [page]);
-
-  const state = useMemo(() => {
-    revision;
-    const clients = readWorkspaceJson(WORKSPACE_KEYS.clients, []);
-    const clientId = Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
-    const client = clients.find((item) => Number(item?.id) === clientId) || null;
-    const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
-    return { clientId, client, policy: client ? projectPolicyFromPreferences(preferences, clientId) : null };
-  }, [revision]);
-  const policyFingerprint = JSON.stringify(state.policy);
-
-  useEffect(() => {
-    const policy = policyFingerprint === "null" ? null : JSON.parse(policyFingerprint);
-    setDraft(policy ? normalizeProjectPolicy(policy) : null);
-    setMessage("");
-  }, [state.clientId, policyFingerprint]);
-
-  if (page !== "Impostazioni" || !host) return null;
-  if (!state.client || !draft) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
-
   const patch = (group, values) => setDraft((current) => ({ ...current, [group]: { ...current[group], ...values } }));
   const save = () => {
     const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
-    writeWorkspaceJson(WORKSPACE_KEYS.preferences, writeProjectPolicy({ ...preferences, approveWordPress: true }, state.clientId, draft));
-    window.dispatchEvent(new CustomEvent("seogrow-project-policy-changed", { detail: { clientId: state.clientId } }));
+    writeWorkspaceJson(WORKSPACE_KEYS.preferences, writeProjectPolicy({ ...preferences, approveWordPress: true }, clientId, draft));
+    window.dispatchEvent(new CustomEvent("seogrow-project-policy-changed", { detail: { clientId } }));
     setMessage("Policy progetto salvate e applicate.");
   };
 
-  const content = <section className="settings-policy" aria-label="Policy progetto">
+  return <section className="settings-policy" aria-label="Policy progetto">
     <header className="settings-policy-head">
-      <div><span className="eyebrow"><SlidersHorizontal /> Policy progetto</span><h2>Impostazioni operative · {state.client.name}</h2><p>Controlli che incidono sul comportamento della suite. I segreti dei provider restano nelle Integrazioni/runtime e non vengono copiati qui.</p></div>
+      <div><span className="eyebrow"><SlidersHorizontal /> Policy progetto</span><h2>Impostazioni operative · {client.name}</h2><p>Controlli che incidono sul comportamento della suite. I segreti dei provider restano nelle Integrazioni/runtime e non vengono copiati qui.</p></div>
       <button className="primary" type="button" onClick={save}><Save /> Salva policy</button>
     </header>
 
@@ -133,6 +82,56 @@ export default function SettingsWorkspaceLayer() {
       </article>
     </div>
   </section>;
+}
 
-  return createPortal(content, host);
+export default function SettingsWorkspaceLayer() {
+  const [page, setPage] = useState(currentPage);
+  const [host, setHost] = useState(null);
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    const onPage = () => setPage(currentPage());
+    const onData = () => setRevision((value) => value + 1);
+    for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.addEventListener(event, onPage);
+    for (const event of ["storage", "seogrow-storage-ok"]) window.addEventListener(event, onData);
+    return () => {
+      for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.removeEventListener(event, onPage);
+      for (const event of ["storage", "seogrow-storage-ok"]) window.removeEventListener(event, onData);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (page !== "Impostazioni") return undefined;
+    let release;
+    const frame = window.requestAnimationFrame(() => {
+      const node = document.createElement("div");
+      node.className = "settings-workspace-host guided-next-actions-host";
+      node.dataset.settingsPolicyHost = "true";
+      release = registerPageHost(page, node);
+      setHost(node);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      release?.();
+      setHost(null);
+    };
+  }, [page]);
+
+  const state = useMemo(() => {
+    revision;
+    const clients = readWorkspaceJson(WORKSPACE_KEYS.clients, []);
+    const clientId = Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
+    const client = clients.find((item) => Number(item?.id) === clientId) || null;
+    const preferences = readWorkspaceJson(WORKSPACE_KEYS.preferences, {});
+    const policy = client ? projectPolicyFromPreferences(preferences, clientId) : null;
+    return { clientId, client, policy, fingerprint: JSON.stringify(policy) };
+  }, [revision]);
+
+  if (page !== "Impostazioni" || !host) return null;
+  if (!state.client || !state.policy) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
+
+  return createPortal(
+    <ProjectPolicyEditor key={`${state.clientId}:${state.fingerprint}`} clientId={state.clientId} client={state.client} policy={state.policy} />,
+    host,
+  );
 }
