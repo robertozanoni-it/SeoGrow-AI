@@ -14,10 +14,13 @@ const currentPage = () => {
 };
 
 export default function RemediationRuntime() {
-  const [generation, setGeneration] = useState(0);
+  const [state, setState] = useState(() => ({ page: currentPage(), generation: 0 }));
 
   useEffect(() => {
-    const refresh = () => setGeneration((current) => current + 1);
+    const refresh = () => setState((current) => ({
+      page: currentPage(),
+      generation: current.generation + 1,
+    }));
     window.addEventListener("hashchange", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-automatic-proposal-open", refresh);
@@ -30,15 +33,9 @@ export default function RemediationRuntime() {
     };
   }, []);
 
-  // Route and session focus are external browser state. Read them at render
-  // time instead of caching the page inside React state: a late location event
-  // must never leave this runtime believing it is on the page rendered before
-  // the dedicated Corrections proposal opened.
-  const page = currentPage();
-  const proposalMode = page === PROPOSAL_ROUTE_PAGE && Boolean(readAutomaticProposalFocus());
-  if (page !== "Audit SEO" && !proposalMode) return null;
-
-  const key = `remediation-runtime-${generation}`;
+  const proposalMode = state.page === PROPOSAL_ROUTE_PAGE && Boolean(readAutomaticProposalFocus());
+  if (state.page !== "Audit SEO" && !proposalMode) return null;
+  const key = `remediation-runtime-${state.generation}`;
   return (
     <>
       <RemediationHost key={`${key}-host`} slotSelector={proposalMode ? ".proposal-remediation-slot" : ""} />
