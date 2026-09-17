@@ -8,7 +8,7 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
   const pageUrl = 'https://journey.example/servizi/';
   const issueKey = 'journey-title-issue';
   const correctionId = 'journey-correction';
-  const taskId = 'journey-task';
+  const taskTitle = 'Ricontrolla title dopo rollback';
 
   await record('FUNCTIONAL-JOURNEY-18', async () => {
     // 1. Nuovo cliente: use the real Clients UI, not a storage shortcut.
@@ -50,10 +50,16 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await evaluate(`(async()=>{const r=await import('/src/remediationStore.js');await r.updateCorrection(${q(correctionId)},{status:'Rolled back',rollbackAt:new Date().toISOString()});})()`);
     await waitFor(`(async()=>{const r=await import('/src/remediationStore.js');const row=await r.readCorrection(${q(correctionId)});return /rolled/i.test(row?.status||'')&&Boolean(row?.rollbackAt)})()`, 'rollback persisted');
 
-    // 8. Task: canonical task linked to the same problem/correction.
-    await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const key='seogrow-tasks-v2';const rows=JSON.parse(m.workspaceStorage.getItem(key)||'[]').filter(t=>t.id!==${q(taskId)});rows.unshift({id:${q(taskId)},title:'Ricontrolla title dopo rollback',client:${q(clientName)},sourceClientId:${actualClientId},priority:'Alta',due:'',status:'Da fare',kind:'title',sourceUrl:${q(pageUrl)},targetUrl:'',detail:'Task del journey funzionale dopo rollback.',notes:'',createdAt:new Date().toISOString(),taskLinks:{problemKey:${q(issueKey)},correctionId:${q(correctionId)}}});m.workspaceStorage.setItem(key,JSON.stringify(rows));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(rows)}));})()`);
+    // 8. Task: create it through the real Task UI so mounted React state and durable storage agree.
     await clickSidebar('Task');
-    await waitFor(`document.body.innerText.includes('Ricontrolla title dopo rollback')`, 'task visible');
+    await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Nuova task'&&!b.disabled)", 'new task CTA');
+    await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nuova task'&&!b.disabled).click()");
+    await waitFor("document.querySelector('.task-editor')", 'journey task editor');
+    await evaluate(`(()=>{const form=document.querySelector('.task-editor');const title=form.querySelector('input');if(!title)throw new Error('Titolo task non trovato');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(title,${q(taskTitle)});title.dispatchEvent(new Event('input',{bubbles:true}));form.requestSubmit();})()`);
+    await waitFor(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');return rows.some(t=>t.title===${q(taskTitle)}&&Number(t.sourceClientId)===Number(${actualClientId}))})()`, 'journey task persisted through UI');
+    const journeyTaskId = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');return rows.find(t=>t.title===${q(taskTitle)}&&Number(t.sourceClientId)===Number(${actualClientId}))?.id})()`);
+    assert.ok(journeyTaskId, 'journey task id created');
+    await waitFor(`document.body.innerText.includes(${q(taskTitle)})`, 'task visible');
 
     // 9. Ranking: canonical project ranking run.
     await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const key='seogrow-rankings-v1';const store=JSON.parse(m.workspaceStorage.getItem(key)||'{}');store[${actualClientId}]=[{checkedAt:new Date().toISOString(),device:'desktop',locationCode:2826,languageCode:'it',depth:20,rankings:[{keyword:'seo journey',position:9,url:${q(pageUrl)}}]}];m.workspaceStorage.setItem(key,JSON.stringify(store));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(store)}));})()`);
@@ -71,11 +77,11 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
 
     // 12. Reopen app: full reload, same selected project and state, no manual reset/reseed.
     await reload();
-    const continuity = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const selected=JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0');const clients=JSON.parse(m.workspaceStorage.getItem('seogrow-clients')||'[]');const audits=JSON.parse(m.workspaceStorage.getItem('seogrow-page-audit-history-v2')||'{}');const tasks=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');const rankings=JSON.parse(m.workspaceStorage.getItem('seogrow-rankings-v1')||'{}');const gsc=JSON.parse(m.workspaceStorage.getItem('seogrow-gsc-v1')||'{}');const r=await import('/src/remediationStore.js');const correction=await r.readCorrection(${q(correctionId)});return {selected,client:clients.some(c=>Number(c.id)===Number(${actualClientId})),audit:Boolean(audits[${actualClientId}]?.length),task:tasks.some(t=>t.id===${q(taskId)}),ranking:Boolean(rankings[${actualClientId}]?.length),opportunity:Boolean(gsc[${actualClientId}]?.queries?.length),rollback:/rolled/i.test(correction?.status||'')&&Boolean(correction?.rollbackAt)}})()`);
+    const continuity = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const selected=JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0');const clients=JSON.parse(m.workspaceStorage.getItem('seogrow-clients')||'[]');const audits=JSON.parse(m.workspaceStorage.getItem('seogrow-page-audit-history-v2')||'{}');const tasks=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');const rankings=JSON.parse(m.workspaceStorage.getItem('seogrow-rankings-v1')||'{}');const gsc=JSON.parse(m.workspaceStorage.getItem('seogrow-gsc-v1')||'{}');const r=await import('/src/remediationStore.js');const correction=await r.readCorrection(${q(correctionId)});return {selected,client:clients.some(c=>Number(c.id)===Number(${actualClientId})),audit:Boolean(audits[${actualClientId}]?.length),task:tasks.some(t=>t.id===${q(journeyTaskId)}),ranking:Boolean(rankings[${actualClientId}]?.length),opportunity:Boolean(gsc[${actualClientId}]?.queries?.length),rollback:/rolled/i.test(correction?.status||'')&&Boolean(correction?.rollbackAt)}})()`);
     assert.deepEqual(continuity, { selected: actualClientId, client: true, audit: true, task: true, ranking: true, opportunity: true, rollback: true });
 
     await clickSidebar('Task');
-    await waitFor(`document.body.innerText.includes('Ricontrolla title dopo rollback')`, 'journey task after reopen');
+    await waitFor(`document.body.innerText.includes(${q(taskTitle)})`, 'journey task after reopen');
     await clickSidebar('Piano editoriale');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial evidence after reopen');
 
