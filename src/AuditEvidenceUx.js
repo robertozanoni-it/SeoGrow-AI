@@ -2,6 +2,7 @@ import { enforceAuditEvidence } from "./auditEvidenceContract.js";
 import { readWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { normalizeHttpUrl } from "./reliabilityModel.js";
+import "./AuditEvidenceUx.css";
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
 const norm = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
