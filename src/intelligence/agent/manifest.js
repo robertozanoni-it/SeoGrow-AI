@@ -8,5 +8,5 @@ export const agentManifest = defineSuiteModule({
   homePage: "SEO Agent",
   futurePath: "/agent",
   pages: ["SEO Agent"],
-  capabilities: ["orchestration", "planning", "approvals", "verification"],
+  capabilities: ["orchestration", "planning", "verification", "canonical-handoffs", "action-log"],
 });
