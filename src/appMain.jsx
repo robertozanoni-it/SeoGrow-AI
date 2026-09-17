@@ -20,6 +20,7 @@ import './BrokenLinkCleanupChoiceUx';
 import './SharedElementorBrokenLinkUx';
 import './ProviderBudgetUx';
 import './ProposalBeforeAfterLinks';
+React;
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -32,6 +33,7 @@ import OpportunitiesWorkspaceLayer from './OpportunitiesWorkspaceLayer';
 import TaskLinkagePanel from './TaskLinkagePanel';
 import EditorialPlanWorkspaceLayer from './EditorialPlanWorkspaceLayer';
 import IntegrationsWorkspaceLayer from './IntegrationsWorkspaceLayer';
+import SettingsWorkspaceLayer from './SettingsWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProjectContinuityLayer from './ProjectContinuityLayer';
 import {
@@ -112,6 +114,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <TaskLinkagePanel />
       <EditorialPlanWorkspaceLayer />
       <IntegrationsWorkspaceLayer />
+      <SettingsWorkspaceLayer />
       <ProjectSelectionGuard />
       <ProjectContinuityLayer />
       <ProblemsNavBridge />
