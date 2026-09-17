@@ -62,7 +62,7 @@ export const canonicalTasks = (value) => {
     const current = byId.get(id);
     if (!current || taskRecency(task) >= taskRecency(current)) byId.set(id, task);
   }
-  return normalizeStoredTasks([...byId.values()], []);
+  return [...byId.values()];
 };
 
 const canonicalHistoryMap = (value) => {
@@ -168,7 +168,7 @@ export function buildProjectState({
       site: dedupeExact(forClient(analyses, clientId), (item) => item?.analyzedAt || item?.startedAt),
       page: dedupeExact(forClient(pageAuditHistory, clientId), (item) => item?.analyzedAt || item?.startedAt),
     },
-    tasks: canonicalTasks(tasks).filter((task) => Number(task.sourceClientId) === clientId),
+    tasks: normalizeStoredTasks(canonicalTasks(tasks), []).filter((task) => Number(task.sourceClientId) === clientId),
     corrections: canonicalCorrections(corrections).filter((item) => Number(item?.clientId) === clientId),
     problemClosures: canonicalProblemClosures(problemClosures).filter((item) => Number(item.clientId) === clientId),
   };
