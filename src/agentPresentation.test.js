@@ -17,9 +17,11 @@ test("blocked runs do not assume insufficient data, and unknown states remain vi
   assert.equal(agentStatusLabel("NEW_STATE"), "NEW_STATE");
 });
 
-test("AgentPage distingue analisi completata da problema chiuso", async () => {
+test("AgentPage distingue analisi completata dallo stato canonico del problema", async () => {
   const fs = await import("node:fs/promises");
   const source = await fs.readFile(new URL("./AgentPage.jsx", import.meta.url), "utf8");
-  assert.match(source, /resolutionOutcome\?\.kind === "obsolete"\) return "Problema chiuso"/);
-  assert.match(source, /run\?\.status === AgentStatus\.COMPLETED\) return "Analisi completata"/);
+  assert.match(source, /run\?\.status === AgentStatus\.COMPLETED \? "Analisi completata"/);
+  assert.match(source, /kind: "analysis-only"/);
+  assert.doesNotMatch(source, /return "Problema chiuso"/);
+  assert.match(source, /Audit\/Correzioni, che resta la source of truth/);
 });
