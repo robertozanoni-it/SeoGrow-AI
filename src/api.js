@@ -1,29 +1,38 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
-import { normalizeAuditEvidenceResponse } from "./auditEvidenceContract.js";
 import { normalizeClientId } from "./reliabilityModel.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
 
 const selectedClientId = () => {
-  try { return normalizeClientId(JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY))); }
-  catch { return null; }
+  try {
+    return normalizeClientId(JSON.parse(localStorage.getItem(SELECTED_CLIENT_KEY)));
+  } catch {
+    return null;
+  }
 };
 
 const requestPath = (input) => {
   try {
     const raw = typeof input === "string" ? input : input?.url;
     return new URL(String(raw || ""), window.location.href).pathname;
-  } catch { return String(input || "").split("?")[0]; }
+  } catch {
+    return String(input || "").split("?")[0];
+  }
 };
 
 export const isProjectScopedRequest = (input) => {
   const value = String(input || "");
   return [
-    "/api/dataforseo/", "/api/geo/simulate", "/api/generate", "/api/audit",
-    "/api/site-analysis", "/api/frontend/inspect", "/api/wordpress/",
+    "/api/dataforseo/",
+    "/api/geo/simulate",
+    "/api/generate",
+    "/api/audit",
+    "/api/site-analysis",
+    "/api/frontend/inspect",
+    "/api/wordpress/",
   ].some((path) => value.includes(path));
 };
 
@@ -31,7 +40,10 @@ const assertProjectStillSelected = (entry) => {
   if (!entry) return;
   const current = selectedClientId();
   if (entry.clientId && current === entry.clientId) return;
-  const reason = new DOMException(entry.clientId ? "Progetto cambiato" : "Progetto non selezionato", "AbortError");
+  const reason = new DOMException(
+    entry.clientId ? "Progetto cambiato" : "Progetto non selezionato",
+    "AbortError",
+  );
   if (!entry.controller.signal.aborted) entry.controller.abort(reason);
   throw reason;
 };
@@ -42,8 +54,9 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
     if (event?.detail?.key !== SELECTED_CLIENT_KEY) return;
     const current = selectedClientId();
     for (const entry of [...scopedRequests]) {
-      if (!entry.clientId || entry.clientId !== current)
+      if (!entry.clientId || entry.clientId !== current) {
         entry.controller.abort(new DOMException("Progetto cambiato", "AbortError"));
+      }
     }
   });
 }
@@ -60,8 +73,18 @@ const compactStructuredRemediationContext = (context) => {
       const tail = max - head;
       return `${text.slice(0, head)}\n[...contenuto ridotto automaticamente da SeoGrow...]\n${text.slice(-tail)}`;
     };
-    return JSON.stringify({ ...parsed, page: { ...page, title: compact(page.title, 1000), excerpt: compact(page.excerpt, 1600), content: compact(page.content, 7000) } });
-  } catch { return null; }
+    return JSON.stringify({
+      ...parsed,
+      page: {
+        ...page,
+        title: compact(page.title, 1000),
+        excerpt: compact(page.excerpt, 1600),
+        content: compact(page.content, 7000),
+      },
+    });
+  } catch {
+    return null;
+  }
 };
 
 export const trimGenerateContext = (body) => {
@@ -71,15 +94,22 @@ export const trimGenerateContext = (body) => {
     if (!payload || typeof payload !== "object" || typeof payload.context !== "string") return body;
     const maxContext = 10_500;
     if (payload.context.length <= maxContext) return body;
+
     if (/^Remediation WordPress\s+(?:title|content|excerpt|h1)$/i.test(String(payload.topic || ""))) {
       const compactContext = compactStructuredRemediationContext(payload.context);
-      if (compactContext) { payload.context = compactContext; return JSON.stringify(payload); }
+      if (compactContext) {
+        payload.context = compactContext;
+        return JSON.stringify(payload);
+      }
     }
+
     const headLength = 8_500;
     const tailLength = 1_500;
     payload.context = `${payload.context.slice(0, headLength)}\n\n[...contenuto ridotto automaticamente da SeoGrow per rispettare il limite AI...]\n\n${payload.context.slice(-tailLength)}`;
     return JSON.stringify(payload);
-  } catch { return body; }
+  } catch {
+    return body;
+  }
 };
 
 const wordpressSiteUrlFromUi = () => {
@@ -95,7 +125,9 @@ export const withExplicitWordPressSiteUrl = (path, init) => {
     const siteUrl = wordpressSiteUrlFromUi();
     if (!siteUrl) return init;
     return { ...init, body: JSON.stringify({ ...payload, siteUrl }) };
-  } catch { return init; }
+  } catch {
+    return init;
+  }
 };
 
 export const apiTimeoutMs = (input) => {
@@ -106,96 +138,21 @@ export const apiTimeoutMs = (input) => {
   return 120_000;
 };
 
-const pageAuditUrl = (init) => {
-  try { return JSON.parse(init?.body || "{}").url || ""; }
-  catch { return ""; }
-};
-
-const responseFromJson = (source, data) => {
-  const headers = new Headers(source.headers);
-  headers.set("content-type", "application/json; charset=utf-8");
-  return new Response(JSON.stringify(data), { status: source.status, statusText: source.statusText, headers });
-};
-
-async function supplementPageAudit(response, init, signal) {
-  if (!response?.ok) return response;
-  let data;
-  try { data = await response.clone().json(); }
-  catch { return response; }
-  const url = data?.url || pageAuditUrl(init);
-  if (!url || data?.legalOnly) return response;
-  try {
-    const inspectionResponse = await apiFetch("/api/frontend/inspect", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url }),
-      signal,
-    });
-    const inspection = await inspectionResponse.json();
-    if (!inspectionResponse.ok) throw new Error(inspection.error || "Ispezione frontend non riuscita");
-    const issues = Array.isArray(data.issues) ? [...data.issues] : [];
-    const reviewItems = Array.isArray(data.reviewItems) ? [...data.reviewItems] : [];
-    if (inspection.pageKind === "content" && Number(inspection.words) >= 300 && Number(inspection.h2) === 0) {
-      issues.push({
-        type: "h2",
-        severity: "bassa",
-        label: "Nessun H2 rilevato",
-        sourceUrl: inspection.url || url,
-        observedValue: "0 H2 visibili",
-        detail: `Pagina di contenuto con ${inspection.words} parole visibili senza sottotitoli H2.`,
-      });
-    }
-    if (inspection.noindex) {
-      reviewItems.push({
-        type: "indexability",
-        severity: "bassa",
-        label: "Pagina impostata noindex",
-        sourceUrl: inspection.url || url,
-        observedValue: [inspection.robots, inspection.googlebot, inspection.xRobotsTag].filter(Boolean).join(" · ") || "noindex",
-        detail: "Direttiva noindex osservata nell'HTML pubblico o nelle intestazioni HTTP.",
-        diagnosisState: "needs-confirmation",
-        evidenceNature: "observed-signal",
-        reviewReason: "Il noindex può essere intenzionale: verificare intento, sitemap e link interni prima di modificarlo.",
-      });
-    }
-    return responseFromJson(response, {
-      ...data,
-      h2: Number(inspection.h2) || 0,
-      noindex: Boolean(inspection.noindex),
-      robots: inspection.robots || "",
-      xRobotsTag: inspection.xRobotsTag || "",
-      canonicalCount: Number(inspection.canonicalCount) || 0,
-      frontendEvidence: {
-        source: "HTML pubblico",
-        url: inspection.url || url,
-        status: inspection.status,
-        visibilityModel: inspection.visibilityModel,
-        visibilityConfidence: inspection.visibilityConfidence,
-      },
-      auditCoverage: { ...(data.auditCoverage || {}), frontend: "observed" },
-      issues,
-      reviewItems,
-    });
-  } catch (error) {
-    return responseFromJson(response, {
-      ...data,
-      auditCoverage: { ...(data.auditCoverage || {}), frontend: "unavailable" },
-      auditCoverageWarning: error instanceof Error ? error.message : "Ispezione frontend non disponibile",
-    });
-  }
-}
-
 export async function apiFetch(input, init = {}) {
   const method = String(init.method || "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
   let lastError;
   const inputText = String(input || "");
   const path = requestPath(input);
-  const generatedInit = inputText.includes("/api/generate") ? { ...init, body: trimGenerateContext(init.body) } : init;
+  const generatedInit = inputText.includes("/api/generate")
+    ? { ...init, body: trimGenerateContext(init.body) }
+    : init;
   const preparedInit = withExplicitWordPressSiteUrl(path, generatedInit);
   const projectScoped = isProjectScopedRequest(inputText);
   const projectController = projectScoped ? new AbortController() : null;
-  const scopeEntry = projectController ? { controller: projectController, clientId: selectedClientId() } : null;
+  const scopeEntry = projectController
+    ? { controller: projectController, clientId: selectedClientId() }
+    : null;
   if (scopeEntry) scopedRequests.add(scopeEntry);
 
   try {
@@ -222,19 +179,15 @@ export async function apiFetch(input, init = {}) {
       try {
         assertProjectStillSelected(scopeEntry);
         if (signal.aborted) throw signal.reason || new DOMException("Richiesta annullata", "AbortError");
-        let response = await window.fetch(input, { ...preparedInit, signal });
+        const response = await window.fetch(input, { ...preparedInit, signal });
         if (attempt + 1 < attempts && [502, 503, 504].includes(response.status)) {
           await response.body?.cancel();
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           continue;
         }
-        if (path === "/api/audit") response = await supplementPageAudit(response, preparedInit, signal);
-        const auditResponse = path === "/api/site-analysis"
+        const integrityResponse = path === "/api/site-analysis"
           ? await normalizeSiteAnalysisResponse(response)
           : response;
-        const integrityResponse = ["/api/audit", "/api/site-analysis"].includes(path)
-          ? await normalizeAuditEvidenceResponse(auditResponse)
-          : auditResponse;
         const normalized = await normalizeGdprResponse(integrityResponse, path, preparedInit);
         assertProjectStillSelected(scopeEntry);
         return normalized;
