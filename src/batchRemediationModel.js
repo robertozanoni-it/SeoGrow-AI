@@ -37,6 +37,7 @@ export function batchRiskGroup(problem) {
   const kind = batchIssueKind(problem);
   if (['resolved', 'intentional'].includes(problem?.problemState)) return 'read_only';
   if (batchIssueType(problem) === 'url-alias') return 'read_only';
+  if (String(problem?.correctability || '').trim().toLowerCase() === 'manual') return 'assisted';
   if (problem?.ownershipBlocked || problem?.interventionState === 'applied' || ['archive', 'taxonomy', 'gdpr'].includes(problem?.pageKind)) return 'assisted';
   if (!kind || (!DIRECT_KINDS.has(kind) && !controlledReviewType(problem))) return 'assisted';
   return HIGH_RISK_KINDS.has(kind) ? 'high' : 'standard';
@@ -46,6 +47,7 @@ export function batchCapability(problem) {
   const kind = batchIssueKind(problem);
   const riskGroup = batchRiskGroup(problem);
   if (['resolved', 'intentional'].includes(problem.problemState)) return { state: 'SKIPPED', reason: 'Problema risolto o intenzionale.', kind, riskGroup };
+  if (String(problem?.correctability || '').trim().toLowerCase() === 'manual') return { state: 'PENDING', reason: 'Problema dichiarato manuale: il batch prepara un intervento assistito senza write automatica.', kind: kind || 'assisted', batchMode: 'assisted_task', riskGroup: 'assisted' };
   if (problem.ownershipBlocked) return { state: 'PENDING', reason: 'Ownership non dimostrata: il batch crea automaticamente un intervento assistito senza scritture cieche.', kind: kind || 'assisted', batchMode: 'assisted_task', riskGroup };
   const reobservedAfterVerification = problem.interventionState === 'verified' && ['needs_verification', 'reappeared'].includes(problem.problemState);
   if (problem.interventionState === 'applied') return { state: 'PENDING', reason: 'Esiste una modifica da verificare: il batch crea un intervento di verifica senza ripetere la scrittura.', kind: kind || 'assisted', batchMode: 'assisted_task', riskGroup };
