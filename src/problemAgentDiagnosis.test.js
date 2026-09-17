@@ -62,7 +62,7 @@ test("un review item senza evidenze sufficienti non viene dichiarato risolto", (
   assert.match(run.errors[0], /Riesegui l’audit/i);
 });
 
-test("review-only canonical richiede intent esplicito prima di preparare la soluzione", () => {
+test("review-only canonical richiede intent esplicito prima di preparare la correzione", () => {
   const path = resolutionPath({
     issueType: "canonical-different",
     title: "Canonical differente dall’URL analizzato",
@@ -73,7 +73,7 @@ test("review-only canonical richiede intent esplicito prima di preparare la solu
     reviewOnly: true,
   });
   assert.equal(path.action, "confirm");
-  assert.equal(path.label, "Verifica e prepara soluzione");
+  assert.equal(path.label, "Prepara correzione");
   assert.match(path.instructions, /Conferma/i);
   assert.match(path.instructions, /Prima\/Dopo/i);
 });
