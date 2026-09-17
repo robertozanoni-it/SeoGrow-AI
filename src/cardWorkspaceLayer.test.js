@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const layer = await readFile(new URL("./CardWorkspaceLayer.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./CardWorkspaceLayer.css", import.meta.url), "utf8");
 const sidebarCss = await readFile(new URL("./SidebarReadabilityFix.css", import.meta.url), "utf8");
+const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("il layer card-first è montato globalmente", () => {
@@ -48,13 +49,16 @@ test("il card layer continua a coprire anche le viste legacy durante la migrazio
   }
 });
 
-test("la sidebar guidata mantiene contrasto e non inietta una voce Problemi parallela", () => {
+test("la sidebar mantiene contrasto e presenta Problemi come sottovista Audit", () => {
   assert.match(main, /SidebarReadabilityFix\.css/);
   assert.match(sidebarCss, /nav\.guided-nav button/);
   assert.match(sidebarCss, /color:\s*#4e6885\s*!important/);
   assert.match(sidebarCss, /button\.active/);
   assert.match(sidebarCss, /background:\s*#1f5489\s*!important/);
-  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
+  assert.match(main, /<ProblemsNavBridge \/>/);
+  assert.match(bridge, /guided-audit-subnav-host/);
+  assert.match(bridge, /data-seogrow-subview="Audit SEO:Problemi"/);
+  assert.match(sidebarCss, /\.guided-audit-subnav-host/);
 });
 
 test("il layer non introduce polling DOM invasivo", () => {
