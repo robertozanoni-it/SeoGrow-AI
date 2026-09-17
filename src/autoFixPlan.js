@@ -9,6 +9,16 @@ const issuePageUrl = (issue = {}, auditUrl = '', siteUrl = '') => {
   return issue.sourceUrl || issue.url || (!brokenLink ? issue.targetUrl : '') || auditUrl || siteUrl || '';
 };
 
+const verifiedBrokenExternalLink = issue => {
+  const type = String(issue?.type || '').trim().toLowerCase();
+  const target = issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || '';
+  if (!/broken-external-link/.test(type) || !target) return false;
+  try {
+    const url = new URL(target);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch { return false; }
+};
+
 export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
   const text = `${issue.type || ''} ${issue.label || ''} ${issue.detail || ''}`.toLowerCase();
   const manual = reason => ({ level: 'manual', reason });
@@ -19,6 +29,9 @@ export function classifyAutoFix(issue = {}, siteUrl = '', auditUrl = '') {
     const site = new URL(siteUrl);
     if (!['http:', 'https:'].includes(target.protocol) || target.origin !== site.origin || target.username || target.password) return manual('Destinazione esterna o non valida: verifica manuale.');
   } catch { return manual('Manca una destinazione verificabile.'); }
+  if (verifiedBrokenExternalLink(issue)) {
+    return { level: 'approval', reason: 'Il link esterno 404 può essere corretto solo dopo verifica della singola occorrenza. Se proviene da un template Elementor condiviso, SeoGrow usa coverage completa, approval esplicita, writer CAS atomico, verifica frontend e rollback automatico.' };
+  }
   if (/canonical|noindex|robots|indexability|redirect|sitemap|tassonom|elementor|elimin|struttura/.test(text)) return manual('Richiede una verifica specifica di intento, struttura o compatibilità.');
   if (/title|titolo|meta description|h1|excerpt|estratto|contenuto|content/.test(text)) {
     return { level: 'approval', reason: 'Prepara una proposta; controlla Prima/Dopo e approva singolarmente. Disponibilità da verificare su WordPress.' };
