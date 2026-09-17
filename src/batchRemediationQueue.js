@@ -70,7 +70,7 @@ export async function prepareBatch(run, ports) {
   const summary = batchSummary(run);
   run.status = run.entries.some(e => e.state === 'PREPARED')
     ? 'AWAITING_APPROVAL'
-    : summary.resolvedProblems + summary.managedAssisted === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
+    : summary.resolvedProblems === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.planFingerprint = approvalFingerprint(run);
   run.summary = summary;
   await persist(); return run;
@@ -162,6 +162,10 @@ export async function executeBatch(run, approval, ports) {
   }
   run.completedAt = new Date().toISOString(); run.durationMs = Date.parse(run.completedAt) - Date.parse(run.startedAt);
   const summary = batchSummary(run);
-  run.status = summary.UNCERTAIN ? 'INTERRUPTED' : summary.resolvedProblems + summary.managedAssisted === summary.selected ? 'SUCCESS' : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
+  run.status = summary.UNCERTAIN
+    ? 'INTERRUPTED'
+    : summary.resolvedProblems === summary.selected
+      ? 'SUCCESS'
+      : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.summary = summary; await persist(); return run;
 }
