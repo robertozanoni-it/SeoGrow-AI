@@ -1,4 +1,4 @@
-import { REGISTERED_PAGES } from "./core/modules/moduleRegistry.js";
+import { CANONICAL_SUITE_PAGES } from "./suite/productArchitecture.js";
 import { navigatePage } from "./navigationUx.js";
 
 export const WIZARD_CONTEXT_KEY = "seogrow-wizard-context-v1";
@@ -22,120 +22,118 @@ export const WIZARD_STEP_COUNTS = Object.freeze({
   Storico: 3,
 });
 
-// `SeoGrow AI` is still a legacy dashboard surface, not a wizard destination.
-// All other destinations come from the Suite registry so new domain ownership
-// cannot silently diverge from guided navigation.
-export const WIZARD_DESTINATION_PAGES = Object.freeze(
-  REGISTERED_PAGES.filter((page) => page !== "SeoGrow AI"),
-);
+// Solo i 14 moduli congelati possono essere destinazioni primarie del wizard.
+// Le viste legacy restano leggibili per compatibilità, ma ogni loro azione
+// riporta l'utente nel modulo canonico che ne possiede la responsabilità.
+export const WIZARD_DESTINATION_PAGES = CANONICAL_SUITE_PAGES;
 
 // Unica fonte di verità per card wizard -> pagina di destinazione.
-// Le destinazioni sono state riallineate al luogo in cui l'azione descritta
-// viene realmente eseguita, evitando aperture di pannelli o sezioni interne.
+// Le destinazioni sono riallineate al modulo proprietario, evitando di
+// reintrodurre Storico, Problemi o SeoGrow AI come pagine peer.
 const STEP_ACTIONS = Object.freeze({
   Panoramica: [
     { page: "Centro progetto" },      // Stato progetto
-    { page: "Problemi" },            // Priorità
-    { page: "Opportunità" },         // Opportunità
-    { page: "Correzioni" },          // Correzioni
-    { page: "Task" },                // Prossima azione
+    { page: "Audit SEO" },            // Priorità / problemi
+    { page: "Opportunità" },          // Opportunità
+    { page: "Correzioni" },           // Correzioni
+    { page: "Task" },                 // Prossima azione
   ],
   Clienti: [
-    { page: "Clienti" },             // Seleziona cliente
-    { page: "Clienti" },             // Controlla dati del cliente
-    { page: "Integrazioni" },        // Collega strumenti
-    { page: "Centro progetto" },     // Apri progetto
+    { page: "Clienti" },              // Seleziona cliente
+    { page: "Clienti" },              // Controlla dati del cliente
+    { page: "Integrazioni" },         // Collega strumenti
+    { page: "Centro progetto" },      // Apri progetto
   ],
   "Centro progetto": [
-    { page: "Centro progetto" },     // Obiettivo
-    { page: "Integrazioni" },        // Dati SEO
-    { page: "Integrazioni" },        // WordPress
-    { page: "Audit SEO" },           // Audit e problemi
-    { page: "Correzioni" },          // Correzioni
-    { page: "Centro progetto" },     // Report
+    { page: "Centro progetto" },      // Obiettivo
+    { page: "Integrazioni" },         // Dati SEO
+    { page: "Integrazioni" },         // WordPress
+    { page: "Audit SEO" },            // Audit e problemi
+    { page: "Correzioni" },           // Correzioni
+    { page: "Centro progetto" },      // Report e storico
   ],
   Problemi: [
-    { page: "Problemi" },            // Visualizza
-    { page: "Problemi" },            // Seleziona
-    { page: "Problemi" },            // Valuta
-    { page: "Correzioni" },          // Risolvi
+    { page: "Audit SEO" },            // Vista canonica problemi
+    { page: "Audit SEO" },            // Seleziona / valuta
+    { page: "Audit SEO" },            // Evidenze
+    { page: "Correzioni" },           // Risolvi
   ],
   "Audit SEO": [
-    { page: "Audit SEO" },           // Perimetro
-    { page: "Audit SEO" },           // URL
-    { page: "Audit SEO" },           // Avvia
-    { page: "Storico" },             // Risultati
-    { page: "Correzioni" },          // Correggi
+    { page: "Audit SEO" },            // Perimetro
+    { page: "Audit SEO" },            // URL
+    { page: "Audit SEO" },            // Avvia
+    { page: "Centro progetto" },      // Risultati / storico
+    { page: "Correzioni" },           // Correggi
   ],
   Posizionamenti: [
-    { page: "Integrazioni" },        // Dati Search Console
-    { page: "Posizionamenti" },      // Filtra
-    { page: "Posizionamenti" },      // Andamento
-    { page: "Opportunità" },         // Opportunità
+    { page: "Integrazioni" },         // Dati Search Console
+    { page: "Posizionamenti" },       // Filtra
+    { page: "Posizionamenti" },       // Andamento
+    { page: "Opportunità" },          // Opportunità
   ],
   "Link interni": [
-    { page: "Link interni" },        // Analizza
-    { page: "Link interni" },        // Seleziona
-    { page: "Task" },                // Crea task
-    { page: "Link interni" },        // Verifica
+    { page: "Link interni" },         // Analizza
+    { page: "Link interni" },         // Seleziona
+    { page: "Task" },                 // Crea task
+    { page: "Link interni" },         // Verifica
   ],
   Opportunità: [
-    { page: "Opportunità" },         // Filtra
-    { page: "Opportunità" },         // Valuta
-    { page: "Opportunità" },         // Decidi
-    { page: "Task" },                // Crea task
+    { page: "Opportunità" },          // Filtra
+    { page: "Opportunità" },          // Valuta
+    { page: "Opportunità" },          // Decidi
+    { page: "Task" },                 // Crea task
   ],
   Correzioni: [
-    { page: "Problemi" },            // Problema
-    { page: "Correzioni" },          // Proposta
-    { page: "Correzioni" },          // Approvazione
-    { page: "Correzioni" },          // Applica
-    { page: "Audit SEO" },           // Verifica
+    { page: "Audit SEO" },            // Problema
+    { page: "Correzioni" },           // Proposta
+    { page: "Correzioni" },           // Approvazione
+    { page: "Correzioni" },           // Applica
+    { page: "Audit SEO" },            // Verifica
   ],
   Task: [
-    { page: "Task" },                // Filtra
-    { page: "Task" },                // Apri
-    { page: "Task" },                // Esegui
-    { page: "Audit SEO" },           // Verifica
-    { page: "Task" },                // Chiudi
+    { page: "Task" },                 // Filtra
+    { page: "Task" },                 // Apri
+    { page: "Task" },                 // Esegui
+    { page: "Audit SEO" },            // Verifica
+    { page: "Task" },                 // Chiudi
   ],
   "Piano editoriale": [
-    { page: "Piano editoriale" },    // Tema
-    { page: "Opportunità" },         // Priorità
-    { page: "Piano editoriale" },    // Brief
-    { page: "Piano editoriale" },    // Produci
-    { page: "Posizionamenti" },      // Misura
+    { page: "Piano editoriale" },     // Tema
+    { page: "Opportunità" },          // Priorità
+    { page: "Piano editoriale" },     // Brief
+    { page: "Piano editoriale" },     // Produci
+    { page: "Posizionamenti" },       // Misura
   ],
   "SEO Agent": [
-    { page: "SEO Agent" },           // Obiettivo
-    { page: "SEO Agent" },           // Modalità
-    { page: "SEO Agent" },           // Piano
-    { page: "SEO Agent" },           // Approva
-    { page: "Storico" },             // Verifica
+    { page: "SEO Agent" },            // Obiettivo
+    { page: "SEO Agent" },            // Modalità
+    { page: "SEO Agent" },            // Piano
+    { page: "SEO Agent" },            // Approva
+    { page: "Centro progetto" },      // Verifica / storico
   ],
   "GEO AI": [
-    { page: "GEO AI" },              // Contesto
-    { page: "GEO AI" },              // Analizza
-    { page: "GEO AI" },              // Priorità
-    { page: "GEO AI" },              // Migliora
-    { page: "GEO AI" },              // Verifica
+    { page: "GEO AI" },               // Contesto
+    { page: "GEO AI" },               // Analizza
+    { page: "GEO AI" },               // Priorità
+    { page: "GEO AI" },               // Migliora
+    { page: "GEO AI" },               // Verifica
   ],
   Integrazioni: [
-    { page: "Integrazioni" },        // Scegli
-    { page: "Integrazioni" },        // Configura
-    { page: "Integrazioni" },        // Verifica
-    { page: "Integrazioni" },        // Salva
+    { page: "Integrazioni" },         // Scegli
+    { page: "Integrazioni" },         // Configura
+    { page: "Integrazioni" },         // Verifica
+    { page: "Integrazioni" },         // Salva
   ],
   Impostazioni: [
-    { page: "Impostazioni" },        // Sezione
-    { page: "Impostazioni" },        // Modifica
-    { page: "Impostazioni" },        // Controlla
-    { page: "Impostazioni" },        // Salva
+    { page: "Impostazioni" },         // Sezione
+    { page: "Impostazioni" },         // Modifica
+    { page: "Impostazioni" },         // Controlla
+    { page: "Impostazioni" },         // Salva
   ],
   Storico: [
-    { page: "Storico" },             // Filtra
-    { page: "Storico" },             // Apri
-    { page: "Storico" },             // Confronta
+    { page: "Centro progetto" },      // Filtra
+    { page: "Centro progetto" },      // Apri
+    { page: "Centro progetto" },      // Confronta
   ],
 });
 

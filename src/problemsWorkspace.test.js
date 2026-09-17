@@ -41,10 +41,11 @@ test("il Centro Problemi offre vista compatta e dettagliata con drawer accessibi
   assert.match(css, /\.problem-drawer/);
 });
 
-test("Problemi è montato e raggiungibile dalla navigazione guidata", () => {
-  assert.match(bridge, />Problemi</);
+test("Problemi è montato come sottovista di Audit SEO e non come modulo canonico", () => {
   assert.match(main, /<ProblemsNavBridge \/>/);
   assert.match(main, /<ProblemsWorkspaceMount \/>/);
+  assert.match(bridge, /data-seogrow-page="Audit SEO"/);
+  assert.match(bridge, /data-seogrow-subview="Audit SEO:Problemi"/);
   assert.match(mount, /<ProblemsWorkspace key=/);
 });
 

@@ -65,9 +65,56 @@ body[data-seogrow-ui-mode] .sidebar .guided-mode-toggle svg {
   color: #4e7195 !important;
 }
 
-/* GuidedNav already owns these entries. Legacy bridge buttons remain available
-   only to the fallback navigation and must not create duplicates here. */
-body[data-seogrow-ui-mode] .guided-nav .problems-nav-bridge-button,
+/* Problemi non è un quindicesimo modulo: è una sottovista operativa di Audit SEO.
+   Il bridge viene montato subito dopo la voce Audit e resta distinto dalle voci
+   canoniche generate da SUITE_NAVIGATION. */
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host {
+  margin: -3px 10px 7px 34px;
+  padding-left: 8px;
+  border-left: 2px solid #d9e7f5;
+}
+
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button {
+  display: flex !important;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #58738f !important;
+  font-size: .84rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button svg {
+  width: 16px;
+  height: 16px;
+  color: #7595b6 !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button:hover {
+  background: #f1f7fe !important;
+  color: #1d568f !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active,
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] {
+  background: #e9f3ff !important;
+  color: #174f87 !important;
+  box-shadow: inset 3px 0 #1672f3 !important;
+}
+
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active svg,
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] svg {
+  color: #2f70ae !important;
+}
+
+/* Correzioni è già un modulo canonico e non deve ricevere un bridge duplicato. */
 body[data-seogrow-ui-mode] .guided-nav .corrections-nav-button {
   display: none !important;
 }
@@ -79,5 +126,9 @@ body[data-seogrow-ui-mode] .guided-nav .corrections-nav-button {
   body[data-seogrow-ui-mode] .sidebar nav.guided-nav button.active svg,
   body[data-seogrow-ui-mode] .sidebar nav.guided-nav button[aria-current="page"] svg {
     color: #ffffff !important;
+  }
+  body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active svg,
+  body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] svg {
+    color: #2f70ae !important;
   }
 }

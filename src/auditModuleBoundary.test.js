@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const facade = await readFile(new URL("./modules/audit/index.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+const problemsBridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 
 const AUDIT_SURFACES = [
   "ProblemsNavBridge",
@@ -18,11 +19,14 @@ const PUBLISH_SURFACES = [
   "CorrectionsWorkspace",
 ];
 
-test("Audit espone soltanto superfici di analisi e problema", () => {
+test("Audit espone le sue superfici e Problemi resta una sottovista, non un modulo peer", () => {
   for (const surface of AUDIT_SURFACES) {
     assert.match(facade, new RegExp(`default as ${surface}`));
     assert.match(main, new RegExp(`<${surface} \\/>`));
   }
+  assert.match(problemsBridge, /data-seogrow-page="Audit SEO"/);
+  assert.match(problemsBridge, /guided-audit-subnav-host/);
+  assert.match(problemsBridge, /data-seogrow-subview="Audit SEO:Problemi"/);
   for (const surface of PUBLISH_SURFACES) {
     assert.doesNotMatch(facade, new RegExp(`default as ${surface}`));
   }

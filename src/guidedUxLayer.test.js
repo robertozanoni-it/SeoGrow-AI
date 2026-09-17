@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { CANONICAL_SUITE_PAGES } from "./suite/productArchitecture.js";
 import { SUITE_NAVIGATION, suiteNavigationItem } from "./suite/navigationModel.js";
 
 const layer = await readFile(new URL("./GuidedUxLayer.jsx", import.meta.url), "utf8");
@@ -16,18 +17,20 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
   assert.match(layer, /data-seogrow-page=\{item\.page\}/);
 });
 
-test("la sidebar presenta la Suite senza rinominare le route legacy", () => {
+test("la sidebar espone soltanto i 14 moduli canonici congelati", () => {
   assert.deepEqual(SUITE_NAVIGATION.map((group) => group.label), ["CONTROLLO", "CRESCITA", "AZIONI", "AI", "SISTEMA"]);
-  assert.equal(suiteNavigationItem("Audit SEO").label, "Audit");
+  assert.deepEqual(SUITE_NAVIGATION.flatMap((group) => group.items.map((item) => item.page)), CANONICAL_SUITE_PAGES);
+  assert.equal(suiteNavigationItem("Audit SEO").label, "Audit SEO");
   assert.equal(suiteNavigationItem("Posizionamenti").label, "Posizionamenti");
   assert.equal(suiteNavigationItem("Piano editoriale").label, "Piano editoriale");
   assert.equal(suiteNavigationItem("Link interni").label, "Link interni");
-  assert.equal(suiteNavigationItem("GEO AI").label, "GEO");
+  assert.equal(suiteNavigationItem("GEO AI").label, "GEO AI");
   assert.equal(suiteNavigationItem("Correzioni").label, "Correzioni");
   assert.equal(suiteNavigationItem("SEO Agent").label, "SEO Agent");
-  assert.equal(suiteNavigationItem("Problemi").advancedOnly, false);
-  assert.equal(suiteNavigationItem("Opportunità").advancedOnly, true);
-  assert.equal(suiteNavigationItem("Correzioni").advancedOnly, false);
+  assert.equal(suiteNavigationItem("Problemi"), null);
+  assert.equal(suiteNavigationItem("Storico"), null);
+  assert.equal(suiteNavigationItem("SeoGrow AI"), null);
+  assert.equal(suiteNavigationItem("Opportunità").advancedOnly, false);
 });
 
 test("ogni pagina usa card numerate progressive e spiegazioni finali", () => {

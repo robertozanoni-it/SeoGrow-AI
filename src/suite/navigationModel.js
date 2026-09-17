@@ -1,37 +1,29 @@
 import { isRegisteredPage } from "../core/modules/moduleRegistry.js";
+import { PRODUCT_MODULES } from "./productArchitecture.js";
 
-const item = (page, label, icon, advancedOnly = false) => Object.freeze({ page, label, icon, advancedOnly });
-const group = (label, items) => Object.freeze({ label, items: Object.freeze(items) });
+const item = (moduleDefinition) => Object.freeze({
+  page: moduleDefinition.page,
+  label: moduleDefinition.label,
+  icon: moduleDefinition.icon,
+  advancedOnly: moduleDefinition.advancedOnly,
+});
 
-export const SUITE_NAVIGATION = Object.freeze([
-  group("CONTROLLO", [
-    item("Panoramica", "Panoramica", "overview"),
-    item("Clienti", "Clienti", "clients"),
-    item("Centro progetto", "Centro progetto", "project", true),
-    item("Storico", "Storico", "history", true),
-  ]),
-  group("CRESCITA", [
-    item("Audit SEO", "Audit", "audit"),
-    item("Problemi", "Problemi", "problems"),
-    item("Posizionamenti", "Posizionamenti", "rankings"),
-    item("Opportunità", "Opportunità", "opportunities", true),
-    item("Piano editoriale", "Piano editoriale", "content"),
-    item("Link interni", "Link interni", "links"),
-    item("GEO AI", "GEO", "geo"),
-  ]),
-  group("AZIONI", [
-    item("Correzioni", "Correzioni", "fix"),
-    item("Task", "Task", "tasks"),
-  ]),
-  group("AI", [
-    item("SEO Agent", "SEO Agent", "agent"),
-    item("SeoGrow AI", "Hub AI", "ai-overview", true),
-  ]),
-  group("SISTEMA", [
-    item("Integrazioni", "Integrazioni", "integrations"),
-    item("Impostazioni", "Impostazioni", "settings"),
-  ]),
-]);
+const groups = [];
+for (const moduleDefinition of PRODUCT_MODULES) {
+  let navigationGroup = groups.find((candidate) => candidate.label === moduleDefinition.group);
+  if (!navigationGroup) {
+    navigationGroup = { label: moduleDefinition.group, items: [] };
+    groups.push(navigationGroup);
+  }
+  navigationGroup.items.push(item(moduleDefinition));
+}
+
+export const SUITE_NAVIGATION = Object.freeze(
+  groups.map((navigationGroup) => Object.freeze({
+    label: navigationGroup.label,
+    items: Object.freeze(navigationGroup.items),
+  })),
+);
 
 for (const navigationGroup of SUITE_NAVIGATION) {
   for (const navigationItem of navigationGroup.items) {

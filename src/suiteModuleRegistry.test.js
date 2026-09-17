@@ -87,10 +87,11 @@ test("navigazione e route reconciler usano il nuovo Core senza cambiare il contr
   assert.match(reconciler, /WORKSPACE_KEYS\.selectedPage/);
 });
 
-test("il wizard usa il registry invece di mantenere una seconda lista autonoma", async () => {
+test("il wizard usa la lista canonica congelata invece di mantenere una seconda navigazione", async () => {
   const wizard = await readFile(new URL("./WizardStepNavigation.js", import.meta.url), "utf8");
-  assert.match(wizard, /import \{ REGISTERED_PAGES \} from "\.\/core\/modules\/moduleRegistry\.js"/);
-  assert.match(wizard, /REGISTERED_PAGES\.filter/);
+  assert.match(wizard, /import \{ CANONICAL_SUITE_PAGES \} from "\.\/suite\/productArchitecture\.js"/);
+  assert.match(wizard, /WIZARD_DESTINATION_PAGES = CANONICAL_SUITE_PAGES/);
+  assert.doesNotMatch(wizard, /REGISTERED_PAGES\.filter/);
   assert.doesNotMatch(wizard, /WIZARD_DESTINATION_PAGES = Object\.freeze\(\[/);
 });
 
