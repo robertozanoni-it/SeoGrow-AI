@@ -1,5 +1,6 @@
 import { changedFieldKeys } from './remediationPlanSafety.js';
 import { remediationIssueKind } from './remediationIssueKind.js';
+import { hasAutoFixCompletionEvidence } from './autoFixVerification.js';
 
 export const BATCH_LABELS = {
   PENDING: 'In attesa', PREFLIGHT: 'Preflight', PREPARED: 'Pronta per approvazione',
@@ -144,7 +145,9 @@ export function batchSummary(run) {
 }
 export function verificationState(result) {
   return result?.record?.status === 'Verificato' && result.record.writeConfirmed === true && result.record.frontendConfirmed === true &&
-    !result.needsAudit && !result.needsBrowserVerification && !result.error ? 'RESOLVED_VERIFIED' : 'APPLIED_UNVERIFIED';
+    hasAutoFixCompletionEvidence(result.record) && !result.needsAudit && !result.needsBrowserVerification && !result.error
+    ? 'RESOLVED_VERIFIED'
+    : 'APPLIED_UNVERIFIED';
 }
 export function retryableProblemKeys(run) {
   const keys = new Set();
