@@ -15,7 +15,7 @@ export function correctionMatchesProblem(problem, correction) {
   return true;
 }
 
-// Safe next actions, ordered by: existing write verification -> freshness -> automatic/approval -> human intent -> guided.
+// Safe next actions, ordered by: existing write verification -> freshness -> automatic/approval -> human intent -> manual.
 export function resolutionPath(problem = {}, correction = null) {
   const type = `${problem.issueType || ""} ${problem.title || ""}`.toLowerCase();
   const kind = kindOf(problem);
@@ -23,33 +23,31 @@ export function resolutionPath(problem = {}, correction = null) {
   if (["applied", "verified"].includes(problem.interventionState) || problem.problemState === "resolved") return { action: "verify", label: "Verifica risultato", title: "Conferma il risultato, non riscrivere", instructions: "Riverifica la correzione collegata. Per duplicati di title o description serve anche un nuovo crawl: la sola scrittura non prova l’unicità." };
   if (problem.stale) return { action: "audit", label: "Aggiorna audit", title: "Aggiorna la rilevazione obsoleta", instructions: "Riesegui l’audit della pagina indicata. Conserva lo storico: un finding vecchio non autorizza una nuova modifica né una proposta da approvare." };
   if (problem.reviewOnly === true && problem.problemState === "needs_verification") {
-    if (serpWidthFinding(problem)) return { action: "prepare", label: "Prepara soluzione", title: "Genera una meta description più compatta", instructions: "SeoGrow può preparare una proposta più corta usando il contenuto reale della pagina. La proposta deve rispettare il limite caratteri e rientrare nella stima SERP; nessuna scrittura avviene senza anteprima e approvazione." };
-    if (intentKinds.has(kind)) return { action: "confirm", label: "Verifica e prepara soluzione", title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione", instructions: kind === "canonical" ? "Conferma che questa URL debba essere la versione canonica pubblica. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione." : "Conferma che questa pagina debba essere indicizzabile. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione." };
-    if (directReviewKinds.has(kind) && safeHttpHref(problem.sourceUrl) && !problem.ownershipBlocked) return { action: "prepare", label: "Prepara soluzione", title: "Prepara una soluzione controllata", instructions: "SeoGrow può preparare una proposta sul campo verificato. La modifica resta separata dal finding e richiede sempre Prima/Dopo e approvazione." };
+    if (serpWidthFinding(problem)) return { action: "prepare", label: "Prepara correzione", title: "Genera una meta description più compatta", instructions: "SeoGrow può preparare una proposta più corta usando il contenuto reale della pagina. La proposta deve rispettare il limite caratteri e rientrare nella stima SERP; nessuna scrittura avviene senza Prima/Dopo e approvazione." };
+    if (intentKinds.has(kind)) return { action: "confirm", label: "Prepara correzione", title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione", instructions: kind === "canonical" ? "Conferma che questa URL debba essere la versione canonica pubblica. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione." : "Conferma che questa pagina debba essere indicizzabile. Dopo la conferma SeoGrow prepara la modifica e mostra il Prima/Dopo prima dell’approvazione." };
+    if (directReviewKinds.has(kind) && safeHttpHref(problem.sourceUrl) && !problem.ownershipBlocked) return { action: "prepare", label: "Prepara correzione", title: "Prepara una correzione controllata", instructions: "SeoGrow può preparare una proposta sul campo verificato. La modifica resta separata dal finding e richiede sempre Prima/Dopo e approvazione." };
     if (/url-alias|redirect/.test(type)) return { action: "audit", label: "Verifica URL e indicizzazione", title: "Conferma quale URL deve essere pubblica", instructions: "Riesegui l’audit della singola pagina e confronta URL finale, canonical e redirect. Finché l’intento non è chiaro SeoGrow non sceglie automaticamente una destinazione." };
-    return { action: "agent", label: "Prepara soluzione guidata", title: "Conferma il segnale e prepara i passaggi", instructions: "SeoGrow prepara controlli e passaggi operativi specifici. Se manca un adapter sicuro non simula una scrittura automatica." };
+    return { action: "manual", label: "Richiede intervento manuale", title: "Conferma il segnale e intervieni manualmente", instructions: "SeoGrow mostra evidenze e passaggi operativi specifici. Se manca un adapter sicuro non simula una scrittura automatica." };
   }
   if (problem.problemState === "needs_verification") return { action: "verify", label: "Verifica risultato", title: "Conferma il risultato, non riscrivere", instructions: "Riverifica la condizione collegata. Se non esiste una correzione precedente, usa un audit recente prima di autorizzare qualunque nuova scrittura." };
   if (!safeHttpHref(problem.sourceUrl)) return { action: "audit", label: "Associa la pagina con un audit", title: "Manca la pagina da controllare", instructions: "Apri Audit SEO, seleziona il progetto e inserisci la URL esatta. Un task senza URL o evidenza recente non autorizza modifiche." };
-  if (intentKinds.has(kind)) return { action: "confirm", label: "Verifica e prepara soluzione", title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione", instructions: kind === "canonical" ? "Conferma che la pagina debba avere canonical verso se stessa. Solo dopo SeoGrow prepara il cambio e lo sottopone ad approvazione." : "Conferma che la pagina debba essere indicizzabile. Solo dopo SeoGrow prepara la rimozione del noindex e la sottopone ad approvazione." };
+  if (intentKinds.has(kind)) return { action: "confirm", label: "Prepara correzione", title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione", instructions: kind === "canonical" ? "Conferma che la pagina debba avere canonical verso se stessa. Solo dopo SeoGrow prepara il cambio e lo sottopone ad approvazione." : "Conferma che la pagina debba essere indicizzabile. Solo dopo SeoGrow prepara la rimozione del noindex e la sottopone ad approvazione." };
   if (/url-alias|redirect/.test(type)) return { action: "audit", label: "Verifica URL e indicizzazione", title: "Conferma quale URL deve essere pubblica", instructions: "Controlla redirect, canonical e risorsa WordPress. Due URL con e senza slash possono essere la stessa pagina: non generare modifiche senza confermare risorse distinte." };
-  if (problem.correctability === "automatic" || /broken-external-link/.test(type)) return { action: "prepare", label: "Prepara correzione", title: "Anteprima, approvazione e verifica", instructions: "Prepara la singola proposta sul campo verificato. Se la generazione fallisce, rivedi e valida il testo prima di approvare. Per i link scegli se mantenere o eliminare il testo." };
-  if (/ottimizza|keyword|opportun|position|ranking/.test(type)) return { action: "agent", label: "Prepara soluzione guidata", title: "Ottimizzazione editoriale guidata", instructions: "Confronta keyword, intento e contenuto con dati recenti. SeoGrow prepara un brief operativo e conserva l’applicazione come passaggio separato da approvare." };
-  if (/performance|lento|response|speed|tempo di risposta/.test(type)) return {
-    action: "manual",
-    label: "Analizza causa e prepara correzione",
-    title: "Diagnosi prestazionale guidata",
-    instructions: "SeoGrow prepara una diagnosi causale con evidenze recenti, identifica le cause più probabili e propone un intervento alla volta. Ogni modifica resta separata e verificabile con confronto Prima/Dopo; non vengono cambiate configurazioni non attribuite con certezza.",
-  };
-  if (/depth|image|alt|broken-link/.test(type)) return { action: "manual", label: "Prepara soluzione guidata", title: "Intervento tecnico guidato", instructions: "SeoGrow prepara controlli e passaggi specifici per l’elemento segnalato. Se manca un adapter sicuro, la modifica resta manuale e viene verificata con un nuovo audit." };
-  return { action: "agent", label: "Prepara soluzione guidata", title: "Diagnosi e soluzione guidata", instructions: "SeoGrow usa URL, dettaglio ed evidenze per preparare un intervento preciso. Se il tipo non dispone di una scrittura sicura, non inventa un adapter: propone i passaggi e la verifica finale." };
+  if (problem.correctability === "automatic" || /broken-external-link/.test(type)) return { action: "prepare", label: "Correggi automaticamente", title: "Anteprima, approvazione e verifica", instructions: "SeoGrow prepara la singola proposta sul campo verificato. Prima della scrittura mostra il Prima/Dopo e richiede approvazione. Per i link scegli se mantenere o eliminare il testo." };
+  if (problem.correctability === "assisted") return { action: "prepare", label: "Prepara correzione", title: "Prepara una correzione controllata", instructions: "SeoGrow prepara una soluzione verificabile, mostra il Prima/Dopo e richiede approvazione prima di qualunque modifica." };
+  if (/ottimizza|keyword|opportun|position|ranking/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Ottimizzazione editoriale guidata", instructions: "Confronta keyword, intento e contenuto con dati recenti. SeoGrow può preparare indicazioni operative, ma non applica automaticamente una modifica non attribuita a un adapter sicuro." };
+  if (/performance|lento|response|speed|tempo di risposta/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Diagnosi prestazionale guidata", instructions: "SeoGrow prepara una diagnosi causale con evidenze recenti e identifica le cause più probabili. Le modifiche non attribuite con certezza restano manuali." };
+  if (/depth|image|alt|broken-link/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Intervento tecnico manuale", instructions: "SeoGrow mostra controlli e passaggi specifici per l’elemento segnalato. Se manca un adapter sicuro, la modifica resta manuale e viene verificata con un nuovo audit." };
+  return { action: "manual", label: "Richiede intervento manuale", title: "Intervento manuale richiesto", instructions: "SeoGrow usa URL, dettaglio ed evidenze per indicare il lavoro da eseguire. Se il tipo non dispone di una scrittura sicura, non inventa un adapter." };
 }
 
 export const shouldOpenAutomaticProposal = problem => problem?.correctability === "automatic" && resolutionPath(problem).action === "prepare";
 export function problemEntryLabel(problem) {
   const path = resolutionPath(problem);
-  if (["verify", "history", "audit", "confirm", "guide", "agent", "manual"].includes(path.action)) return path.label;
-  return shouldOpenAutomaticProposal(problem) ? "Apri proposta" : "Apri risoluzione";
+  if (["verify", "history", "audit"].includes(path.action)) return path.label;
+  if (shouldOpenAutomaticProposal(problem)) return "Correggi automaticamente";
+  if (["prepare", "confirm"].includes(path.action)) return "Prepara correzione";
+  return "Richiede intervento manuale";
 }
 
 // Requesting a controlled preview never grants write permission or changes correctability.
