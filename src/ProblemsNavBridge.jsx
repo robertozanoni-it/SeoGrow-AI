@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle } from "lucide-react";
+import { ListChecks } from "lucide-react";
 
 const currentPage = () => {
   try {
@@ -23,22 +23,27 @@ export default function ProblemsNavBridge() {
   useEffect(() => {
     let frame = 0;
     let attempts = 0;
-    const findTarget = () => {
-      /* GuidedNav already exposes Problemi. The bridge is only a fallback for
-         the legacy sidebar while the guided layer is unavailable. */
-      const guidedHasProblems = [...document.querySelectorAll(".guided-nav button")].some(
-        (button) => button.textContent?.trim() === "Problemi",
-      );
-      if (guidedHasProblems) {
-        setTarget(null);
+    let host = null;
+
+    const attachAuditSubview = () => {
+      const auditButton = document.querySelector('.guided-nav button[data-seogrow-page="Audit SEO"]');
+      if (!auditButton) {
+        if (++attempts < 120) frame = window.requestAnimationFrame(attachAuditSubview);
         return;
       }
-      const fallback = document.querySelector(".sidebar > nav:not(.guided-nav)");
-      if (fallback) setTarget(fallback);
-      else if (++attempts < 120) frame = window.requestAnimationFrame(findTarget);
+
+      host = document.createElement("div");
+      host.className = "guided-audit-subnav-host";
+      host.setAttribute("data-seogrow-owner", "Audit SEO");
+      auditButton.insertAdjacentElement("afterend", host);
+      setTarget(host);
     };
-    frame = window.requestAnimationFrame(findTarget);
-    return () => window.cancelAnimationFrame(frame);
+
+    frame = window.requestAnimationFrame(attachAuditSubview);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      host?.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -56,10 +61,12 @@ export default function ProblemsNavBridge() {
     <button
       type="button"
       className={`problems-nav-bridge-button${page === "Problemi" ? " active" : ""}`}
+      data-seogrow-subview="Audit SEO:Problemi"
       aria-current={page === "Problemi" ? "page" : undefined}
+      aria-label="Problemi · sottovista Audit SEO"
       onClick={openProblems}
     >
-      <AlertTriangle />
+      <ListChecks />
       <span>Problemi</span>
     </button>,
     target,
