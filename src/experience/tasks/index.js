@@ -19,3 +19,12 @@ export {
 export { normalizeStoredTasks } from "./taskPersistence.js";
 export { tasksFromAnalysis } from "./auditTasks.js";
 export { createTaskDraft } from "./taskFactory.js";
+export {
+  normalizeTaskLinks,
+  taskLinkageKey,
+  taskOrigin,
+  taskLinkSummary,
+  reconcileTasksWithCauses,
+  linkedTaskCounts,
+  TASK_LINK_TYPES,
+} from "./taskLinkage.js";
