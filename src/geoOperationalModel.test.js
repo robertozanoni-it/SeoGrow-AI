@@ -5,7 +5,7 @@ import {
   buildGeoEvidenceModel,
   buildGeoOperationalItems,
   geoOpportunityInputs,
-} from "./modules/geo/index.js";
+} from "./modules/geo/geoOperationalModel.js";
 import { buildSeoOpportunities } from "./modules/rank/index.js";
 
 const audit = {
