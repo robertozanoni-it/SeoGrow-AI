@@ -3,6 +3,21 @@
   margin: 18px 0 22px;
 }
 
+html body[data-seogrow-ui-mode][data-seogrow-card-mode] [data-project-continuity-host="true"][data-seogrow-card-original="true"] {
+  display: block !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: auto !important;
+}
+
 .project-continuity-panel,
 .client-active-project {
   border: 1px solid #dce6f1;
@@ -89,8 +104,7 @@
 }
 .client-active-project-status span.ok { background: #edf9f3; color: #176c49; }
 .client-active-project-status span.ready { background: #fff7e4; color: #855d05; }
-.client-active-project > div:last-child { display: flex; gap: 8px; flex-wrap: wrap; }
-.client-center-direct { white-space: nowrap; }
+.client-active-project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 @media (max-width: 1180px) {
   .project-continuity-integrations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
