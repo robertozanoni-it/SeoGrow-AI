@@ -30,6 +30,7 @@ import RankingsWorkspaceLayer from './RankingsWorkspaceLayer';
 import InternalLinksWorkspaceLayer from './InternalLinksWorkspaceLayer';
 import OpportunitiesWorkspaceLayer from './OpportunitiesWorkspaceLayer';
 import TaskLinkagePanel from './TaskLinkagePanel';
+import EditorialPlanWorkspaceLayer from './EditorialPlanWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProjectContinuityLayer from './ProjectContinuityLayer';
 import {
@@ -107,6 +108,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <InternalLinksWorkspaceLayer />
       <OpportunitiesWorkspaceLayer />
       <TaskLinkagePanel />
+      <EditorialPlanWorkspaceLayer />
       <ProjectSelectionGuard />
       <ProjectContinuityLayer />
       <ProblemsNavBridge />
