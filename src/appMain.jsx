@@ -25,6 +25,7 @@ import App from './App';
 import GuidedUxLayer from './GuidedUxLayer';
 import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
+import RankingsWorkspaceLayer from './RankingsWorkspaceLayer';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProjectContinuityLayer from './ProjectContinuityLayer';
 import {
@@ -98,6 +99,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <GuidedUxLayer />
       <WizardCongruenceLayer />
       <CardWorkspaceLayer />
+      <RankingsWorkspaceLayer />
       <ProjectSelectionGuard />
       <ProjectContinuityLayer />
       <ProblemsNavBridge />
