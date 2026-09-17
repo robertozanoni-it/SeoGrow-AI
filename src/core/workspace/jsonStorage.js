@@ -15,7 +15,7 @@ export function readWorkspaceJson(key, fallback, storage = workspaceStorage) {
 export function writeWorkspaceJson(key, value, storage = workspaceStorage, { allowPermanentRemoval = false } = {}) {
   let nextValue = value;
   if (key === WORKSPACE_KEYS.problemClosures && Array.isArray(value)) {
-    let existing = [];
+    let existing;
     try { existing = JSON.parse(storage.getItem(key) || "[]"); } catch { existing = []; }
     const protectedClosures = allowPermanentRemoval ? [] : (Array.isArray(existing) ? existing.filter(permanentClosure) : []);
     nextValue = canonicalProblemClosures([...protectedClosures, ...value]);
