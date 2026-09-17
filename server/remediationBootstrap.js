@@ -6,6 +6,7 @@ import {
 } from "./openAiCompatibleEndpoint.js";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
+import { installAuditTraceabilityDecorator } from "./auditTraceabilityDecorator.js";
 
 const providerEnv = hydrateLocalProviderEnv();
 if (providerEnv.imported) {
@@ -147,6 +148,11 @@ export function registerRemediationRoutes(app) {
     }
     module.registerRoutes(app);
   }
+
+  // The Audit endpoints are owned by server/index.js. Install only a decorator
+  // after those routes already exist, so traceability/H2/progress complete the
+  // current crawler instead of creating a second audit engine.
+  installAuditTraceabilityDecorator(app);
 }
 
 export const explicitRemediationRouteModules = remediationModules
