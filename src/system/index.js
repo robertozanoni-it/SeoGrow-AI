@@ -20,6 +20,16 @@ export {
   validateSingleProjectIntegrationConfig,
 } from "./integrations/projectIntegrationRegistry.js";
 export {
+  DEFAULT_PROJECT_POLICY,
+  USER_CONTROLLABLE_SETTINGS,
+  SERVER_ONLY_CONFIGURATION,
+  normalizeProjectPolicy,
+  projectPolicyFromPreferences,
+  writeProjectPolicy,
+  pathExcludedByProjectPolicy,
+  projectWriteAllowed,
+} from "./settings/projectPolicy.js";
+export {
   budgetMoney,
   providerBudgetHealth,
 } from "./providers/providerBudget.js";
