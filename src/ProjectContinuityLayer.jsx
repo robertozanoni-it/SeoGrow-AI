@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "./api.js";
-import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
+import { readWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { navigatePage } from "./navigationUx.js";
 import { loadProjectContinuity } from "./projectContinuity.js";
-import { CheckCircle2, CircleGauge, Database, ListChecks, Plug, Sparkles, Target } from "lucide-react";
+import { CheckCircle2, CircleGauge, Database, ListChecks, Pencil, Plug, Plus, Sparkles, Target } from "lucide-react";
 import "./ProjectContinuityLayer.css";
 
 const currentPage = () => {
@@ -24,9 +24,24 @@ const providerRequest = async (path) => {
 };
 
 const projectId = () => Number(readWorkspaceJson(WORKSPACE_KEYS.selectedClient, 0));
-const clients = () => readWorkspaceJson(WORKSPACE_KEYS.clients, []);
-
 const integrationTone = (integration) => integration?.connected ? "ok" : integration?.configured ? "ready" : "pending";
+
+const clickExisting = (selector) => {
+  const control = document.querySelector(selector);
+  if (!control) return false;
+  control.click();
+  return true;
+};
+
+const openClientEditor = (continuity) => {
+  const cards = [...document.querySelectorAll(".reference-client-card")];
+  const card = cards.find((candidate) => {
+    const link = candidate.querySelector("a[href]")?.href || "";
+    try { return new URL(link).href.replace(/\/$/, "") === new URL(continuity.site).href.replace(/\/$/, ""); }
+    catch { return false; }
+  });
+  return Boolean(card?.querySelector('[data-client-action="edit"]')?.click());
+};
 
 function IntegrationBadge({ name, value, Icon }) {
   return (
@@ -109,18 +124,14 @@ function ClientActiveProject({ continuity }) {
         <span className={integrationTone(continuity.integrations.dataForSeo)}>DataForSEO · {continuity.integrations.dataForSeo.connected ? "disponibile" : "da configurare"}</span>
         <span className={integrationTone(continuity.integrations.openAI)}>OpenAI · {continuity.integrations.openAI.connected ? "disponibile" : "da configurare"}</span>
       </div>
-      <div><button type="button" className="primary" onClick={() => navigatePage("Centro progetto")}>Apri Centro progetto</button><button type="button" className="secondary" onClick={() => navigatePage("Integrazioni")}>Integrazioni</button></div>
+      <div className="client-active-project-actions">
+        <button type="button" className="primary" onClick={() => navigatePage("Centro progetto")}>Apri Centro progetto</button>
+        <button type="button" className="secondary" onClick={() => navigatePage("Integrazioni")}><Plug /> Integrazioni</button>
+        <button type="button" className="secondary" onClick={() => openClientEditor(continuity)}><Pencil /> Modifica cliente</button>
+        <button type="button" className="secondary" onClick={() => clickExisting(".reference-clients-tools button.primary")}><Plus /> Nuovo cliente</button>
+      </div>
     </section>
   );
-}
-
-function ClientCenterButton({ clientId }) {
-  const open = async (event) => {
-    event.stopPropagation();
-    writeWorkspaceJson(WORKSPACE_KEYS.selectedClient, clientId);
-    navigatePage("Centro progetto");
-  };
-  return <button type="button" className="secondary mini client-center-direct" onClick={open}>Centro progetto</button>;
 }
 
 export default function ProjectContinuityLayer() {
@@ -129,7 +140,6 @@ export default function ProjectContinuityLayer() {
   const [providerStatus, setProviderStatus] = useState({ dataForSeo: {}, openAI: {} });
   const [continuity, setContinuity] = useState(null);
   const [host, setHost] = useState(null);
-  const [clientTargets, setClientTargets] = useState([]);
 
   const refreshPage = useCallback(() => {
     setPage(currentPage());
@@ -178,15 +188,16 @@ export default function ProjectContinuityLayer() {
     let disposed = false;
     const find = () => {
       if (disposed) return;
+      const main = document.querySelector(".app main");
       const anchor = page === "Clienti"
         ? document.querySelector(".reference-clients-head")
         : document.querySelector(".reference-project-identity");
-      if (!anchor?.parentElement) { frame = window.requestAnimationFrame(find); return; }
-      let node = anchor.parentElement.querySelector(':scope > [data-project-continuity-host="true"]');
+      if (!main || !anchor) { frame = window.requestAnimationFrame(find); return; }
+      let node = main.querySelector(':scope > [data-project-continuity-host="true"]');
       if (!node) {
         node = document.createElement("div");
         node.dataset.projectContinuityHost = "true";
-        anchor.after(node);
+        main.insertBefore(node, main.firstChild);
       }
       setHost(node);
     };
@@ -194,45 +205,6 @@ export default function ProjectContinuityLayer() {
     return () => { disposed = true; window.cancelAnimationFrame(frame); setHost(null); };
   }, [page]);
 
-  useEffect(() => {
-    if (page !== "Clienti") { setClientTargets([]); return undefined; }
-    let timer = 0;
-    let disposed = false;
-    const scan = () => {
-      if (disposed) return;
-      const rows = [];
-      for (const client of clients()) {
-        const cards = [...document.querySelectorAll(".reference-client-card")];
-        const card = cards.find((candidate) => {
-          const link = candidate.querySelector("a[href]")?.href || "";
-          try { return new URL(link).href.replace(/\/$/, "") === new URL(client.url).href.replace(/\/$/, ""); }
-          catch { return false; }
-        });
-        const actions = card?.querySelector("footer > div");
-        if (!actions) continue;
-        let target = actions.querySelector(`[data-client-center-host="${client.id}"]`);
-        if (!target) {
-          target = document.createElement("span");
-          target.dataset.clientCenterHost = String(client.id);
-          actions.prepend(target);
-        }
-        rows.push({ clientId: client.id, target });
-      }
-      setClientTargets(rows);
-      timer = window.setTimeout(scan, 300);
-    };
-    scan();
-    return () => { disposed = true; window.clearTimeout(timer); setClientTargets([]); };
-  }, [page, revision]);
-
-  const cardPortals = useMemo(() => clientTargets.map(({ clientId, target }) =>
-    createPortal(<ClientCenterButton key={clientId} clientId={clientId} />, target),
-  ), [clientTargets]);
-
-  return (
-    <>
-      {host && continuity && createPortal(page === "Centro progetto" ? <CenterContinuity continuity={continuity} /> : <ClientActiveProject continuity={continuity} />, host)}
-      {cardPortals}
-    </>
-  );
+  if (!host || !continuity) return null;
+  return createPortal(page === "Centro progetto" ? <CenterContinuity continuity={continuity} /> : <ClientActiveProject continuity={continuity} />, host);
 }
