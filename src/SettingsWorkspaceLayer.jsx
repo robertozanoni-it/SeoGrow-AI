@@ -64,7 +64,8 @@ export default function SettingsWorkspaceLayer() {
   const policyFingerprint = JSON.stringify(state.policy);
 
   useEffect(() => {
-    setDraft(state.policy ? normalizeProjectPolicy(state.policy) : null);
+    const policy = policyFingerprint === "null" ? null : JSON.parse(policyFingerprint);
+    setDraft(policy ? normalizeProjectPolicy(policy) : null);
     setMessage("");
   }, [state.clientId, policyFingerprint]);
 
