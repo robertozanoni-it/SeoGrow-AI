@@ -1,0 +1,188 @@
+name: RC Live Gate
+
+on:
+  push:
+    branches:
+      - release/1.4.3-rc.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  project-smoke:
+    name: Three-project live smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify three real project frontends
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in \
+            "https://staging.yogabuenaonda.it/" \
+            "https://studiodentisticozirafa.com/" \
+            "https://sanointavola.it/"
+          do
+            echo "Checking $url"
+            code="$(curl -L -sS -o /tmp/site.html -w '%{http_code}' --max-time 20 "$url")"
+            case "$code" in
+              2*|3*) ;;
+              *) echo "Frontend failed for $url: HTTP $code"; exit 1 ;;
+            esac
+            if grep -qi 'elementor' /tmp/site.html; then
+              echo "builder=elementor"
+            else
+              echo "builder=not-detected-from-public-html"
+            fi
+          done
+
+  dataforseo-live:
+    name: Real DataForSEO sample
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DATAFORSEO_LOGIN: ${{ secrets.DATAFORSEO_LOGIN }}
+      DATAFORSEO_PASSWORD: ${{ secrets.DATAFORSEO_PASSWORD }}
+    steps:
+      - name: Checkout RC
+        uses: actions/checkout@v5
+
+      - name: Require DataForSEO credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DATAFORSEO_LOGIN:-}" ] || [ -z "${DATAFORSEO_PASSWORD:-}" ]; then
+            echo "Missing DATAFORSEO_LOGIN and/or DATAFORSEO_PASSWORD secrets."
+            exit 1
+          fi
+
+      - name: Execute one real Google organic SERP request
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .qa-runtime/rc-live
+          node --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          const auth = Buffer.from(`${process.env.DATAFORSEO_LOGIN}:${process.env.DATAFORSEO_PASSWORD}`).toString('base64');
+          const payload = [{
+            keyword: 'seo specialist bergamo',
+            location_name: 'Bergamo,Lombardy,Italy',
+            language_code: 'it',
+            device: 'desktop',
+            os: 'windows',
+            depth: 10,
+          }];
+          const started = Date.now();
+          const response = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/advanced', {
+            method: 'POST',
+            headers: {
+              authorization: `Basic ${auth}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(120000),
+          });
+          const data = await response.json();
+          const task = data?.tasks?.[0];
+          const result = task?.result?.[0];
+          if (!response.ok || data?.status_code !== 20000 || task?.status_code !== 20000 || !result) {
+            throw new Error(`DataForSEO live request failed: HTTP=${response.status} api=${data?.status_code} task=${task?.status_code}`);
+          }
+          const organic = Array.isArray(result.items) ? result.items.filter((item) => item?.type === 'organic') : [];
+          if (!organic.length) throw new Error('DataForSEO live response contained no organic items.');
+          const summary = {
+            ok: true,
+            observedAt: new Date().toISOString(),
+            durationMs: Date.now() - started,
+            keyword: payload[0].keyword,
+            location: payload[0].location_name,
+            organicItems: organic.length,
+            taskCost: task?.cost ?? null,
+            firstOrganic: organic.slice(0, 3).map((item) => ({ rank: item.rank_absolute, domain: item.domain, url: item.url })),
+          };
+          await writeFile('.qa-runtime/rc-live/dataforseo-live.json', JSON.stringify(summary, null, 2));
+          console.log(`DataForSEO live PASS: ${organic.length} organic items; task cost=${summary.taskCost ?? 'n/a'}`);
+          NODE
+
+      - name: Upload DataForSEO live evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rc-dataforseo-live
+          path: .qa-runtime/rc-live/dataforseo-live.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  wordpress-elementor-staging:
+    name: Elementor staging read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: wordpress-staging
+    env:
+      SEOGROW_WP_SITE_URL: https://staging.yogabuenaonda.it
+      SEOGROW_WP_E2E_CONFIRM_HOST: staging.yogabuenaonda.it
+      SEOGROW_WP_USERNAME: ${{ secrets.SEOGROW_WP_USERNAME }}
+      SEOGROW_WP_APPLICATION_PASSWORD: ${{ secrets.SEOGROW_WP_APPLICATION_PASSWORD }}
+    steps:
+      - name: Checkout RC
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require staging credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SEOGROW_WP_USERNAME:-}" ] || [ -z "${SEOGROW_WP_APPLICATION_PASSWORD:-}" ]; then
+            echo "Missing wordpress-staging credentials."
+            exit 1
+          fi
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Start SeoGrow runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/seogrow-rc-staging.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-rc-staging.pid"
+          healthy=0
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              healthy=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$healthy" -ne 1 ]; then
+            cat "$RUNNER_TEMP/seogrow-rc-staging.log"
+            exit 1
+          fi
+
+      - name: Run Elementor read-only E2E on real staging
+        run: npm run test:wordpress-elementor-e2e
+
+      - name: Stop SeoGrow runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-rc-staging.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-rc-staging.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --port" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+      - name: Upload staging runtime log on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rc-wordpress-staging-log
+          path: ${{ runner.temp }}/seogrow-rc-staging.log
+          if-no-files-found: ignore
+          retention-days: 7
