@@ -13,19 +13,19 @@ const performanceProblem = {
   correctability: "manual",
 };
 
-test("performance usa un'azione causale esplicita invece del generico prepara soluzione guidata", () => {
+test("performance mantiene la diagnosi causale ma dichiara intervento manuale", () => {
   const path = resolutionPath(performanceProblem);
   const priority = problemResolutionPriority(performanceProblem);
   assert.equal(path.action, "manual");
-  assert.equal(path.label, "Analizza causa e prepara correzione");
-  assert.equal(problemEntryLabel(performanceProblem), "Analizza causa e prepara correzione");
+  assert.equal(path.label, "Richiede intervento manuale");
+  assert.equal(problemEntryLabel(performanceProblem), "Richiede intervento manuale");
   assert.equal(priority.mode, "guided");
-  assert.equal(priority.label, "Analizza causa e prepara correzione");
+  assert.equal(priority.label, "Richiede intervento manuale");
   assert.match(priority.instructions, /diagnosi causale/i);
-  assert.match(priority.instructions, /Prima\/Dopo/i);
 });
 
-test("altri finding manuali mantengono la soluzione guidata generica", () => {
+test("altri finding manuali dichiarano intervento manuale senza falsa preparazione", () => {
   const image = { ...performanceProblem, issueType: "image-alt", title: "Immagine senza alt", detail: "Alt mancante" };
-  assert.equal(problemResolutionPriority(image).label, "Prepara soluzione guidata");
+  assert.equal(problemResolutionPriority(image).label, "Richiede intervento manuale");
+  assert.equal(problemEntryLabel(image), "Richiede intervento manuale");
 });
