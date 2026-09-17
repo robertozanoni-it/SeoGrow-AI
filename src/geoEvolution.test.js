@@ -6,15 +6,24 @@ const page = await readFile(new URL("./GeoPage.jsx", import.meta.url), "utf8");
 const panel = await readFile(new URL("./GeoInsightsPanel.jsx", import.meta.url), "utf8");
 const server = await readFile(new URL("../server/index.js", import.meta.url), "utf8");
 
-test("GEO tabs are functional surfaces rather than decorative labels", () => {
+test("GEO tabs are functional evidence surfaces rather than decorative labels", () => {
   assert.match(page, /setActiveTab/);
   assert.match(page, /GeoInsightsPanel/);
-  for (const label of ["Ricerche AI", "Brand Mentions", "Competitor", "Strategie", "Report"]) assert.match(page, new RegExp(label));
-  assert.match(panel, /Query Monitor GEO/);
-  assert.match(panel, /Brand & Entity Intelligence/);
-  assert.match(panel, /Competitor osservati/);
-  assert.match(panel, /Strategie GEO prioritarie/);
-  assert.match(panel, /Report GEO verificabile/);
+  for (const label of ["Scope", "Entità & Schema", "Citabilità", "Contenuto", "Presenza", "Azioni & Report"]) assert.match(page, new RegExp(label));
+  assert.match(panel, /Entità e schema osservati/);
+  assert.match(panel, /Citabilità e autorevolezza documentabile/);
+  assert.match(panel, /Contenuto e answerability/);
+  assert.match(panel, /Presenza osservabile/);
+  assert.match(panel, /Azioni GEO verificabili/);
+});
+
+test("GEO active UI declares measurement boundaries and no synthetic score", () => {
+  assert.match(page, /Cosa misura/);
+  assert.match(page, /Cosa NON misura/);
+  assert.match(page, /Nessun punteggio sintetico/);
+  assert.match(panel, /Nessun entity score/);
+  assert.doesNotMatch(page, /geoPageScores|geoEntityProfile|geoStrategies|ReadinessScore/);
+  assert.doesNotMatch(panel, /GEO score|Entity score|Answerability<\/th>/i);
 });
 
 test("GEO competitor observation stays on DataForSEO with explicit non-AI disclaimer", () => {
@@ -22,4 +31,12 @@ test("GEO competitor observation stays on DataForSEO with explicit non-AI discla
   assert.match(server, /slice\(0, 10\)/);
   assert.match(server, /Non misura citazioni o ranking nei motori generativi/);
   assert.match(server, /reserveDataForSeoBudget/);
+  assert.match(panel, /Solo Google SERP via DataForSEO/);
+});
+
+test("GEO outputs have explicit Opportunity and Task paths", () => {
+  assert.match(page, /onNavigate\("Opportunità"\)/);
+  assert.match(page, /createGeoTask/);
+  assert.match(panel, /onOpenOpportunities/);
+  assert.match(panel, /onCreateTask/);
 });
