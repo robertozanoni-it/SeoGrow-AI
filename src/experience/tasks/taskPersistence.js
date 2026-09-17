@@ -1,4 +1,5 @@
 import { archiveLegalSeoTasks } from "./taskScope.js";
+import { normalizeTaskLinks, taskOrigin } from "./taskLinkage.js";
 
 const taskPriorities = new Set(["Alta", "Media", "Bassa"]);
 const taskStatuses = new Set([
@@ -25,6 +26,7 @@ export function normalizeStoredTasks(value, fallback = []) {
     )
       return fallback;
     seen.add(normalizedId);
+    const origin = taskOrigin(task);
     normalized.push({
       ...task,
       id: normalizedId,
@@ -44,6 +46,9 @@ export function normalizeStoredTasks(value, fallback = []) {
       notes: typeof task.notes === "string" ? task.notes : "",
       query: typeof task.query === "string" ? task.query : "",
       stale: task.stale === true,
+      origin,
+      automatic: origin !== "manual" || task.automatic === true,
+      taskLinks: normalizeTaskLinks(task.taskLinks),
     });
   }
   return archiveLegalSeoTasks(normalized);
