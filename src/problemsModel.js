@@ -15,6 +15,9 @@ import {
 
 const timestamp = (value) => value ? (Date.parse(value) || 0) : 0;
 
+export const isProblemActive = (row) => !["resolved", "intentional"].includes(row?.problemState);
+const isPermanentClosure = (closure) => closure?.permanent === true || closure?.disposition === "do_not_modify" || closure?.reason === "user-do-not-modify";
+
 const pageKindFromUrl = (value) => {
   if (isLegalPage(value)) return "gdpr";
   try {
@@ -222,7 +225,7 @@ export function buildUnifiedProblems({
   now = Date.now(),
 } = {}) {
   const normalizedClientId = normalizeClientId(clientId);
-  if (!normalizedClientId) return { rows: [], warnings: ["Cliente non selezionato o ID non valido."], coverage: null };
+  if (!normalizedClientId) return { rows: [], activeRows: [], warnings: ["Cliente non selezionato o ID non valido."], coverage: null };
 
   const groups = new Map();
   const aliasMap = new Map();
@@ -373,9 +376,10 @@ export function buildUnifiedProblems({
     const reviewObservedAfterVerification = reviewOnly && (!state.verifiedAt || timestamp(group.latestAuditAt) > timestamp(state.verifiedAt));
     const closure = closureFor(group);
     const closureTime = timestamp(closure?.closedAt);
-    const reobservedAfterClosure = closureTime > 0 && group.events.some((event) => timestamp(event?.at) > closureTime && event?.kind === "audit_detected");
+    const permanentlyExcluded = closureTime > 0 && isPermanentClosure(closure);
+    const reobservedAfterClosure = !permanentlyExcluded && closureTime > 0 && group.events.some((event) => timestamp(event?.at) > closureTime && event?.kind === "audit_detected");
     const closedPersistently = closureTime > 0 && !reobservedAfterClosure;
-    const problemState = isolatedQaCompleted ? "intentional" : reobservedAfterClosure ? "reappeared" : closedPersistently ? "resolved" : clearedByNewerAudit ? "resolved" : reviewObservedAfterVerification ? "needs_verification" : state.problemState;
+    const problemState = permanentlyExcluded ? "intentional" : isolatedQaCompleted ? "intentional" : reobservedAfterClosure ? "reappeared" : closedPersistently ? "resolved" : clearedByNewerAudit ? "resolved" : reviewObservedAfterVerification ? "needs_verification" : state.problemState;
     const verifiedAt = closedPersistently ? closure?.closedAt : clearedByNewerAudit ? clearanceAt : state.verifiedAt;
     const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
     const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
@@ -420,6 +424,7 @@ export function buildUnifiedProblems({
       pageKind: group.pageKind,
       resolvedByAudit: clearedByNewerAudit,
       reviewOnly,
+      disposition: permanentlyExcluded ? "do_not_modify" : "",
     };
   }).toSorted((a, b) => {
     const stateWeight = { reappeared: 0, open: 1, needs_verification: 2, intentional: 3, resolved: 4 };
@@ -431,6 +436,7 @@ export function buildUnifiedProblems({
 
   return {
     rows,
+    activeRows: rows.filter(isProblemActive),
     warnings: [...new Set(warnings)],
     coverage: {
       siteAuditAt: site?.analyzedAt || site?.startedAt || "",
