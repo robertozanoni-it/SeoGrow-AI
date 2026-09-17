@@ -9,10 +9,9 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
   const issueKey = 'journey-title-issue';
   const correctionId = 'journey-correction';
   const taskTitle = 'Ricontrolla title dopo rollback';
-  const baseline = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const r=await import('/src/remediationStore.js');await m.flushWorkspace();const entries={};for(let i=0;i<m.workspaceStorage.length;i+=1){const key=m.workspaceStorage.key(i);if(key)entries[key]=m.workspaceStorage.getItem(key);}return {entries,corrections:await r.listCorrections({includeOrphans:true})};})()`);
 
   await record('FUNCTIONAL-JOURNEY-18', async () => {
-    // 1. Nuovo cliente: use the real Clients UI, not a storage shortcut.
+    // 1. Nuovo cliente: real Clients UI, no storage shortcut.
     await clickSidebar('Clienti');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Nuovo cliente')", 'new client CTA');
     await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nuovo cliente').click()");
@@ -22,12 +21,12 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     const actualClientId = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-clients')||'[]');return rows.find(c=>c.name===${q(clientName)}&&c.url===${q(siteUrl)})?.id})()`);
     assert.ok(Number(actualClientId) > 0, 'client id created');
 
-    // Select through the actual client card so React, storage and page context change together.
+    // Select through the actual client card so React, storage and project context change together.
     await waitFor(`[...document.querySelectorAll('.reference-client-card')].some(c=>c.textContent.includes(${q(clientName)}))`, 'journey client card');
     await evaluate(`(()=>{const card=[...document.querySelectorAll('.reference-client-card')].find(c=>c.textContent.includes(${q(clientName)}));if(!card)throw new Error('Journey client card missing');card.click();})()`);
     await waitFor(`(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===Number(${actualClientId})})()`, 'journey project selected by UI');
 
-    // 2. WordPress connection: real central session boundary, no password persisted.
+    // 2. WordPress connection: central transient session, password never persisted.
     await clickSidebar('Integrazioni');
     await evaluate(`(async()=>{const sys=await import('/src/system/index.js');sys.rememberWordPressSession(${actualClientId},{url:${q(siteUrl)},username:'qa-journey',applicationPassword:'qa-journey-session-only'});})()`);
     const wp = await evaluate(`(async()=>{const sys=await import('/src/system/index.js');return sys.getWordPressSession(${actualClientId},${q(siteUrl)})})()`);
@@ -35,23 +34,23 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     const persistedAfterWp = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');return JSON.stringify({profiles:m.workspaceStorage.getItem('seogrow-wordpress-profiles-v1'),preferences:m.workspaceStorage.getItem('seogrow-preferences-v1')})})()`);
     assert.ok(!persistedAfterWp.includes('qa-journey-session-only'), 'WordPress secret not persisted');
 
-    // 3. Audit -> 4. Problem: one project-scoped audit becomes a visible problem.
+    // 3. Audit -> 4. Problema: project-scoped audit becomes visible in both modules.
     await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const key='seogrow-page-audit-history-v2';const store=JSON.parse(m.workspaceStorage.getItem(key)||'{}');store[${actualClientId}]=[{url:${q(pageUrl)},analyzedAt:new Date().toISOString(),score:82,pagesChecked:1,issues:[{type:'title',label:'Title mancante',severity:'alta',sourceUrl:${q(pageUrl)},detail:'Titolo SEO assente nella pagina.',diagnosisState:'confirmed',key:${q(issueKey)}}],reviewItems:[]}];m.workspaceStorage.setItem(key,JSON.stringify(store));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(store)}));})()`);
     await clickSidebar('Audit SEO');
     await waitFor(`document.body.innerText.includes('Title mancante')`, 'audit issue visible');
     await clickSidebar('Problemi');
     await waitFor(`document.body.innerText.includes('Title mancante')`, 'problem visible');
 
-    // 5. Correction -> 6. Verification: canonical remediation store, no parallel state.
+    // 5. Correzione -> 6. Verifica: canonical remediation store only.
     await evaluate(`(async()=>{const r=await import('/src/remediationStore.js');await r.saveCorrection({id:${q(correctionId)},clientId:${actualClientId},clientName:${q(clientName)},issueLabel:'Title mancante',issueType:'title',issueKey:${q(issueKey)},sourceUrl:${q(pageUrl)},siteUrl:${q(siteUrl)},status:'Verificato',fields:['title'],appliedAt:new Date().toISOString(),verifiedAt:new Date().toISOString(),liveApproval:true,verification:{frontend:true,audit:true},completionEvidence:{publicVerified:true}});})()`);
     await clickSidebar('Correzioni');
     await waitFor(`document.body.innerText.includes('Title mancante')`, 'verified correction visible');
 
-    // 7. Rollback: update the same correction record.
+    // 7. Rollback: mutate the same canonical correction record.
     await evaluate(`(async()=>{const r=await import('/src/remediationStore.js');await r.updateCorrection(${q(correctionId)},{status:'Rolled back',rollbackAt:new Date().toISOString()});})()`);
     await waitFor(`(async()=>{const r=await import('/src/remediationStore.js');const row=await r.readCorrection(${q(correctionId)});return /rolled/i.test(row?.status||'')&&Boolean(row?.rollbackAt)})()`, 'rollback persisted');
 
-    // 8. Task: create it through the real Task UI so mounted React state and durable storage agree.
+    // 8. Task: create through the real Task UI, not a direct store injection.
     await clickSidebar('Task');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Nuova task'&&!b.disabled)", 'new task CTA');
     await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nuova task'&&!b.disabled).click()");
@@ -67,16 +66,16 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await clickSidebar('Posizionamenti');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'ranking visible');
 
-    // 10. Opportunity: the module derives it from real project Search Console-shaped data.
+    // 10. Opportunità: derive it from project Search Console-shaped evidence.
     await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const key='seogrow-gsc-v1';const store=JSON.parse(m.workspaceStorage.getItem(key)||'{}');store[${actualClientId}]={totals:{clicks:3,impressions:240,ctr:1.25,position:9},graph:[],countries:[],devices:[],imports:[],queries:[{dimension:'seo journey',position:9,impressions:240,clicks:3,ctr:1.25}],pages:[],queryPages:[{query:'seo journey',pages:[${q(pageUrl)}]}],dateFrom:'2026-08-01',dateTo:'2026-09-17',importedAt:new Date().toISOString()};m.workspaceStorage.setItem(key,JSON.stringify(store));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(store)}));})()`);
     await clickSidebar('Opportunità');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'opportunity derived');
 
-    // 11. Editorial plan: use the same ranking/opportunity evidence; no duplicate plan store.
+    // 11. Piano editoriale: reuse ranking/opportunity evidence; no duplicate plan store.
     await clickSidebar('Piano editoriale');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial row derived from project evidence');
 
-    // 12. Reopen app: full reload, same selected project and state, no manual reset/reseed.
+    // 12. Riapertura app: full reload; the same project and canonical state must survive.
     await reload();
     const continuity = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const selected=JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0');const clients=JSON.parse(m.workspaceStorage.getItem('seogrow-clients')||'[]');const audits=JSON.parse(m.workspaceStorage.getItem('seogrow-page-audit-history-v2')||'{}');const tasks=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');const rankings=JSON.parse(m.workspaceStorage.getItem('seogrow-rankings-v1')||'{}');const gsc=JSON.parse(m.workspaceStorage.getItem('seogrow-gsc-v1')||'{}');const r=await import('/src/remediationStore.js');const correction=await r.readCorrection(${q(correctionId)});return {selected,client:clients.some(c=>Number(c.id)===Number(${actualClientId})),audit:Boolean(audits[${actualClientId}]?.length),task:tasks.some(t=>t.id===${q(journeyTaskId)}),ranking:Boolean(rankings[${actualClientId}]?.length),opportunity:Boolean(gsc[${actualClientId}]?.queries?.length),rollback:/rolled/i.test(correction?.status||'')&&Boolean(correction?.rollbackAt)}})()`);
     assert.deepEqual(continuity, { selected: actualClientId, client: true, audit: true, task: true, ranking: true, opportunity: true, rollback: true });
@@ -85,10 +84,6 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await waitFor(`[...document.querySelectorAll('.task-title-button')].some(b=>b.textContent.includes(${q(taskTitle)}))`, 'journey task row after reopen');
     await clickSidebar('Piano editoriale');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial evidence after reopen');
-
-    // Test isolation only after the whole journey has passed; no reset occurs inside the audited path.
-    await evaluate(`(async()=>{const snapshot=${q(baseline)};const m=await import('/src/workspaceDatabase.js');const r=await import('/src/remediationStore.js');const sys=await import('/src/system/index.js');const current=[];for(let i=0;i<m.workspaceStorage.length;i+=1){const key=m.workspaceStorage.key(i);if(key)current.push(key);}for(const key of current){if(!Object.prototype.hasOwnProperty.call(snapshot.entries,key))m.workspaceStorage.removeItem(key);}for(const [key,value] of Object.entries(snapshot.entries)){m.workspaceStorage.setItem(key,value);}await r.replaceCorrections(snapshot.corrections);sys.forgetWordPressSession(${actualClientId},${q(siteUrl)});await m.flushWorkspace();})()`);
-    await reload();
-    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===9001})()", 'baseline fixture restored after journey PASS');
+    // Deliberately no cleanup/reset here: this is the final browser scenario.
   });
 }
