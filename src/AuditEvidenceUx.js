@@ -53,14 +53,24 @@ const evidenceText = (record) => {
 
 const setResolutionLabel = (button) => {
   if (!button) return;
+  const wanted = "Vai alla risoluzione";
   const textNode = [...button.childNodes].reverse().find((node) => node.nodeType === Node.TEXT_NODE);
-  if (textNode) textNode.textContent = "Vai alla risoluzione";
-  else button.append(document.createTextNode("Vai alla risoluzione"));
-  button.setAttribute("aria-label", "Vai alla risoluzione del problema");
+  if (textNode) {
+    if (textNode.textContent?.trim() !== wanted) textNode.textContent = wanted;
+  } else {
+    button.append(document.createTextNode(wanted));
+  }
+  if (button.getAttribute("aria-label") !== "Vai alla risoluzione del problema")
+    button.setAttribute("aria-label", "Vai alla risoluzione del problema");
+};
+
+const auditPageActive = () => {
+  try { return decodeURIComponent(location.hash.slice(1)).includes("Audit SEO"); }
+  catch { return false; }
 };
 
 const decorate = () => {
-  if (!document.body || !decodeURIComponent(location.hash.slice(1)).includes("Audit SEO")) return;
+  if (!document.body || !auditPageActive()) return;
   const records = evidenceRows();
   const groups = new Map();
   const rows = [...document.querySelectorAll(".audit-issues-list > div, .audit-review-items .audit-review-row")];
@@ -78,8 +88,10 @@ const decorate = () => {
       node.className = "audit-evidence-source";
       row.append(node);
     }
-    node.textContent = evidenceText(record) || "Sorgente audit non disponibile: ripetere il controllo prima di intervenire.";
-    node.dataset.reproducible = record?.evidence?.reproducible === true ? "true" : "false";
+    const wantedText = evidenceText(record) || "Sorgente audit non disponibile: ripetere il controllo prima di intervenire.";
+    if (node.textContent !== wantedText) node.textContent = wantedText;
+    const reproducible = record?.evidence?.reproducible === true ? "true" : "false";
+    if (node.dataset.reproducible !== reproducible) node.dataset.reproducible = reproducible;
   }
 };
 
