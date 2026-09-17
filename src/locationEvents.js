@@ -10,17 +10,11 @@ const patchHistoryMethod = (methodName) => {
   if (typeof original !== "function" || original.__seogrowPatched) return;
   const patched = function patchedHistoryMethod(...args) {
     const destination = args[2] == null ? "" : String(args[2]);
-    const destinationPage = currentPage(destination || window.location.href);
     if (
       window.__seogrowCorrectionsMode &&
       currentPage() === "Correzioni" &&
-      destinationPage &&
-      destinationPage !== "Correzioni"
+      currentPage(destination || window.location.href) === "Panoramica"
     ) {
-      // The App shell can still have an effect queued with the page rendered
-      // immediately before the Corrections overlay opened. Never let that
-      // stale history write replace an explicit #Correzioni route. Intentional
-      // exits disable corrections mode before changing route.
       return undefined;
     }
 
