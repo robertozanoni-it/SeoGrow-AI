@@ -108,9 +108,15 @@ export default function EditorialPlanWorkspaceLayer() {
   const analysis = latestByDate(historyForClient(stores.analyses, clientId));
   const topicalMap = forClient(stores.topicalMaps, clientId, null);
   const draft = forClient(stores.contentDrafts, clientId, null);
-  const settings = projectSettings(stores.preferences, clientId);
-  const schedule = Array.isArray(settings.editorialSchedule) ? settings.editorialSchedule : [];
-  const state = settings.editorialPlanState && typeof settings.editorialPlanState === "object" ? settings.editorialPlanState : {};
+  const settings = useMemo(() => projectSettings(stores.preferences, clientId), [stores.preferences, clientId]);
+  const schedule = useMemo(
+    () => Array.isArray(settings.editorialSchedule) ? settings.editorialSchedule : [],
+    [settings.editorialSchedule],
+  );
+  const state = useMemo(
+    () => settings.editorialPlanState && typeof settings.editorialPlanState === "object" ? settings.editorialPlanState : {},
+    [settings.editorialPlanState],
+  );
 
   const rankingRuns = useMemo(() => validRankingRuns(historyForClient(stores.rankings, clientId)), [stores.rankings, clientId]);
   const currentRanking = rankingRuns[0] || null;
