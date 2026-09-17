@@ -494,6 +494,13 @@ try {
   await assertViewportVisibility(390, "mobile", "mobile");
   await command("Emulation.clearDeviceMetricsOverride");
 
+  if ((process.env.QA_MODE || "release") === "release") {
+    await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
+    await waitFor("document.readyState === 'complete' && document.querySelector('.guided-nav')", "app restored before final functional journey");
+    const { runFunctionalJourney } = await import("./qa-functional-journey.mjs");
+    await runFunctionalJourney({ evaluate, waitFor, clickSidebar, reload, record });
+  }
+
   const uncaught = browserEvents.filter(event => event.method === "Runtime.exceptionThrown");
   if (uncaught.length) throw new Error("Uncaught browser exceptions: " + JSON.stringify(uncaught));
   const consoleErrors = browserEvents.filter(event => event.method === "Runtime.consoleAPICalled" && event.params?.type === "error");
