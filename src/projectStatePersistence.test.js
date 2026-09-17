@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { IDBFactory } from "fake-indexeddb";
-import { canonicalizeWorkspaceEntries } from "./core/workspace/projectState.js";
+import { canonicalCorrections, canonicalizeWorkspaceEntries } from "./core/workspace/projectState.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { normalizeWorkspacePersistence } from "./core/workspace/normalizePersistence.js";
 import { buildUnifiedProblems } from "./problemsModel.js";
@@ -54,6 +54,22 @@ test("canonical workspace elimina duplicati e chiavi legacy senza cambiare al se
   const closures = JSON.parse(first.get(WORKSPACE_KEYS.problemClosures));
   assert.equal(closures.length, 1);
   assert.equal(closures[0].closedAt, "2026-09-16T11:00:00Z");
+});
+
+test("normalizzazione non crea un clients vuoto su una prima apertura senza dati", () => {
+  const normalized = canonicalizeWorkspaceEntries(new Map());
+  assert.equal(normalized.has(WORKSPACE_KEYS.clients), false);
+  assert.equal(normalized.has(WORKSPACE_KEYS.selectedClient), false);
+});
+
+test("correzioni duplicate conservano lo stato più recente per id", () => {
+  const corrections = canonicalCorrections([
+    { id: "c1", clientId: 1, status: "Applicato", appliedAt: "2026-09-16T10:00:00Z" },
+    { id: "c1", clientId: 1, status: "Verificato", appliedAt: "2026-09-16T10:00:00Z", verifiedAt: "2026-09-16T11:00:00Z" },
+    { id: "c2", clientId: 1, status: "Preparato", createdAt: "2026-09-16T09:00:00Z" },
+  ]);
+  assert.equal(corrections.length, 2);
+  assert.equal(corrections.find((item) => item.id === "c1").status, "Verificato");
 });
 
 test("cliente progetto audit correzioni task e chiusure restano identici dopo reload e cambio cliente", async () => {
