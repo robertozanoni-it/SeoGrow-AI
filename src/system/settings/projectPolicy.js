@@ -114,6 +114,13 @@ export function projectWriteAllowed(policy) {
   return normalizeProjectPolicy(policy).writeSecurity.writesEnabled === true;
 }
 
+export function projectFeatureEnabled(policy, feature) {
+  const normalized = normalizeProjectPolicy(policy);
+  return Object.prototype.hasOwnProperty.call(normalized.featureFlags, feature)
+    ? normalized.featureFlags[feature] === true
+    : false;
+}
+
 export const USER_CONTROLLABLE_SETTINGS = Object.freeze([
   "audit.excludedPaths",
   "writeSecurity.writesEnabled",
