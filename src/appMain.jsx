@@ -20,7 +20,6 @@ import './BrokenLinkCleanupChoiceUx';
 import './SharedElementorBrokenLinkUx';
 import './ProviderBudgetUx';
 import './ProposalBeforeAfterLinks';
-React;
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
