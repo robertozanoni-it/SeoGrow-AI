@@ -221,6 +221,9 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       })()`);
       assert.equal(valid, true);
     });
+
+    const { runFunctionalJourney } = await import("./qa-functional-journey.mjs");
+    await runFunctionalJourney({ evaluate, waitFor, clickSidebar, reload, record });
   }
 
   await record("RESPONSIVE-001", async () => {
