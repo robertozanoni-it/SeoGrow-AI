@@ -15,7 +15,7 @@ export function correctionMatchesProblem(problem, correction) {
   return true;
 }
 
-// Safe next actions, ordered by: existing write verification -> freshness -> automatic/approval -> human intent -> manual.
+// Internal action codes remain stable; user-facing labels are intentionally simplified.
 export function resolutionPath(problem = {}, correction = null) {
   const type = `${problem.issueType || ""} ${problem.title || ""}`.toLowerCase();
   const kind = kindOf(problem);
@@ -34,10 +34,10 @@ export function resolutionPath(problem = {}, correction = null) {
   if (intentKinds.has(kind)) return { action: "confirm", label: "Prepara correzione", title: kind === "canonical" ? "Conferma la canonical desiderata" : "Conferma l’intento di indicizzazione", instructions: kind === "canonical" ? "Conferma che la pagina debba avere canonical verso se stessa. Solo dopo SeoGrow prepara il cambio e lo sottopone ad approvazione." : "Conferma che la pagina debba essere indicizzabile. Solo dopo SeoGrow prepara la rimozione del noindex e la sottopone ad approvazione." };
   if (/url-alias|redirect/.test(type)) return { action: "audit", label: "Verifica URL e indicizzazione", title: "Conferma quale URL deve essere pubblica", instructions: "Controlla redirect, canonical e risorsa WordPress. Due URL con e senza slash possono essere la stessa pagina: non generare modifiche senza confermare risorse distinte." };
   if (problem.correctability === "automatic" || /broken-external-link/.test(type)) return { action: "prepare", label: "Correggi automaticamente", title: "Anteprima, approvazione e verifica", instructions: "SeoGrow prepara la singola proposta sul campo verificato. Prima della scrittura mostra il Prima/Dopo e richiede approvazione. Per i link scegli se mantenere o eliminare il testo." };
-  if (/ottimizza|keyword|opportun|position|ranking/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Ottimizzazione editoriale guidata", instructions: "Confronta keyword, intento e contenuto con dati recenti. SeoGrow può preparare indicazioni operative, ma non applica automaticamente una modifica non attribuita a un adapter sicuro." };
+  if (/ottimizza|keyword|opportun|position|ranking/.test(type)) return { action: "agent", label: "Richiede intervento manuale", title: "Ottimizzazione editoriale guidata", instructions: "Confronta keyword, intento e contenuto con dati recenti. SeoGrow può preparare indicazioni operative, ma non applica automaticamente una modifica non attribuita a un adapter sicuro." };
   if (/performance|lento|response|speed|tempo di risposta/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Diagnosi prestazionale guidata", instructions: "SeoGrow prepara una diagnosi causale con evidenze recenti e identifica le cause più probabili. Le modifiche non attribuite con certezza restano manuali." };
   if (/depth|image|alt|broken-link/.test(type)) return { action: "manual", label: "Richiede intervento manuale", title: "Intervento tecnico manuale", instructions: "SeoGrow mostra controlli e passaggi specifici per l’elemento segnalato. Se manca un adapter sicuro, la modifica resta manuale e viene verificata con un nuovo audit." };
-  return { action: "manual", label: "Richiede intervento manuale", title: "Intervento manuale richiesto", instructions: "SeoGrow usa URL, dettaglio ed evidenze per indicare il lavoro da eseguire. Se il tipo non dispone di una scrittura sicura, non inventa un adapter." };
+  return { action: "agent", label: "Richiede intervento manuale", title: "Intervento manuale richiesto", instructions: "SeoGrow usa URL, dettaglio ed evidenze per indicare il lavoro da eseguire. Se il tipo non dispone di una scrittura sicura, non inventa un adapter." };
 }
 
 export const shouldOpenAutomaticProposal = problem => problem?.correctability === "automatic" && resolutionPath(problem).action === "prepare";
@@ -49,7 +49,6 @@ export function problemEntryLabel(problem) {
   return "Richiede intervento manuale";
 }
 
-// Requesting a controlled preview never grants write permission or changes correctability.
 export const canOpenControlledLinkPreview = problem => problem?.issueType === "broken-external-link" &&
   problem.targetUrls?.length === 1 && Boolean(safeHttpHref(problem.targetUrls[0])) && resolutionPath(problem).action === "prepare";
 export const canOpenControlledReviewPreview = problem => problem?.reviewOnly === true && directReviewKinds.has(kindOf(problem)) &&
