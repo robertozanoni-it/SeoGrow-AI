@@ -80,13 +80,26 @@ const closureKey = (item) => [
   normalizeHttpUrl(item?.targetUrl || "", { stripSlash: true }),
 ].join("::");
 
+const permanentClosure = (item) => item?.permanent === true || item?.disposition === "do_not_modify" || item?.reason === "user-do-not-modify";
+
 export const canonicalProblemClosures = (value) => {
   const byKey = new Map();
   for (const closure of Array.isArray(value) ? value : []) {
     if (!closure || typeof closure !== "object" || !Number(closure.clientId) || !closure.issueType || !closure.sourceUrl) continue;
     const key = closureKey(closure);
     const current = byKey.get(key);
-    if (!current || timestamp(closure.closedAt) >= timestamp(current.closedAt)) byKey.set(key, closure);
+    if (!current) {
+      byKey.set(key, closure);
+      continue;
+    }
+    const currentPermanent = permanentClosure(current);
+    const nextPermanent = permanentClosure(closure);
+    if (currentPermanent && !nextPermanent) continue;
+    if (nextPermanent && !currentPermanent) {
+      byKey.set(key, closure);
+      continue;
+    }
+    if (timestamp(closure.closedAt) >= timestamp(current.closedAt)) byKey.set(key, closure);
   }
   return [...byKey.values()].toSorted((a, b) => timestamp(b.closedAt) - timestamp(a.closedAt));
 };
