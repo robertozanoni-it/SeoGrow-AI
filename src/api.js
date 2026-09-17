@@ -229,7 +229,7 @@ export async function apiFetch(input, init = {}) {
           continue;
         }
         if (path === "/api/audit") response = await supplementPageAudit(response, preparedInit, signal);
-        const auditResponse = ["/api/audit", "/api/site-analysis"].includes(path)
+        const auditResponse = path === "/api/site-analysis"
           ? await normalizeSiteAnalysisResponse(response)
           : response;
         const integrityResponse = ["/api/audit", "/api/site-analysis"].includes(path)
