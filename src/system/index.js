@@ -13,6 +13,13 @@ export {
   forgetWordPressSession,
 } from "./integrations/wordpressSession.js";
 export {
+  INTEGRATION_KINDS,
+  buildProjectIntegrationRegistry,
+  integrationConnection,
+  integrationStatusLabel,
+  validateSingleProjectIntegrationConfig,
+} from "./integrations/projectIntegrationRegistry.js";
+export {
   budgetMoney,
   providerBudgetHealth,
 } from "./providers/providerBudget.js";
