@@ -7,20 +7,34 @@ const normalizeUrl = (value) => {
     url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
     if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/, "");
     return url.href;
-  } catch {
-    return String(value || "").trim();
-  }
+  } catch { return String(value || "").trim(); }
 };
 
 const text = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+const inferredType = (issue) => {
+  const explicit = text(issue?.type).toLowerCase();
+  if (explicit) return explicit;
+  const value = `${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  if (/\bh2\b/.test(value)) return "h2";
+  if (/\bh1\b/.test(value)) return "h1";
+  if (/meta\s*description|metadescription/.test(value)) return "description";
+  if (/\bcanonical\b/.test(value)) return "canonical";
+  if (/noindex|indexabil/.test(value)) return "indexability";
+  if (/\btitle\b|\btitolo\b/.test(value)) return "title";
+  if (/link.*(?:404|410|interrott|raggiung)|(?:404|410).*link/.test(value)) return "broken-link";
+  if (/\b(?:404|410)\b/.test(value)) return "http-status";
+  if (/immagin.*\balt\b/.test(value)) return "image";
+  return "seo-signal";
+};
 
 export const auditSeverity = (value, issue = {}) => {
   const severity = text(value).toLowerCase();
   if (["alta", "high", "critical", "critica", "error"].includes(severity)) return "alta";
   if (["media", "medium", "warning", "warn"].includes(severity)) return "media";
   if (["bassa", "low", "info", "opportunity", "opportunita", "opportunità"].includes(severity)) return "bassa";
-  const type = text(issue?.type).toLowerCase();
-  if (/broken-(?:external-)?link|http-(?:404|410)|crawl-failure|server-error/.test(type)) return "alta";
+  const type = inferredType(issue);
+  if (/broken-(?:external-)?link|http-(?:404|410)|http-status|crawl-failure|server-error/.test(type)) return "alta";
   if (/title|description|meta|h1|indexability/.test(type)) return "media";
   if (/h2|canonical|image|thin|link/.test(type)) return "bassa";
   return "media";
@@ -59,24 +73,20 @@ const observedValue = (issue, field) => {
 export const auditIssueIdentity = (issue, fallbackUrl = "") => {
   const sourceUrl = normalizeUrl(issue?.sourceUrl || issue?.url || fallbackUrl);
   const targetUrl = normalizeUrl(targetUrlOf(issue));
-  return [
-    text(issue?.type).toLowerCase(),
-    sourceUrl,
-    targetUrl,
-    text(issue?.label).toLowerCase(),
-  ].join("::");
+  return [inferredType(issue), sourceUrl, targetUrl, text(issue?.label).toLowerCase()].join("::");
 };
 
 export const withAuditEvidence = (issue, { fallbackUrl = "", scope = "page", observedAt = "" } = {}) => {
   if (!issue || typeof issue !== "object" || Array.isArray(issue)) return issue;
   const sourceUrl = normalizeUrl(issue.sourceUrl || issue.url || fallbackUrl);
-  const type = text(issue.type).toLowerCase();
+  const type = inferredType(issue);
   const field = fieldFromType(type);
   const targetUrl = normalizeUrl(targetUrlOf(issue));
   const sourceType = field === "http-status" || field === "link" ? "HTTP/crawl" : "HTML pubblico";
   return {
     ...issue,
-    severity: auditSeverity(issue.severity, issue),
+    type,
+    severity: auditSeverity(issue.severity, { ...issue, type }),
     ...(sourceUrl ? { sourceUrl, url: issue.url || sourceUrl } : {}),
     ...(targetUrl ? { targetUrl } : {}),
     evidence: {
