@@ -48,7 +48,11 @@ const canonicalClients = (value) => {
   return [...byId.values()];
 };
 
-const taskRecency = (task) => timestamp(task?.updatedAt || task?.completedAt || task?.createdAt);
+const taskRecency = (task) => Math.max(
+  timestamp(task?.updatedAt),
+  timestamp(task?.completedAt),
+  timestamp(task?.createdAt),
+);
 
 export const canonicalTasks = (value) => {
   const byId = new Map();
@@ -87,18 +91,26 @@ export const canonicalProblemClosures = (value) => {
   return [...byKey.values()].toSorted((a, b) => timestamp(b.closedAt) - timestamp(a.closedAt));
 };
 
-const canonicalRemediationIndex = (value) => {
+const correctionRecency = (item) => Math.max(
+  timestamp(item?.verifiedAt),
+  timestamp(item?.rollbackAt),
+  timestamp(item?.updatedAt),
+  timestamp(item?.appliedAt),
+  timestamp(item?.createdAt),
+);
+
+export const canonicalCorrections = (value) => {
   const byId = new Map();
-  for (const item of Array.isArray(value) ? value : []) {
-    if (!item?.id) continue;
-    const current = byId.get(item.id);
-    const at = item?.verifiedAt || item?.rollbackAt || item?.appliedAt;
-    const currentAt = current?.verifiedAt || current?.rollbackAt || current?.appliedAt;
-    if (!current || timestamp(at) >= timestamp(currentAt)) byId.set(item.id, item);
+  for (const correction of Array.isArray(value) ? value : []) {
+    const id = typeof correction?.id === "string" ? correction.id.trim() : "";
+    if (!id) continue;
+    const current = byId.get(id);
+    if (!current || correctionRecency(correction) >= correctionRecency(current)) byId.set(id, correction);
   }
-  return [...byId.values()].toSorted((a, b) => timestamp(b.verifiedAt || b.rollbackAt || b.appliedAt) - timestamp(a.verifiedAt || a.rollbackAt || a.appliedAt));
+  return [...byId.values()].toSorted((a, b) => correctionRecency(b) - correctionRecency(a));
 };
 
+const canonicalRemediationIndex = (value) => canonicalCorrections(value);
 const setJson = (entries, key, value) => entries.set(key, JSON.stringify(value));
 
 export function canonicalizeWorkspaceEntries(input) {
@@ -157,7 +169,7 @@ export function buildProjectState({
       page: dedupeExact(forClient(pageAuditHistory, clientId), (item) => item?.analyzedAt || item?.startedAt),
     },
     tasks: canonicalTasks(tasks).filter((task) => Number(task.sourceClientId) === clientId),
-    corrections: (Array.isArray(corrections) ? corrections : []).filter((item) => Number(item?.clientId) === clientId),
+    corrections: canonicalCorrections(corrections).filter((item) => Number(item?.clientId) === clientId),
     problemClosures: canonicalProblemClosures(problemClosures).filter((item) => Number(item.clientId) === clientId),
   };
 }
