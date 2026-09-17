@@ -1,6 +1,6 @@
 import { changedFieldKeys } from './remediationPlanSafety.js';
 import { remediationIssueKind } from './remediationIssueKind.js';
-import { hasAutoFixCompletionEvidence } from './autoFixVerification.js';
+import { hasAutoFixCompletionEvidence } from './autoFixCompletionEvidence.js';
 
 export const BATCH_LABELS = {
   PENDING: 'In attesa', PREFLIGHT: 'Preflight', PREPARED: 'Pronta per approvazione',
@@ -76,7 +76,6 @@ export function consolidateBatch(run) {
     const previous = identical.get(key);
     if (previous) {
       previous.problemKeys.push(...entry.problemKeys);
-      // A later live-preview invalidates an earlier overlapping token. Use the latest exact token.
       previous.preview = p;
       entry.state = 'SKIPPED'; entry.consolidatedInto = previous.id;
       entry.reason = `Consolidata in ${previous.id}: nessuna scrittura duplicata.`;
@@ -87,7 +86,6 @@ export function consolidateBatch(run) {
     for (const field of changedFieldKeys(entry.preview.plan.changes)) {
       const key = `${entry.preview.resourceIdentity}:${field}`;
       const previous = fields.get(key);
-      // Partial overlap is blocked even when a sub-field matches. Never merge opaque Elementor JSON.
       if (previous) {
         for (const conflict of [previous, entry]) {
           conflict.state = 'BLOCKED'; conflict.code = 'PREVIEW_CONFLICT';
