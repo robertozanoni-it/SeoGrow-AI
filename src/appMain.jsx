@@ -10,6 +10,7 @@ import './taskClientIdIntegrity';
 import './taskCauseReconciliation';
 import './projectRetention';
 import './projectPolicyIntegrity';
+import './WordPressDraftApprovalInvariant';
 import './BatchFeatureFlagGuard';
 import './uiIntegrityFixes';
 import './WizardStepNavigation';
