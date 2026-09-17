@@ -1,4 +1,21 @@
 .internal-links-workspace-host { width:100%; min-width:0; margin:0 0 18px; }
+html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="hub"] .internal-links-workspace-host[data-seogrow-card-original="true"],
+html body[data-seogrow-ui-mode="simple"][data-seogrow-card-mode="detail"] .internal-links-workspace-host[data-seogrow-card-original="true"] {
+  display:block !important;
+  position:static !important;
+  left:auto !important;
+  top:auto !important;
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+  z-index:auto !important;
+}
 .internal-links-workspace { display:grid; gap:14px; width:100%; min-width:0; padding:18px; border:1px solid #dbe6f2; border-radius:16px; background:#fff; box-shadow:0 8px 24px rgba(22,52,88,.06); }
 .internal-links-workspace.empty { padding:24px; }
 .internal-links-workspace-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
