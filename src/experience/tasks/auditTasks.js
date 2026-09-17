@@ -1,3 +1,23 @@
+import { issueIdentity } from "../../reliabilityModel.js";
+
+const issueSourceUrl = (issue, analysis, client) => {
+  const type = String(issue?.type || "").toLowerCase();
+  const broken = /broken-(?:external-)?link/.test(type);
+  return issue?.sourceUrl || issue?.url || (!broken ? issue?.targetUrl : "") || analysis?.url || client?.url || "";
+};
+
+const issueProblemKey = (issue, analysis, client) => {
+  const type = String(issue?.type || "").toLowerCase();
+  const broken = /broken-(?:external-)?link/.test(type);
+  return issueIdentity({
+    issueType: issue?.type,
+    issueLabel: issue?.label,
+    sourceUrl: issueSourceUrl(issue, analysis, client),
+    targetUrl: broken ? (issue?.targetUrl || issue?.brokenUrl || issue?.destinationUrl || issue?.href || "") : "",
+    issue,
+  });
+};
+
 export function tasksFromAnalysis(analysis, client) {
   const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
   const tasks = issues.slice(0, 300).map((issue, index) => ({
@@ -19,6 +39,9 @@ export function tasksFromAnalysis(analysis, client) {
     linkLabel: issue.targetUrl ? "Apri destinazione" : "Apri pagina",
     detail: issue.detail || "",
     notes: "",
+    origin: "audit",
+    automatic: true,
+    taskLinks: { problemKey: issueProblemKey(issue, analysis, client) },
     createdAt: new Date().toISOString(),
   }));
   if (issues.length > tasks.length)
@@ -34,6 +57,9 @@ export function tasksFromAnalysis(analysis, client) {
       targetUrl: client.url,
       sourceUrl: "",
       detail: `L’audit ha rilevato ${issues.length} problemi. Sono state create task dettagliate per i primi ${tasks.length}; consulta il report cliente per l’elenco completo.`,
+      origin: "audit",
+      automatic: true,
+      taskLinks: {},
       createdAt: new Date().toISOString(),
     });
   return tasks;
