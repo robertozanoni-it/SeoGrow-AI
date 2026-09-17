@@ -33,6 +33,7 @@ import {
   safeHttpHref,
 } from "./reliabilityModel";
 import { normalizeSiteAnalysis } from "./seoResponseIntegrity";
+import { auditIssuesForDisplay } from "./auditEvidenceModel.js";
 import "./AuditWorkspace.css";
 import "./AuditReference.css";
 
@@ -271,8 +272,8 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   };
 
   const result = selectedResult?.data;
-  const issues = Array.isArray(result?.issues) ? result.issues : [];
-  const reviewItems = Array.isArray(result?.reviewItems) ? result.reviewItems : [];
+  const issues = auditIssuesForDisplay(result?.issues, result?.url || client.url);
+  const reviewItems = auditIssuesForDisplay(result?.reviewItems, result?.url || client.url);
   const actionable = issues.filter((issue) => ["automatic", "assisted"].includes(issueCorrectability(issue, { pageKind: pageKindFromUrl(resultSourceUrl(issue, result, client)) })));
   const manualCount = issues.length - actionable.length;
   const highCount = issues.filter((issue) => ["high", "alta", "critical", "critica"].includes(String(issue.severity || "").toLowerCase())).length;
@@ -357,9 +358,11 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
             return <div key={issueIdentity({ issueType: issue.type, issueLabel: issue.label, sourceUrl, issue })}>
               <span className={`priority ${issue.severity || "media"}`}>{issue.severity || "media"}</span>
               <strong>{issue.label}</strong>
-              {["automatic", "assisted"].includes(correctability) ? <button type="button" className="primary mini audit-agent-action" onClick={() => openRemediation(index)}><Sparkles />{correctability === "automatic" ? "Prepara correzione" : "Esamina e prepara"}</button> : <button type="button" className="secondary mini" onClick={() => askAgent(issue, result)}><Sparkles />Apri guida</button>}
+              <button type="button" className={["automatic", "assisted"].includes(correctability) ? "primary mini audit-agent-action" : "secondary mini audit-agent-action"} onClick={() => openRemediation(issue.auditIndex ?? index)}><Sparkles />Vai alla risoluzione</button>
               {href && <a className="task-link" href={href} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
               <button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
+              <small className="audit-evidence-source">Fonte dati: <strong>{issue.dataSource}</strong> · {issue.evidence?.observed || issue.detail || issue.label}</small>
+              {issue.targetUrl && <small className="audit-evidence-target">Destinazione verificata: {issue.targetUrl}</small>}
               <small className="audit-correctability-note">Correggibilità: {correctability === "automatic" ? "automatica con approvazione" : correctability === "assisted" ? "assistita" : correctability === "manual" ? "manuale" : "non supportata"}</small>
             </div>;
           }) : <div className="success"><Check />Nessun problema confermato tra quelli controllati.</div>}

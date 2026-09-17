@@ -563,7 +563,9 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
       html,
       /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']robots["']/i,
     );
-  const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
+  const visibleMarkup = stripAlwaysHiddenMarkup(html);
+  const h1 = visibleH1Count(visibleMarkup);
+  const h2 = count(visibleMarkup, /<h2\b[^>]*>/gi);
   const images = count(html, /<img\b[^>]*>/gi);
   const missingAlt = count(html, /<img\b(?![^>]*\balt\s*=)[^>]*>/gi);
   const text = html
@@ -609,6 +611,7 @@ function pageSignals(html, url, status, responseMs, depth, headers) {
     xRobotsTag,
     noindex: /noindex/i.test(`${robots} ${xRobotsTag}`),
     h1,
+    h2,
     images,
     missingAlt,
     words,
@@ -644,6 +647,8 @@ function technicalIssues(
         page,
       );
     if (page.h1 !== 1) push("h1", "alta", `${page.h1} H1 rilevati`, page);
+    if (page.pageKind === "content" && page.words >= 180 && page.h2 === 0)
+      push("h2", "bassa", "Nessun H2 rilevato", page, `${page.words} parole visibili senza sottotitoli H2.`);
     if (page.canonicalError)
       push("canonical-invalid", "alta", page.canonicalError, page);
     else if (!page.canonical)
@@ -762,7 +767,58 @@ function technicalIssues(
           "Presente nella sitemap ma non raggiunta dai link interni controllati.",
       });
   }
-  return issues.filter(Boolean);
+  return finalizeAuditIssues(issues.filter(Boolean), pages);
+}
+
+const severityOrder = Object.freeze({ bassa: 1, media: 2, alta: 3 });
+const normalizeAuditSeverity = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["critical", "critica", "high", "alta"].includes(normalized)) return "alta";
+  if (["low", "bassa"].includes(normalized)) return "bassa";
+  return "media";
+};
+const auditIdentityUrl = (value) => {
+  if (!value) return "";
+  try { return canonicalCrawlUrl(value); } catch { return String(value).trim(); }
+};
+const auditDataSource = (issue = {}) => {
+  const type = String(issue.type || "").toLowerCase();
+  if (/broken|http-status|crawl/.test(type)) return "Controllo HTTP riproducibile";
+  if (/x-robots/.test(type)) return "Header HTTP X-Robots-Tag";
+  if (/orphan/.test(type)) return "Sitemap + grafo link interni";
+  if (/performance/.test(type)) return "Tempo risposta HTTP";
+  return "HTML osservato dal crawler";
+};
+function finalizeAuditIssues(input, pages = []) {
+  const pageMap = new Map((Array.isArray(pages) ? pages : []).map((page) => [auditIdentityUrl(page.url), page]));
+  const byIdentity = new Map();
+  for (const raw of Array.isArray(input) ? input : []) {
+    if (!raw || typeof raw !== "object") continue;
+    const sourceUrl = raw.sourceUrl || raw.url || "";
+    const targetUrl = raw.targetUrl || "";
+    const page = sourceUrl ? pageMap.get(auditIdentityUrl(sourceUrl)) : null;
+    const severity = normalizeAuditSeverity(raw.severity);
+    const source = raw.dataSource || auditDataSource(raw);
+    const issue = {
+      ...raw,
+      severity,
+      sourceUrl,
+      dataSource: source,
+      evidence: raw.evidence || {
+        source,
+        sourceUrl,
+        targetUrl,
+        observed: raw.detail || raw.label || "Segnale rilevato dall’audit.",
+        status: raw.status ?? null,
+        pageStatus: page?.status ?? null,
+      },
+    };
+    const key = [String(issue.type || issue.label || "").toLowerCase(), auditIdentityUrl(sourceUrl), auditIdentityUrl(targetUrl)].join("::");
+    const previous = byIdentity.get(key);
+    if (!previous || severityOrder[severity] > severityOrder[previous.severity] || String(issue.detail || "").length > String(previous.detail || "").length)
+      byIdentity.set(key, issue);
+  }
+  return [...byIdentity.values()];
 }
 
 async function sitemapBody(response, url) {
@@ -1028,83 +1084,87 @@ app.get("/api/analysis-progress/:id", (req, res) => {
 });
 
 app.post("/api/audit", crawlLimit, async (req, res) => {
-  trackAudit(req, res);
+  const reportProgress = trackAudit(req, res);
+  const requestController = new AbortController();
+  req.once("aborted", () => requestController.abort());
+  res.once("close", () => { if (!res.writableEnded) requestController.abort(); });
   try {
-    const url = await safePublicUrl(req.body.url);
-    const response = await fetchPublic(url, { timeout: 15000 });
-    if (!response.ok)
-      throw new Error(`Il sito ha risposto con ${response.status}`);
-    const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
+    const requested = await safePublicUrl(req.body.url);
+    reportProgress({ phase: "Pagina · richiesta HTTP", done: 0, total: 4 });
+    const startedAtMs = Date.now();
+    const response = await fetchPublic(requested, { timeout: 15000, signal: requestController.signal });
+    const finalUrl = response.url;
+    const status = response.status;
+    if (isLegalPage(finalUrl)) {
+      await response.body?.cancel();
+      reportProgress({ phase: "Pagina GDPR esclusa", done: 4, total: 4 });
+      return res.json({ url: finalUrl, analyzedAt: new Date().toISOString(), legalOnly: true, legalPages: [{ url: finalUrl }], issues: [], score: null });
+    }
+    if (!response.ok) {
+      await response.body?.cancel();
+      const issues = finalizeAuditIssues([{
+        type: "http-status",
+        severity: status >= 500 || [404, 410].includes(status) ? "alta" : "media",
+        label: `HTTP ${status} sulla pagina analizzata`,
+        url: finalUrl,
+        sourceUrl: finalUrl,
+        status,
+        detail: `La richiesta HTTP reale ha restituito ${status}.`,
+        dataSource: "Controllo HTTP riproducibile",
+      }]);
+      reportProgress({ phase: "Pagina · stato HTTP verificato", done: 4, total: 4 });
+      return res.json({ url: finalUrl, analyzedAt: new Date().toISOString(), status, pagesChecked: 1, linksChecked: 0, issues, score: 0 });
+    }
     const contentType = response.headers.get("content-type") || "";
-    if (!/(?:text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("La risorsa non è una pagina HTML: nessun punteggio SEO è stato calcolato.");
-    const metadata = publicHeadMetadata(html);
-    const title = metadata.title;
-    const description = metadata.metaDescription;
-    const canonical =
-      firstMatch(
-        html,
-        /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i,
-      ) ||
-      firstMatch(
-        html,
-        /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i,
-      );
-    const h1 = visibleH1Count(stripAlwaysHiddenMarkup(html));
-    const images = count(html, /<img\b[^>]*>/gi);
-    const missingAlt = count(html, /<img\b(?![^>]*\balt=)[^>]*>/gi);
-    const issues = [];
-    if (metadata.titleCount > 1 || metadata.metaDescriptionCount > 1) issues.push({type:"metadata-tags",severity:"alta",label:"Tag SEO duplicati nella pagina",detail:`${metadata.titleCount} title e ${metadata.metaDescriptionCount} meta description nel codice HTML.`});
-    if (!title) issues.push({ severity: "alta", label: "Title mancante" });
-    else if (title.length < 20 || title.length > 70)
-      issues.push({
-        severity: "media",
-        label: `Title di ${title.length} caratteri`,
-      });
-    if (!description)
-      issues.push({ severity: "alta", label: "Meta description mancante" });
-    else if (seoCharacterCount(description) < 70 || seoCharacterCount(description) > SEO_TEXT_LIMITS.meta_description)
-      issues.push({
-        severity: "media",
-        label: `Meta description di ${seoCharacterCount(description)} caratteri`,
-      });
-    if (h1 !== 1) issues.push({ severity: "alta", label: `${h1} H1 rilevati` });
-    if (!canonical)
-      issues.push({ severity: "media", label: "Canonical non rilevata" });
-    if (missingAlt)
-      issues.push({
-        severity: "media",
-        label: `${missingAlt} immagini senza alt`,
-      });
-    const score = Math.max(
-      0,
-      100 -
-        issues.reduce(
-          (sum, issue) =>
-            sum +
-            (issue.severity === "alta"
-              ? 5
-              : issue.severity === "media"
-                ? 2
-                : 1),
-          0,
-        ),
-    );
-    if (isLegalPage(response.url)) return res.json({ url: response.url, analyzedAt: new Date().toISOString(), legalOnly: true, legalPages: [{ url: response.url }], issues: [], score: null });
+    if (!/(?:text\/html|application\/xhtml\+xml)/i.test(contentType)) {
+      await response.body?.cancel();
+      throw new Error("La risorsa non è una pagina HTML: nessun punteggio SEO è stato calcolato.");
+    }
+    const html = await limitedBody(response, 8 * 1024 * 1024, "Pagina HTML");
+    reportProgress({ phase: "Pagina · HTML e metadati", done: 1, total: 4 });
+    const page = pageSignals(html, finalUrl, status, Date.now() - startedAtMs, 0, response.headers);
+    const siteHost = normalizedHost(new URL(finalUrl).hostname);
+    const allLinks = pageLinks(html, finalUrl);
+    const discovered = allLinks.slice(0, 100).map((target) => ({
+      target,
+      kind: normalizedHost(new URL(target).hostname) === siteHost ? "internal" : "external",
+    }));
+    const linkSources = new Map(discovered.filter((item) => item.kind === "internal").map((item) => [item.target, new Set([finalUrl])]));
+    const externalLinkSources = new Map(discovered.filter((item) => item.kind === "external").map((item) => [item.target, new Set([finalUrl])]));
+    const internalResults = new Map();
+    const externalResults = new Map();
+    let cursor = 0;
+    let completed = 0;
+    reportProgress({ phase: "Pagina · verifica link", done: 0, total: Math.max(1, discovered.length), discovering: false });
+    await Promise.all(Array.from({ length: Math.min(4, discovered.length) }, async () => {
+      while (cursor < discovered.length) {
+        const item = discovered[cursor++];
+        const check = await fetchStatusWithRetry(item.target, 2, requestController.signal);
+        (item.kind === "internal" ? internalResults : externalResults).set(item.target, check);
+        reportProgress({ phase: "Pagina · verifica link", done: ++completed, total: Math.max(1, discovered.length), discovering: false });
+      }
+    }));
+    const broken = (items, results, sources) => items.flatMap((item) => {
+      const check = results.get(item.target);
+      const isBroken = !check?.status || [404, 410].includes(check.status) || check.status === 429 || check.status >= 500;
+      return isBroken ? [{ url: item.target, status: check?.status || null, error: check?.error || "", temporary: Boolean(check?.temporary), sources: [...(sources.get(item.target) || [])] }] : [];
+    });
+    const brokenLinks = broken(discovered.filter((item) => item.kind === "internal"), internalResults, linkSources);
+    const brokenExternalLinks = broken(discovered.filter((item) => item.kind === "external"), externalResults, externalLinkSources);
+    reportProgress({ phase: "Pagina · classificazione issue", done: 3, total: 4 });
+    const issues = technicalIssues([page], linkSources, brokenLinks, [], brokenExternalLinks);
+    const penalty = issues.reduce((sum, issue) => sum + (issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1), 0);
+    reportProgress({ phase: "Pagina · completata", done: 4, total: 4 });
     res.json({
-      url: response.url,
-      fetchedAt: new Date().toISOString(),
-      score,
-      title,
-      titleLength: seoCharacterCount(title),
-    titleCount: metadata.titleCount,
-    metaDescriptionCount: metadata.metaDescriptionCount,
-      description,
-      descriptionLength: seoCharacterCount(description),
-      canonical,
-      h1,
-      images,
-      missingAlt,
+      ...page,
+      analyzedAt: new Date().toISOString(),
+      pagesChecked: 1,
+      linksChecked: discovered.length,
+      brokenLinks,
+      brokenExternalLinks,
       issues,
+      score: Math.max(0, 100 - penalty),
+      limits: { links: 100, truncatedLinks: allLinks.length > 100 },
     });
   } catch (error) {
     res.status(400).json({ error: error.message || "Analisi non riuscita" });
@@ -1343,13 +1403,28 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
     const sitemap = await sitemapUrls(crawlSeed, siteHost, robotsText, requestController.signal);
     const legalPages = pages.filter(page => isLegalPage(page.url)).map(page => ({ url: page.url }));
     for (let i = pages.length - 1; i >= 0; i--) if (isLegalPage(pages[i].url)) pages.splice(i, 1);
-    const issues = technicalIssues(
-      pages,
-      linkSources,
-      brokenLinks,
-      queueCursor < queue.length ? [] : sitemap,
-      brokenExternalLinks,
-    ).filter(issue => !isLegalPage(issue.url || issue.targetUrl));
+    const seedFailureIssues = failures
+      .filter((failure) => auditIdentityUrl(failure.url || "") === auditIdentityUrl(seed.href) && Number(failure.status) >= 400)
+      .map((failure) => ({
+        type: "http-status",
+        severity: Number(failure.status) >= 500 || [404, 410].includes(Number(failure.status)) ? "alta" : "media",
+        label: `HTTP ${failure.status} sulla pagina iniziale`,
+        url: failure.url,
+        sourceUrl: failure.url,
+        status: failure.status,
+        detail: failure.reason || `HTTP ${failure.status}`,
+        dataSource: "Controllo HTTP riproducibile",
+      }));
+    const issues = finalizeAuditIssues([
+      ...technicalIssues(
+        pages,
+        linkSources,
+        brokenLinks,
+        queueCursor < queue.length ? [] : sitemap,
+        brokenExternalLinks,
+      ),
+      ...seedFailureIssues,
+    ], pages).filter(issue => !isLegalPage(issue.url || issue.targetUrl));
     const penalty = issues.reduce(
       (sum, issue) =>
         sum +
