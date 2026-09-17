@@ -59,7 +59,7 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await waitFor(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');return rows.some(t=>t.title===${q(taskTitle)}&&Number(t.sourceClientId)===Number(${actualClientId}))})()`, 'journey task persisted through UI');
     const journeyTaskId = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const rows=JSON.parse(m.workspaceStorage.getItem('seogrow-tasks-v2')||'[]');return rows.find(t=>t.title===${q(taskTitle)}&&Number(t.sourceClientId)===Number(${actualClientId}))?.id})()`);
     assert.ok(journeyTaskId, 'journey task id created');
-    await waitFor(`document.body.innerText.includes(${q(taskTitle)})`, 'task visible');
+    await waitFor(`[...document.querySelectorAll('.task-title-button')].some(b=>b.textContent.includes(${q(taskTitle)}))`, 'task row visible');
 
     // 9. Ranking: canonical project ranking run.
     await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const key='seogrow-rankings-v1';const store=JSON.parse(m.workspaceStorage.getItem(key)||'{}');store[${actualClientId}]=[{checkedAt:new Date().toISOString(),device:'desktop',locationCode:2826,languageCode:'it',depth:20,rankings:[{keyword:'seo journey',position:9,url:${q(pageUrl)}}]}];m.workspaceStorage.setItem(key,JSON.stringify(store));await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(store)}));})()`);
@@ -81,7 +81,7 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     assert.deepEqual(continuity, { selected: actualClientId, client: true, audit: true, task: true, ranking: true, opportunity: true, rollback: true });
 
     await clickSidebar('Task');
-    await waitFor(`document.body.innerText.includes(${q(taskTitle)})`, 'journey task after reopen');
+    await waitFor(`[...document.querySelectorAll('.task-title-button')].some(b=>b.textContent.includes(${q(taskTitle)}))`, 'journey task row after reopen');
     await clickSidebar('Piano editoriale');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial evidence after reopen');
 
