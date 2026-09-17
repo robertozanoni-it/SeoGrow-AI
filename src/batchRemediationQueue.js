@@ -1,6 +1,7 @@
 import { consolidateBatch, batchExecutionOrder, approvalFingerprint, verificationState, batchSummary, batchFinalReport } from './batchRemediationModel.js';
 
 const CRITICAL_CODE = /AUTH|HTTP_429|RATE_LIMIT|SCOPE_CHANGED|BATCH_STORAGE|BATCH_REVISION|AbortError|CONNECTION_LOST|UNCERTAIN/;
+const HIGH_RISK_KINDS = new Set(['canonical', 'noindex', 'external_link', 'content', 'h1']);
 const note = (entry, state, reason = '', code = '') => {
   entry.state = state; entry.reason = reason; entry.code = code;
   entry.logs.push({ at: new Date().toISOString(), state, code });
@@ -65,7 +66,7 @@ export async function prepareBatch(run, ports) {
       } else {
         if (!preview.data?.approvalToken || !preview.data?.changed?.length || !preview.resourceIdentity) throw new Error('Anteprima incompleta: scrittura bloccata.');
         entry.preview = preview;
-        entry.highRisk = entry.riskGroup === 'high';
+        entry.highRisk = entry.riskGroup === 'high' && HIGH_RISK_KINDS.has(entry.kind);
         note(entry, 'PREPARED');
       }
     } catch (error) {
