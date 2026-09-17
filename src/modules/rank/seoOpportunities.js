@@ -19,6 +19,7 @@ const normalizedUrl = (value) => {
 const finite = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const impactFromSeverity = (value) => ({ high: "Alto", medium: "Medio", low: "Basso" })[String(value || "").toLowerCase()] || "Medio";
 const impactFromPlanPriority = (value) => ({ alta: "Alto", media: "Medio", bassa: "Basso" })[String(value || "").toLowerCase()] || "Medio";
+const impactFromGeoSeverity = (value) => ({ alta: "Alto", media: "Medio", bassa: "Basso" })[String(value || "").toLowerCase()] || "Basso";
 const effortFromCorrectability = (value) => value === "automatic" ? "Basso" : value === "assisted" ? "Medio" : "Alto";
 const actionable = (action) => Boolean(action && ACTION_PAGES[action.kind]?.has(action.page) && text(action.label));
 const source = (type, label, evidence = "") => ({ type, label, evidence: text(evidence) });
@@ -133,6 +134,25 @@ const linkCandidates = (items) => (Array.isArray(items) ? items : []).flatMap((i
   })];
 });
 
+const geoCandidates = (items) => (Array.isArray(items) ? items : []).flatMap((item) => {
+  if (!item?.id || !item?.title || !item?.reason || !item?.source) return [];
+  const contentAction = item.actionKind === "content";
+  const action = contentAction
+    ? { kind: "content", page: "Piano editoriale", label: "Apri contenuto", task: { title: item.title, kind: "geo-content", query: item.query || "", sourceUrl: item.url || "", detail: `${item.reason}\n\nFonte GEO: ${item.source}.` } }
+    : { kind: "task", page: "Task", label: "Crea task", task: { title: item.title, kind: "geo", sourceUrl: item.url || "", detail: `${item.reason}\n\nFonte GEO: ${item.source}.` } };
+  return [candidate({
+    dedupeKey: `geo|${normalizedText(item.id)}`,
+    title: item.title,
+    reason: item.reason,
+    url: item.url,
+    impact: impactFromGeoSeverity(item.severity),
+    effort: contentAction ? "Medio" : "Medio",
+    action,
+    sourceInfo: source("geo", "GEO AI", `${item.source} · ${item.evidenceKind || "evidenza"}${item.severity ? ` · ${item.severity}` : ""}`),
+    raw: { geo: item },
+  })];
+});
+
 const chooseActionCandidate = (left, right) => {
   const leftWeight = ACTION_WEIGHT[left.action?.kind] || 0;
   const rightWeight = ACTION_WEIGHT[right.action?.kind] || 0;
@@ -197,12 +217,13 @@ export function validateSeoOpportunityActionability(item) {
   return { ok: true, reason: "Opportunità azionabile." };
 }
 
-export function buildSeoOpportunities({ auditProblems = [], rankingRows = [], contentItems = [], linkSuggestions = [], gscDataset = null } = {}) {
+export function buildSeoOpportunities({ auditProblems = [], rankingRows = [], contentItems = [], linkSuggestions = [], geoItems = [], gscDataset = null } = {}) {
   const candidates = [
     ...auditCandidates(auditProblems),
     ...rankingCandidates(rankingRows, gscDataset),
     ...contentCandidates(contentItems),
     ...linkCandidates(linkSuggestions),
+    ...geoCandidates(geoItems),
   ];
   const grouped = new Map();
   const rejected = [];
