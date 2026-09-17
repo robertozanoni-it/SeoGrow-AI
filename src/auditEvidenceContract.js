@@ -91,10 +91,25 @@ export const withAuditEvidence = (issue, { fallbackUrl = "", scope = "page", obs
   };
 };
 
+const failureIssues = (data) => (Array.isArray(data?.failures) ? data.failures : []).flatMap((failure) => {
+  const status = Number(failure?.status);
+  if (![404, 410].includes(status) || !failure?.url || isLegalPage(failure.url)) return [];
+  return [{
+    type: `http-${status}`,
+    severity: "alta",
+    label: `Pagina non raggiungibile (HTTP ${status})`,
+    url: failure.url,
+    sourceUrl: failure.url,
+    status,
+    observedValue: `HTTP ${status}`,
+    detail: failure.reason || `HTTP ${status} osservato durante il crawl.`,
+  }];
+});
+
 export function enforceAuditEvidence(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
   const scope = data.auditMode === "site" || Number(data.pagesChecked) > 1 ? "site" : "page";
-  const observedAt = data.analyzedAt || data.startedAt || "";
+  const observedAt = data.analyzedAt || data.fetchedAt || data.startedAt || "";
   const normalizeRows = (rows) => {
     const seen = new Set();
     const output = [];
@@ -108,7 +123,7 @@ export function enforceAuditEvidence(data) {
     }
     return output;
   };
-  data.issues = normalizeRows(data.issues);
+  data.issues = normalizeRows([...(Array.isArray(data.issues) ? data.issues : []), ...failureIssues(data)]);
   data.reviewItems = normalizeRows(data.reviewItems);
   data.issueEvidenceVersion = 1;
   data.issueEvidenceComplete = [...data.issues, ...data.reviewItems].every((issue) => issue?.evidence?.reproducible === true);
