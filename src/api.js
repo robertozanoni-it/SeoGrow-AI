@@ -6,8 +6,14 @@ import {
   buildEditorialProjectContext,
   serializeEditorialProjectContext,
 } from "./modules/content/index.js";
+import {
+  projectFeatureEnabled,
+  projectPolicyFromPreferences,
+  projectWriteAllowed,
+} from "./system/settings/projectPolicy.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
+const PREFERENCES_KEY = "seogrow-preferences-v1";
 const scopedRequests = new Set();
 
 const selectedClientId = () => {
@@ -39,6 +45,48 @@ const latestByDate = (value, fields) => {
 };
 
 const isWordPressRemediationGenerate = (topic) => /^Remediation WordPress\b/i.test(String(topic || "").trim());
+
+const activeProjectPolicy = () => {
+  const clientId = selectedClientId();
+  if (!clientId) return null;
+  return projectPolicyFromPreferences(readWorkspaceJson(PREFERENCES_KEY, {}), clientId);
+};
+
+const bodyTopic = (body) => {
+  if (typeof body !== "string") return "";
+  try { return String(JSON.parse(body)?.topic || ""); }
+  catch { return ""; }
+};
+
+export const isWordPressWriteRequest = (path, method = "GET") => {
+  if (String(method || "GET").toUpperCase() !== "POST") return false;
+  return new Set([
+    "/api/wordpress/draft",
+    "/api/wordpress/live-apply",
+    "/api/wordpress/taxonomy-apply",
+    "/api/wordpress/elementor-shared-link-apply",
+  ]).has(String(path || ""));
+};
+
+export const assertProjectPolicyAllowsRequest = (path, method, body) => {
+  const policy = activeProjectPolicy();
+  if (!policy) return;
+  if (isWordPressWriteRequest(path, method) && !projectWriteAllowed(policy)) {
+    const error = new Error("Scrittura bloccata dalle Impostazioni del progetto. Riattiva ‘Abilita scritture WordPress’ per applicare modifiche.");
+    error.code = "PROJECT_WRITES_DISABLED";
+    throw error;
+  }
+  if (path === "/api/geo/simulate" && !projectFeatureEnabled(policy, "geoDiagnostics")) {
+    const error = new Error("Diagnostica GEO disattivata nelle Impostazioni del progetto.");
+    error.code = "PROJECT_FEATURE_DISABLED";
+    throw error;
+  }
+  if (path === "/api/generate" && !isWordPressRemediationGenerate(bodyTopic(body)) && !projectFeatureEnabled(policy, "editorialGeneration")) {
+    const error = new Error("Generazione editoriale disattivata nelle Impostazioni del progetto.");
+    error.code = "PROJECT_FEATURE_DISABLED";
+    throw error;
+  }
+};
 
 export const prepareEditorialGenerateBody = (body) => {
   if (typeof body !== "string") return body;
@@ -230,6 +278,7 @@ export async function apiFetch(input, init = {}) {
   let lastError;
   const inputText = String(input || "");
   const path = requestPath(input);
+  assertProjectPolicyAllowsRequest(path, method, init.body);
   const generatedInit = inputText.includes("/api/generate")
     ? { ...init, body: trimGenerateContext(prepareEditorialGenerateBody(init.body)) }
     : init;
