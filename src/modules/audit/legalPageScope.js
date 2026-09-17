@@ -79,6 +79,6 @@ export function excludeLegalSeo(data, { excludedPaths = [] } = {}) {
   data.legalOnly = legalOnly;
   data.projectExcluded = configuredOnly;
   data.auditExcludedPaths = [...new Set((Array.isArray(excludedPaths) ? excludedPaths : []).map(value => String(value || '').trim()).filter(Boolean))];
-  data.legalScopeVersion = 5;
+  data.legalScopeVersion = 4;
   return data;
 }
