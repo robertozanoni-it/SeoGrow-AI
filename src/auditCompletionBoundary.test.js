@@ -34,29 +34,29 @@ test("crawl sito copre segnali tecnici richiesti e filtra pagine legali", async 
   assert.match(server, /filter\(issue => !isLegalPage/);
 });
 
-test("audit pagina completa H2 e noindex tramite osservazione frontend reale", async () => {
-  const [api, frontend] = await Promise.all([
-    source("./api.js"),
+test("audit pagina completa H2 e noindex tramite osservazione frontend confinata ad AuditWorkspace", async () => {
+  const [workspace, frontend, api] = await Promise.all([
+    source("./AuditWorkspace.jsx"),
     readFile(new URL("../server/frontendVerificationHook.js", import.meta.url), "utf8"),
+    source("./api.js"),
   ]);
-  assert.match(api, /\/api\/frontend\/inspect/);
-  assert.match(api, /inspection\.h2/);
-  assert.match(api, /inspection\.noindex/);
-  assert.match(api, /Nessun H2 rilevato/);
-  assert.match(api, /Pagina impostata noindex/);
+  assert.match(workspace, /\/api\/frontend\/inspect/);
+  assert.match(workspace, /inspection\.h2/);
+  assert.match(workspace, /inspection\.noindex/);
+  assert.match(workspace, /Nessun H2 rilevato/);
+  assert.match(workspace, /Pagina impostata noindex/);
   assert.match(frontend, /visibleH2Count/);
   assert.match(frontend, /h2: result\.h2/);
   assert.match(frontend, /xRobotsTag/);
+  assert.doesNotMatch(api, /auditEvidenceContract|normalizeAuditEvidenceResponse|supplementPageAudit/);
 });
 
 test("ogni issue passa dal contratto evidenza e AuditWorkspace espone Vai alla risoluzione", async () => {
-  const [api, contract, workspace, bootstrap] = await Promise.all([
-    source("./api.js"),
+  const [contract, workspace, bootstrap] = await Promise.all([
     source("./auditEvidenceContract.js"),
     source("./AuditWorkspace.jsx"),
     source("./appMain.jsx"),
   ]);
-  assert.match(api, /normalizeAuditEvidenceResponse/);
   assert.match(contract, /issueEvidenceComplete/);
   assert.match(contract, /sourceType/);
   assert.match(contract, /auditIssueIdentity/);
