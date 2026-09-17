@@ -19,7 +19,7 @@ In assenza di uno di questi elementi lo stato resta `Da verificare`, `Bloccato`,
 
 ## Single fix
 
-`AutoFixPostApplyVerifier` ascolta l'evento di apply e, con la sessione WordPress verificata, concatena riverifica e audit di conferma. Non modifica il writer e non persiste password.
+Il listener post-apply già canonico di `remediationIntegrity` richiama `recheckCorrections()`, che ora passa sempre da `recheckCorrectionById()`: riverifica frontend e audit di conferma usano quindi un solo pipeline condiviso. Lo storage impedisce inoltre a una write live di essere persistita come `Verificato` senza completion evidence e non chiude la task prima del gate.
 
 ## Batch fix
 
@@ -34,6 +34,7 @@ L'adapter batch riusa gli endpoint certificati nell'issue #163:
 - apply CAS atomico;
 - stale check;
 - verifica frontend di tutte le URL impattate;
+- receipt associato a `elementor_library` e all'ID reale del template, così il rollback storico usa il writer shared corretto;
 - rollback automatico lato writer se il frontend non verifica;
 - audit sito post-fix prima del completamento AutoFix.
 
