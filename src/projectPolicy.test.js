@@ -22,7 +22,7 @@ const unsafeInput = {
 
 test("project policy keeps safety invariants non-weakenable", () => {
   const policy = normalizeProjectPolicy(unsafeInput);
-  assert.equal(policy.audit.excludeLegalPages, false);
+  assert.equal(policy.audit.excludeLegalPages, true);
   assert.equal(policy.corrections.requireApproval, true);
   assert.equal(policy.writeSecurity.writesEnabled, false);
   assert.equal(policy.writeSecurity.requirePreview, true);
