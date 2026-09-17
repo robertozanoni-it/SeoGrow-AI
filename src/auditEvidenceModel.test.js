@@ -9,7 +9,8 @@ test("audit legacy issues receive type, severity and reproducible source", () =>
   assert.equal(issue.type, "indexability");
   assert.equal(issue.severity, "alta");
   assert.equal(issue.sourceUrl, "https://example.com/a");
-  assert.equal(issue.dataSource, "HTML osservato dal crawler");
+  assert.equal(issue.dataSource, "Meta robots / Header HTTP X-Robots-Tag");
+  assert.equal(issue.evidence.source, "Meta robots / Header HTTP X-Robots-Tag");
   assert.equal(issue.evidence.observed, "robots: noindex");
 });
 
