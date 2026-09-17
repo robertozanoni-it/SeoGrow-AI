@@ -5,7 +5,6 @@ import { readFile } from "node:fs/promises";
 const layer = await readFile(new URL("./CardWorkspaceLayer.jsx", import.meta.url), "utf8");
 const css = await readFile(new URL("./CardWorkspaceLayer.css", import.meta.url), "utf8");
 const sidebarCss = await readFile(new URL("./SidebarReadabilityFix.css", import.meta.url), "utf8");
-const bridge = await readFile(new URL("./ProblemsNavBridge.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 
 test("il layer card-first è montato globalmente", () => {
@@ -43,20 +42,19 @@ test("Posizionamenti usa lo storico reale e il confronto precedente", () => {
   assert.match(css, /data-seogrow-card-page="Posizionamenti"/);
 });
 
-test("il card layer copre le principali pagine operative", () => {
+test("il card layer continua a coprire anche le viste legacy durante la migrazione", () => {
   for (const page of ["Clienti", "Audit SEO", "Storico", "Problemi", "Correzioni", "Posizionamenti", "Task", "Opportunità", "Link interni", "Piano editoriale", "SEO Agent", "GEO AI", "Integrazioni", "Impostazioni", "Panoramica", "Centro progetto"]) {
     assert.match(layer, new RegExp(page.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
 });
 
-test("la sidebar guidata mantiene contrasto e non duplica Problemi", () => {
+test("la sidebar guidata mantiene contrasto e non inietta una voce Problemi parallela", () => {
   assert.match(main, /SidebarReadabilityFix\.css/);
   assert.match(sidebarCss, /nav\.guided-nav button/);
   assert.match(sidebarCss, /color:\s*#4e6885\s*!important/);
   assert.match(sidebarCss, /button\.active/);
   assert.match(sidebarCss, /background:\s*#1f5489\s*!important/);
-  assert.match(bridge, /guidedHasProblems/);
-  assert.match(bridge, /problems-nav-bridge-button/);
+  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
 });
 
 test("il layer non introduce polling DOM invasivo", () => {
