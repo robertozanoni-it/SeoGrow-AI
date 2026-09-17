@@ -15,7 +15,6 @@ export const DEFAULT_PROJECT_POLICY = Object.freeze({
   }),
   corrections: Object.freeze({
     requireApproval: true,
-    allowAutoPrepareLowRisk: true,
   }),
   writeSecurity: Object.freeze({
     writesEnabled: true,
@@ -38,7 +37,6 @@ export const DEFAULT_PROJECT_POLICY = Object.freeze({
 
 export function normalizeProjectPolicy(value = {}) {
   const audit = value?.audit && typeof value.audit === "object" ? value.audit : {};
-  const corrections = value?.corrections && typeof value.corrections === "object" ? value.corrections : {};
   const writeSecurity = value?.writeSecurity && typeof value.writeSecurity === "object" ? value.writeSecurity : {};
   const retention = value?.retention && typeof value.retention === "object" ? value.retention : {};
   const featureFlags = value?.featureFlags && typeof value.featureFlags === "object" ? value.featureFlags : {};
@@ -49,7 +47,6 @@ export function normalizeProjectPolicy(value = {}) {
     },
     corrections: {
       requireApproval: true,
-      allowAutoPrepareLowRisk: bool(corrections.allowAutoPrepareLowRisk, DEFAULT_PROJECT_POLICY.corrections.allowAutoPrepareLowRisk),
     },
     writeSecurity: {
       writesEnabled: bool(writeSecurity.writesEnabled, DEFAULT_PROJECT_POLICY.writeSecurity.writesEnabled),
@@ -122,7 +119,6 @@ export function projectFeatureEnabled(policy, feature) {
 export const USER_CONTROLLABLE_SETTINGS = Object.freeze([
   "audit.excludedPaths",
   "writeSecurity.writesEnabled",
-  "corrections.allowAutoPrepareLowRisk",
   "retention.auditRuns",
   "retention.rankingRuns",
   "retention.agentRuns",
