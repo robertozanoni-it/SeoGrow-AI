@@ -29,6 +29,7 @@ import CardWorkspaceLayer from './CardWorkspaceLayer';
 import RankingsWorkspaceLayer from './RankingsWorkspaceLayer';
 import InternalLinksWorkspaceLayer from './InternalLinksWorkspaceLayer';
 import OpportunitiesWorkspaceLayer from './OpportunitiesWorkspaceLayer';
+import TaskLinkagePanel from './TaskLinkagePanel';
 import ProjectSelectionGuard from './ProjectSelectionGuard';
 import ProjectContinuityLayer from './ProjectContinuityLayer';
 import {
@@ -105,6 +106,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <RankingsWorkspaceLayer />
       <InternalLinksWorkspaceLayer />
       <OpportunitiesWorkspaceLayer />
+      <TaskLinkagePanel />
       <ProjectSelectionGuard />
       <ProjectContinuityLayer />
       <ProblemsNavBridge />
