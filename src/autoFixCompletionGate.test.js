@@ -44,20 +44,23 @@ test("broken external link verificabile entra nel planner AutoFix", () => {
   assert.match(result.reason, /CAS atomico|writer/i);
 });
 
-test("runtime AutoFix usa verifier post-fix e writer shared certificato", async () => {
-  const [runtime, adapter, queue, journal, confirmation, appMain] = await Promise.all([
+test("runtime AutoFix usa verifier canonico e writer shared certificato", async () => {
+  const [runtime, adapter, queue, journal, confirmation, integrity, store] = await Promise.all([
     readFile(new URL("./batchRemediationRuntime.js", import.meta.url), "utf8"),
     readFile(new URL("./sharedElementorBatchAdapter.js", import.meta.url), "utf8"),
     readFile(new URL("./batchRemediationQueue.js", import.meta.url), "utf8"),
     readFile(new URL("./correctionJournal.js", import.meta.url), "utf8"),
     readFile(new URL("./confirmationAudit.js", import.meta.url), "utf8"),
-    readFile(new URL("./appMain.jsx", import.meta.url), "utf8"),
+    readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8"),
+    readFile(new URL("./remediationStore.js", import.meta.url), "utf8"),
   ]);
   assert.match(runtime, /verifyAutoFixCorrectionById/);
   assert.match(runtime, /prepareSharedElementorBatchPreview/);
   assert.match(runtime, /applySharedElementorBatchPreview/);
   assert.match(adapter, /elementor-shared-link-preview/);
   assert.match(adapter, /elementor-shared-link-apply/);
+  assert.match(adapter, /record\.resource\s*=\s*"elementor_library"/);
+  assert.match(adapter, /record\.entityId\s*=\s*templateId/);
   assert.match(adapter, /frontendVerified\s*!==\s*true/);
   assert.match(adapter, /atomicGuaranteed\s*!==\s*true/);
   assert.match(adapter, /staleChecked\s*!==\s*true/);
@@ -66,5 +69,8 @@ test("runtime AutoFix usa verifier post-fix e writer shared certificato", async 
   assert.match(journal, /SHARED_ELEMENTOR_WRITES_DISABLED/);
   assert.match(journal, /SHARED_LINK_FRONTEND_ROLLED_BACK/);
   assert.match(confirmation, /requiresDuplicateAudit\(record\)\s*\|\|\s*linkLike\(record\)/);
-  assert.match(appMain, /AutoFixPostApplyVerifier/);
+  assert.match(integrity, /liveNeedsConfirmation/);
+  assert.match(integrity, /recheckCorrectionById\(record\.id\)/);
+  assert.match(store, /completionSafeRecord/);
+  assert.match(store, /hasAutoFixCompletionEvidence/);
 });
