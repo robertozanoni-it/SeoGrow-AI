@@ -9,6 +9,7 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
   const issueKey = 'journey-title-issue';
   const correctionId = 'journey-correction';
   const taskTitle = 'Ricontrolla title dopo rollback';
+  const baseline = await evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');const r=await import('/src/remediationStore.js');await m.flushWorkspace();const entries={};for(let i=0;i<m.workspaceStorage.length;i+=1){const key=m.workspaceStorage.key(i);if(key)entries[key]=m.workspaceStorage.getItem(key);}return {entries,corrections:await r.listCorrections({includeOrphans:true})};})()`);
 
   await record('FUNCTIONAL-JOURNEY-18', async () => {
     // 1. Nuovo cliente: use the real Clients UI, not a storage shortcut.
@@ -85,10 +86,9 @@ export async function runFunctionalJourney({ evaluate, waitFor, clickSidebar, re
     await clickSidebar('Piano editoriale');
     await waitFor(`document.body.innerText.includes('seo journey')`, 'editorial evidence after reopen');
 
-    // Cleanup for subsequent legacy screenshot checks only; the tested journey itself had no reset.
-    await clickSidebar('Clienti');
-    await waitFor("[...document.querySelectorAll('.reference-client-card')].some(c=>c.textContent.includes('Browser QA'))", 'baseline client card');
-    await evaluate("(()=>{const card=[...document.querySelectorAll('.reference-client-card')].find(c=>c.textContent.includes('Browser QA'));if(!card)throw new Error('Baseline client card missing');card.click();})()");
-    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===9001})()", 'baseline project restored through UI');
+    // Test isolation only after the whole journey has passed; no reset occurs inside the audited path.
+    await evaluate(`(async()=>{const snapshot=${q(baseline)};const m=await import('/src/workspaceDatabase.js');const r=await import('/src/remediationStore.js');const sys=await import('/src/system/index.js');const current=[];for(let i=0;i<m.workspaceStorage.length;i+=1){const key=m.workspaceStorage.key(i);if(key)current.push(key);}for(const key of current){if(!Object.prototype.hasOwnProperty.call(snapshot.entries,key))m.workspaceStorage.removeItem(key);}for(const [key,value] of Object.entries(snapshot.entries)){m.workspaceStorage.setItem(key,value);}await r.replaceCorrections(snapshot.corrections);sys.forgetWordPressSession(${actualClientId},${q(siteUrl)});await m.flushWorkspace();})()`);
+    await reload();
+    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return Number(JSON.parse(m.workspaceStorage.getItem('seogrow-selected-client-v1')||'0'))===9001})()", 'baseline fixture restored after journey PASS');
   });
 }
