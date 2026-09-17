@@ -12,17 +12,26 @@ const AUDIT_SURFACES = [
   "AuditWorkspace",
 ];
 
+const MOUNTED_AUDIT_SURFACES = [
+  "ProblemsWorkspaceMount",
+  "ProblemResolutionPage",
+  "AuditWorkspace",
+];
+
 const PUBLISH_SURFACES = [
   "AutomaticProposalPage",
   "RemediationRuntime",
   "CorrectionsWorkspace",
 ];
 
-test("Audit espone soltanto superfici di analisi e problema", () => {
+test("Audit espone le superfici legacy necessarie ma non rimonta una navigazione Problemi parallela", () => {
   for (const surface of AUDIT_SURFACES) {
     assert.match(facade, new RegExp(`default as ${surface}`));
+  }
+  for (const surface of MOUNTED_AUDIT_SURFACES) {
     assert.match(main, new RegExp(`<${surface} \\/>`));
   }
+  assert.doesNotMatch(main, /<ProblemsNavBridge \/>/);
   for (const surface of PUBLISH_SURFACES) {
     assert.doesNotMatch(facade, new RegExp(`default as ${surface}`));
   }
