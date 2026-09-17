@@ -135,6 +135,7 @@ test('false verification needs explicit write and public confirmation, no outsta
   assert.equal(verificationState({record:{status:'Verificato'}}),'APPLIED_UNVERIFIED');
   assert.equal(verificationState({record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true},needsAudit:true}),'APPLIED_UNVERIFIED');
   assert.equal(verificationState({record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true},needsBrowserVerification:true}),'APPLIED_UNVERIFIED');
+  assert.equal(verificationState({record:{status:'Verificato',writeConfirmed:true,frontendConfirmed:true,liveApproval:true,verifiedAt:'2026-09-17T12:00:00Z'}}),'APPLIED_UNVERIFIED');
 });
 test('site lock fails closed when unavailable or held by another tab',async()=>{
   let called=0;await assert.rejects(withBatchLock('https://example.com',async()=>called++,{}));
@@ -144,16 +145,15 @@ test('approval fingerprint binds site, resource, before/after, changes, dependen
   const run=runFor([problem('a')]);const e=run.entries[0];e.state='PREPARED';e.preview=preview(e);const before=approvalFingerprint(run);e.dependsOn=['other'];assert.notEqual(approvalFingerprint(run),before);
 });
 
-
-test('non-editable WordPress resources are absorbed by the assisted batch fallback', async () => {
+test('non-editable WordPress resources are absorbed by the assisted batch fallback without declaring success', async () => {
   const run=runFor([problem('archive-like')]);
   const t=portsFor({prepare:async()=>{throw Object.assign(new Error('Nessuna pagina o articolo WordPress trovato'),{code:'NON_EDITABLE_RESOURCE'});}});
   await prepareBatch(run,t.ports);
   assert.equal(run.entries[0].state,'MANAGED_ASSISTED');
-  assert.equal(run.status,'SUCCESS');
+  assert.equal(run.status,'COMPLETED_WITH_OPEN');
 });
 
-test('assisted fallback is completed inside the batch without WordPress writes',async()=>{
+test('assisted fallback remains open until the intervention is actually verified',async()=>{
   const run=runFor([problem('manual',{correctability:'manual',issueType:'image-alt',title:'Immagine senza alt'})]);const t=portsFor();await prepareBatch(run,t.ports);
-  assert.equal(run.entries[0].state,'MANAGED_ASSISTED');assert.equal(run.status,'SUCCESS');assert.equal(t.applied.length,0);assert.equal(batchSummary(run).managedAssisted,1);
+  assert.equal(run.entries[0].state,'MANAGED_ASSISTED');assert.equal(run.status,'COMPLETED_WITH_OPEN');assert.equal(t.applied.length,0);assert.equal(batchSummary(run).managedAssisted,1);
 });
