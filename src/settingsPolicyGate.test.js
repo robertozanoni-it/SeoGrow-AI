@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const settings = await readFile(new URL("./SettingsWorkspaceLayer.jsx", import.meta.url), "utf8");
 const api = await readFile(new URL("./api.js", import.meta.url), "utf8");
 const retention = await readFile(new URL("./projectRetention.js", import.meta.url), "utf8");
-const integrity = await readFile(new URL("./projectPolicyIntegrity.js", import.meta.url), "utf8");
+const draftApproval = await readFile(new URL("./WordPressDraftApprovalInvariant.js", import.meta.url), "utf8");
 const batchGuard = await readFile(new URL("./BatchFeatureFlagGuard.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
 const serverIndex = await readFile(new URL("../server/index.js", import.meta.url), "utf8");
@@ -46,10 +46,12 @@ test("retention trims only non-authoritative histories", () => {
   assert.doesNotMatch(retention, /remediation|correction|TASKS_KEY|WORKSPACE_KEYS\.tasks/i);
 });
 
-test("mandatory approval cannot be weakened by the legacy preference", () => {
-  assert.match(integrity, /approveWordPress === true/);
-  assert.match(integrity, /approveWordPress: true/);
-  assert.match(main, /projectPolicyIntegrity/);
+test("mandatory approval remains enforced without rewriting the legacy preference", () => {
+  assert.match(draftApproval, /Invia come bozza/i);
+  assert.match(draftApproval, /confirmAction/);
+  assert.match(draftApproval, /preventDefault/);
+  assert.match(draftApproval, /approveWordPress !== true/);
+  assert.match(main, /WordPressDraftApprovalInvariant/);
   assert.match(main, /BatchFeatureFlagGuard/);
   assert.match(main, /projectRetention/);
   assert.match(main, /SettingsWorkspaceLayer/);
