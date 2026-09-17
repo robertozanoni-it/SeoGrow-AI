@@ -5,6 +5,8 @@ import { buildUnifiedProblems } from "./problemsModel.js";
 import { problemEntryLabel } from "./resolutionPath.js";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
 import { canonicalProblemClosures } from "./core/workspace/projectState.js";
+import { writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
+import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { isPermanentProblemClosure, problemClosureIdentity } from "./problemDisposition.js";
 
@@ -32,7 +34,7 @@ test("Non modificare resta escluso anche dopo un audit più recente", () => {
   assert.equal(model.activeRows.length, 0);
 });
 
-test("canonicalizzazione e migrazione non possono sovrascrivere Non modificare", () => {
+test("canonicalizzazione, migrazione e scrittura non possono sovrascrivere Non modificare", () => {
   const newerNormal = { ...normalClosure, closedAt: "2026-09-17T12:00:00.000Z" };
   const canonical = canonicalProblemClosures([newerNormal, permanentClosure]);
   assert.equal(canonical.length, 1);
@@ -42,6 +44,13 @@ test("canonicalizzazione e migrazione non possono sovrascrivere Non modificare",
   }, canonical);
   assert.equal(migrated.length, 1);
   assert.equal(isPermanentProblemClosure(migrated[0]), true);
+
+  const values = new Map([[WORKSPACE_KEYS.problemClosures, JSON.stringify(canonical)]]);
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  writeWorkspaceJson(WORKSPACE_KEYS.problemClosures, [newerNormal], storage);
+  const stored = JSON.parse(storage.getItem(WORKSPACE_KEYS.problemClosures));
+  assert.equal(stored.length, 1);
+  assert.equal(isPermanentProblemClosure(stored[0]), true);
 });
 
 test("identità Non modificare è scoped per problema e target", () => {
