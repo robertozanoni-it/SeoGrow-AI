@@ -1,6 +1,7 @@
 import { getWordPressSession } from "./system/index.js";
 import { readCorrection } from "./remediationStore.js";
-import { hasAutoFixCompletionEvidence, verifyAutoFixCorrectionById } from "./autoFixVerification.js";
+import { hasAutoFixCompletionEvidence } from "./autoFixCompletionEvidence.js";
+import { verifyAutoFixCorrectionById } from "./autoFixVerification.js";
 
 const running = new Map();
 const sharedWriter = record => /elementor shared template/i.test(String(record?.adapter || ""));
