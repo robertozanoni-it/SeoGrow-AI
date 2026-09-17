@@ -33,10 +33,12 @@ export async function applyJournaledCorrection(record, write, persist = saveCorr
       "STALE_CONFLICT",
       "STALE_PREVIEW",
       "EXPECTED_CURRENT_REQUIRED",
+      "APPROVAL_EXPIRED",
+      "SHARED_ELEMENTOR_WRITES_DISABLED",
       "SHARED_LINK_FRONTEND_ROLLED_BACK",
     ].includes(cause.code)) {
       await persist({ ...record, status: "Bloccato", writeConfirmed: false, frontendConfirmed: false, verificationNote: cause.message });
-      throw new Error(cause.message, { cause });
+      throw Object.assign(new Error(cause.message, { cause }), { code: cause.code, definitelyNoWrite: true });
     }
     throw new Error("Esito della scrittura non confermato. Lo snapshot è conservato in Correzioni; verifica WordPress prima di riprovare.", { cause });
   }

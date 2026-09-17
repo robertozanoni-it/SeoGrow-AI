@@ -1,67 +1,69 @@
-# Auto Fix v1 — modalità assistita
+# AutoFix — single, batch e verifica obbligatoria
 
-Il Centro progetto espone **Analizza e correggi**. Il pulsante classifica i problemi
-dell'ultimo audit pagina/sito salvato per il progetto selezionato. Non avvia una
-nuova scansione remota. La data della fonte è visibile; in assenza di un audit
-salvato viene richiesto di eseguirne uno.
+AutoFix è il percorso di mutazione della suite. Audit SEO rileva e documenta il problema; AutoFix prepara e applica soltanto correzioni con ownership e writer supportati; Correzioni conserva Prima/Dopo, receipt, verifica e rollback.
 
-## Comportamento
+## Single fix
 
-- Selezione esplicita di massimo 10 problemi. Nessuna selezione predefinita.
-- Title, description, H1, contenuti ed estratto sono candidati a una proposta,
-  non dichiarati automaticamente scrivibili o sicuri.
-- Canonical, robots/indexability, redirect, sitemap, tassonomie, Elementor
-  esplicito, cambi strutturali, destinazioni esterne e tipi sconosciuti restano manuali.
-- Il controllo WordPress V2 esistente prepara le anteprime selezionate nel
-  Centro progetto. Ownership, qualità editoriale, adapter e guardie del server
-  restano obbligatori. Le credenziali non vengono persistite nel piano.
-- Ogni modifica richiede approvazione singola con Prima/Dopo. La preparazione
-  non applica alcuna modifica. Il limite vale anche per la preparazione massiva
-  già presente in Audit SEO.
-- Un piano è vincolato al cliente e all'intero audit serializzato: una modifica
-  anche a parità di timestamp invalida preparazione e applicazione.
-- Doppio clic su preparazione/applicazione bloccato prima delle attese asincrone.
-- Cronologia e ripristino apre Correzioni, dove restano i controlli già presenti.
+- Il problema viene risolto dal flusso canonico Problema → Correzione.
+- La preparazione è read-only e mostra Prima/Dopo prima dell'approvazione.
+- `applyJournaledCorrection` salva il journal prima della richiesta remota.
+- Una scrittura confermata resta **Da verificare**.
+- Dopo `seogrow-remediation-applied`, AutoFix avvia automaticamente riverifica frontend e audit di conferma quando la sessione WordPress è ancora disponibile.
+- Un fix live può diventare **Verificato** solo con scrittura confermata, frontend confermato e audit post-fix che copre la sorgente e non rileva più il finding originale.
 
-## Snapshot, verifica e limiti
+## Batch fix
 
-La scrittura usa `applyJournaledCorrection`: lo snapshot viene committato prima
-della richiesta remota. Una risposta persa resta **Esito incerto**, una scrittura
-confermata resta **Da verificare**. Questa versione non introduce applicazioni
-autonome, verifica SEO automatica completa o rollback ciechi. Un ripristino deve
-rispettare le guardie di concorrenza già esistenti.
+- Massimo 10 problemi per piano.
+- Preflight, target, ownership e snapshot vengono fissati prima dell'approvazione.
+- L'approvazione è legata al fingerprint esatto del piano; ogni modifica del piano richiede nuove anteprime.
+- Le operazioni ad alto rischio richiedono conferma esplicita.
+- Le write vengono journaled prima dell'invio e sono eseguite in ordine deterministico.
+- `SUCCESS` è ammesso solo quando tutti i problemi selezionati sono `RESOLVED_VERIFIED`.
+- Interventi assistiti, fix applicati ma non verificati, stale conflict o errori non possono produrre uno stato di completamento.
 
-La diagnostica locale segnala ID task duplicati nel progetto e riferimenti a
-progetti mancanti nell'intero workspace. Non elimina, fonde né modifica task.
-Non certifica tutte le dipendenze opportunità/task né corregge bug del codice.
+## Shared Elementor writer
 
-Nessun sblocco delle scritture Elementor shared e nessuna operazione su siti reali
-durante lo sviluppo. Il precedente limite WPVibe/G07 resta indipendente.
+Il writer shared Elementor certificato nell'issue #163 è disponibile per i broken external link quando il preflight locale dimostra che il link appartiene a un template condiviso.
 
-## Collaudo
+Il percorso richiede:
 
-`autoFixPlan.test.js` verifica rischio, URL, isolamento cliente, fingerprint,
-limite, indici invalidi e diagnostica senza mutazioni. Il caso browser obbligatorio
-`AUTO-FIX-ASSISTED` usa React e IndexedDB reali con risposte WordPress simulate:
-selezione, limite 10, mancanza credenziali, doppio clic, errore e retry con
-anteprime approvabili, nessuna richiesta apply/rollback e invalidazione audit.
-Include catture desktop/mobile e controllo overflow.
+1. singola occorrenza verificabile sulla pagina sorgente;
+2. coverage completa del sito e singolo template shared proprietario;
+3. preview con approval token monouso;
+4. conferma esplicita high-risk;
+5. writer CAS atomico con stale check;
+6. verifica frontend di tutte le URL impattate;
+7. rollback automatico del writer se la verifica frontend fallisce;
+8. audit di conferma post-fix prima dello stato finale `Verificato`.
 
-Il test storico sull'host è aggiornato per il nuovo parametro `initialAudit`
-(predefinito null); restano le verifiche di selezione esatta e assenza di fallback.
+Il kill switch `SEOGROW_ELEMENTOR_SHARED_WRITES_ENABLED` resta **OFF di default**. La certificazione dimostra la sicurezza del writer nel perimetro validato; l'abilitazione di un ambiente resta una scelta esplicita.
 
-## Chiarezza e connessione WordPress
+## Rollback e stale conflict
 
-Il pannello include Collega WordPress, esito visibile e riutilizzo della connessione
-verificata durante la stessa sessione, condivisa con Integrazioni. Le password
-restano in una mappa JavaScript in memoria, isolate per progetto e installazione,
-con scadenza di 30 minuti. Una risposta di connessione tardiva non può confermare
-credenziali che nel frattempo sono cambiate. Un riavvio richiede nuovamente la password.
+- Il rollback usa lo snapshot `after` come `expectedCurrent`: se WordPress è cambiato, il rollback viene bloccato invece di sovrascrivere modifiche esterne.
+- Il writer shared Elementor applica lo stesso principio CAS sia in apply sia in rollback.
+- `STALE_CONFLICT`, `STALE_PREVIEW`, approval scaduta, writer shared disabilitato e rollback automatico già eseguito sono classificati come blocchi con esito noto, non come scritture incerte.
+- Una risposta remota realmente persa dopo l'invio resta invece **Esito incerto** e non viene ritentata automaticamente.
 
-Le proposte pronte mostrano i campi Adesso sul sito / Dopo la modifica e il pulsante
-Applica questa modifica sul sito, con la conferma singola esistente. I blocchi
-di ownership/Elementor mostrano Nessuna proposta applicabile e un prossimo passo
-comprensibile; il dettaglio tecnico è espandibile. Nessuna guardia è stata rimossa.
-La lista dei problemi si richiude durante la revisione; la stampa espande correttamente
-le liste aperte. Il test browser verifica collegamento fallito/riuscito, riuso
-della sessione, blocchi senza pulsante apply e proposte leggibili con approvazione.
+## Audit di conferma
+
+`runConfirmationAudit()` salva l'audit post-fix nello storico progetto. Usa:
+
+- audit pagina per finding locali;
+- audit sito per duplicati e broken link, perché la conferma deve avere lo stesso perimetro necessario a dimostrare l'assenza del problema;
+- verifica frontend puntuale come fallback solo nei casi esplicitamente supportati, ad esempio canonical.
+
+Un audit che non copre la pagina interessata o che rileva ancora il finding lascia la correzione **Da verificare**.
+
+## Gate
+
+**Nessun fix live può risultare completato senza verifica.**
+
+Per i fix con scrittura, `Verificato` richiede contemporaneamente:
+
+- `writeConfirmed === true`;
+- `frontendConfirmed === true`;
+- `verifiedAt` reale;
+- audit di conferma risolto oppure una prova batch equivalente basata su un vero audit post-fix.
+
+Una semplice risposta API di apply, una scansione link isolata, una task assistita o uno status scritto dalla UI non soddisfano il gate.

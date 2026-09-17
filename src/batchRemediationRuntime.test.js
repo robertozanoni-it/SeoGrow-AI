@@ -142,13 +142,13 @@ test('corrupt saved run aborts the transaction without an unhandled parser excep
   db.close(); await assert.rejects(saveBatchRun(f.run), { code: 'BATCH_STORAGE_FAILED' });
 });
 
-test('real assisted fallback creates one scoped task and never writes WordPress', async () => {
+test('real assisted fallback creates one scoped task and never writes WordPress without declaring completion', async () => {
   const f = await fixture();
   f.run.entries[0].kind = 'assisted';
   f.run.entries[0].batchMode = 'assisted_task';
   await prepareBatch(f.run, f.ports);
   assert.equal(f.run.entries[0].state, 'MANAGED_ASSISTED');
-  assert.equal(f.run.status, 'SUCCESS');
+  assert.equal(f.run.status, 'COMPLETED_WITH_OPEN');
   assert.deepEqual(f.writes, []);
   const tasks = JSON.parse(workspaceStorage.getItem('seogrow-tasks-v2'));
   assert.equal(tasks.length, 1);

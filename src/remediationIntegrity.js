@@ -5,6 +5,7 @@ import { apiFetch } from "./api";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { metadataVerificationTarget, metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 import { runConfirmationAudit } from "./confirmationAudit.js";
+import { hasAutoFixCompletionEvidence } from "./autoFixCompletionEvidence.js";
 import {
   listCorrections,
   readCorrection,
@@ -24,7 +25,7 @@ let recheckTimer = null;
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
-  if (after.status === "Verificato") {
+  if (after.status === "Verificato" && (after.liveApproval !== true || hasAutoFixCompletionEvidence(after))) {
     removeVerifiedTask(after);
     return;
   }
@@ -218,20 +219,27 @@ export async function recheckCorrectionById(id, credentials = {}) {
   if (!record) throw new Error("Correzione non trovata nello storico.");
   if (credentials.clientId != null && Number(credentials.clientId) !== Number(record.clientId)) throw new Error("La correzione appartiene a un altro progetto.");
   const result = await recheckCorrection(record, credentials);
-  if (!result?.needsAudit || !result?.record?.frontendConfirmed || result?.needsBrowserVerification) return result;
+  const liveNeedsConfirmation = result?.record?.liveApproval === true &&
+    result.record.writeConfirmed === true &&
+    result.record.frontendConfirmed === true &&
+    result.record.status === "Verificato" &&
+    !hasAutoFixCompletionEvidence(result.record);
+  const needsAudit = result?.needsAudit === true || liveNeedsConfirmation;
+  if (!needsAudit || !result?.record?.frontendConfirmed || result?.needsBrowserVerification) return { ...result, needsAudit };
 
   try {
     const confirmation = await runConfirmationAudit(result.record);
-    if (currentClientId() !== normalizeClientId(result.record.clientId)) return { ...result, confirmationAudit: confirmation };
+    if (currentClientId() !== normalizeClientId(result.record.clientId)) return { ...result, needsAudit: true, confirmationAudit: confirmation };
     const now = new Date().toISOString();
     const updated = await updateAndSync(result.record, confirmation.resolved
       ? {
           status: "Verificato",
+          frontendConfirmed: true,
           verifiedAt: now,
           lastVerificationAttemptAt: now,
           frontendFailure: false,
           verificationNote: confirmation.note,
-          confirmationAudit: { mode: confirmation.mode, analyzedAt: confirmation.audit?.analyzedAt || now, resolved: true },
+          confirmationAudit: { mode: confirmation.mode, analyzedAt: confirmation.audit?.analyzedAt || now, resolved: true, covered: true },
         }
       : {
           status: "Da verificare",
@@ -268,7 +276,7 @@ export async function recheckCorrections({ clientId, limit = 20 } = {}) {
     let changed = 0, checked = 0;
     for (const record of pending) {
       if (currentClientId() !== scope) break;
-      const result = await recheckCorrection(record);
+      const result = await recheckCorrectionById(record.id);
       checked += 1;
       if (result.changed) changed += 1;
     }

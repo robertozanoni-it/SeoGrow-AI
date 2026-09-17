@@ -7,12 +7,11 @@ import { requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 
-
-
 const comparableUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
 const findingType = (record) => String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
 const findingLabel = (record) => String(record?.issueLabel || record?.issue?.label || "").trim().toLowerCase();
 const findingUrl = (item, fallback = "") => item?.sourceUrl || item?.url || item?.targetUrl || fallback || "";
+const linkLike = (record) => /broken-(?:external-)?link|link esterno|link interno/.test(`${findingType(record)} ${findingLabel(record)}`);
 
 const sameFinding = (record, item, audit) => {
   const wantedType = findingType(record);
@@ -22,7 +21,7 @@ const sameFinding = (record, item, audit) => {
   const sourceMatches = comparableUrl(findingUrl(item, audit?.url)) === comparableUrl(record?.sourceUrl);
   if (!sourceMatches) return false;
   if (wantedType && type !== wantedType) return false;
-  const wantedTarget = comparableUrl(record?.targetUrl || record?.issue?.targetUrl || "");
+  const wantedTarget = comparableUrl(record?.targetUrl || record?.brokenTargetUrl || record?.issue?.targetUrl || "");
   if (wantedTarget) {
     const observedTarget = comparableUrl(item?.targetUrl || item?.brokenUrl || item?.destinationUrl || item?.href || "");
     if (observedTarget !== wantedTarget) return false;
@@ -51,7 +50,6 @@ const siteUrlFor = (record) => {
   try { return new URL(record.sourceUrl).origin + "/"; } catch { return ""; }
 };
 
-
 const canonicalLike = (record) => /canonical/.test(`${findingType(record)} ${findingLabel(record)}`);
 const normalizedCanonical = (value, base) => { try { return comparableUrl(new URL(value, base).href); } catch { return comparableUrl(value); } };
 
@@ -71,7 +69,7 @@ async function targetedFrontendDecision(record) {
 }
 export async function runConfirmationAudit(record) {
   if (!record?.sourceUrl || !record?.clientId) throw new Error("Correzione senza URL o progetto: audit di conferma non avviato.");
-  const mode = requiresDuplicateAudit(record) ? "site" : "page";
+  const mode = requiresDuplicateAudit(record) || linkLike(record) ? "site" : "page";
   const targetUrl = mode === "site" ? siteUrlFor(record) : record.sourceUrl;
   if (!targetUrl) throw new Error("URL del sito non disponibile per l’audit di conferma.");
   const startedAt = new Date().toISOString();
