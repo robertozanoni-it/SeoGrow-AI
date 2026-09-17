@@ -2,6 +2,10 @@ import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
 import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 import { normalizeClientId } from "./reliabilityModel.js";
+import {
+  buildEditorialProjectContext,
+  serializeEditorialProjectContext,
+} from "./modules/content/index.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
@@ -12,6 +16,87 @@ const selectedClientId = () => {
   } catch {
     return null;
   }
+};
+
+const readWorkspaceJson = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const clientScopedValue = (store, clientId, fallback = null) =>
+  store?.[clientId] ?? store?.[String(clientId)] ?? fallback;
+
+const latestByDate = (value, fields) => {
+  const rows = Array.isArray(value) ? value : value ? [value] : [];
+  return [...rows].toSorted((left, right) => {
+    const leftAt = fields.map((field) => Date.parse(left?.[field] || "") || 0).find(Boolean) || 0;
+    const rightAt = fields.map((field) => Date.parse(right?.[field] || "") || 0).find(Boolean) || 0;
+    return rightAt - leftAt;
+  })[0] || null;
+};
+
+const isWordPressRemediationGenerate = (topic) => /^Remediation WordPress\b/i.test(String(topic || "").trim());
+
+export const prepareEditorialGenerateBody = (body) => {
+  if (typeof body !== "string") return body;
+  let payload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || isWordPressRemediationGenerate(payload.topic)) return body;
+
+  const clientId = selectedClientId();
+  if (!clientId) {
+    const error = new Error("Generazione bloccata: seleziona un progetto prima di creare contenuti.");
+    error.code = "PROJECT_CONTEXT_REQUIRED";
+    throw error;
+  }
+  const clients = readWorkspaceJson("seogrow-clients", []);
+  const client = Array.isArray(clients) ? clients.find((item) => normalizeClientId(item?.id) === clientId) : null;
+  if (!client) {
+    const error = new Error("Generazione bloccata: il progetto selezionato non è disponibile nel workspace.");
+    error.code = "PROJECT_CONTEXT_REQUIRED";
+    throw error;
+  }
+
+  let incoming = null;
+  try {
+    incoming = typeof payload.context === "string" ? JSON.parse(payload.context) : payload.context;
+  } catch {
+    incoming = null;
+  }
+  const workflowContext = incoming?.taskOrigine && typeof incoming.taskOrigine === "object"
+    ? {
+        taskId: incoming.taskOrigine.id,
+        title: incoming.taskOrigine.titolo,
+        query: incoming.taskOrigine.query,
+        sourceUrl: incoming.taskOrigine.pagina,
+        targetUrl: incoming.taskOrigine.destinazione,
+      }
+    : incoming?.workflow || null;
+
+  const gscStore = readWorkspaceJson("seogrow-gsc-v1", {});
+  const analysesStore = readWorkspaceJson("seogrow-analyses-v2", {});
+  const rankingsStore = readWorkspaceJson("seogrow-rankings-v1", {});
+  const topicalStore = readWorkspaceJson("seogrow-topical-maps-v1", {});
+  const analysis = latestByDate(clientScopedValue(analysesStore, clientId, []), ["analyzedAt", "startedAt"]);
+  const ranking = latestByDate(clientScopedValue(rankingsStore, clientId, []), ["checkedAt"]);
+  const context = buildEditorialProjectContext({
+    client,
+    dataset: clientScopedValue(gscStore, clientId, null),
+    analysis,
+    rankings: ranking,
+    topicalMap: clientScopedValue(topicalStore, clientId, null),
+    workflowContext,
+    planItem: incoming?.selected || null,
+  });
+  payload.context = serializeEditorialProjectContext(context);
+  return JSON.stringify(payload);
 };
 
 const requestPath = (input) => {
@@ -145,7 +230,7 @@ export async function apiFetch(input, init = {}) {
   const inputText = String(input || "");
   const path = requestPath(input);
   const generatedInit = inputText.includes("/api/generate")
-    ? { ...init, body: trimGenerateContext(init.body) }
+    ? { ...init, body: trimGenerateContext(prepareEditorialGenerateBody(init.body)) }
     : init;
   const preparedInit = withExplicitWordPressSiteUrl(path, generatedInit);
   const projectScoped = isProjectScopedRequest(inputText);
