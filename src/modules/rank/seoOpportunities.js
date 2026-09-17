@@ -152,9 +152,26 @@ const mergedOpportunity = (entries) => {
   const corroboration = Math.min(2, Math.max(0, sources.length - 1));
   const score = impactWeight * 3 + (4 - effortWeight) + corroboration + (regression ? 2 : 0);
   const priority = score >= 10 ? "Alta" : score >= 7 ? "Media" : "Bassa";
+  const dedupeKey = entries[0].dedupeKey;
+  const id = `seo-opportunity-${normalizedText(dedupeKey) || "item"}`;
+  const problemKey = entries.map((item) => item.raw?.problem?.key).find(Boolean) || "";
+  const taskLinks = { problemKey, opportunityId: id, opportunityKey: dedupeKey };
+  const action = {
+    ...actionCandidate.action,
+    opportunityId: id,
+    opportunityKey: dedupeKey,
+    ...(actionCandidate.action?.task ? {
+      task: {
+        ...actionCandidate.action.task,
+        origin: "opportunity",
+        automatic: true,
+        taskLinks,
+      },
+    } : {}),
+  };
   return {
-    id: `seo-opportunity-${normalizedText(entries[0].dedupeKey) || "item"}`,
-    dedupeKey: entries[0].dedupeKey,
+    id,
+    dedupeKey,
     title: actionCandidate.title,
     reason: reasons.join(" · "),
     url: actionCandidate.url || entries.find((item) => item.url)?.url || "",
@@ -165,7 +182,7 @@ const mergedOpportunity = (entries) => {
     impact,
     effort: actionCandidate.effort,
     priorityEvidence: `Impatto ${impact.toLowerCase()} · sforzo ${actionCandidate.effort.toLowerCase()} · ${sources.length} fonte/i${regression ? " · regressione osservata" : ""}`,
-    action: actionCandidate.action,
+    action,
     raw: actionCandidate.raw,
     regression,
   };
