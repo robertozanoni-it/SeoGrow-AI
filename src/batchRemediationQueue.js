@@ -1,10 +1,33 @@
-import { consolidateBatch, batchExecutionOrder, approvalFingerprint, verificationState, batchSummary } from './batchRemediationModel.js';
-const systemic = code => /AUTH|HTTP_429|RATE_LIMIT|SCOPE_CHANGED|BATCH_STORAGE|BATCH_REVISION|AbortError|CONNECTION_LOST|UNCERTAIN/.test(code || '');
+import { consolidateBatch, batchExecutionOrder, approvalFingerprint, verificationState, batchSummary, batchFinalReport } from './batchRemediationModel.js';
+
+const CRITICAL_CODE = /AUTH|HTTP_429|RATE_LIMIT|SCOPE_CHANGED|BATCH_STORAGE|BATCH_REVISION|AbortError|CONNECTION_LOST|UNCERTAIN/;
+const HIGH_RISK_KINDS = new Set(['canonical', 'noindex', 'external_link', 'content', 'h1']);
 const note = (entry, state, reason = '', code = '') => {
   entry.state = state; entry.reason = reason; entry.code = code;
   entry.logs.push({ at: new Date().toISOString(), state, code });
 };
 const errorCode = error => String(error?.code || error?.cause?.code || error?.name || 'ERROR');
+
+export function isCriticalBatchError(code, { phase = 'preflight', definitelyNoWrite = true } = {}) {
+  return CRITICAL_CODE.test(String(code || '')) || (phase === 'apply' && definitelyNoWrite !== true);
+}
+
+const criticalStop = (run, entry, phase, code, reason) => {
+  if (run.criticalStop) return;
+  run.criticalStop = {
+    entryId: entry?.id || '',
+    problemKey: entry?.problem?.key || '',
+    phase,
+    code: String(code || 'ERROR'),
+    reason: reason || 'Errore critico: batch interrotto.',
+    at: new Date().toISOString(),
+  };
+};
+
+const finalizeRunReport = run => {
+  run.finalReport = batchFinalReport(run);
+  return run.finalReport;
+};
 
 // The queue knows no WordPress write implementation. All effects use the existing engine through ports.
 export async function prepareBatch(run, ports) {
@@ -27,7 +50,6 @@ export async function prepareBatch(run, ports) {
         continue;
       }
       const key = ports.preparationKey(entry);
-      // Exact duplicate inputs reuse a valid proposal, not a fresh AI call.
       const preview = generated.has(key) ? generated.get(key) : await ports.prepare(entry);
       if (!generated.has(key)) generated.set(key, preview);
       await ports.assertContext();
@@ -44,45 +66,63 @@ export async function prepareBatch(run, ports) {
       } else {
         if (!preview.data?.approvalToken || !preview.data?.changed?.length || !preview.resourceIdentity) throw new Error('Anteprima incompleta: scrittura bloccata.');
         entry.preview = preview;
-        entry.highRisk = ['canonical', 'noindex', 'external_link', 'content', 'h1'].includes(entry.kind);
+        entry.highRisk = entry.riskGroup === 'high' && HIGH_RISK_KINDS.has(entry.kind);
         note(entry, 'PREPARED');
       }
     } catch (error) {
       const code = errorCode(error);
+      const critical = isCriticalBatchError(code, { phase: 'preflight' });
       const assisted = /STALE|NON_EDITABLE_RESOURCE|NON_EDITABLE_ARCHIVE|UNSUPPORTED_RESOURCE|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
-      if (assisted && !systemic(code) && ports.manageAssisted) {
+      if (assisted && !critical && ports.manageAssisted) {
         try {
           const managed = await ports.manageAssisted(entry);
           entry.recordId = managed?.id || '';
           entry.verification = { needsAudit: /STALE/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
           note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch come intervento assistito.`, 'BATCH_ASSISTED_FALLBACK');
         } catch (manageError) {
-          note(entry, 'FAILED', manageError.message, errorCode(manageError));
+          const manageCode = errorCode(manageError);
+          note(entry, 'FAILED', manageError.message, manageCode);
+          if (isCriticalBatchError(manageCode, { phase: 'preflight' })) {
+            criticalStop(run, entry, 'preflight', manageCode, manageError.message);
+            stop = true;
+          }
         }
       } else {
         note(entry, /STALE/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
-        stop = systemic(code);
+        if (critical) {
+          criticalStop(run, entry, 'preflight', code, error.message);
+          stop = true;
+        }
       }
     }
     await persist();
   }
   consolidateBatch(run);
   const summary = batchSummary(run);
-  run.status = run.entries.some(e => e.state === 'PREPARED')
-    ? 'AWAITING_APPROVAL'
-    : summary.resolvedProblems === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
+  run.status = run.criticalStop
+    ? 'INTERRUPTED'
+    : run.entries.some(e => e.state === 'PREPARED')
+      ? 'AWAITING_APPROVAL'
+      : summary.resolvedProblems === summary.selected ? 'SUCCESS' : 'COMPLETED_WITH_OPEN';
   run.planFingerprint = approvalFingerprint(run);
   run.summary = summary;
+  if (run.status !== 'AWAITING_APPROVAL') {
+    run.completedAt = run.completedAt || new Date().toISOString();
+    finalizeRunReport(run);
+  }
   await persist(); return run;
 }
+
 export async function executeBatch(run, approval, ports) {
   if (run.status !== 'AWAITING_APPROVAL' || !approval || approval.fingerprint !== approvalFingerprint(run) || approval.fingerprint !== run.planFingerprint)
     throw new Error('Approvazione mancante, riutilizzata o piano cambiato. Rigenera le anteprime.');
   const queue = batchExecutionOrder(run.entries.filter(e => e.state === 'PREPARED'));
   if (!queue.length) throw new Error('Nessuna operazione approvabile.');
+  queue.forEach((entry, index) => { entry.executionOrder = index + 1; });
+  run.executionPlan = queue.map(entry => ({ id: entry.id, order: entry.executionOrder, riskGroup: entry.riskGroup, dependsOn: [...entry.dependsOn] }));
   const high = new Set(approval.highRiskIds || []);
   if (queue.some(e => e.highRisk && !high.has(e.id))) throw new Error('Conferma esplicitamente ogni modifica ad alto rischio.');
-  run.status = 'APPROVING'; // Claim synchronously: even two callers in one tick cannot start the same run.
+  run.status = 'APPROVING';
   try { await ports.assertContext(); } catch (error) { run.status = 'AWAITING_APPROVAL'; throw error; }
   run.approval = { fingerprint: approval.fingerprint, highRiskIds: [...high], at: new Date().toISOString() };
   run.status = 'RUNNING'; run.startedAt = new Date().toISOString();
@@ -100,20 +140,23 @@ export async function executeBatch(run, approval, ports) {
       await ports.assertContext();
     } catch (error) {
       const code = errorCode(error);
+      const critical = isCriticalBatchError(code, { phase: 'validate' });
       const assisted = /STALE|EXPIRED|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
-      if (assisted && !systemic(code) && ports.manageAssisted) {
+      if (assisted && !critical && ports.manageAssisted) {
         const managed = await ports.manageAssisted(entry);
         entry.recordId = managed?.id || '';
         entry.verification = { needsAudit: /STALE|EXPIRED/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
         note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch senza ripetere la scrittura.`, 'BATCH_ASSISTED_VALIDATE_FALLBACK');
       } else {
         note(entry, /STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED', error.message, code);
-        stop = systemic(code);
+        if (critical) {
+          criticalStop(run, entry, 'validate', code, error.message);
+          stop = true;
+        }
       }
       await persist(); continue;
     }
     note(entry, 'IN_EXECUTION'); entry.definitelyNoWrite = false;
-    // Durable write-ahead state, before even calling the correction journal.
     await persist();
     try {
       const record = await ports.apply(entry, run);
@@ -122,15 +165,19 @@ export async function executeBatch(run, approval, ports) {
     } catch (error) {
       const code = errorCode(error);
       entry.definitelyNoWrite = error.definitelyNoWrite === true;
+      const critical = isCriticalBatchError(code, { phase: 'apply', definitelyNoWrite: entry.definitelyNoWrite });
       const assisted = entry.definitelyNoWrite && /STALE|EXPIRED|OWNERSHIP|SELECTION|CONTEXT|INTENT|UNSUPPORTED|QUALITY|EDITORIAL|ARCHIVE|ALIAS/.test(code);
-      if (assisted && !systemic(code) && ports.manageAssisted) {
+      if (assisted && !critical && ports.manageAssisted) {
         const managed = await ports.manageAssisted(entry);
         entry.recordId = managed?.id || '';
         entry.verification = { needsAudit: /STALE|EXPIRED/.test(code), needsBrowserVerification: false, at: new Date().toISOString(), note: managed?.note || error.message };
         note(entry, 'MANAGED_ASSISTED', `${error.message} Gestito automaticamente dal batch dopo un fallimento pre-write dimostrato.`, 'BATCH_ASSISTED_APPLY_FALLBACK');
       } else {
         note(entry, entry.definitelyNoWrite ? (/STALE|EXPIRED/.test(code) ? 'STALE_TARGET' : 'FAILED') : 'UNCERTAIN', error.message, code);
-        stop = !entry.definitelyNoWrite || systemic(code);
+        if (critical) {
+          criticalStop(run, entry, 'apply', code, error.message);
+          stop = true;
+        }
       }
       await persist(); continue;
     }
@@ -143,12 +190,15 @@ export async function executeBatch(run, approval, ports) {
         at: new Date().toISOString(), note: result?.record?.verificationNote || result?.error?.message || '' };
       note(entry, verificationState(result), entry.verification.note);
     } catch (error) {
-      note(entry, 'APPLIED_UNVERIFIED', `Scrittura confermata; verifica non conclusa: ${error.message}`, errorCode(error));
-      stop = systemic(errorCode(error));
+      const code = errorCode(error);
+      note(entry, 'APPLIED_UNVERIFIED', `Scrittura confermata; verifica non conclusa: ${error.message}`, code);
+      if (isCriticalBatchError(code, { phase: 'verify' })) {
+        criticalStop(run, entry, 'verify', code, error.message);
+        stop = true;
+      }
     }
     await persist();
   }
-  // Local incremental checks never expand to an unrelated whole-site AI audit.
   if (!stop && !ports.stopped?.() && ports.deltaVerify) {
     const candidates = run.entries.filter(e => e.state === 'APPLIED_UNVERIFIED');
     for (const entry of candidates) {
@@ -162,10 +212,12 @@ export async function executeBatch(run, approval, ports) {
   }
   run.completedAt = new Date().toISOString(); run.durationMs = Date.parse(run.completedAt) - Date.parse(run.startedAt);
   const summary = batchSummary(run);
-  run.status = summary.UNCERTAIN
+  run.status = run.criticalStop || summary.UNCERTAIN
     ? 'INTERRUPTED'
     : summary.resolvedProblems === summary.selected
       ? 'SUCCESS'
       : summary.applied ? 'PARTIAL_SUCCESS' : 'COMPLETED_WITH_OPEN';
-  run.summary = summary; await persist(); return run;
+  run.summary = summary;
+  finalizeRunReport(run);
+  await persist(); return run;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { batchCapability, visibleBatchSelection, createBatchRun, batchSummary, BATCH_LABELS, retryableProblemKeys, recoverBatchRun } from './batchRemediationModel.js';
+import { batchCapability, visibleBatchSelection, createBatchRun, batchSummary, batchFinalReport, BATCH_LABELS, BATCH_RISK_LABELS, retryableProblemKeys, recoverBatchRun } from './batchRemediationModel.js';
 import { prepareBatch, executeBatch } from './batchRemediationQueue.js';
 import { batchHistorySnapshot, listBatchRuns, saveBatchRun, withBatchLock } from './batchRemediationStore.js';
 import { createBatchWordPressPorts } from './batchRemediationRuntime.js';
@@ -9,10 +9,13 @@ import { safeHttpHref } from './reliabilityModel.js';
 import { openProblemResolution } from './AutomaticProposalNavigation.js';
 import { readableCorrectionFields } from './correctionPresentation.js';
 import { navigatePage } from './navigationUx.js';
+import { workspaceStorage } from './workspaceDatabase.js';
+import { writeCorrectionsWorkflowContext } from './taskWorkflow.js';
 import './BatchRemediationPanel.css';
 
 const runLabels = { PLANNING: 'Preparazione in corso', AWAITING_APPROVAL: 'Revisione correzione batch', RUNNING: 'Correzione batch in corso',
   SUCCESS: 'Correzione batch completata', PARTIAL_SUCCESS: 'Batch completato con problemi ancora aperti', COMPLETED_WITH_OPEN: 'Batch concluso: nessuna correzione ancora confermata', INTERRUPTED: 'Batch interrotto' };
+const RISK_ORDER = ['high', 'standard', 'assisted', 'read_only'];
 const date = at => at ? new Date(at).toLocaleString('it-IT') : 'Non disponibile';
 function download(name, content, mime) {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
@@ -81,15 +84,39 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
   const retry = () => {
     const keys = new Set(retryableProblemKeys(run));
     if (historyOnly && run.status === 'AWAITING_APPROVAL') for (const e of run.entries.filter(e => e.state === 'PREPARED')) for (const k of e.problemKeys) keys.add(k);
-    // Original records are only input identities; the runtime re-resolves the latest persisted audit.
     choose(run.entries.filter(e => keys.has(e.problem.key)).map(e => e.problem), run.id);
+  };
+  const openSingleRollback = entry => {
+    writeCorrectionsWorkflowContext(workspaceStorage, {
+      id: entry.correctionId,
+      kind: 'remediation',
+      title: entry.problem.title,
+      sourceUrl: entry.problem.sourceUrl,
+      targetUrl: entry.problem.targetUrls?.[0] || '',
+    });
+    window.dispatchEvent(new CustomEvent('seogrow-corrections-task-handoff'));
+    navigatePage('Correzioni');
   };
   const report = format => {
     if (!run) return;
-    if (format === 'json') download(`${run.id}.json`, JSON.stringify(batchHistorySnapshot(run), null, 2), 'application/json');
+    const finalReport = run.finalReport || batchFinalReport(run);
+    if (format === 'json') download(`${run.id}.json`, JSON.stringify({ ...batchHistorySnapshot(run), finalReport }, null, 2), 'application/json');
     else {
-      const columns = ['Problema','Pagina','Anchor text','Destinazione','Stato','Motivo','Correzione','Verifica'];
-      const lines = run.entries.map(e => [e.problem.title, e.problem.sourceUrl, e.preview?.plan?.linkCleanup?.anchorText || (e.problem.anchorTexts || []).join(' | '), (e.problem.targetUrls || []).join(' | '), BATCH_LABELS[e.state], e.reason, e.correctionId, e.verification?.note || '']);
+      const columns = ['Problema','Pagina','Rischio','Ordine','Anchor text','Destinazione','Stato','Motivo','Correzione','Rollback','Verifica','Stop critico'];
+      const lines = run.entries.map(e => [
+        e.problem.title,
+        e.problem.sourceUrl,
+        BATCH_RISK_LABELS[e.riskGroup] || BATCH_RISK_LABELS.standard,
+        e.executionOrder || '',
+        e.preview?.plan?.linkCleanup?.anchorText || (e.problem.anchorTexts || []).join(' | '),
+        (e.problem.targetUrls || []).join(' | '),
+        BATCH_LABELS[e.state],
+        e.reason,
+        e.correctionId,
+        e.correctionId && ['APPLIED_UNVERIFIED','RESOLVED_VERIFIED'].includes(e.state) ? 'Disponibile' : 'No',
+        e.verification?.note || '',
+        run.criticalStop?.entryId === e.id ? `${run.criticalStop.code}: ${run.criticalStop.reason}` : '',
+      ]);
       download(`${run.id}.csv`, '\uFEFF' + [columns, ...lines].map(line => line.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
     }
   };
@@ -97,6 +124,24 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
   const prepared = run?.entries.filter(e => e.state === 'PREPARED') || [];
   const canApprove = !parentBusy && !historyOnly && run?.status === 'AWAITING_APPROVAL' && prepared.length > 0 && prepared.filter(e => e.highRisk).every(e => highRisk.includes(e.id));
   const done = run ? run.entries.filter(e => !['PENDING','PREFLIGHT','PREPARED','IN_EXECUTION','VERIFYING'].includes(e.state)).length : 0;
+  const riskGroups = run ? RISK_ORDER.map(riskGroup => ({ riskGroup, entries: run.entries.filter(entry => entry.riskGroup === riskGroup) })).filter(group => group.entries.length) : [];
+  const entryCard = entry => <article key={entry.id} className={`batch-entry state-${entry.state.toLowerCase()}`} data-risk-group={entry.riskGroup || 'standard'}>
+    <header><div><h3>{entry.problem.title}</h3><a href={safeHttpHref(entry.problem.sourceUrl)} target="_blank" rel="noopener noreferrer">{entry.problem.sourceUrl}</a></div><strong className="batch-state">{BATCH_LABELS[entry.state]}</strong></header>
+    <p><strong>Rischio:</strong> {BATCH_RISK_LABELS[entry.riskGroup] || BATCH_RISK_LABELS.standard}{entry.executionOrder ? ` · Ordine esecuzione #${entry.executionOrder}` : ''}</p>
+    <p>{entry.reason || 'La proposta richiede approvazione.'}</p>
+    {(entry.problem.targetUrls || []).map(url => <p key={url}>Destinazione: <a href={safeHttpHref(url)} target="_blank" rel="noopener noreferrer">{url}</a></p>)}
+    {entry.kind === 'external_link' && <p>Anchor text: <strong>{entry.preview?.plan?.linkCleanup?.anchorText || entry.problem.anchorTexts?.join(' · ') || 'Non disponibile: non viene inventato'}</strong></p>}
+    {entry.preview && <>
+      <p>Sistema: <strong>{entry.preview.plan.adapter}</strong> · Risorsa: {entry.preview.data.resource} #{entry.preview.data.id} · Rollback: snapshot disponibile per questa singola modifica, soggetto a stale-check.</p>
+      <p>Verifica: controllo WordPress e HTML pubblico; audit incrementale quando supportato. Duplicati tra pagine e visibilità dinamica possono richiedere ulteriori controlli.</p>
+      {readableCorrectionFields(entry.preview).map(field => <section key={field.field} className="batch-field"><h4>{field.label}</h4><div className="batch-diff"><div><strong>Valore attuale / prima</strong><pre>{typeof field.before === 'string' ? field.before : JSON.stringify(field.before,null,2)}</pre></div><div><strong>Valore proposto / dopo</strong><pre>{typeof field.after === 'string' ? field.after : JSON.stringify(field.after,null,2)}</pre></div></div></section>)}
+      <details><summary>Payload completo, campi e dipendenze</summary><div className="batch-diff"><pre>{JSON.stringify(entry.preview.data.previewBefore,null,2)}</pre><pre>{JSON.stringify(entry.preview.data.previewAfter,null,2)}</pre></div><p>Dipendenze: {entry.dependsOn.join(', ') || 'nessuna'}</p></details>
+    </>}
+    {entry.state === 'PREPARED' && entry.highRisk && !historyOnly && <label className="batch-highrisk"><input type="checkbox" disabled={parentBusy} checked={highRisk.includes(entry.id)} onChange={e => setHighRisk(v => e.target.checked ? [...v, entry.id] : v.filter(id => id !== entry.id))} /> Confermo esplicitamente questa modifica ad alto rischio e il suo payload.</label>}
+    {entry.verification?.note && <p><strong>Esito verifica:</strong> {entry.verification.note}</p>}
+    {!parentBusy && entry.correctionId && ['APPLIED_UNVERIFIED','RESOLVED_VERIFIED'].includes(entry.state) && <button className="secondary" onClick={() => openSingleRollback(entry)}>Apri rollback di questa modifica</button>}
+    {!parentBusy && ['BLOCKED','MANUAL_REQUIRED','UNSUPPORTED','UNCERTAIN','APPLIED_UNVERIFIED','MANAGED_ASSISTED'].includes(entry.state) && <button className="secondary" onClick={() => openProblemResolution(entry.problem, client.id, 'problem-row')}>Apri problema e intervento singolo</button>}
+  </article>;
   return <section className="batch-remediation" aria-label="Correzione batch dei problemi">
     <div className="batch-toolbar">
       <label><input ref={checkbox} type="checkbox" checked={rows.length > 0 && selected.length === rows.length} disabled={parentBusy || !rows.length} onChange={e => onSelect(e.target.checked ? rows.map(p => p.key) : [])} /> Seleziona tutti i visibili</label>
@@ -108,7 +153,7 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       <button className="primary" disabled={parentBusy || !selectedAutomatic.length} onClick={() => choose(selectedAutomatic)}>Risolvi problemi in batch{selectedAutomatic.length ? ` (${selectedAutomatic.length})` : ''}</button>
       <button className="secondary" disabled={parentBusy || !automatic.length} onClick={() => { onSelect(automatic.map(p => p.key)); choose(automatic); }}>Risolvi tutti i problemi risolvibili ({automatic.length})</button>
     </div>
-    <p className="batch-note">Tutti i problemi attivi entrano nel batch. Gli adapter deterministici tentano un auto-fix con preflight; i casi ambigui vengono gestiti automaticamente come intervento assistito. Nessuna write viene eseguita senza target verificato e approvazione.</p>
+    <p className="batch-note">Tutti i problemi attivi entrano nel batch. Le modifiche vengono raggruppate per rischio, ordinate rispettando dipendenze e rischio di mutazione, quindi applicate solo dopo approvazione. Un errore critico interrompe le write successive.</p>
     {selectedOutsideBatch.length > 0 && <p className="batch-note"><strong>{selectedOutsideBatch.length}</strong> elementi selezionati sono già risolti/intenzionali o non richiedono una nuova azione batch.</p>}
     {selectedKeys.length > selected.length && <p className="batch-note">{selectedKeys.length - selected.length} selezioni non visibili escluse dal prossimo batch.</p>}
     {message && <p className="batch-error" role="alert">{message}</p>}
@@ -128,25 +173,12 @@ export default function BatchRemediationPanel({ client, rows, selectedKeys, onSe
       {run && <>
         <p className="batch-note">{run.id} · {date(run.createdAt)}{run.parentRunId ? ` · Retry di ${run.parentRunId}` : ''}</p>
         <div className={`batch-outcome ${summary.resolvedProblems ? 'has-resolved' : 'has-open'}`}><strong>{summary.resolvedProblems ? `${summary.resolvedProblems} problemi risolti e verificati.` : 'Nessun problema è stato ancora corretto e verificato.'}</strong><span>{summary.pagesModified ? `${summary.pagesModified} pagine modificate.` : 'Nessuna pagina del sito è stata modificata.'} {summary.stillOpen ? `${summary.stillOpen} problemi richiedono ancora una conclusione.` : 'Non restano problemi aperti in questo batch.'}</span></div>
-        <div className="batch-kpis">{[['Analizzati',summary.selected],['Risolti e rimossi',summary.resolvedProblems],['Soluzioni da approvare',summary.awaitingApproval],['Applicati da verificare',summary.appliedAwaitingVerification],['Interventi assistiti preparati',summary.assistedPrepared],['Ancora aperti',summary.stillOpen],['Pagine modificate',summary.pagesModified],['Rischio alto',summary.highRisk]].map(([label,value]) => <button type="button" key={label} onClick={() => { setShown(false); onShowOpen?.(); }} aria-label={`Apri problemi: ${label}`}><strong>{value}</strong><span>{label}</span></button>)}</div>
+        {run.criticalStop && <p className="batch-error" role="alert"><strong>Batch interrotto al primo errore critico:</strong> {run.criticalStop.code} · {run.criticalStop.reason}</p>}
+        <div className="batch-kpis">{[['Analizzati',summary.selected],['Risolti e rimossi',summary.resolvedProblems],['Soluzioni da approvare',summary.awaitingApproval],['Applicati da verificare',summary.appliedAwaitingVerification],['Ancora aperti',summary.stillOpen],['Rischio alto',summary.riskGroups.high],['Rischio ordinario',summary.riskGroups.standard],['Assistiti/manuali',summary.riskGroups.assisted],['Sola lettura',summary.riskGroups.read_only]].map(([label,value]) => <button type="button" key={label} onClick={() => { setShown(false); onShowOpen?.(); }} aria-label={`Apri problemi: ${label}`}><strong>{value}</strong><span>{label}</span></button>)}</div>
         <p>Costo AI stimato: {run.estimatedCost ?? 'non disponibile'} · Costo reale: {run.cost ?? 'non disponibile'} · Modello: {run.model || 'configurazione corrente; dato non restituito'}</p>
         <div aria-live="polite"><progress max={run.entries.length} value={done} aria-label="Avanzamento batch" /> <span>{done} / {run.entries.length} problemi elaborati</span></div>
         {historyOnly && <p className="batch-note">Vista storica: i token di approvazione non vengono conservati. Un nuovo tentativo richiede nuove anteprime e una nuova approvazione.</p>}
-        <div className="batch-entry-list">{run.entries.map(entry => <article key={entry.id} className={`batch-entry state-${entry.state.toLowerCase()}`}>
-          <header><div><h3>{entry.problem.title}</h3><a href={safeHttpHref(entry.problem.sourceUrl)} target="_blank" rel="noopener noreferrer">{entry.problem.sourceUrl}</a></div><strong className="batch-state">{BATCH_LABELS[entry.state]}</strong></header>
-          <p>{entry.reason || 'La proposta richiede approvazione.'}</p>
-          {(entry.problem.targetUrls || []).map(url => <p key={url}>Destinazione: <a href={safeHttpHref(url)} target="_blank" rel="noopener noreferrer">{url}</a></p>)}
-          {entry.kind === 'external_link' && <p>Anchor text: <strong>{entry.preview?.plan?.linkCleanup?.anchorText || entry.problem.anchorTexts?.join(' · ') || 'Non disponibile: non viene inventato'}</strong></p>}
-          {entry.preview && <>
-            <p>Sistema: <strong>{entry.preview.plan.adapter}</strong> · Risorsa: {entry.preview.data.resource} #{entry.preview.data.id} · Rischio: {entry.highRisk ? 'alto: conferma esplicita' : 'ordinario'} · Rollback: snapshot disponibile nello storico Correzioni, soggetto a verifica.</p>
-            <p>Verifica: controllo WordPress e HTML pubblico; audit incrementale quando supportato. Duplicati tra pagine e visibilità dinamica possono richiedere ulteriori controlli.</p>
-            {readableCorrectionFields(entry.preview).map(field => <section key={field.field} className="batch-field"><h4>{field.label}</h4><div className="batch-diff"><div><strong>Valore attuale / prima</strong><pre>{typeof field.before === 'string' ? field.before : JSON.stringify(field.before,null,2)}</pre></div><div><strong>Valore proposto / dopo</strong><pre>{typeof field.after === 'string' ? field.after : JSON.stringify(field.after,null,2)}</pre></div></div></section>)}
-            <details><summary>Payload completo, campi e dipendenze</summary><div className="batch-diff"><pre>{JSON.stringify(entry.preview.data.previewBefore,null,2)}</pre><pre>{JSON.stringify(entry.preview.data.previewAfter,null,2)}</pre></div><p>Dipendenze: {entry.dependsOn.join(', ') || 'nessuna'}</p></details>
-          </>}
-          {entry.state === 'PREPARED' && entry.highRisk && !historyOnly && <label className="batch-highrisk"><input type="checkbox" disabled={parentBusy} checked={highRisk.includes(entry.id)} onChange={e => setHighRisk(v => e.target.checked ? [...v, entry.id] : v.filter(id => id !== entry.id))} /> Confermo esplicitamente questa modifica ad alto rischio e il suo payload.</label>}
-          {entry.verification?.note && <p><strong>Esito verifica:</strong> {entry.verification.note}</p>}
-          {!parentBusy && ['BLOCKED','MANUAL_REQUIRED','UNSUPPORTED','UNCERTAIN','APPLIED_UNVERIFIED','MANAGED_ASSISTED'].includes(entry.state) && <button className="secondary" onClick={() => openProblemResolution(entry.problem, client.id, 'problem-row')}>Apri problema e intervento singolo</button>}
-        </article>)}</div>
+        <div className="batch-entry-list">{riskGroups.map(group => <section className={`batch-risk-group risk-${group.riskGroup}`} key={group.riskGroup} aria-label={`Gruppo rischio ${BATCH_RISK_LABELS[group.riskGroup]}`}><h3>{BATCH_RISK_LABELS[group.riskGroup]} <span>{group.entries.length}</span></h3>{group.entries.map(entryCard)}</section>)}</div>
         <div className="batch-actions">
           {!historyOnly && run.status === 'AWAITING_APPROVAL' && <button className="primary" disabled={!canApprove} onClick={approve}>Approva e avvia correzione batch</button>}
           {!parentBusy && <>

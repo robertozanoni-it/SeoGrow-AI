@@ -19,6 +19,7 @@ export function taskWorkflowContext(task = {}) {
     query: task.query || "",
     title: task.title || "",
     kind: task.kind || "manual",
+    ...(task.correctionId ? { correctionId: String(task.correctionId) } : {}),
   };
 }
 
