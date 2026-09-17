@@ -10,9 +10,24 @@ const serverIndex = await readFile(new URL("../server/index.js", import.meta.url
 
 const auditH1 = (html) => visibleH1Count(stripAlwaysHiddenMarkup(html));
 
-test("audit e verifica live condividono il contatore H1 visibile", () => {
-  const matches = serverIndex.match(/visibleH1Count\(stripAlwaysHiddenMarkup\(html\)\)/g) || [];
-  assert.equal(matches.length, 2, "audit pagina singola e audit sito devono usare lo stesso contatore H1 live");
+test("audit pagina, audit sito e verifica live condividono un solo contatore H1 visibile", () => {
+  assert.match(
+    serverIndex,
+    /function pageSignals\([\s\S]*?const visibleMarkup = stripAlwaysHiddenMarkup\(html\);[\s\S]*?const h1 = visibleH1Count\(visibleMarkup\)/,
+    "pageSignals deve essere l'unica pipeline di conteggio H1 per gli audit",
+  );
+  assert.match(
+    serverIndex,
+    /app\.post\("\/api\/audit"[\s\S]*?pageSignals\(html, finalUrl/,
+    "audit pagina deve usare pageSignals",
+  );
+  assert.match(
+    serverIndex,
+    /app\.post\("\/api\/site-analysis"[\s\S]*?pageSignals\([\s\S]*?html,[\s\S]*?response\.url/,
+    "audit sito deve usare pageSignals",
+  );
+  const matches = serverIndex.match(/visibleH1Count\(/g) || [];
+  assert.equal(matches.length, 1, "il server deve mantenere una sola source of truth per il conteggio H1");
   assert.doesNotMatch(serverIndex, /const h1 = count\(html, \/<h1\\b\[\^>\]\*>\/gi\)/);
 });
 
