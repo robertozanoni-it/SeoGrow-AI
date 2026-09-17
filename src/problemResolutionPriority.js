@@ -20,7 +20,7 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
   }
 
   if (path.action === "audit") {
-    return { mode: "audit", action: "audit", label: path.label, title: path.title, instructions: path.instructions, kind };
+    return { mode: "guided", action: "audit", label: path.label, title: path.title, instructions: path.instructions, kind };
   }
 
   if (problem.correctability === "automatic" && path.action === "prepare" && !problem.ownershipBlocked && hasUrl) {
@@ -59,8 +59,8 @@ export const problemResolutionPriority = (problem = {}, correction = null) => {
   }
 
   return {
-    mode: "manual",
-    action: path.action === "audit" ? "audit" : "manual",
+    mode: "guided",
+    action: path.action,
     label: "Richiede intervento manuale",
     title: path.title || "Intervento manuale richiesto",
     instructions: path.instructions || "Non esiste un adapter sicuro per applicare automaticamente questa modifica. SeoGrow può mostrare evidenze e passaggi, ma non simula una scrittura automatica.",
