@@ -15,10 +15,9 @@ const normalizeStates = (root = document) => {
   });
 
   root.querySelectorAll?.('button:disabled').forEach((button) => {
-    if (LOADING_TEXT.test(button.textContent || '')) {
-      button.setAttribute('aria-busy', 'true');
-      addClass(button, 'ux-state-loading');
-    }
+    if (!LOADING_TEXT.test(button.textContent || '')) return;
+    if (button.getAttribute('aria-busy') !== 'true') button.setAttribute('aria-busy', 'true');
+    addClass(button, 'ux-state-loading');
   });
 };
 
