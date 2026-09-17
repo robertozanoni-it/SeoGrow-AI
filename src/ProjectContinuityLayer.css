@@ -1,0 +1,120 @@
+[data-project-continuity-host="true"] {
+  display: block;
+  margin: 18px 0 22px;
+}
+
+html body[data-seogrow-ui-mode][data-seogrow-card-mode] [data-project-continuity-host="true"][data-seogrow-card-original="true"] {
+  display: block !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: auto !important;
+}
+
+.project-continuity-panel,
+.client-active-project {
+  border: 1px solid #dce6f1;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 14px 35px rgba(18, 54, 92, 0.08);
+}
+
+.project-continuity-panel { padding: 22px; }
+.project-continuity-panel > header,
+.client-active-project {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.project-continuity-panel > header h2,
+.client-active-project strong { margin: 3px 0; color: #102c4d; }
+.project-continuity-panel > header p,
+.client-active-project span { margin: 0; color: #647a94; overflow-wrap: anywhere; }
+.project-continuity-panel > header small,
+.client-active-project small { color: #58738f; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+
+.project-continuity-integrations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.project-continuity-integration {
+  min-height: 96px;
+  display: flex;
+  gap: 12px;
+  padding: 15px;
+  border-radius: 14px;
+  background: #f6f9fd;
+  border: 1px solid #e2eaf3;
+}
+.project-continuity-integration svg { width: 20px; flex: 0 0 auto; color: #52759a; }
+.project-continuity-integration span { display: grid; gap: 4px; }
+.project-continuity-integration small { color: #687d93; }
+.project-continuity-integration strong { color: #183b61; line-height: 1.25; }
+.project-continuity-integration em { color: #6b8096; font-size: .78rem; font-style: normal; overflow-wrap: anywhere; }
+.project-continuity-integration.ok { background: #f0faf5; border-color: #ccebdd; }
+.project-continuity-integration.ready { background: #fff9eb; border-color: #f2dfad; }
+
+.project-continuity-work {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.project-continuity-work > button {
+  min-height: 118px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  text-align: left;
+  padding: 15px;
+  border: 1px solid #dce6f1;
+  border-radius: 14px;
+  background: #fff;
+  color: #173858;
+  cursor: pointer;
+}
+.project-continuity-work > button:hover { background: #f3f8fe; border-color: #aac7e7; }
+.project-continuity-work svg { width: 21px; color: #3575b5; }
+.project-continuity-work span { display: grid; gap: 3px; }
+.project-continuity-work small { color: #6a7f94; }
+.project-continuity-work strong { font-size: 1.28rem; color: #12395f; }
+.project-continuity-work em { font-size: .78rem; color: #74889c; font-style: normal; }
+.project-continuity-work b { grid-column: 1 / -1; color: #2165a7; font-size: .8rem; }
+
+.client-active-project { padding: 16px 18px; }
+.client-active-project > div:first-child { display: grid; gap: 2px; min-width: 190px; }
+.client-active-project-status { display: flex; flex-wrap: wrap; gap: 7px; flex: 1; }
+.client-active-project-status span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f2f5f8;
+  color: #60768d;
+  font-size: .78rem;
+}
+.client-active-project-status span.ok { background: #edf9f3; color: #176c49; }
+.client-active-project-status span.ready { background: #fff7e4; color: #855d05; }
+.client-active-project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 1180px) {
+  .project-continuity-integrations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .project-continuity-work { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .project-continuity-panel > header,
+  .client-active-project { align-items: stretch; flex-direction: column; }
+  .project-continuity-integrations,
+  .project-continuity-work { grid-template-columns: 1fr; }
+  .project-continuity-work > button { min-height: 92px; }
+}
