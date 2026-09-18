@@ -24,3 +24,28 @@ test("migration preserves native data; stale tab writes cannot corrupt the resto
   db.close();
   delete globalThis.window;
 });
+
+
+test("re-initialization waits for queued workspace writes instead of aborting them", async () => {
+  const factory = new IDBFactory();
+  globalThis.window = { indexedDB: factory, dispatchEvent: () => true };
+  const native = new Map([["seogrow-clients", '[{"id":1}]']]);
+  const storage = { get length() { return native.size; }, key: index => [...native.keys()][index], getItem: key => native.get(key) ?? null };
+  try {
+    await initializeWorkspace(storage);
+    workspaceStorage.setItem("seogrow-clients", '[{"id":2}]');
+    workspaceStorage.setItem("seogrow-selected-client-v1", "2");
+    const reloadA = initializeWorkspace(storage);
+    const reloadB = initializeWorkspace(storage);
+    await Promise.all([reloadA, reloadB, flushWorkspace()]);
+    assert.equal(workspaceStorage.getItem("seogrow-clients"), '[{"id":2}]');
+    assert.equal(workspaceStorage.getItem("seogrow-selected-client-v1"), "2");
+    const db = await openWorkspaceDb(factory);
+    const durable = await readWorkspace(db);
+    assert.equal(durable.get("seogrow-clients"), '[{"id":2}]');
+    assert.equal(durable.get("seogrow-selected-client-v1"), "2");
+    db.close();
+  } finally {
+    delete globalThis.window;
+  }
+});
