@@ -209,12 +209,12 @@ export const PRODUCT_MODULES = Object.freeze([
     inputs: ["obiettivi", "keyword e opportunità", "contesto del sito"],
     outputs: ["piano editoriale", "brief contenuti", "priorità di pubblicazione"],
     data: ["opportunità", "ranking", "contenuti esistenti", "link interni", "regole editoriali"],
-    primaryCta: "Genera piano editoriale",
+    primaryCta: "Genera contenuto",
     owns: ["editorial-planning", "content-briefs", "editorial-safety"],
     states: {
       empty: "Nessun piano: richiede obiettivi e dati minimi prima della generazione.",
       error: "Conserva il piano precedente e indica quale input impedisce la rigenerazione.",
-      completed: "Piano salvato con priorità, brief e collegamenti ai dati che lo hanno generato.",
+      completed: "Piano strutturato dai dati SEO del progetto; contenuti generabili su richiesta e salvati come bozza revisionabile.",
     },
   }),
   defineProductModule({
