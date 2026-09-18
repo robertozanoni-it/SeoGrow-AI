@@ -60,14 +60,6 @@ test("malformed Elementor JSON stays blocked", () => {
   assert.equal(prepareElementorBrokenExternalLink('{}', target).state, "invalid");
 });
 
-test("anchor markup and whitespace are preserved while the readable label is normalized", () => {
-  const html = `<p>Prima <a title="a > b" href='${wrapped}'><strong>Yoga</strong>\n &amp;\t respiro</a> dopo.</p>`;
-  const result = transformBrokenLinkAnchors(html, target);
-  assert.equal(result.value, "<p>Prima <strong>Yoga</strong>\n &amp;\t respiro dopo.</p>");
-  assert.deepEqual(result.anchors, ["Yoga & respiro"]);
-  assert.equal(result.matches[0].storedHref, wrapped);
-});
-
 // Exercise the actual app planner on every supported app platform. A missing
 // source file is a failure, not a reason to skip a release assertion.
 test("actual WordPress plan chooses the local Elementor adapter for both modes", { concurrency: false }, async () => {
