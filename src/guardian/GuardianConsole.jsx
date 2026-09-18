@@ -4,6 +4,7 @@ import {
   guardianSnapshot,
   installGuardianRuntime,
   runGuardianScan,
+  guardianMonitoringQueue,
 } from "./guardianEngine.js";
 import "./GuardianConsole.css";
 
@@ -39,6 +40,9 @@ export default function GuardianConsole() {
     setSnapshot(guardianSnapshot());
     setOpen((value) => !value);
   };
+
+  const monitoringQueue = useMemo(() => guardianMonitoringQueue(), [snapshot]);
+  const nextMonitoring = useMemo(() => snapshot.open.map((incident) => incident.monitoring?.dueAt).filter(Boolean).toSorted()[0] || "", [snapshot.open]);
 
   const visibleIncidents = useMemo(
     () => snapshot.open
@@ -91,6 +95,8 @@ export default function GuardianConsole() {
             </span>
           </div>
 
+          <div className="guardian-monitoring-summary"><strong>Monitoraggio continuo</strong><span>{monitoringQueue.length} controlli dovuti</span><span>{nextMonitoring ? `Prossimo controllo: ${new Date(nextMonitoring).toLocaleString("it-IT")}` : "Le prossime scadenze vengono calcolate dal lifecycle Guardian"}</span></div>
+
           <div className="guardian-boundary">
             <strong>Confine di sicurezza</strong>
             <span>Guardian corregge automaticamente solo stato derivato, navigazione e proprio ledger. WordPress, contenuti cliente e restore richiedono approvazione.</span>
@@ -131,7 +137,7 @@ export default function GuardianConsole() {
           </section>
 
           <footer className="guardian-footer">
-            Guardian v{snapshot.version} · nessun audit SEO viene avviato automaticamente.
+            Guardian v{snapshot.version} · monitoraggio automatico attivo mentre la Suite è aperta; regression e flapping restano fuori da AutoFix.
           </footer>
         </section>
       )}
