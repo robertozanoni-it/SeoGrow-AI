@@ -114,6 +114,19 @@ export function guardianSettings(storage = workspaceStorage) {
   };
 }
 
+export function setGuardianMonitoringEnabled(enabled, storage = workspaceStorage) {
+  const current = guardianSettings(storage);
+  const next = { ...current, monitoringEnabled: enabled === true };
+  writeWorkspaceJson(GUARDIAN_SETTINGS_KEY, next, storage);
+  dispatchGuardianUpdate({ type: "monitoring-setting", monitoringEnabled: next.monitoringEnabled });
+  return next;
+}
+
+export function guardianMonitoringEnabled(storage = workspaceStorage) {
+  const settings = guardianSettings(storage);
+  return settings.monitoringEnabled !== false;
+}
+
 const dispatchGuardianUpdate = (detail = {}) => {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("seogrow-guardian-updated", { detail }));
@@ -592,6 +605,7 @@ export function markGuardianMonitored(fingerprint, result = {}, now = new Date()
 }
 
 export function runDueGuardianMonitoring(now = Date.now()) {
+  if (!guardianMonitoringEnabled()) return [];
   const queue = guardianMonitoringQueue(now);
   if (typeof window !== "undefined") for (const item of queue) {
     window.dispatchEvent(new CustomEvent("seogrow-guardian-monitoring-due", {
