@@ -31,7 +31,7 @@ const verifiedCorrection = {
   verifiedAt: "2026-09-18T08:02:00Z",
 };
 
-test("una correzione verificata sparisce subito dai problemi attivi ma resta nel modello storico", () => {
+test("una correzione con evidenza storica verificata resta risolta nel modello derivato", () => {
   const model = buildUnifiedProblems({
     clientId: 1,
     pageHistory: [{
@@ -62,9 +62,11 @@ test("una nuova rilevazione successiva alla verifica riapre lo stesso problema",
   assert.equal(model.activeRows.length, 1);
 });
 
-test("il lifecycle event resolved rispetta il completion evidence gate esistente", () => {
-  assert.match(integrity, /completionVerified[\s\S]*hasAutoFixCompletionEvidence\(after\)/);
-  assert.match(integrity, /dispatchProblemState\("seogrow-problem-resolved", after\)/);
+test("il lifecycle resolved richiede il nuovo post-fix evidence gate", () => {
+  assert.match(integrity, /hasAutoFixCompletionEvidence\(after\)/);
+  assert.match(integrity, /evaluatePostFixVerification\(/);
+  assert.match(integrity, /const completionVerified = closureEvidence\.canClose === true/);
+  assert.match(integrity, /if \(completionVerified\)[\s\S]*dispatchProblemState\("seogrow-problem-resolved", after\)/);
   assert.match(integrity, /dispatchProblemState\("seogrow-problem-reopened", after\)/);
   assert.match(integrity, /removeVerifiedTask\(after\)/);
 });
