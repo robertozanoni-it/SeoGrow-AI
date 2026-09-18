@@ -75,11 +75,10 @@ jobs:
           echo "$impact" | jq .
           echo "$impact" | jq -e '
             .ok == true and
-            (.documents | map({id,type,conditionsObserved,conditions})) as $d and
-            ($d | any(.id == 185 and .type == "header" and .conditionsObserved == true)) and
-            ($d | any(.id == 327 and .type == "footer" and .conditionsObserved == true)) and
-            ($d | any(.id == 584 and .type == "archive" and .conditionsObserved == true)) and
-            ($d | any(.id == 598 and .type == "single-post" and .conditionsObserved == true))
+            (.documents | any(.id == 185 and .type == "header" and .conditionsObserved == true)) and
+            (.documents | any(.id == 327 and .type == "footer" and .conditionsObserved == true)) and
+            (.documents | any(.id == 584 and .type == "archive" and .conditionsObserved == true)) and
+            (.documents | any(.id == 598 and .type == "single-post" and .conditionsObserved == true))
           ' >/dev/null
 
       - name: Stop runtime
