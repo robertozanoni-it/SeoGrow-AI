@@ -15,8 +15,10 @@ const [app, center, overview, browser, hubManifest] = await Promise.all([
 test("Storico e SeoGrow AI restano alias compatibili ma non superfici React dedicate", () => {
   assert.equal(canonicalPageForLegacyView("Storico"), "Centro progetto");
   assert.equal(canonicalPageForLegacyView("SeoGrow AI"), "SEO Agent");
+  assert.equal(canonicalPageForLegacyView("Problemi"), "Problemi");
   assert.equal(canonicalRuntimePage("Storico"), "Centro progetto");
   assert.equal(canonicalRuntimePage("SeoGrow AI"), "SEO Agent");
+  assert.equal(canonicalRuntimePage("Problemi"), "Problemi");
 
   assert.doesNotMatch(app, /function HistoryPage/);
   assert.doesNotMatch(app, /page === ["']Storico["']/);
