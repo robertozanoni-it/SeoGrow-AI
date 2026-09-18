@@ -25,3 +25,12 @@ test("pure anchor transformer counts direct and wrapped occurrence independently
   assert.deepEqual(result.anchors, ["Prima", "Seconda"]);
   assert.deepEqual(result.matches.map((item) => item.kind), ["exact", "google-url-wrapper"]);
 });
+
+
+test("ownership prerequisite exposes two pure matches before Elementor planning", () => {
+  const html = `<p><a href="${target}">Prima</a><a href="${wrapped}">Seconda</a></p>`;
+  const result = transformBrokenLinkAnchors(html, target);
+  assert.equal(result.count, 2);
+  assert.equal(result.matches.filter((item) => item.kind === "exact").length, 1);
+  assert.equal(result.matches.filter((item) => item.kind === "google-url-wrapper").length, 1);
+});
