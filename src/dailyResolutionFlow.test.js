@@ -91,3 +91,10 @@ test("lo storico resta accessibile dopo la risoluzione e la UX non richiede una 
   assert.match(correctionPresentation({ status: "verified" }).title, /Correzione verificata/);
   assert.match(correctionPresentation({ status: "verified" }).explanation, /non compare più tra quelli attivi/);
 });
+
+
+test("live already-resolved persiste una chiusura canonica e notifica subito Problems", () => {
+  assert.match(liveFlow, /recordResolvedProblemClosure/);
+  assert.match(liveFlow, /reason: "live-readonly-resolved"/);
+  assert.match(integrity + liveFlow, /seogrow-problem-resolved/);
+});
