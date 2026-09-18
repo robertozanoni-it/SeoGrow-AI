@@ -25,6 +25,7 @@ import { annotateExternalLinkDestinations } from "./ExternalLinkDestinationUx.js
 import { annotateBrokenLinkCleanupChoices } from "./BrokenLinkCleanupChoiceUx.js";
 import { normalizeAnalysisHistory } from "./platform";
 import { listCorrections, setLastBatch, stableIssueKey } from "./remediationStore";
+import { recheckCorrectionById } from "./remediationIntegrity";
 import {
   assertNoPreviewConflicts,
   detectPreviewConflicts,
@@ -376,7 +377,36 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       const record = await applyPreparedCorrection(pendingRecord, item.data, credentials);
       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "applied", data: { ...entry.data, apply: record } } : entry));
-      setMessage("Modifica applicata e registrata. Stato: Da verificare. Usa la riverifica specifica e, quando richiesto, un nuovo audit prima di considerare il problema risolto.");
+      setMessage("Modifica applicata. SeoGrow sta verificando automaticamente il risultato…");
+
+      let verification = null;
+      let verificationError = null;
+      try {
+        verification = await recheckCorrectionById(record.id, {
+          clientId: liveContext.clientId,
+          siteUrl: credentials.url,
+          username: credentials.username,
+          applicationPassword: credentials.applicationPassword,
+        });
+      } catch (error) {
+        verificationError = error;
+      }
+
+      const verifiedRecord = verification?.record || record;
+      const resolved = verifiedRecord?.status === "Verificato" && verification?.needsAudit !== true && !verificationError;
+      setResults((current) => current.map((entry) => entry === item ? {
+        ...entry,
+        status: resolved ? "verified" : "applied",
+        reason: verificationError?.message || (!resolved ? verifiedRecord?.verificationNote || entry.reason : ""),
+        data: { ...entry.data, apply: verifiedRecord, verification },
+      } : entry));
+      if (resolved) {
+        setMessage("Correzione applicata e verificata. Il problema è stato rimosso dai problemi attivi; lo storico resta disponibile in Correzioni.");
+      } else if (verificationError) {
+        setMessage(`Modifica applicata, ma la verifica automatica non è conclusa: ${verificationError.message}. Il problema resta tra quelli attivi.`);
+      } else {
+        setMessage(verifiedRecord?.verificationNote || "Modifica applicata. La verifica automatica richiede ancora evidenze: il problema resta tra quelli attivi.");
+      }
     } catch (error) {
       setResults((current) => current.map((entry) => entry === item ? { ...entry, status: "error", reason: error.message } : entry));
       setMessage(`Applicazione non completata: ${error.message}`);
@@ -406,7 +436,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
       {results.length > 0 && <div className="wp-live-preview-list">
         {results.map((item, index) => <article key={`${item.issue?.label || "issue"}-${item.resourceIdentity || index}`} className={`wp-live-preview-row ${item.status}`} data-broken-target={brokenExternalTarget(item.issue)} data-link-resolution={item.linkResolution || ""}>
           <div className="wp-live-preview-title">
-            {item.status === "applied" || item.status === "resolved" ? <CheckCircle2 /> : <AlertTriangle />}
+            {["applied", "verified", "resolved"].includes(item.status) ? <CheckCircle2 /> : <AlertTriangle />}
             <div>
               <strong>{item.issue?.label || "Problema SEO"}</strong>
               {item.targetUrl && <small>{item.targetUrl}</small>}
@@ -415,6 +445,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           </div>
           <div className="correction-explanation"><h4>{correctionPresentation(item).title}</h4><p>{correctionPresentation(item).explanation}</p><p><strong>Prossimo passo:</strong> {correctionPresentation(item).next}</p>{item.reason && <details><summary>Dettaglio tecnico del controllo</summary><p>{item.reason}</p></details>}</div>
           {["generation_error", "quality_error", "timeout_error"].includes(item.status) && ["title", "meta_description", "content", "excerpt"].includes(classifyIssue(item.issue)) && <ManualRemediationProposal item={item} kind={classifyIssue(item.issue)} disabled={running || Boolean(applyingId)} onPrepare={(manualValue) => prepare(false, { ...item, manualValue })} />}
+          {item.status === "verified" && <div className="wp-live-guidance-actions"><button type="button" className="primary" onClick={() => navigatePage("Problemi")}>Torna ai problemi attivi</button><button type="button" className="secondary" onClick={() => navigatePage("Correzioni")}>Apri storico correzioni</button></div>}
           {item.status === "resolved" && <div className="wp-live-guidance-actions"><button type="button" className="secondary" disabled={running || Boolean(applyingId)} onClick={() => prepare(false, item)}>Ricontrolla questo problema</button><button type="button" className="secondary" onClick={() => navigatePage("Audit SEO")}>Aggiorna audit</button><button type="button" className="secondary" onClick={() => navigatePage("Correzioni")}>Verifica nello storico</button></div>}
           {item.status === "selection_required" && <section className="content-widget-picker" aria-label="Seleziona il blocco Elementor da ampliare">
             <h4>Scegli il blocco da ampliare</h4>
@@ -433,7 +464,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
           </div>}
           {item.status.endsWith('_error') && safeHttpHref(item.targetUrl) && <a className="secondary" href={safeHttpHref(item.targetUrl)} target="_blank" rel="noreferrer">Apri pagina da verificare</a>}
           {item.status === "preview" && <>
-            <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Apri Cronologia e ripristino per verificare il risultato.</li></ol>
+            <ol className="workflow-instructions"><li>Confronta “Adesso sul sito” con “Dopo la modifica”.</li><li>Se il risultato è corretto, premi “Applica questa modifica sul sito” e conferma. Verrà applicata solo questa proposta.</li><li>Dopo l’applicazione SeoGrow avvia automaticamente la verifica canonica. Il problema sparisce dagli attivi solo se le evidenze confermano la risoluzione.</li></ol>
             {item.plan?.contentWidget && <section className="content-widget-selected"><strong>Blocco Elementor selezionato:</strong> widget #{item.plan.contentWidget.id} · {item.plan.contentWidget.beforeWords} parole</section>}
             {item.plan?.linkCleanup ? <section className="correction-readable"><h4>Collegamento esterno 404</h4><p><strong>Testo mantenuto:</strong> {item.plan.linkCleanup.anchorText || "testo del collegamento"}</p><div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{item.plan.linkCleanup.targetUrl}</pre></section><section><strong>Dopo la modifica</strong><pre>Collegamento rimosso; il testo resta visibile.</pre></section></div></section> : readableCorrectionFields(item).map(field => <section className="correction-readable" key={field.field}><h4>{field.label}</h4>{seoFieldKind(field.field) && <p className="seo-character-counter">Dopo la modifica: <strong>{seoCharacterCount(field.after)} / {SEO_TEXT_LIMITS[seoFieldKind(field.field)]} caratteri</strong> · spazi e punteggiatura inclusi</p>}<div className="wp-live-diff"><section><strong>Adesso sul sito</strong><pre>{field.before}</pre></section><section><strong>Dopo la modifica</strong><pre>{field.after}</pre></section></div></section>)}
             <details><summary>Dettagli tecnici della modifica</summary><div className="wp-live-diff"><section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section><section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section></div></details>
