@@ -15,11 +15,15 @@ export function decideResolutionPath({
   hasSafeAdapter = false,
   hasPreviewAdapter = false,
   reversible = false,
+  recurrence = incident.recurrence || {},
 } = {}) {
-  const recurrence = Math.max(Number(incident.occurrences || 1), Number(diagnosis.recurrence || 1));
+  const occurrenceCount = Math.max(Number(incident.occurrences || 1), Number(diagnosis.recurrence || 1));
   const confidence = confidenceScore(diagnosis.confidence);
 
-  if (diagnosis.requiresHumanReview || incident.state === "blocked" || recurrence >= 5) {
+  if (recurrence?.autoFixAllowed === false) {
+    return { path: RESOLUTION_PATH.MANUAL, reason: recurrence.reason || "Lifecycle di regressione/flapping: AutoFix sospeso.", canExecute: false };
+  }
+  if (diagnosis.requiresHumanReview || incident.state === "blocked" || occurrenceCount >= 5) {
     return { path: RESOLUTION_PATH.MANUAL, reason: "Root-cause review richiesta; AutoFix sospeso.", canExecute: false };
   }
   if (confidence <= 1 || diagnosis.diagnosisId === "unknown") {
