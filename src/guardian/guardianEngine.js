@@ -16,6 +16,7 @@ import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 import { decideResolutionPath } from "./resolutionDecisionEngine.js";
 import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js";
 import { dueMonitoringIncidents, monitoringPlan } from "./monitoringScheduler.js";
+import { notifyGuardianLifecycle, notifyGuardianMonitoringFailure } from "./guardianNotifications.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -265,6 +266,7 @@ const detectAndRecordSignal = (input) => {
     ].filter(Boolean).join(" "),
   });
   dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution, recurrence });
+  notifyGuardianLifecycle(incident);
   return { incident, classification, diagnosis, resolution, recurrence };
 };
 
@@ -601,6 +603,7 @@ export function markGuardianMonitored(fingerprint, result = {}, now = new Date()
   };
   writeWorkspaceJson(GUARDIAN_INCIDENTS_KEY, rows, workspaceStorage);
   dispatchGuardianUpdate({ type: "monitoring-completed", incident: rows[index], result });
+  if (result?.ok === false) notifyGuardianMonitoringFailure(rows[index], result);
   return rows[index];
 }
 
