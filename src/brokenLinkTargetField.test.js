@@ -18,9 +18,9 @@ test("il link esterno 404 è mostrato in un campo dedicato con Apri e Copia", ()
 });
 
 test("il pacchetto Connector aggiornato è distinguibile come 1.3.9", () => {
-  assert.match(connector, /Version:\s*1\.3\.8/);
+  assert.match(connector, /Version:\s*1\.3\.9/);
   assert.match(connector, /elementor-link-cleanup-write\.php/);
   assert.match(connector, /elementor-shared-link-remediation\.php/);
-  assert.match(workflow, /seogrow-connector-1\.3\.8/);
-  assert.match(workflow, /artifacts\/seogrow-connector-1\.3\.8\.zip/);
+  assert.match(workflow, /seogrow-connector-1\.3\.9/);
+  assert.match(workflow, /artifacts\/seogrow-connector-1\.3\.9\.zip/);
 });
