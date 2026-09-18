@@ -32,7 +32,6 @@ export default function GuardianConsole() {
     installGuardianRuntime();
     const refresh = () => setSnapshot(guardianSnapshot());
     window.addEventListener("seogrow-guardian-updated", refresh);
-    refresh();
     return () => window.removeEventListener("seogrow-guardian-updated", refresh);
   }, []);
 
