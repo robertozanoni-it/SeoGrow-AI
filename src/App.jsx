@@ -3310,7 +3310,7 @@ function Modal({ title, close, children }) {
   );
 }
 
-function Toast({ message, kind = "info", onOpen, onClose }) {
+function Toast({ message, kind = "info", onOpen, actionLabel = "", onAction, onClose }) {
   useEffect(() => {
     if (onOpen || kind !== "success") return undefined;
     const timer = window.setTimeout(onClose, 6000);
@@ -3321,6 +3321,7 @@ function Toast({ message, kind = "info", onOpen, onClose }) {
       {kind === "error" ? <AlertTriangle aria-hidden="true" /> : kind === "success" ? <Check aria-hidden="true" /> : <HelpCircle aria-hidden="true" />}
       <span role={kind === "error" ? "alert" : "status"}>{message}</span>
       {onOpen && <button onClick={onOpen}>Apri task</button>}
+      {onAction && <button onClick={onAction}>{actionLabel || "Apri"}</button>}
       <button className="icon-btn" aria-label="Chiudi" onClick={onClose}>
         <X />
       </button>
@@ -4430,6 +4431,8 @@ export default function App() {
             setPage("Task");
             setToast("");
           } : undefined}
+          actionLabel={toast.actionLabel}
+          onAction={toast.onAction ? () => { toast.onAction(); setToast(""); } : undefined}
           onClose={() => setToast("")}
         />
       )}
