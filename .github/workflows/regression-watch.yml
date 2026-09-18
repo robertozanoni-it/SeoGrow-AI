@@ -1,0 +1,51 @@
+name: Regression Watch
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-watch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  critical-journeys:
+    name: Critical journey regression watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout verified main
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run release QA without mutation shortcuts
+        run: npm run qa:release
+
+      - name: Verify frozen architecture and global invariants
+        run: node scripts/global-quality-audit.mjs
+
+      - name: Verify RC performance budget
+        run: node scripts/rc-performance-gate.mjs
+
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-watch-${{ github.sha }}
+          path: |
+            .qa-runtime/automation/
+            .qa-runtime/rc/
+          if-no-files-found: error
+          retention-days: 14
