@@ -167,6 +167,7 @@ export function Dashboard({
     return { ...intelligence.nextAction, Icon, tone, label };
   })() : null;
   const operationalSignals = intelligence.operationalSignals || [];
+  const PrimaryActionIcon = primaryAction?.Icon || Target;
   return (
     <div className="reference-dashboard">
       <section className="reference-dashboard-head">
@@ -187,7 +188,7 @@ export function Dashboard({
       <section className="reference-health-strip"><div className="reference-health-title"><Activity /><span><strong>Salute sito</strong><small>Controlli principali del tuo sito</small></span></div><div><Check /><span><strong>Indicizzazione</strong><small>{analysis ? "Controllata" : "Da verificare"}</small></span></div><div><Check /><span><strong>WordPress</strong><small>{wordpressConnected ? "Connesso" : "Da collegare"}</small></span></div><div><Check /><span><strong>Search Console</strong><small>{dataset ? "Connesso" : "Da collegare"}</small></span></div><div className={comparison?.clicks < -10 ? "warning" : "ok"}><CircleGauge /><span><strong>Performance</strong><small>{comparison?.clicks != null ? `${comparison.clicks >= 0 ? "+" : ""}${comparison.clicks.toFixed(1)}%` : "Da monitorare"}</small></span></div></section>
       <section className="reference-priority-panel">
         <div className="reference-section-title"><Target /><div><h2>Cosa devo fare adesso?</h2><p>SeoGrow combina Problemi, Opportunità, Posizionamenti e Task e propone una sola prossima azione.</p></div></div>
-        {primaryAction ? <div className="reference-priority-row reference-priority-primary"><span className={`reference-priority-icon ${primaryAction.tone}`}><primaryAction.Icon /></span><span><strong>{primaryAction.title}</strong><small>{primaryAction.detail}</small></span><span className={`reference-impact ${primaryAction.tone}`}>{primaryAction.source || "Priorità operativa"}</span><button className="primary" onClick={() => setPage(primaryAction.page)}>{primaryAction.label} →</button></div> : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}
+        {primaryAction ? <div className="reference-priority-row reference-priority-primary"><span className={`reference-priority-icon ${primaryAction.tone}`}><PrimaryActionIcon /></span><span><strong>{primaryAction.title}</strong><small>{primaryAction.detail}</small></span><span className={`reference-impact ${primaryAction.tone}`}>{primaryAction.source || "Priorità operativa"}</span><button className="primary" onClick={() => setPage(primaryAction.page)}>{primaryAction.label} →</button></div> : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}
         <div className="reference-priority-signals" aria-label="Segnali usati per la priorità">
           {operationalSignals.map((signal) => <button type="button" key={signal.id} onClick={() => setPage(signal.page)}><small>{signal.label}</small><strong>{signal.value}</strong><span>{signal.detail}</span></button>)}
         </div>
