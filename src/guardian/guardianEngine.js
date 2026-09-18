@@ -225,6 +225,7 @@ const detectAndRecordSignal = (input) => {
   const classification = classifyProblemSignal({ ...input, fingerprint }, history);
   if (!classification.accepted) return null;
   const diagnosis = diagnoseRootCause({ ...input, fingerprint, occurrences: classification.occurrences }, history);
+  const recurrence = classifyRecurrence({ incident: input, history, observation: { ...input, fingerprint } });
   const resolution = decideResolutionPath({
     incident: { ...input, occurrences: classification.occurrences, state: classification.rootCauseReviewRequired ? "blocked" : input.state },
     diagnosis,
@@ -585,7 +586,7 @@ export function markGuardianMonitored(fingerprint, result = {}, now = new Date()
     lastMonitoringResult: result,
     monitoring: monitoringPlan({ incident: { ...rows[index], lastMonitoredAt: now }, now: Date.parse(now) || Date.now() }),
   };
-  writeIncidents(rows);
+  writeWorkspaceJson(GUARDIAN_INCIDENTS_KEY, rows, workspaceStorage);
   dispatchGuardianUpdate({ type: "monitoring-completed", incident: rows[index], result });
   return rows[index];
 }
