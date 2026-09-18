@@ -255,3 +255,18 @@
 .guardian-resolution{display:grid;gap:4px;margin-top:10px;padding:10px 11px;border-radius:10px;background:#f8fafc;border:1px solid rgba(100,116,139,.22);font-size:.78rem}
 .guardian-resolution>span{font-weight:800}.guardian-resolution>small{line-height:1.4;color:#64748b}.guardian-resolution>em{font-style:normal;font-weight:750;color:#166534}
 .guardian-resolution.path-l2{border-left:3px solid #15803d}.guardian-resolution.path-l3{border-left:3px solid #b45309}.guardian-resolution.path-manual{border-left:3px solid #b91c1c}.guardian-resolution.path-l1,.guardian-resolution.path-l0{border-left:3px solid #475569}
+
+
+.guardian-incident.is-focused {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.guardian-monitoring-summary {
+  display: grid;
+  gap: 8px;
+}
+.guardian-monitoring-summary label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
