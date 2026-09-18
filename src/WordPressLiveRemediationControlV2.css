@@ -190,6 +190,7 @@
 }
 
 .wp-live-preview-row.applied,
+.wp-live-preview-row.verified,
 .wp-live-preview-row.resolved {
   border-color: #cce7d7;
   background: #f7fcf9;
