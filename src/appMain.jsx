@@ -83,6 +83,7 @@ import './SemanticVisualSystem.css';
 import './SidebarContrastFinal.css';
 import './FinalUxContract.css';
 import GuardianConsole from './guardian/GuardianConsole.jsx';
+import AutomationNotificationBridge from './AutomationNotificationBridge.jsx';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -111,6 +112,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppErrorBoundary>
       <App />
+      <AutomationNotificationBridge />
       <GuidedUxLayer />
       <WizardCongruenceLayer />
       <CardWorkspaceLayer />
