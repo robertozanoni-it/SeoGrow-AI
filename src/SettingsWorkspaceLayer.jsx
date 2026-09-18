@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Archive, CheckCircle2, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Activity, AlertTriangle, Archive, CheckCircle2, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
@@ -10,6 +10,9 @@ import {
   projectPolicyFromPreferences,
   writeProjectPolicy,
 } from "./system/index.js";
+import { guardianSnapshot } from "./guardian/guardianEngine.js";
+import { automationExecutionPlan } from "./automationOrchestrator.js";
+import { automationStatusRows } from "./automationStatusModel.js";
 import "./SettingsWorkspaceLayer.css";
 
 const currentPage = () => {
@@ -18,7 +21,49 @@ const currentPage = () => {
 };
 const lines = (value) => String(value || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 
-function ProjectPolicyEditor({ clientId, client, policy }) {
+
+const stateLabel = (state) => ({
+  active: "Attivo",
+  inactive: "Non attivo",
+  attention: "Richiede attenzione",
+  waiting: "In attesa",
+  blocked: "Bloccato",
+  circuit_open: "Interrotto",
+  approval_required: "Da approvare",
+  budget_blocked: "Budget bloccato",
+}[state] || state);
+
+function AutomationStatusPanel({ revision }) {
+  void revision;
+  const guardian = guardianSnapshot();
+  const failures = guardian.open
+    .filter((item) => ["error", "critical"].includes(item?.severity))
+    .map((item) => String(item?.source || ""))
+    .filter(Boolean);
+  const plan = automationExecutionPlan({ failures });
+  const rows = automationStatusRows({ guardian, plan });
+
+  return <section className="settings-automation-status" aria-label="Stato automatismi">
+    <header className="settings-automation-head">
+      <div><span className="eyebrow"><Activity /> Automazioni</span><h2>Stato operativo automatismi</h2><p>Vista di controllo degli engine trasversali della suite. Non aggiunge nuovi moduli e non modifica le policy di sicurezza.</p></div>
+      <span className={guardian.open.length ? "automation-health attention" : "automation-health healthy"}>{guardian.open.length ? `${guardian.open.length} incidenti aperti` : "Tutto operativo"}</span>
+    </header>
+    <div className="settings-automation-grid">
+      {rows.map((row) => <article key={row.id} className={`automation-card state-${row.state}`}>
+        <div className="automation-card-head"><strong>{row.label}</strong><span>{stateLabel(row.state)}</span></div>
+        <dl>
+          <div><dt>Rischio</dt><dd>{row.risk}</dd></div>
+          <div><dt>Problemi</dt><dd>{row.incidents}</dd></div>
+          <div><dt>Auto-risolti</dt><dd>{row.autoResolved}</dd></div>
+          <div><dt>Ultima esecuzione</dt><dd>{row.lastRun ? new Date(row.lastRun).toLocaleString("it-IT") : "Non disponibile"}</dd></div>
+        </dl>
+        {row.reason && <p className="automation-reason"><AlertTriangle /> {row.reason}</p>}
+      </article>)}
+    </div>
+  </section>;
+}
+
+function ProjectPolicyEditor({ clientId, client, policy, revision }) {
   const [draft, setDraft] = useState(() => normalizeProjectPolicy(policy));
   const [message, setMessage] = useState("");
   const patch = (group, values) => setDraft((current) => ({ ...current, [group]: { ...current[group], ...values } }));
@@ -29,7 +74,7 @@ function ProjectPolicyEditor({ clientId, client, policy }) {
     setMessage("Policy progetto salvate e applicate.");
   };
 
-  return <section className="settings-policy" aria-label="Policy progetto">
+  return <><AutomationStatusPanel revision={revision} /><section className="settings-policy" aria-label="Policy progetto">
     <header className="settings-policy-head">
       <div><span className="eyebrow"><SlidersHorizontal /> Policy progetto</span><h2>Impostazioni operative · {client.name}</h2><p>Controlli che incidono sul comportamento della suite. I segreti dei provider restano nelle Integrazioni/runtime e non vengono copiati qui.</p></div>
       <button className="primary" type="button" onClick={save}><Save /> Salva policy</button>
@@ -81,7 +126,7 @@ function ProjectPolicyEditor({ clientId, client, policy }) {
         <small>API key, OAuth secret e token non vengono salvati nelle preferenze del progetto.</small>
       </article>
     </div>
-  </section>;
+  </section></>;
 }
 
 export default function SettingsWorkspaceLayer() {
@@ -93,10 +138,10 @@ export default function SettingsWorkspaceLayer() {
     const onPage = () => setPage(currentPage());
     const onData = () => setRevision((value) => value + 1);
     for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.addEventListener(event, onPage);
-    for (const event of ["storage", "seogrow-storage-ok"]) window.addEventListener(event, onData);
+    for (const event of ["storage", "seogrow-storage-ok", "seogrow-guardian-updated", "seogrow-automation-orchestrator-updated"]) window.addEventListener(event, onData);
     return () => {
       for (const event of ["hashchange", "popstate", "seogrow-locationchange"]) window.removeEventListener(event, onPage);
-      for (const event of ["storage", "seogrow-storage-ok"]) window.removeEventListener(event, onData);
+      for (const event of ["storage", "seogrow-storage-ok", "seogrow-guardian-updated", "seogrow-automation-orchestrator-updated"]) window.removeEventListener(event, onData);
     };
   }, []);
 
@@ -130,7 +175,7 @@ export default function SettingsWorkspaceLayer() {
   if (!client || !policy) return createPortal(<section className="settings-policy empty"><h2>Seleziona un progetto</h2><p>Le policy operative sono salvate per progetto.</p></section>, host);
 
   return createPortal(
-    <ProjectPolicyEditor key={`${clientId}:${fingerprint}`} clientId={clientId} client={client} policy={policy} />,
+    <ProjectPolicyEditor key={`${clientId}:${fingerprint}`} clientId={clientId} client={client} policy={policy} revision={revision} />,
     host,
   );
 }
