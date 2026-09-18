@@ -837,9 +837,9 @@ function TaskTable({
             ) : (
               <tr>
                 <td colSpan="5" className="empty-row">
-                  {taskQuery.trim() || statusFilter !== "Tutti"
-                    ? "Nessun task corrisponde ai filtri selezionati."
-                    : "Nessun task attivo per questo progetto. Crea un task oppure parti da un problema o da un’opportunità."}
+                  Nessun task {taskQuery.trim() || statusFilter !== "Tutti"
+                    ? "corrisponde ai filtri selezionati."
+                    : "attivo per questo progetto. Crea un task oppure parti da un problema o da un’opportunità."}
                 </td>
               </tr>
             )}
