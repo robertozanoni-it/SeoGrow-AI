@@ -1,0 +1,72 @@
+name: Publish v1.4.3
+
+on:
+  push:
+    branches:
+      - release/v1.4.3-publish
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TAG: v1.4.3
+      TARGET_SHA: 293b746811b70d98fea6572bac355c1d8730141e
+    steps:
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth=(-H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+
+          ref_code="$(curl -sS -o /tmp/ref.json -w '%{http_code}' "${auth[@]}" "${api}/git/ref/tags/${TAG}")"
+          if [ "$ref_code" = "404" ]; then
+            jq -n --arg ref "refs/tags/${TAG}" --arg sha "${TARGET_SHA}" '{ref:$ref,sha:$sha}' >/tmp/create-ref.json
+            curl -fsS -X POST "${auth[@]}" -H "Content-Type: application/json" --data-binary @/tmp/create-ref.json "${api}/git/refs" >/tmp/ref.json
+          elif [ "$ref_code" != "200" ]; then
+            cat /tmp/ref.json
+            exit 1
+          fi
+
+          actual_sha="$(jq -r '.object.sha // empty' /tmp/ref.json)"
+          if [ "$actual_sha" != "${TARGET_SHA}" ]; then
+            echo "Tag ${TAG} points to ${actual_sha}, expected ${TARGET_SHA}."
+            exit 1
+          fi
+
+          release_code="$(curl -sS -o /tmp/release.json -w '%{http_code}' "${auth[@]}" "${api}/releases/tags/${TAG}")"
+          if [ "$release_code" = "404" ]; then
+            body="$(cat <<'EOF'
+SeoGrow AI Suite 1.4.3
+
+Release evidence:
+- Release Gate #1638 PASS on main
+- quality PASS
+- RC performance gate PASS
+- macOS launcher smoke PASS
+- Connector packaging PASS
+- Real DataForSEO sample PASS
+- Three-project live smoke PASS
+- Elementor staging read-only PASS
+- P0/P1 open: 0
+
+The only post-merge adjustment was a test-fixture hardening for the intentional 7-day stale-audit rule; runtime/product behavior was not changed.
+
+Issue #7 remains tracked separately for post-release external validation and is not a blocker for 1.4.3.
+EOF
+)"
+            jq -n --arg tag "${TAG}" --arg sha "${TARGET_SHA}" --arg name "SeoGrow AI Suite 1.4.3" --arg body "$body"               '{tag_name:$tag,target_commitish:$sha,name:$name,body:$body,draft:false,prerelease:false,generate_release_notes:false}' >/tmp/create-release.json
+            curl -fsS -X POST "${auth[@]}" -H "Content-Type: application/json" --data-binary @/tmp/create-release.json "${api}/releases" >/tmp/release.json
+          elif [ "$release_code" != "200" ]; then
+            cat /tmp/release.json
+            exit 1
+          fi
+
+          jq -e --arg tag "${TAG}" '.tag_name == $tag and .draft == false and .prerelease == false' /tmp/release.json >/dev/null
+          echo "Published: $(jq -r '.html_url' /tmp/release.json)"
