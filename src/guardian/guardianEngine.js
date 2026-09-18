@@ -15,6 +15,7 @@ import { installInteractionWatchdog } from "./interactionWatchdog.js";
 import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 import { decideResolutionPath } from "./resolutionDecisionEngine.js";
 import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js";
+import { dueMonitoringIncidents, monitoringPlan } from "./monitoringScheduler.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -570,3 +571,33 @@ export function uninstallGuardianRuntimeForTests() {
   scheduledId = 0;
   installed = false;
 }
+export function guardianMonitoringQueue(now = Date.now()) {
+  return dueMonitoringIncidents(listGuardianIncidents(), now);
+}
+
+export function markGuardianMonitored(fingerprint, result = {}, now = new Date().toISOString()) {
+  const rows = listGuardianIncidents();
+  const index = rows.findIndex(row => row.fingerprint === fingerprint);
+  if (index < 0) return null;
+  rows[index] = {
+    ...rows[index],
+    lastMonitoredAt: now,
+    lastMonitoringResult: result,
+    monitoring: monitoringPlan({ incident: { ...rows[index], lastMonitoredAt: now }, now: Date.parse(now) || Date.now() }),
+  };
+  writeIncidents(rows);
+  dispatchGuardianUpdate({ type: "monitoring-completed", incident: rows[index], result });
+  return rows[index];
+}
+
+export function runDueGuardianMonitoring(now = Date.now()) {
+  const queue = guardianMonitoringQueue(now);
+  if (typeof window !== "undefined") for (const item of queue) {
+    window.dispatchEvent(new CustomEvent("seogrow-guardian-monitoring-due", {
+      detail: { fingerprint: item.incident.fingerprint, clientId: item.incident.clientId, plan: item.plan },
+    }));
+  }
+  return queue;
+}
+
+
