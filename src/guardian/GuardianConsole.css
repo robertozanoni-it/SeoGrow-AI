@@ -1,0 +1,244 @@
+.guardian-shell {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10050;
+  font-family: inherit;
+}
+
+.guardian-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid rgba(15, 23, 42, .16);
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .16);
+  cursor: pointer;
+  font: inherit;
+}
+
+.guardian-trigger strong { font-variant-numeric: tabular-nums; }
+.guardian-trigger em {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+}
+.guardian-trigger-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .12);
+}
+.guardian-trigger.warning .guardian-trigger-dot {
+  background: #d97706;
+  box-shadow: 0 0 0 4px rgba(217, 119, 6, .12);
+}
+.guardian-trigger.critical .guardian-trigger-dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, .12);
+}
+
+.guardian-panel {
+  position: absolute;
+  right: 0;
+  bottom: 54px;
+  width: min(430px, calc(100vw - 28px));
+  max-height: min(720px, calc(100vh - 90px));
+  overflow: auto;
+  border: 1px solid rgba(15, 23, 42, .12);
+  border-radius: 18px;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, .2);
+}
+
+.guardian-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.guardian-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+}
+.guardian-header h2 { margin: 0; font-size: 20px; line-height: 1.2; }
+.guardian-header p { margin: 5px 0 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+.guardian-close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 9px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.guardian-health-grid {
+  display: grid;
+  grid-template-columns: 1.3fr repeat(3, 1fr);
+  gap: 8px;
+  padding: 14px 18px;
+}
+.guardian-score,
+.guardian-metric {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.guardian-score strong,
+.guardian-metric strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.guardian-score span,
+.guardian-metric span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 10px;
+}
+.guardian-score.healthy { border-color: rgba(22, 163, 74, .25); background: rgba(22, 163, 74, .06); }
+.guardian-score.warning { border-color: rgba(217, 119, 6, .25); background: rgba(217, 119, 6, .06); }
+.guardian-score.critical { border-color: rgba(220, 38, 38, .25); background: rgba(220, 38, 38, .06); }
+
+.guardian-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px 14px;
+}
+.guardian-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.guardian-actions button:disabled { opacity: .55; cursor: wait; }
+.guardian-actions span { color: #64748b; font-size: 11px; }
+
+.guardian-boundary {
+  margin: 0 18px 14px;
+  padding: 11px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 11px;
+  background: #eff6ff;
+}
+.guardian-boundary strong,
+.guardian-boundary span { display: block; }
+.guardian-boundary strong { margin-bottom: 3px; font-size: 11px; }
+.guardian-boundary span { color: #475569; font-size: 11px; line-height: 1.45; }
+
+.guardian-incidents { padding: 0 18px 16px; }
+.guardian-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.guardian-section-title h3 { margin: 0; font-size: 13px; }
+.guardian-section-title span {
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+}
+
+.guardian-empty {
+  padding: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  text-align: center;
+}
+.guardian-empty strong,
+.guardian-empty span { display: block; }
+.guardian-empty strong { font-size: 12px; }
+.guardian-empty span { margin-top: 4px; color: #64748b; font-size: 11px; }
+
+.guardian-incident {
+  margin-top: 8px;
+  padding: 11px 12px;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 11px;
+  background: #fff;
+}
+.guardian-incident.severity-info { border-left-color: #64748b; }
+.guardian-incident.severity-warning { border-left-color: #d97706; }
+.guardian-incident.severity-error,
+.guardian-incident.severity-critical { border-left-color: #dc2626; }
+.guardian-incident-top,
+.guardian-incident footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.guardian-incident-top strong { font-size: 11px; }
+.guardian-incident-top span {
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.guardian-incident p { margin: 5px 0 0; font-size: 12px; line-height: 1.4; }
+.guardian-incident small { display: block; margin-top: 4px; color: #64748b; font-size: 10px; line-height: 1.4; }
+.guardian-incident footer {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.guardian-footer {
+  padding: 11px 18px 14px;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 10px;
+}
+
+@media (max-width: 640px) {
+  .guardian-shell { right: 10px; bottom: 10px; }
+  .guardian-panel { bottom: 50px; }
+  .guardian-health-grid { grid-template-columns: repeat(2, 1fr); }
+  .guardian-actions { align-items: flex-start; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guardian-trigger,
+  .guardian-panel { scroll-behavior: auto; }
+}
