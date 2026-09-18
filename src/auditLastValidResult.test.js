@@ -11,8 +11,11 @@ test("Audit SEO preserves the last valid result when a refresh fails", () => {
   assert.match(audit, /response\.json\(\)\.catch\(\(\) => null\)/);
   assert.match(audit, /if \(!response\.ok\) throw new Error/);
   assert.match(audit, /if \(!data \|\| typeof data !== "object"\) throw new Error/);
-  assert.ok(audit.indexOf("setAuditResult(data)") < audit.indexOf("} catch (err)"));
-  assert.doesNotMatch(audit.slice(audit.indexOf("} catch (err)")), /setAuditResult\(/);
+  const catchAt = audit.indexOf("} catch (err)");
+  assert.ok(catchAt > 0);
+  assert.ok(audit.indexOf("setAuditResult(data)") < catchAt);
+  const catchBody = audit.slice(catchAt, audit.indexOf("} finally", catchAt));
+  assert.doesNotMatch(catchBody, /setAuditResult\(/);
   assert.match(audit, /L’ultimo audit valido resta disponibile qui sotto/);
   assert.match(audit, /role="alert"/);
 });
