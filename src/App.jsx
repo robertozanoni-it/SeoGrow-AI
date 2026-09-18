@@ -21,6 +21,7 @@ import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
+import { dispatchAuditProblemSignals } from "./auditProblemDetectionBridge.js";
 import { mergeAutomationNotifications } from "./automationNotifications.js";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -3979,6 +3980,7 @@ export default function App() {
         ...normalizeAnalysisHistory(current[selectedClient]),
       ].slice(0, 20),
     }));
+    dispatchAuditProblemSignals({ clientId: selectedClient, analysis: enriched });
     const verifiedTasks = tasksFromAnalysis(enriched, selectedClientRecord);
     setTasks(current => reconcileAuditTasks(current, verifiedTasks, selectedClient, enriched.analyzedAt));
   };
@@ -4086,9 +4088,10 @@ export default function App() {
           onSaveViews={views => saveViews("audit", views)}
           key={selectedClient}
           auditResult={auditResults[selectedClient] || null}
-          setAuditResult={(result) =>
-            setAuditResults((current) => ({ ...current, [selectedClient]: result }))
-          }
+          setAuditResult={(result) => {
+            setAuditResults((current) => ({ ...current, [selectedClient]: result }));
+            dispatchAuditProblemSignals({ clientId: selectedClient, analysis: result });
+          }}
           initialUrl={selectedClientRecord.url}
         />
       );
