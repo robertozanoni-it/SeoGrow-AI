@@ -77,7 +77,6 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
     if ($wpdb->query('START TRANSACTION') === false) { return seogrow_connector_atomic_unavailable(); }
 
     $committed = false;
-    $commit_attempted = false;
     try {
         $post = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $id), ARRAY_A);
         if (!$post || $post['post_type'] !== $post_type) { throw new RuntimeException('identity'); }
@@ -198,6 +197,7 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
     }
 
     $committed = false;
+    $commit_attempted = false;
     try {
         $identity = $wpdb->get_row($wpdb->prepare(
             "SELECT t.term_id, t.slug, tt.taxonomy
@@ -364,8 +364,9 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot e modifiche completi obbligatori.', array('status' => 400));
     }
 
-    // Taxonomy storage remains fail-closed until its plugin-owned persistence can
-    // expose the same atomic compare-and-swap guarantees as posts/postmeta.
+    // Taxonomy writes are enabled only for storage shapes that prove the same
+    // atomic compare-and-swap guarantees as posts/postmeta. Unsupported plugin
+    // storage and non-scalar fields remain fail-closed.
     if ($resource === 'taxonomy') {
         $term = seogrow_connector_find_exact_taxonomy_term(esc_url_raw((string) $request->get_param('url')));
         if (is_wp_error($term)) { return $term; }
