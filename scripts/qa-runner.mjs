@@ -75,8 +75,6 @@ try {
       fail: Number(total.fail || 0) + Number(summary.fail || 0),
       skipped: Number(total.skipped || 0) + Number(summary.skipped || 0),
     }), { tests: 0, pass: 0, fail: 0, skipped: 0 });
-    const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
-    report.tests = parseTestSummary(tap);
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
   // macOS /var is a symlink to /private/var. Node resolves module URLs to
