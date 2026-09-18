@@ -131,7 +131,7 @@ export function Dashboard({
         const summary = await loadProjectProblemSummary({ clientId: selectedClient, analysisHistory, analysis, tasks });
         if (!cancelled) setProblemSummaryState({ key: summaryKey, value: summary });
       } catch {
-        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: fallbackProblemSummary });
+        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: null });
       }
     };
     refresh();
