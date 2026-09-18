@@ -12,7 +12,8 @@ const wordpressSession = await readFile(new URL("./system/integrations/wordpress
 
 test("Gate 19 executes lint, unit/integration/storage, build and browser in release QA", () => {
   assert.match(runner, /await run\("lint"/);
-  assert.match(runner, /testName = `test-\\$\\{String\\(index \+ 1\\)/);
+  assert.match(runner, /const testName = `test-/);
+  assert.match(runner, /String\(index \+ 1\)\.padStart\(3, "0"\)/);
   assert.match(runner, /"--test-concurrency=1"/);
   assert.match(runner, /TEST_WORKERS/);
   assert.match(runner, /name\.endsWith\("\.test\.js"\)/);
