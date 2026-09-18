@@ -373,7 +373,7 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         $adapter = (string) $request->get_param('adapter');
         $validation = seogrow_connector_taxonomy_validate_write($term, $adapter, $field, $changes[$field], $expected[$field]);
         if (is_wp_error($validation)) {
-            if (isset($validation->code) && $validation->code === 'seogrow_taxonomy_stale') {
+            if (method_exists($validation, 'get_error_code') && $validation->get_error_code() === 'seogrow_taxonomy_stale') {
                 return new WP_Error('STALE_CONFLICT', 'La tassonomia è cambiata dopo l’anteprima. Nessuna sovrascrittura eseguita.', array('status' => 409));
             }
             return $validation;
