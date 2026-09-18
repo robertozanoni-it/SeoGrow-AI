@@ -61,6 +61,8 @@ test("Connector 1.3.10 espone CAS atomico Rank Math tassonomie senza allargare g
   assert.match(connectorCore, /'atomicWriteGuaranteed' => false/);
   assert.match(atomicWrite, /rank-math-termmeta-cas-v1/);
   assert.match(atomicWrite, /BINARY meta_value = BINARY %s/);
+  assert.match(atomicWrite, /seogrow_connector_taxonomy_purge_public_url/);
+  assert.match(atomicWrite, /publicCachePurgeRequested/);
   assert.match(atomicWrite, /Yoast taxonomy storage[\s\S]*remain fail-closed/);
   assert.match(connectorLoader, /seogrow-connector-core\.inc/);
 });
