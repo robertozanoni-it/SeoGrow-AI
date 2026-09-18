@@ -837,8 +837,9 @@ function TaskTable({
             ) : (
               <tr>
                 <td colSpan="5" className="empty-row">
-                  Nessun task verificato per questo progetto. Importa Search
-                  Console o avvia una nuova analisi.
+                  {taskQuery.trim() || statusFilter !== "Tutti"
+                    ? "Nessun task corrisponde ai filtri selezionati."
+                    : "Nessun task attivo per questo progetto. Crea un task oppure parti da un problema o da un’opportunità."}
                 </td>
               </tr>
             )}
