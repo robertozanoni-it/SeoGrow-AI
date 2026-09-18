@@ -257,7 +257,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
         };
         const identity = previewIdentity({ issue: currentIssue, inspected, targetUrl, frontend: frontendContext });
         if (plan.alreadyResolved) {
-          const closure = recordResolvedProblemClosure({
+          recordResolvedProblemClosure({
             ...currentIssue,
             issueKey: issueKey(currentIssue, targetUrl),
             sourceUrl: targetUrl,
