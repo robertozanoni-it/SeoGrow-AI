@@ -1,3 +1,0 @@
-.app main:has(> .problems-workspace-root) > :not(.problems-workspace-root) {
-  display: none !important;
-}
