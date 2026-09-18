@@ -39,3 +39,29 @@ test("merge deduplicates notifications by stable id", () => {
   const merged = mergeAutomationNotifications([], [incident, incident], []);
   assert.equal(merged.length, 1);
 });
+
+
+test("notification lifecycle changes stable id after verified resolution", () => {
+  const open = guardianIncidentNotification({
+    id: "g2", fingerprint: "same-fingerprint", severity: "critical", state: "blocked",
+    message: "Scrittura workspace fallita",
+  });
+  const resolved = guardianIncidentNotification({
+    id: "g2", fingerprint: "same-fingerprint", severity: "critical", state: "resolved",
+    message: "Scrittura workspace fallita", verification: "Workspace nuovamente scrivibile.",
+  });
+  assert.equal(open.id, "guardian:same-fingerprint:open");
+  assert.equal(resolved.id, "guardian:same-fingerprint:resolved");
+  assert.equal(resolved.tone, "green");
+  assert.equal(open.page, "Problemi");
+  assert.equal(resolved.page, "Problemi");
+});
+
+test("integration health orchestrator event routes to Integrazioni", () => {
+  const item = automationStepNotification({
+    id: "integration-health", state: "blocked", risk: "L0",
+    reason: "Integrazione non disponibile.",
+  });
+  assert.equal(item.page, "Integrazioni");
+  assert.equal(item.tone, "red");
+});
