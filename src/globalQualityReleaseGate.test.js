@@ -29,6 +29,7 @@ test("global audit remains a fail-closed invariant checker", () => {
     "sidebarTonesAlternating",
     "centralizedTaskFactory",
     "nativeStorageBoundaryIsolated",
+    "workspaceJsonReadersCentralized",
   ]) {
     assert.match(audit, new RegExp(invariant));
   }
