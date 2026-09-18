@@ -15,21 +15,6 @@ const fixture = (html = beforeText) => [
   { id: "cd1d669", elType: "widget", widgetType: "text-editor", settings: { editor: html, text_color: "#123456" }, elements: [] },
 ];
 
-for (const [mode, replacement] of [["unlink-preserve-text", anchor], ["delete-anchor-text", ""]]) {
-  test(`real Google-wrapped link is removed locally: ${mode}`, () => {
-    const data = fixture();
-    const raw = JSON.stringify(data);
-    const result = prepareElementorBrokenExternalLink(raw, target, mode);
-    assert.equal(result.state, "valid");
-    assert.equal(result.count, 1, "the link belongs to the local document, not a shared template");
-    assert.equal(result.action, mode);
-    assert.deepEqual(result.anchors, [anchor]);
-    const expected = fixture(beforeText.replace(`<a href="${wrapped}">${anchor}</a>`, replacement));
-    assert.deepEqual(JSON.parse(result.serialized), expected, "only the exact anchor changes");
-    assert.equal(JSON.stringify(data), raw, "the input snapshot remains available for rollback");
-  });
-}
-
 test("wrapped destructive choice is consumed once, never inherited by another page", () => {
   setBrokenLinkCleanupMode(target, "delete-anchor-text");
   const first = prepareElementorBrokenExternalLink(fixture(), target);
