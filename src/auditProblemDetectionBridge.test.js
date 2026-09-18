@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditIssueFingerprint, auditIssueSignal, auditSignals } from "./auditProblemDetectionBridge.js";
+import { auditIssueFingerprint, auditSignals } from "./auditProblemDetectionBridge.js";
 
 test("same Audit issue on same client gets a stable fingerprint", () => {
   const issue = { type: "h1", label: "H1 mancante", sourceUrl: "https://example.com/pagina" };
