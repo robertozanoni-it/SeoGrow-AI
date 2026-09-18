@@ -159,6 +159,15 @@ export function canonicalizeWorkspaceEntries(input) {
 
 const forClient = (store, clientId, fallback = []) => store?.[clientId] ?? store?.[String(clientId)] ?? fallback;
 
+const taskBelongsToClient = (task, client) => {
+  const sourceClientId = Number(task?.sourceClientId);
+  if (Number.isSafeInteger(sourceClientId) && sourceClientId > 0) return sourceClientId === Number(client?.id);
+  // Compatibility boundary for pre-clientId tasks: preserve their ownership by
+  // the historical client label until normalization can persist a numeric id.
+  const legacyClient = String(task?.client || "").trim();
+  return Boolean(legacyClient && legacyClient === String(client?.name || "").trim());
+};
+
 export function buildProjectState({
   clients = [],
   selectedClient = null,
@@ -181,7 +190,7 @@ export function buildProjectState({
       site: dedupeExact(forClient(analyses, clientId), (item) => item?.analyzedAt || item?.startedAt),
       page: dedupeExact(forClient(pageAuditHistory, clientId), (item) => item?.analyzedAt || item?.startedAt),
     },
-    tasks: normalizeStoredTasks(canonicalTasks(tasks), []).filter((task) => Number(task.sourceClientId) === clientId),
+    tasks: normalizeStoredTasks(canonicalTasks(tasks), []).filter((task) => taskBelongsToClient(task, client)),
     corrections: canonicalCorrections(corrections).filter((item) => Number(item?.clientId) === clientId),
     problemClosures: canonicalProblemClosures(problemClosures).filter((item) => Number(item.clientId) === clientId),
   };
