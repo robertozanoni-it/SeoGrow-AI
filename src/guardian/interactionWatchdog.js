@@ -3,6 +3,15 @@ const pending = new Map();
 
 const actionable = (target) => target?.closest?.("button,a,[role='button'],input[type='submit']");
 
+export const shouldWatchAction = (element) => {
+  if (!element || element.disabled || element.getAttribute?.("aria-disabled") === "true") return false;
+  if (element.closest?.("[data-guardian-watch='off']")) return false;
+  if (element.matches?.("a[href^='http'],a[target='_blank'],a[download]")) return false;
+  if (element.matches?.("input[type='file']")) return false;
+  if (element.getAttribute?.("type") === "button" && element.getAttribute?.("aria-haspopup")) return false;
+  return true;
+};
+
 const actionKey = (element) => {
   const text = String(element?.getAttribute?.("aria-label") || element?.textContent || element?.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
   const page = globalThis.location?.hash || "";
@@ -36,17 +45,18 @@ export function installInteractionWatchdog({ timeoutMs = DEFAULT_TIMEOUT_MS } = 
 
   const onClick = (event) => {
     const element = actionable(event.target);
-    if (!element || element.disabled || element.getAttribute("aria-disabled") === "true") return;
-    if (element.matches("a[href^='http'],a[target='_blank']")) return;
+    if (!shouldWatchAction(element)) return;
     const key = actionKey(element);
-    const entry = { key, label: key.split(":").at(-1), timeoutMs, observedEffect: false };
+    const declaredTimeout = Number(element.getAttribute?.("data-guardian-timeout"));
+    const actionTimeout = Number.isFinite(declaredTimeout) && declaredTimeout >= timeoutMs ? Math.min(declaredTimeout, 15_000) : timeoutMs;
+    const entry = { key, label: key.split(":").at(-1), timeoutMs: actionTimeout, observedEffect: false };
     pending.set(key, entry);
     window.setTimeout(() => {
       const current = pending.get(key);
       if (!current) return;
       pending.delete(key);
       if (!current.observedEffect) emitFailure(current);
-    }, timeoutMs);
+    }, actionTimeout);
   };
   document.addEventListener("click", onClick, true);
 
