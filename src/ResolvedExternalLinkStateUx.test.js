@@ -18,7 +18,7 @@ test("zero-occurrence evidence becomes resolved-stale only after evidence is loa
 
 test("missing Connector shared route is translated into an actionable 1.3.8 instruction", () => {
   const message = normalizeSharedConnectorRouteError("Correzione automatica bloccata: Nessun percorso fornisce una corrispondenza tra l'URL ed il metodo richiesto.");
-  assert.match(message, /Connector 1\.3\.8/);
+  assert.match(message, /Connector 1\.3\.9/);
   assert.match(message, /ricollega WordPress/i);
   assert.equal(normalizeSharedConnectorRouteError("Altro errore"), "");
 });
