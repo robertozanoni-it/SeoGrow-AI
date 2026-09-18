@@ -50,7 +50,8 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match"/);
   assert.match(bootstrap, /elementorSharedLinkMode: "unique-template-single-anchor-complete-public-impact-explicit-approval-stale-safe-auto-rollback"/);
   assert.match(bootstrap, /elementorSharedLinkConnectorMinimum: "1\.3\.8"/);
-  assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);\n  assert.match(bootstrap, /rankMathTaxonomyAtomicConnectorMinimum: "1\\.3\\.9"/);
+  assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
+  assert.match(bootstrap, /rankMathTaxonomyAtomicConnectorMinimum: "1\.3\.9"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
   assert.match(bootstrap, /"live-rollback"/);
