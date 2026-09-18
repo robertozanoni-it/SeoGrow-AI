@@ -78,6 +78,7 @@ export default function ProjectCenter({
   previousDataset,
   analysis,
   geo,
+  rankings = [],
   analysisHistory = [],
   tasks = [],
   opportunityCount = 0,
@@ -321,7 +322,7 @@ export default function ProjectCenter({
   const contentIssues = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue.type || ""} ${issue.label || ""}`)).length;
   const topPages = [...(dataset?.pages || [])].toSorted((a, b) => Number(b.clicks || 0) - Number(a.clicks || 0)).slice(0, 5);
   const trend = trendPoints(dataset?.graph || []);
-  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount, geo });
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount, rankings, geo });
   const outcomes = buildProjectOutcomes({ client, tasks, dataset, previousDataset, problemSummary, geo });
   const projectActions = intelligence.actions;
   const activity = [

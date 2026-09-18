@@ -35,7 +35,7 @@ const directImporters = async (symbol, legacyModule) => {
 test("nessun nuovo consumer di produzione aggira il boundary Rank", async () => {
   assert.deepEqual(
     await directImporters("opportunityGroups", "platform"),
-    ["App.jsx", "CardWorkspaceLayer.jsx", "GuidedUxLayer.jsx"],
+    ["App.jsx", "CardWorkspaceLayer.jsx"],
   );
   assert.deepEqual(await directImporters("queryChanges", "platform"), ["App.jsx"]);
   assert.deepEqual(await directImporters("queryTaskDetail", "platform"), ["App.jsx"]);

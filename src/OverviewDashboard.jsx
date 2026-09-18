@@ -106,21 +106,32 @@ export function Dashboard({
   selectedClient,
   gscData,
   geo,
+  rankings = [],
   onOpenClient,
   wordpressConnected = false,
 }) {
   const client = clients.find((item) => item.id === selectedClient) || clients[0];
   const clientTasks = tasks.filter((task) => task.sourceClientId === selectedClient || (!task.sourceClientId && task.client === client?.name));
   const activeTasks = clientTasks.filter((task) => !task.stale && task.status !== "Completato");
-  const [problemSummary, setProblemSummary] = useState({ active: 0, high: 0, verify: 0 });
+  const [problemSummaryState, setProblemSummaryState] = useState(null);
+  const summaryKey = `${selectedClient || 0}:${analysis?.analyzedAt || analysis?.startedAt || ""}`;
+  const auditIssues = Array.isArray(analysis?.issues) ? analysis.issues : [];
+  const fallbackProblemSummary = {
+    active: auditIssues.length,
+    high: auditIssues.filter((issue) => ["alta", "high", "critical", "critica"].includes(String(issue?.severity || "").toLowerCase())).length,
+    verify: 0,
+  };
+  const problemSummary = problemSummaryState?.key === summaryKey
+    ? problemSummaryState.value
+    : fallbackProblemSummary;
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
       try {
         const summary = await loadProjectProblemSummary({ clientId: selectedClient, analysisHistory, analysis, tasks });
-        if (!cancelled) setProblemSummary(summary);
+        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: summary });
       } catch {
-        if (!cancelled) setProblemSummary({ active: 0, high: 0, verify: 0 });
+        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: null });
       }
     };
     refresh();
@@ -134,7 +145,7 @@ export function Dashboard({
       window.removeEventListener("seogrow-remediation-applied", rerun);
       window.removeEventListener("seogrow-storage-ok", rerun);
     };
-  }, [analysis, analysisHistory, selectedClient, tasks]);
+  }, [analysis, analysisHistory, selectedClient, tasks, summaryKey]);
   const critical = problemSummary.high;
   const warnings = Math.max(0, problemSummary.active - problemSummary.high);
   const opportunities = dataset ? opportunityQueries(dataset) : [];
@@ -142,24 +153,31 @@ export function Dashboard({
   const comparison = compareDatasets(dataset, previousDataset);
   const score = Number.isFinite(Number(analysis?.score)) ? Number(analysis.score) : null;
   const contentTasks = activeTasks.filter((task) => /contenut|articol|meta|title/i.test(`${task.title || ""} ${task.kind || ""}`)).length;
-  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected, opportunityCount: opportunities.length, geo });
+  const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected, opportunityCount: opportunities.length, rankings, geo });
   const actionUi = {
     audit: [Search, "info", "Avvia"],
     "audit-refresh": [RefreshCw, "info", "Aggiorna"],
     gsc: [Database, "info", "Collega"],
     "gsc-refresh": [RefreshCw, "info", "Aggiorna"],
     critical: [AlertTriangle, "danger", "Correggi"],
+    problems: [AlertTriangle, "danger", "Apri"],
     verify: [CheckCircle2, "danger", "Verifica"],
+    "tasks-overdue": [ClipboardCheck, "danger", "Apri"],
     tasks: [ClipboardCheck, "info", "Apri"],
+    "rankings-missing": [BarChart3, "info", "Apri"],
+    "rankings-refresh": [RefreshCw, "info", "Aggiorna"],
+    "rankings-decline": [BarChart3, "danger", "Controlla"],
     opportunities: [Target, "success", "Analizza"],
     content: [FileText, "success", "Pianifica"],
     geo: [Sparkles, "success", "Apri GEO"],
     wordpress: [Plug, "info", "Verifica"],
   };
-  const priorityActions = intelligence.actions.slice(0, 3).map((item) => {
-    const [Icon, tone, label] = actionUi[item.id] || [Target, "info", "Apri"];
-    return { ...item, Icon, tone, label };
-  });
+  const primaryAction = intelligence.nextAction ? (() => {
+    const [Icon, tone, label] = actionUi[intelligence.nextAction.id] || [Target, "info", "Apri"];
+    return { ...intelligence.nextAction, Icon, tone, label };
+  })() : null;
+  const operationalSignals = intelligence.operationalSignals || [];
+  const PrimaryActionIcon = primaryAction?.Icon || Target;
   return (
     <div className="reference-dashboard">
       <section className="reference-dashboard-head">
@@ -178,7 +196,13 @@ export function Dashboard({
         <button className="reference-overview-card content" onClick={() => setPage("Piano editoriale")}><FileText /><div><h2>Azioni & contenuti</h2><div className="reference-card-numbers"><span><strong>{contentTasks}</strong><small>Da migliorare</small></span><span><strong>{activeTasks.length}</strong><small>Task aperte</small></span></div></div><b>›</b></button>
       </section>
       <section className="reference-health-strip"><div className="reference-health-title"><Activity /><span><strong>Salute sito</strong><small>Controlli principali del tuo sito</small></span></div><div><Check /><span><strong>Indicizzazione</strong><small>{analysis ? "Controllata" : "Da verificare"}</small></span></div><div><Check /><span><strong>WordPress</strong><small>{wordpressConnected ? "Connesso" : "Da collegare"}</small></span></div><div><Check /><span><strong>Search Console</strong><small>{dataset ? "Connesso" : "Da collegare"}</small></span></div><div className={comparison?.clicks < -10 ? "warning" : "ok"}><CircleGauge /><span><strong>Performance</strong><small>{comparison?.clicks != null ? `${comparison.clicks >= 0 ? "+" : ""}${comparison.clicks.toFixed(1)}%` : "Da monitorare"}</small></span></div></section>
-      <section className="reference-priority-panel"><div className="reference-section-title"><Target /><div><h2>Next Best Action</h2><p>SeoGrow ordina le prossime azioni usando impatto, urgenza, affidabilità ed effort.</p></div><button className="text-link" onClick={() => setPage("Task")}>Vedi tutte le azioni →</button></div>{priorityActions.length ? priorityActions.map(({ title, detail, label, page, tone, Icon, score }) => <div className="reference-priority-row" key={title}><span className={`reference-priority-icon ${tone}`}><Icon /></span><span><strong>{title}</strong><small>{detail}</small></span><span className={`reference-impact ${tone}`}>Priorità {score}</span><button className="primary" onClick={() => setPage(page)}>{label} →</button></div>) : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}</section>
+      <section className="reference-priority-panel">
+        <div className="reference-section-title"><Target /><div><h2>Cosa devo fare adesso?</h2><p>SeoGrow combina Problemi, Opportunità, Posizionamenti e Task e propone una sola prossima azione.</p></div></div>
+        {primaryAction ? <div className="reference-priority-row reference-priority-primary"><span className={`reference-priority-icon ${primaryAction.tone}`}><PrimaryActionIcon /></span><span><strong>{primaryAction.title}</strong><small>{primaryAction.detail}</small></span><span className={`reference-impact ${primaryAction.tone}`}>{primaryAction.source || "Priorità operativa"}</span><button className="primary" onClick={() => setPage(primaryAction.page)}>{primaryAction.label} →</button></div> : <div className="reference-priority-empty"><Check /><span><strong>Nessuna urgenza rilevata</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}
+        <div className="reference-priority-signals" aria-label="Segnali usati per la priorità">
+          {operationalSignals.map((signal) => <button type="button" key={signal.id} onClick={() => setPage(signal.page)}><small>{signal.label}</small><strong>{signal.value}</strong><span>{signal.detail}</span></button>)}
+        </div>
+      </section>
       <div className="reference-dashboard-lower"><VisibilityChart dataset={dataset} /><RecentClients clients={clients} setPage={setPage} gscData={gscData} onOpenClient={onOpenClient} /></div>
     </div>
   );

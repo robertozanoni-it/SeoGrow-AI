@@ -8,9 +8,14 @@ const layer = await readFile(new URL("./GuidedUxLayer.jsx", import.meta.url), "u
 const navigation = await readFile(new URL("./navigationUx.js", import.meta.url), "utf8");
 const css = await readFile(new URL("./GuidedUxLayer.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
+const overview = await readFile(new URL("./OverviewDashboard.jsx", import.meta.url), "utf8");
 
-test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
-  assert.match(layer, /Cosa fare adesso/);
+test("la UX guidata conserva navigazione e modalità ma non calcola una priorità parallela", () => {
+  assert.doesNotMatch(layer, /function NextActions|Cosa fare adesso|pageHosts\.dashboard/);
+  assert.match(overview, /Cosa devo fare adesso\?/);
+  assert.match(overview, /buildProjectIntelligence/);
+  assert.match(overview, /intelligence\.nextAction/);
+  assert.match(overview, /operationalSignals/);
   assert.match(layer, /Modalità semplice/);
   assert.match(layer, /Modalità avanzata/);
   assert.match(layer, /SUITE_NAVIGATION\.map/);

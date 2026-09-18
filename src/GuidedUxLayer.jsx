@@ -1,6 +1,5 @@
 import { readWorkspaceJson as readJson } from "./core/workspace/jsonStorage.js";
 import { registerPageHost } from "./PageStartHierarchy.js";
-import { opportunityGroups } from "./platform.js";
 import { navigatePage as navigate, isNavigationItemVisible } from "./navigationUx.js";
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
@@ -8,7 +7,6 @@ import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
   BarChart3,
   CheckCircle2,
   ChevronDown,
@@ -36,10 +34,8 @@ import "./GuidedUxLayer.css";
 const UI_MODE_KEY = WORKSPACE_KEYS.uiMode;
 const SELECTED_CLIENT_KEY = WORKSPACE_KEYS.selectedClient;
 const CLIENTS_KEY = WORKSPACE_KEYS.clients;
-const TASKS_KEY = WORKSPACE_KEYS.tasks;
 const GSC_KEY = WORKSPACE_KEYS.gsc;
 const ANALYSES_KEY = WORKSPACE_KEYS.analyses;
-const REMEDIATION_INDEX_KEY = WORKSPACE_KEYS.remediationHistory;
 
 const NAV_ICONS = Object.freeze({
   overview: CircleGauge,
@@ -277,7 +273,7 @@ function useUiSnapshot() {
   const [page, setPage] = useState(readPage);
   const [mode, setMode] = useState(readMode);
   const [targets, setTargets] = useState({ sidebar: null, topbar: null, main: null });
-  const [pageHosts, setPageHosts] = useState({ wizard: null, dashboard: null, help: null });
+  const [pageHosts, setPageHosts] = useState({ wizard: null, help: null });
 
   useEffect(() => {
     let frame = 0;
@@ -362,9 +358,8 @@ function useUiSnapshot() {
         return host;
       };
       const wizard = make("guided-page-wizard-host");
-      const dashboard = page === "Panoramica" ? make("guided-next-actions-host") : null;
       const help = make("guided-page-help-host");
-      setPageHosts({ wizard, dashboard, help });
+      setPageHosts({ wizard, help });
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -499,75 +494,18 @@ function PageHelp({ page }) {
   );
 }
 
-function NextActions({ client, tasks, dataset, analysis, corrections }) {
-  const activeTasks = tasks.filter((task) => !task.stale && task.status !== "Completato");
-  const highTasks = activeTasks.filter((task) => task.priority === "Alta").length;
-  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
-  const pendingCorrections = corrections.filter((item) => ["Applicato", "Da verificare"].includes(item.status));
-  const opportunities = opportunityGroups(dataset).quickWins.length;
-  const actions = [];
-
-  if (!analysis) {
-    actions.push({ page: "Audit SEO", Icon: CircleGauge, tone: "normal", title: "Manca una baseline tecnica", text: "Esegui un audit per avere problemi e priorità verificabili." });
-  } else if (issues.length) {
-    actions.push({ page: "Problemi", Icon: AlertTriangle, tone: "urgent", title: `${issues.length} problemi nell'ultimo audit`, text: "Apri il Centro Problemi e scegli cosa affrontare." });
-  }
-
-  if (activeTasks.length) {
-    actions.push({ page: "Task", Icon: ClipboardCheck, tone: highTasks ? "urgent" : "normal", title: `${activeTasks.length} task aperte${highTasks ? ` · ${highTasks} ad alta priorità` : ""}`, text: "Lavora prima sulle attività con maggiore impatto." });
-  }
-
-  if (pendingCorrections.length) {
-    actions.push({ page: "Correzioni", Icon: CheckCircle2, tone: "verify", title: `${pendingCorrections.length} correzioni da verificare`, text: "Controlla che ciò che è stato scritto sia realmente risolto." });
-  }
-
-  if (!dataset) {
-    actions.push({ page: "Integrazioni", Icon: Database, tone: "normal", title: "Search Console non disponibile", text: "Importa i dati per vedere query, pagine e andamento organico." });
-  } else if (opportunities) {
-    actions.push({ page: "Opportunità", Icon: Target, tone: "growth", title: `${opportunities} opportunità rapide`, text: "Valuta le query tra posizione 4 e 20 con dati sufficienti." });
-  }
-
-  if (actions.length < 4 && dataset && analysis) {
-    actions.push({ page: "SEO Agent", Icon: WandSparkles, tone: "ai", title: "Chiedi la prossima priorità", text: "Usa insieme audit e dati del progetto per decidere il prossimo intervento." });
-  }
-
-  return (
-    <section className="guided-next-actions" aria-labelledby="guided-next-actions-title">
-      <div className="guided-next-actions-head"><div><h2 id="guided-next-actions-title">Cosa fare adesso</h2><p>Priorità operative per {client?.name || "il progetto"}.</p></div></div>
-      <div className="guided-action-grid">
-        {actions.slice(0, 4).map(({ page: targetPage, Icon, tone, title, text }, index) => (
-          <button type="button" className={`guided-action-card ${tone} tone-${index % 2 ? "mint" : "blue"}`} key={`${targetPage}-${title}`} onClick={() => navigate(targetPage)}>
-            <span className="guided-action-icon"><Icon /></span>
-            <span><strong>{title}</strong><small>{text}</small></span>
-            <b aria-hidden="true">→</b>
-          </button>
-        ))}
-        {!actions.length && (
-          <button type="button" className="guided-action-card complete tone-mint" onClick={() => navigate("Audit SEO")}>
-            <span className="guided-action-icon"><CheckCircle2 /></span><span><strong>Nessuna urgenza rilevata</strong><small>Puoi rieseguire l'audit per aggiornare la situazione.</small></span><b aria-hidden="true">→</b>
-          </button>
-        )}
-      </div>
-    </section>
-  );
-}
-
 export default function GuidedUxLayer() {
   const { page, mode, setMode, targets, pageHosts } = useUiSnapshot();
   const clients = readJson(CLIENTS_KEY, []);
   const domClientId = Number(document.querySelector(".client-select select")?.value || 0);
   const selectedClientId = domClientId || Number(readJson(SELECTED_CLIENT_KEY, 0));
   const client = clients.find((item) => item.id === selectedClientId) || clients[0] || null;
-  const tasks = readJson(TASKS_KEY, []).filter((task) => task.sourceClientId === client?.id || (!task.sourceClientId && task.client === client?.name));
   const gscData = readJson(GSC_KEY, {});
   const analyses = readJson(ANALYSES_KEY, {});
-  const corrections = readJson(REMEDIATION_INDEX_KEY, []).filter((item) => Number(item.clientId) === Number(client?.id));
   const snapshot = {
     client,
-    tasks,
     dataset: client ? gscData[client.id] || null : null,
     analysis: client ? latestAnalysis(analyses[client.id]) : null,
-    corrections,
   };
 
   return (
@@ -575,7 +513,6 @@ export default function GuidedUxLayer() {
       {targets.sidebar && createPortal(<GuidedNav page={page} mode={mode} setMode={setMode} />, targets.sidebar)}
       {targets.topbar && createPortal(<ProjectContext client={snapshot.client} dataset={snapshot.dataset} analysis={snapshot.analysis} />, targets.topbar)}
       {pageHosts.wizard && createPortal(<PageWizard key={page} page={page} />, pageHosts.wizard)}
-      {pageHosts.dashboard && createPortal(<NextActions {...snapshot} />, pageHosts.dashboard)}
       {pageHosts.help && createPortal(<PageHelp page={page} />, pageHosts.help)}
     </>
   );
