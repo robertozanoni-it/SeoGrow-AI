@@ -352,12 +352,16 @@ export default function ProblemsWorkspace() {
       setRevision((value) => value + 1);
     };
     const onVisibility = () => { if (!document.hidden) refresh(); };
+    const onProblemResolved = () => {
+      setSelectedKey("");
+      refresh();
+    };
     window.addEventListener("hashchange", refresh);
     window.addEventListener("popstate", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-storage-ok", refresh);
     window.addEventListener("seogrow-remediation-history", refresh);
-    window.addEventListener("seogrow-problem-resolved", refresh);
+    window.addEventListener("seogrow-problem-resolved", onProblemResolved);
     window.addEventListener("seogrow-problem-reopened", refresh);
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
@@ -368,7 +372,7 @@ export default function ProblemsWorkspace() {
       window.removeEventListener("seogrow-locationchange", refresh);
       window.removeEventListener("seogrow-storage-ok", refresh);
       window.removeEventListener("seogrow-remediation-history", refresh);
-      window.removeEventListener("seogrow-problem-resolved", refresh);
+      window.removeEventListener("seogrow-problem-resolved", onProblemResolved);
       window.removeEventListener("seogrow-problem-reopened", refresh);
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
@@ -461,21 +465,10 @@ export default function ProblemsWorkspace() {
   const sourceOptions = [...new Set(rows.flatMap((row) => row.sources.map((source) => source.kind)).filter(Boolean))].toSorted();
 
   const filtered = filterProblemRows(rows, filters);
-
-  useEffect(() => {
-    if (!selectedKey) return;
-    if (filtered.some((row) => row.key === selectedKey)) return;
-    setSelectedKey("");
-  }, [selectedKey, filtered]);
-
-  useEffect(() => {
-    const activeKeys = new Set(activeRows.map((row) => row.key));
-    setBatchSelection((current) => {
-      if (current.clientId !== selectedClientId || !current.keys.length) return current;
-      const keys = current.keys.filter((key) => activeKeys.has(key));
-      return keys.length === current.keys.length ? current : { ...current, keys };
-    });
-  }, [activeRows, selectedClientId]);
+  const activeKeySet = new Set(activeRows.map((row) => row.key));
+  const selectedBatchKeys = batchSelection.clientId === selectedClientId
+    ? batchSelection.keys.filter((key) => activeKeySet.has(key))
+    : [];
 
   const counts = {
     active: activeRows.length,
@@ -484,7 +477,7 @@ export default function ProblemsWorkspace() {
     reappeared: activeRows.filter((row) => row.problemState === "reappeared").length,
     resolved: rows.filter((row) => row.problemState === "resolved").length,
   };
-  const selected = rows.find((row) => row.key === selectedKey) || null;
+  const selected = filtered.find((row) => row.key === selectedKey) || null;
 
   if (!active || !mainTarget) return null;
 
@@ -549,7 +542,7 @@ export default function ProblemsWorkspace() {
       </div>
 
       <BatchRemediationPanel key={client.id} client={client} rows={filtered}
-        selectedKeys={batchSelection.clientId === client.id ? batchSelection.keys : []}
+        selectedKeys={selectedBatchKeys}
         onSelect={keys => setBatchSelection({ clientId: client.id, keys })}
         onShowOpen={() => setFilters(value => ({ ...value, state: "active", query: "", type: "", source: "", adapter: "", correctability: "", special: "", severity: "" }))}
         busy={batchBusy} onBusy={value => setBatchBusyScope(current => value ? { clientId: client.id, busy: true } : current.clientId === client.id ? { clientId: client.id, busy: false } : current)} />
@@ -561,7 +554,7 @@ export default function ProblemsWorkspace() {
           const autoResolvable = entryLabel === "Correggi automaticamente";
           return (
             <article className={`problem-row problem-card card-record ${index % 2 ? "mint" : "blue"}`} data-problem-navigation="direct" data-problem-key={problem.key} data-issue-type={problem.issueType} key={problem.key} role="button" tabIndex={batchBusy ? -1 : 0} aria-label={`Apri problema ${problem.title}`} onClick={event => { if (!event.target.closest("a,button,input,label") && !batchBusy) openProblemResolution(problem, selectedClientId, "problem-row"); }} onKeyDown={event => { if (!batchBusy && event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); openProblemResolution(problem, selectedClientId, "problem-row"); } }}>
-              <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={batchSelection.clientId === client.id && batchSelection.keys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
+              <label className="problem-batch-select"><input type="checkbox" aria-label={`Seleziona ${problem.title}`} disabled={batchBusy} checked={selectedBatchKeys.includes(problem.key)} onChange={event => setBatchSelection(current => { const keys = current.clientId === client.id ? current.keys.filter(key => activeKeySet.has(key)) : []; return { clientId: client.id, keys: event.target.checked ? [...new Set([...keys, problem.key])] : keys.filter(key => key !== problem.key) }; })} /> Seleziona</label>
               <span className="card-record-date">{problem.observedAt ? formatDate(problem.observedAt) : "Data non disponibile"}</span>
               <span className={`problem-severity ${problem.severity}`}>{labelMap.severity[problem.severity]}</span>
               <span className="problem-main"><button type="button" disabled={batchBusy} onClick={() => openProblemResolution(problem, selectedClientId, "problem-row")}><strong>{problem.title}</strong></button><small>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{href}</a> : "URL non disponibile"}</small>{(problem.targetUrls || []).map(target => <small className="problem-external-target" key={target}>Link interessato: <a href={safeHttpHref(target)} target="_blank" rel="noopener noreferrer">{target}</a></small>)}{problem.targetUrls?.length > 0 && <small>Anchor text: {problem.anchorTexts?.join(" · ") || "non disponibile"}</small>}{view === "detailed" && <p>{compactText(problem.detail)}</p>}</span>
