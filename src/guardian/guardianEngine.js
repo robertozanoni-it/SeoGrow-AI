@@ -326,7 +326,7 @@ export function guardianRunHistory(storage = workspaceStorage) {
   return Array.isArray(rows) ? rows.slice(-10).toReversed() : [];
 }
 
-const recordGuardianRun = (scan, storage = workspaceStorage) => {
+export const recordGuardianRun = (scan, storage = workspaceStorage) => {
   const rows = readWorkspaceJson(GUARDIAN_RUN_HISTORY_KEY, [], storage);
   const next = [...(Array.isArray(rows) ? rows : []), scan].slice(-10);
   writeWorkspaceJson(GUARDIAN_RUN_HISTORY_KEY, next, storage);
