@@ -1,6 +1,6 @@
-# SeoGrow AI — Suite 1.4.3
+# SeoGrow AI — Suite 1.4.4
 
-Le verifiche storiche della versione 1.4.2 sono riepilogate in `docs/QA-1.4.2.md`. La release 1.4.3 aggiunge il workflow di remediation WordPress con verifica frontend, storico correzioni e rollback.
+Le verifiche storiche della versione 1.4.2 sono riepilogate in `docs/QA-1.4.2.md`. La release 1.4.4 stabilizza il flusso operativo quotidiano: verifica automatica post-fix, priorità unica in Panoramica e monitoraggio controllato GSC/DataForSEO.
 
 Suite SEO locale per gestire progetti e clienti, audit, problemi, opportunità, posizionamenti, contenuti, task, GEO, automazioni assistite e workflow WordPress verificabili.
 
