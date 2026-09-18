@@ -17,7 +17,12 @@ const connectorCore = await readFile(
   new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url),
   "utf8",
 );
-const atomicWrite = await readFile(\n  new URL("../wordpress-plugin/seogrow-connector/atomic-write.php", import.meta.url),\n  "utf8",\n);\nconst connector = `${connectorLoader}\\n${connectorCore}\\n${atomicWrite}`;\nconst server = await readFile(new URL("../server/wordpressTaxonomyHook.js", import.meta.url), "utf8");
+const atomicWrite = await readFile(
+  new URL("../wordpress-plugin/seogrow-connector/atomic-write.php", import.meta.url),
+  "utf8",
+);
+const connector = `${connectorLoader}\n${connectorCore}\n${atomicWrite}`;
+const server = await readFile(new URL("../server/wordpressTaxonomyHook.js", import.meta.url), "utf8");
 
 const rankInspection = () => normalizeTaxonomyInspection({
   ok: true,
