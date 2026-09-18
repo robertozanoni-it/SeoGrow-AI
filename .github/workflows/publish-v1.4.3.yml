@@ -42,26 +42,25 @@ jobs:
 
           release_code="$(curl -sS -o /tmp/release.json -w '%{http_code}' "${auth[@]}" "${api}/releases/tags/${TAG}")"
           if [ "$release_code" = "404" ]; then
-            body="$(cat <<'EOF'
-SeoGrow AI Suite 1.4.3
-
-Release evidence:
-- Release Gate #1638 PASS on main
-- quality PASS
-- RC performance gate PASS
-- macOS launcher smoke PASS
-- Connector packaging PASS
-- Real DataForSEO sample PASS
-- Three-project live smoke PASS
-- Elementor staging read-only PASS
-- P0/P1 open: 0
-
-The only post-merge adjustment was a test-fixture hardening for the intentional 7-day stale-audit rule; runtime/product behavior was not changed.
-
-Issue #7 remains tracked separately for post-release external validation and is not a blocker for 1.4.3.
-EOF
-)"
-            jq -n --arg tag "${TAG}" --arg sha "${TARGET_SHA}" --arg name "SeoGrow AI Suite 1.4.3" --arg body "$body"               '{tag_name:$tag,target_commitish:$sha,name:$name,body:$body,draft:false,prerelease:false,generate_release_notes:false}' >/tmp/create-release.json
+            body="$(printf '%s\n' \
+              'SeoGrow AI Suite 1.4.3' \
+              '' \
+              'Release evidence:' \
+              '- Release Gate #1638 PASS on main' \
+              '- quality PASS' \
+              '- RC performance gate PASS' \
+              '- macOS launcher smoke PASS' \
+              '- Connector packaging PASS' \
+              '- Real DataForSEO sample PASS' \
+              '- Three-project live smoke PASS' \
+              '- Elementor staging read-only PASS' \
+              '- P0/P1 open: 0' \
+              '' \
+              'The only post-merge adjustment was a test-fixture hardening for the intentional 7-day stale-audit rule; runtime/product behavior was not changed.' \
+              '' \
+              'Issue #7 remains tracked separately for post-release external validation and is not a blocker for 1.4.3.')"
+            jq -n --arg tag "${TAG}" --arg sha "${TARGET_SHA}" --arg name "SeoGrow AI Suite 1.4.3" --arg body "$body" \
+              '{tag_name:$tag,target_commitish:$sha,name:$name,body:$body,draft:false,prerelease:false,generate_release_notes:false}' >/tmp/create-release.json
             curl -fsS -X POST "${auth[@]}" -H "Content-Type: application/json" --data-binary @/tmp/create-release.json "${api}/releases" >/tmp/release.json
           elif [ "$release_code" != "200" ]; then
             cat /tmp/release.json
