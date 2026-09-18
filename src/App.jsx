@@ -10,8 +10,7 @@ import EditorialCalendar from "./EditorialCalendar.jsx";
 import { CommandPalette, SavedViews } from "./ProductivityUi.jsx";
 import { taskChange, undoTaskChange } from "./productivity.js";
 import { completeTaskById } from "./taskCompletion.js";
-import { buildProjectHistory } from "./projectHistory.js";
-import { Dashboard, SeoGrowAiDashboard } from "./OverviewDashboard.jsx";
+import { Dashboard } from "./OverviewDashboard.jsx";
 import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
 import { createTaskDraft } from "./experience/tasks/index.js";
 import { consumeTaskWorkflowContext, taskWorkflowTarget, writeCorrectionsWorkflowContext, writeTaskWorkflowContext } from "./taskWorkflow.js";
@@ -222,44 +221,6 @@ function useStoredState(key, fallback) {
     return () => window.removeEventListener("storage", sync);
   }, [key]);
   return [value, setValue];
-}
-
-function HistoryPage({ history, tasks = [], corrections = [], client, onAnalyze }) {
-  const [historyFilter, setHistoryFilter] = useState("Tutti");
-  const current = history[0];
-  const oldest = history.at(-1);
-  const scoreDelta = current?.score != null && oldest?.score != null ? current.score - oldest.score : null;
-  const resolvedTotal = history.reduce((sum, item) => sum + (item.resolvedIssues?.length || 0), 0);
-  const issueTotal = history.reduce((sum, item) => sum + (item.issues?.length || 0), 0);
-  const timeline = buildProjectHistory({ audits: history, tasks, corrections });
-  const filteredTimeline = historyFilter === "Tutti" ? timeline : timeline.filter((item) => item.type === historyFilter);
-  const exportTimeline = () => downloadCsv(filteredTimeline.map((item) => ({ data: item.date, tipo: item.type, titolo: item.title, seo_score: item.score ?? "", risultato: item.detail || "", risorsa: item.url || "" })), `storico-${client.name}.csv`);
-  return (
-    <div className="reference-history-page">
-      <section className="reference-history-project">
-        <div className="reference-history-mark"><img src="/favicon.svg" alt="" /></div>
-        <div><small>Storico progetto</small><h1>{client.name}</h1><a href={client.url} target="_blank" rel="noreferrer">{client.url}</a><p>Timeline unificata di audit, correzioni, contenuti e task completate.</p></div>
-        <div className="reference-history-actions"><button className="secondary" onClick={exportTimeline}><Download /> Esporta CSV</button><button className="primary" onClick={onAnalyze}><Plus /> Nuovo audit</button></div>
-      </section>
-      <section className="reference-history-kpis">
-        <article className="blue"><Search /><span><strong>{history.length}</strong><small>Audit eseguiti</small><em>Storico locale disponibile</em></span></article>
-        <article className="green"><Target /><span><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta}`}</strong><small>Miglioramento SEO</small><em>Dal primo all’ultimo audit</em></span></article>
-        <article className="blue"><BarChart3 /><span><strong>{resolvedTotal}</strong><small>Problemi risolti</small><em>Registrati negli audit</em></span></article>
-        <article className="green"><FileText /><span><strong>{current?.pagesChecked || 0}</strong><small>Pagine ultimo audit</small><em>{issueTotal} segnalazioni nello storico</em></span></article>
-      </section>
-      <nav className="reference-history-tabs" aria-label="Filtri storico">{["Tutti","Audit","Correzione","Contenuto","Task"].map((filter) => <button type="button" key={filter} className={historyFilter === filter ? "active" : ""} onClick={() => setHistoryFilter(filter)}>{filter === "Correzione" ? "Correzioni" : filter === "Contenuto" ? "Contenuti" : filter}</button>)}</nav>
-      <div className="reference-history-layout">
-        <section className="reference-history-table">
-          <div className="table-scroll"><table><caption className="sr-only">Storico unificato del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo / descrizione</th><th>SEO Score</th><th>Risultato</th><th>Risorsa</th></tr></thead><tbody>{filteredTimeline.length ? filteredTimeline.map((item) => <tr key={item.id}><td><strong>{new Date(item.date).toLocaleDateString("it-IT")}</strong><small>{new Date(item.date).toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})}</small></td><td><span className="reference-history-type">{item.type}</span></td><td><strong>{item.title}</strong></td><td>{item.score != null ? <span className={`reference-history-score ${Number(item.score) >= 80 ? "good" : Number(item.score) >= 60 ? "medium" : "low"}`}>{item.score}</span> : "—"}</td><td><small>{item.detail || "—"}</small></td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Apri</a> : "—"}</td></tr>) : <tr><td colSpan="6" className="empty-row">Nessuna attività disponibile per questo filtro.</td></tr>}</tbody></table></div>
-        </section>
-        <aside className="reference-history-aside">
-          <section><BarChart3 /><h2>Confronta audit</h2><p>{history.length >= 2 ? `Dal punteggio ${oldest?.score ?? "—"} a ${current?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={onAnalyze}>Esegui nuovo audit →</button></section>
-          <section className="reference-history-progress"><Target /><h2>Il tuo progresso</h2><strong>{scoreDelta == null ? "—" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta} punti`}</strong><p>{resolvedTotal} problemi risultano risolti nello storico disponibile.</p></section>
-          <section><Download /><h2>Esporta storico</h2><p>Scarica la timeline completa in formato CSV.</p><button className="secondary" onClick={exportTimeline}>Esporta CSV</button></section>
-        </aside>
-      </div>
-    </div>
-  );
 }
 
 function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
@@ -4058,7 +4019,7 @@ export default function App() {
   const content = (() => {
     // These pages render through their dedicated portals.
     if (["Problemi", "Correzioni"].includes(page)) return null;
-    if (page === "Centro progetto") return <Suspense fallback={<div className="page-loading">Caricamento Centro progetto…</div>}><ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} previousDataset={selectedHistory[1]} analysis={selectedAnalysis || auditResults[selectedClient]} analysisHistory={selectedAnalysisHistory} geo={geoData[selectedClient]} rankings={rankings[selectedClient] || rankings[String(selectedClient)] || []} tasks={tasks} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter></Suspense>;
+    if (page === "Centro progetto") return <Suspense fallback={<div className="page-loading">Caricamento Centro progetto…</div>}><ProjectCenter key={selectedClient} client={selectedClientRecord} dataset={selectedDataset} previousDataset={selectedHistory[1]} analysis={selectedAnalysis || auditResults[selectedClient]} analysisHistory={selectedAnalysisHistory} geo={geoData[selectedClient]} rankings={rankings[selectedClient] || rankings[String(selectedClient)] || []} tasks={tasks} corrections={correctionHistory} opportunityCount={selectedDataset ? opportunityQueries(selectedDataset).length : 0} connection={wordpressConnections[selectedClient]} aiConfigured={apiStatus.aiConfigured} settings={projectSettings} onSave={saveProjectSettings} onNavigate={setPage} onReport={() => downloadReport(selectedClient)}><ProjectMonitoring client={selectedClientRecord} settings={projectSettings} onSave={saveProjectSettings} /></ProjectCenter></Suspense>;
     if (page === "Panoramica")
       return (
         <Dashboard
@@ -4107,16 +4068,6 @@ export default function App() {
           initialUrl={selectedClientRecord.url}
         />
       );
-    if (page === "Storico")
-      return (
-        <HistoryPage
-          history={selectedAnalysisHistory}
-          tasks={selectedTasks}
-          corrections={correctionHistory}
-          client={selectedClientRecord}
-          onAnalyze={() => setQuickAudit(true)}
-        />
-      );
     if (page === "Link interni")
       return (
         <InternalLinksPage
@@ -4138,19 +4089,6 @@ export default function App() {
           }}
           openIntegrations={() => setPage("Integrazioni")}
           onCreateTask={createManualTask}
-        />
-      );
-    if (page === "SeoGrow AI")
-      return (
-        <SeoGrowAiDashboard
-          clients={clients}
-          gscData={gscData}
-          analyses={analyses}
-          tasks={tasks}
-          selectedClient={selectedClient}
-          setPage={setPage}
-          openAudit={() => setQuickAudit(true)}
-          onOpenClient={openClient}
         />
       );
     if (page === "SEO Agent")
