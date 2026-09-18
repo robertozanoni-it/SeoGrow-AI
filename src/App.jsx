@@ -223,7 +223,7 @@ function useStoredState(key, fallback) {
   return [value, setValue];
 }
 
-function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
+function InternalLinksPage({ analysis, client, tasks = [], clientId, onAnalyze, onCreateTask, onOpenTask }) {
   const suggestions = analysis?.internalLinkSuggestions || [];
   const broken = analysis?.brokenLinks || [];
   const linksChecked = Number(analysis?.linksChecked || 0);
@@ -234,6 +234,11 @@ function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
     .reduce((map, anchor) => map.set(anchor, (map.get(anchor) || 0) + 1), new Map());
   const topAnchors = [...anchorRows.entries()].toSorted((a,b) => b[1] - a[1]).slice(0, 5);
   const structureItems = suggestions.slice(0, 6);
+  const createOrOpenTask = (values) => {
+    const existing = findExistingTask(tasks, values, clientId);
+    if (existing) return onOpenTask?.(existing.id);
+    return onCreateTask(values);
+  };
   return (
     <div className="reference-links-page">
       <section className="reference-links-head">
@@ -261,9 +266,9 @@ function InternalLinksPage({ analysis, client, onAnalyze, onCreateTask }) {
         </div>
       </section>
 
-      <section className="reference-link-opportunities panel"><div className="reference-panel-title"><div><h2>Pagine con opportunità di link</h2><p>Suggerimenti editoriali da validare prima dell’applicazione.</p></div><span>{suggestions.length} opportunità</span></div>{suggestions.length ? <div className="table-scroll"><table><caption className="sr-only">Opportunità di linking interno</caption><thead><tr><th>Pagina sorgente</th><th>Anchor</th><th>Destinazione</th><th>Azione</th></tr></thead><tbody>{suggestions.slice(0, 12).map((link,index) => <tr key={`${link.sourceUrl}-${link.targetUrl}-${index}`}><td><a href={link.sourceUrl} target="_blank" rel="noreferrer">{link.sourceUrl}</a></td><td><strong>{link.anchor || "Non disponibile"}</strong></td><td><a href={link.targetUrl} target="_blank" rel="noreferrer">{link.targetUrl}</a></td><td><button className="secondary mini" onClick={() => onCreateTask({ title:`Inserisci link interno: “${link.anchor}”`, sourceUrl:link.sourceUrl, targetUrl:link.targetUrl, detail:`${link.reason}\nPagina sorgente: ${link.sourceUrl}\nDestinazione: ${link.targetUrl}\nAnchor consigliata: ${link.anchor}`, priority:"Media", kind:"internal-link" })}>Crea task</button></td></tr>)}</tbody></table></div> : <p className="reference-empty-copy">Avvia un crawl completo per generare suggerimenti.</p>}</section>
+      <section className="reference-link-opportunities panel"><div className="reference-panel-title"><div><h2>Pagine con opportunità di link</h2><p>Suggerimenti editoriali da validare prima dell’applicazione.</p></div><span>{suggestions.length} opportunità</span></div>{suggestions.length ? <div className="table-scroll"><table><caption className="sr-only">Opportunità di linking interno</caption><thead><tr><th>Pagina sorgente</th><th>Anchor</th><th>Destinazione</th><th>Azione</th></tr></thead><tbody>{suggestions.slice(0, 12).map((link,index) => <tr key={`${link.sourceUrl}-${link.targetUrl}-${index}`}><td><a href={link.sourceUrl} target="_blank" rel="noreferrer">{link.sourceUrl}</a></td><td><strong>{link.anchor || "Non disponibile"}</strong></td><td><a href={link.targetUrl} target="_blank" rel="noreferrer">{link.targetUrl}</a></td><td><button className="secondary mini" onClick={() => createOrOpenTask({ title:`Inserisci link interno: “${link.anchor}”`, sourceUrl:link.sourceUrl, targetUrl:link.targetUrl, detail:`${link.reason}\nPagina sorgente: ${link.sourceUrl}\nDestinazione: ${link.targetUrl}\nAnchor consigliata: ${link.anchor}`, priority:"Media", kind:"internal-link" })}>Crea task</button></td></tr>)}</tbody></table></div> : <p className="reference-empty-copy">Avvia un crawl completo per generare suggerimenti.</p>}</section>
 
-      <section className="reference-broken-links panel"><div className="reference-panel-title"><div><h2>Link interrotti</h2><p>Pagine sorgenti e destinazioni rilevate dal crawl.</p></div><span>{broken.length}</span></div>{broken.length ? broken.slice(0,10).map((link) => <div className="reference-broken-row" key={link.url}><AlertTriangle /><span><strong>{link.url}</strong><small>{(link.sources || []).length} pagine sorgenti</small></span><button className="secondary mini" onClick={() => onCreateTask({ title:`Correggi link interrotto: ${link.url}`, sourceUrl:link.sources?.[0] || "", targetUrl:link.url, detail:`${link.error || `HTTP ${link.status}`}\nPagine sorgenti:\n${(link.sources || []).map((source) => `- ${source}`).join("\n")}\nDestinazione interrotta: ${link.url}`, priority:"Alta", kind:"broken-link" })}>Crea task</button></div>) : <div className="reference-link-success"><Check /><span><strong>Nessun link interrotto rilevato</strong><small>{analysis ? "Ultimo crawl senza errori di linking confermati." : "Avvia una nuova analisi completa."}</small></span></div>}</section>
+      <section className="reference-broken-links panel"><div className="reference-panel-title"><div><h2>Link interrotti</h2><p>Pagine sorgenti e destinazioni rilevate dal crawl.</p></div><span>{broken.length}</span></div>{broken.length ? broken.slice(0,10).map((link) => <div className="reference-broken-row" key={link.url}><AlertTriangle /><span><strong>{link.url}</strong><small>{(link.sources || []).length} pagine sorgenti</small></span><button className="secondary mini" onClick={() => createOrOpenTask({ title:`Correggi link interrotto: ${link.url}`, sourceUrl:link.sources?.[0] || "", targetUrl:link.url, detail:`${link.error || `HTTP ${link.status}`}\nPagine sorgenti:\n${(link.sources || []).map((source) => `- ${source}`).join("\n")}\nDestinazione interrotta: ${link.url}`, priority:"Alta", kind:"broken-link" })}>Crea task</button></div>) : <div className="reference-link-success"><Check /><span><strong>Nessun link interrotto rilevato</strong><small>{analysis ? "Ultimo crawl senza errori di linking confermati." : "Avvia una nuova analisi completa."}</small></span></div>}</section>
     </div>
   );
 }
@@ -4077,7 +4082,13 @@ export default function App() {
           analysis={selectedAnalysis}
           client={selectedClientRecord}
           onAnalyze={() => setQuickAudit(true)}
+          tasks={selectedTasks}
+          clientId={selectedClient}
           onCreateTask={createManualTask}
+          onOpenTask={(id) => {
+            setRequestedTask({ id, nonce: Date.now() });
+            setPage("Task");
+          }}
         />
       );
     if (page === "Opportunità")
