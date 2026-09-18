@@ -23,13 +23,36 @@ let recheckRunning = false;
 let recheckTimer = null;
 
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
+
+const dispatchProblemState = (name, record) => {
+  if (typeof window === "undefined" || !record) return;
+  window.dispatchEvent(new CustomEvent(name, {
+    detail: {
+      id: record.id || "",
+      clientId: normalizeClientId(record.clientId),
+      issueKey: record.issueKey || "",
+      issueType: record.issueType || record.issue?.type || "",
+      sourceUrl: record.sourceUrl || "",
+      verifiedAt: record.verifiedAt || "",
+    },
+  }));
+};
+
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
-  if (after.status === "Verificato" && (after.liveApproval !== true || hasAutoFixCompletionEvidence(after))) {
+  const completionVerified = after.status === "Verificato" &&
+    (after.liveApproval !== true || hasAutoFixCompletionEvidence(after));
+  if (completionVerified) {
     removeVerifiedTask(after);
+    if (before?.status !== "Verificato" || before?.verifiedAt !== after.verifiedAt) {
+      dispatchProblemState("seogrow-problem-resolved", after);
+    }
     return;
   }
-  if (before?.status === "Verificato" && after.status !== "Verificato") reopenTask(after);
+  if (before?.status === "Verificato" && after.status !== "Verificato") {
+    reopenTask(after);
+    dispatchProblemState("seogrow-problem-reopened", after);
+  }
 };
 
 const currentClientId = () => {
