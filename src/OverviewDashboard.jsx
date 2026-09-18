@@ -113,15 +113,25 @@ export function Dashboard({
   const client = clients.find((item) => item.id === selectedClient) || clients[0];
   const clientTasks = tasks.filter((task) => task.sourceClientId === selectedClient || (!task.sourceClientId && task.client === client?.name));
   const activeTasks = clientTasks.filter((task) => !task.stale && task.status !== "Completato");
-  const [problemSummary, setProblemSummary] = useState({ active: 0, high: 0, verify: 0 });
+  const [problemSummaryState, setProblemSummaryState] = useState(null);
+  const summaryKey = `${selectedClient || 0}:${analysis?.analyzedAt || analysis?.startedAt || ""}`;
+  const auditIssues = Array.isArray(analysis?.issues) ? analysis.issues : [];
+  const fallbackProblemSummary = {
+    active: auditIssues.length,
+    high: auditIssues.filter((issue) => ["alta", "high", "critical", "critica"].includes(String(issue?.severity || "").toLowerCase())).length,
+    verify: 0,
+  };
+  const problemSummary = problemSummaryState?.key === summaryKey
+    ? problemSummaryState.value
+    : fallbackProblemSummary;
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
       try {
         const summary = await loadProjectProblemSummary({ clientId: selectedClient, analysisHistory, analysis, tasks });
-        if (!cancelled) setProblemSummary(summary);
+        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: summary });
       } catch {
-        if (!cancelled) setProblemSummary({ active: 0, high: 0, verify: 0 });
+        if (!cancelled) setProblemSummaryState({ key: summaryKey, value: fallbackProblemSummary });
       }
     };
     refresh();
@@ -135,7 +145,7 @@ export function Dashboard({
       window.removeEventListener("seogrow-remediation-applied", rerun);
       window.removeEventListener("seogrow-storage-ok", rerun);
     };
-  }, [analysis, analysisHistory, selectedClient, tasks]);
+  }, [analysis, analysisHistory, selectedClient, tasks, summaryKey]);
   const critical = problemSummary.high;
   const warnings = Math.max(0, problemSummary.active - problemSummary.high);
   const opportunities = dataset ? opportunityQueries(dataset) : [];
