@@ -56,7 +56,7 @@ try {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
     const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
-    const isolatedContractTests = new Set(["src/elementorCoverageAttestationHook.test.js"]);
+    const isolatedContractTests = new Set(tests.filter(name => /^src\/elementorCoverage.*\.test\.js$/.test(name)));
     const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name));
     const shardSize = 40;
     const shardSummaries = [];
@@ -66,8 +66,8 @@ try {
       await run(shardName, ["--test", "--test-reporter=tap", ...shard]);
       shardSummaries.push(parseTestSummary(await readFile(path.join(output, `${shardName}.log`), "utf8")));
     }
-    for (const contractTest of isolatedContractTests) {
-      await run(`contract-${path.basename(contractTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", contractTest]);
+    if (isolatedContractTests.size) {
+      await run("contract-elementor-coverage", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedContractTests]);
     }
     for (const storageTest of isolatedStorageTests) {
       await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
