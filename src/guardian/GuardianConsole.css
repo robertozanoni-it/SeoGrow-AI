@@ -242,3 +242,11 @@
   .guardian-trigger,
   .guardian-panel { scroll-behavior: auto; }
 }
+
+
+.guardian-diagnosis{margin-top:10px;padding:10px 11px;border:1px solid rgba(100,116,139,.22);border-radius:10px;background:rgba(248,250,252,.82);font-size:.78rem}
+.guardian-diagnosis>div:first-child{display:grid;gap:3px}.guardian-diagnosis>div:first-child>span{line-height:1.4}
+.guardian-diagnosis-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;color:#64748b}
+.guardian-diagnosis.confidence-high{border-left:3px solid #15803d}.guardian-diagnosis.confidence-medium{border-left:3px solid #b45309}.guardian-diagnosis.confidence-low{border-left:3px solid #64748b}
+.guardian-diagnosis details{margin-top:8px}.guardian-diagnosis summary{cursor:pointer;font-weight:700}.guardian-diagnosis ul{margin:6px 0 0;padding-left:18px}
+.guardian-root-review{margin:8px 0 0;padding:7px 8px;border-radius:7px;background:#fff1f2;color:#9f1239;font-weight:700}

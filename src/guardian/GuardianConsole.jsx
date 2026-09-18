@@ -114,6 +114,12 @@ export default function GuardianConsole() {
                 </div>
                 <p>{incident.message}</p>
                 {incident.detail && <small>{incident.detail}</small>}
+                {incident.diagnosis && <div className={`guardian-diagnosis confidence-${incident.diagnosis.confidence || "low"}`}>
+                  <div><strong>Causa probabile</strong><span>{incident.diagnosis.cause}</span></div>
+                  <div className="guardian-diagnosis-meta"><span>Confidenza: <b>{incident.diagnosis.confidence}</b></span><span>Ricorrenza: <b>{incident.diagnosis.recurrence || incident.occurrences || 1}×</b></span></div>
+                  {incident.diagnosis.evidence?.length > 0 && <details><summary>Perché lo pensa</summary><ul>{incident.diagnosis.evidence.map((item) => <li key={item}>{item}</li>)}</ul></details>}
+                  {incident.diagnosis.requiresHumanReview && <p className="guardian-root-review">Analisi della causa radice richiesta prima di ulteriori correzioni automatiche.</p>}
+                </div>}
                 <footer>
                   <span>{riskLabel(incident.risk)}</span>
                   <span>{incident.occurrences > 1 ? `${incident.occurrences}×` : incident.source}</span>
