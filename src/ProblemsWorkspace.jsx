@@ -26,7 +26,7 @@ import { buildUnifiedProblems } from "./problemsModel";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { listCorrections } from "./remediationStore";
 import { recheckCorrectionById } from "./remediationIntegrity";
-import { diagnosisForProblem } from "./problemDiagnosisBridge.js";
+import { guardianDecisionForProblem } from "./problemDiagnosisBridge.js";
 import {
   freshnessLabel,
   normalizeClientId,
@@ -165,7 +165,9 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
     .filter((item) => sameProblemCorrection(problem, item))
     .toSorted((a, b) => (Date.parse(b.verifiedAt || b.appliedAt || "") || 0) - (Date.parse(a.verifiedAt || a.appliedAt || "") || 0))[0] || null;
   const href = safeHttpHref(problem.sourceUrl);
-  const diagnosis = diagnosisForProblem(problem, clientId);
+  const guardianDecision = guardianDecisionForProblem(problem, clientId);
+  const diagnosis = guardianDecision?.diagnosis || null;
+  const resolution = guardianDecision?.resolution || null;
 
   const openSpecificIntervention = () => {
     const request = { clientId, issueKey: problem.key, issueType: problem.issueType, sourceUrl: problem.sourceUrl };
@@ -267,8 +269,16 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
           ) : <p>Nessuna evidenza strutturata disponibile. Il problema resta da confermare.</p>}
         </section>
 
+        {resolution && <section className="problem-resolution-decision">
+          <h3>3. Percorso deciso</h3>
+          <p><strong>{resolution.path}</strong> — {resolution.reason}</p>
+          {resolution.path === "L2-safe-autofix" && <p>SeoGrow userà il flusso di correzione automatica già esistente; non viene creato un secondo AutoFix.</p>}
+          {resolution.path === "L3-approval" && <p>SeoGrow può preparare la correzione nel flusso esistente, ma l'applicazione resta subordinata ad anteprima e approvazione.</p>}
+          {resolution.path === "manual" && <p>La correzione automatica resta sospesa finché non viene completata l'analisi richiesta.</p>}
+        </section>}
+
         {diagnosis && <section className="problem-root-cause">
-          <h3>3. Causa probabile</h3>
+          <h3>{resolution ? "4" : "3"}. Causa probabile</h3>
           <p>{diagnosis.cause}</p>
           <dl className="problem-facts">
             <div><dt>Confidenza</dt><dd>{diagnosis.confidence}</dd></div>
@@ -279,7 +289,7 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
         </section>}
 
         <section>
-          <h3>{diagnosis ? "4" : "3"}. Che cosa propone SeoGrow</h3>
+          <h3>{resolution && diagnosis ? "5" : (resolution || diagnosis) ? "4" : "3"}. Che cosa propone SeoGrow</h3>
           {problem.ownershipBlocked ? (
             <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo/widget. Il blocco di sicurezza resta attivo.</p>
           ) : (
