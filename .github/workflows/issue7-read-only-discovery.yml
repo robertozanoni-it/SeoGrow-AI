@@ -1,0 +1,120 @@
+name: Issue 7 Read-only Discovery
+
+on:
+  push:
+    branches:
+      - validation/1.4.4-issue7-discovery
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: wordpress-staging
+    env:
+      SEOGROW_WP_SITE_URL: https://staging.yogabuenaonda.it
+      SEOGROW_WP_E2E_CONFIRM_HOST: staging.yogabuenaonda.it
+      SEOGROW_WP_USERNAME: ${{ secrets.SEOGROW_WP_USERNAME }}
+      SEOGROW_WP_APPLICATION_PASSWORD: ${{ secrets.SEOGROW_WP_APPLICATION_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SEOGROW_WP_USERNAME:-}"
+          test -n "${SEOGROW_WP_APPLICATION_PASSWORD:-}"
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Start SeoGrow runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/seogrow-issue7.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-issue7.pid"
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat "$RUNNER_TEMP/seogrow-issue7.log"
+          exit 1
+
+      - name: Elementor real staging read-only E2E
+        run: npm run test:wordpress-elementor-e2e
+
+      - name: Discover real categories and tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const base = process.env.SEOGROW_WP_SITE_URL.replace(/\/$/,'');
+          const auth = Buffer.from(`${process.env.SEOGROW_WP_USERNAME}:${process.env.SEOGROW_WP_APPLICATION_PASSWORD}`).toString('base64');
+          async function get(path) {
+            const r = await fetch(base + path, { headers: { authorization: `Basic ${auth}` }, signal: AbortSignal.timeout(30000) });
+            const text = await r.text();
+            if (!r.ok) throw new Error(`${path} -> HTTP ${r.status}: ${text.slice(0,300)}`);
+            return JSON.parse(text);
+          }
+          const categories = await get('/wp-json/wp/v2/categories?per_page=100&hide_empty=0');
+          const tags = await get('/wp-json/wp/v2/tags?per_page=100&hide_empty=0');
+          const sameHost = (u) => { try { return new URL(u).hostname === new URL(base).hostname; } catch { return false; } };
+          const category = categories.find(x => x?.link && sameHost(x.link));
+          const tag = tags.find(x => x?.link && sameHost(x.link));
+          const out = {
+            categoryCount: categories.length,
+            tagCount: tags.length,
+            category: category ? { id: category.id, name: category.name, link: category.link, count: category.count } : null,
+            tag: tag ? { id: tag.id, name: tag.name, link: tag.link, count: tag.count } : null,
+          };
+          fs.mkdirSync('artifacts',{recursive:true});
+          fs.writeFileSync('artifacts/issue7-taxonomy-discovery.json', JSON.stringify(out,null,2));
+          const env = [];
+          if (category?.link) env.push(`SEOGROW_WP_CATEGORY_URL=${category.link}`);
+          if (tag?.link) env.push(`SEOGROW_WP_TAG_URL=${tag.link}`);
+          fs.appendFileSync(process.env.GITHUB_ENV, env.join('\n') + (env.length ? '\n' : ''));
+          console.log(JSON.stringify(out,null,2));
+          NODE
+
+      - name: Taxonomy read-only diagnostics
+        if: env.SEOGROW_WP_CATEGORY_URL != '' || env.SEOGROW_WP_TAG_URL != ''
+        run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
+
+      - name: Taxonomy consistency sampler
+        if: env.SEOGROW_WP_CATEGORY_URL != '' || env.SEOGROW_WP_TAG_URL != ''
+        run: node scripts/wordpress-taxonomy-consistency-sampler.mjs
+
+      - name: Stop runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-issue7.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-issue7.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --port" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: issue7-read-only-discovery
+          path: |
+            artifacts/
+            ${{ runner.temp }}/seogrow-issue7.log
+          if-no-files-found: warn
+          retention-days: 7
