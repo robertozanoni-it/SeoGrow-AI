@@ -3966,16 +3966,19 @@ export default function App() {
       template: preferences.projectSettings?.[clientId]?.report,
     });
   };
+  const monitoringContextRef = useRef({ clients, analyses, correctionHistory });
+  monitoringContextRef.current = { clients, analyses, correctionHistory };
   const completeAnalysisForClient = async (clientId, analysis, { backup = false } = {}) => {
     if (backup && preferences.autoBackup && !await createSnapshot("Prima della nuova analisi")) return;
-    const history = normalizeAnalysisHistory(analyses[clientId]);
+    const context = backup ? { clients, analyses, correctionHistory } : monitoringContextRef.current;
+    const history = normalizeAnalysisHistory(context.analyses[clientId]);
     const previous = history[0];
     const diff = analysisDiff(analysis, previous);
     const enriched = { ...analysis, ...diff, scoreDelta: observedScoreDelta(analysis, previous), hasPrevious: observedScoreDelta(analysis, previous) !== null };
     setAnalyses((current) => ({ ...current, [clientId]: [enriched, ...normalizeAnalysisHistory(current[clientId])].slice(0, 20) }));
     dispatchAuditProblemSignals({ clientId, analysis: enriched });
-    dispatchVerifiedAuditClosures({ clientId, current: enriched, previous, corrections: correctionHistory });
-    const clientRecord = clients.find(item => Number(item.id) === Number(clientId));
+    dispatchVerifiedAuditClosures({ clientId, current: enriched, previous, corrections: context.correctionHistory });
+    const clientRecord = context.clients.find(item => Number(item.id) === Number(clientId));
     if (clientRecord) setTasks(current => reconcileAuditTasks(current, tasksFromAnalysis(enriched, clientRecord), clientId, enriched.analyzedAt));
     return enriched;
   };
@@ -3986,12 +3989,12 @@ export default function App() {
   useEffect(() => {
     const worker = createGuardianMonitoringWorker();
     const uninstall = installGuardianAuditMonitoringAdapter({
-      projectUrlForClient: (clientId) => clients.find(item => Number(item.id) === Number(clientId))?.url || "",
+      projectUrlForClient: (clientId) => monitoringContextRef.current.clients.find(item => Number(item.id) === Number(clientId))?.url || "",
       onAnalysis: ({ clientId, analysis }) => completeAnalysisForClient(clientId, analysis, { backup: false }),
     });
     worker.start();
     return () => { worker.stop(); uninstall(); };
-  }, [clients, analyses, correctionHistory]);
+  }, []);
 
   const restoreBackup = restoreValidatedWorkspace;
   const restoreSnapshot = async (snapshotId) => {
