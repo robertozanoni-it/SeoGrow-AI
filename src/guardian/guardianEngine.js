@@ -484,6 +484,12 @@ export function installGuardianRuntime() {
       message: bounded(detail.message || "Problema rilevato dall'Audit SEO"),
       detail: bounded(detail.detail || ""),
       autoFixEligible: detail.autoFixEligible === true,
+      clientId: detail.clientId,
+      observedAt: detail.observedAt,
+      changedAt: detail.changedAt,
+      deployAt: detail.deployAt,
+      correctionAt: detail.correctionAt,
+      auditIssue: detail.auditIssue,
     });
   });
   window.addEventListener("seogrow-action-failed", (event) => {
