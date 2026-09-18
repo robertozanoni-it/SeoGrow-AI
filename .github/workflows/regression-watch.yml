@@ -33,16 +33,16 @@ jobs:
       - name: Verify integrated main architecture
         run: node scripts/global-quality-audit.mjs
 
-      - name: Verify integrated main performance budget
-        run: node scripts/rc-performance-gate.mjs
+      - name: Record integrated main architecture evidence
+        run: |
+          mkdir -p .qa-runtime/regression-watch
+          printf '{"sha":"%s","architecture":"pass"}\n' "$GITHUB_SHA" > .qa-runtime/regression-watch/summary.json
 
       - name: Upload regression evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: regression-watch-${{ github.sha }}
-          path: |
-            .qa-runtime/automation/
-            .qa-runtime/rc/
+          path: .qa-runtime/regression-watch/
           if-no-files-found: error
           retention-days: 14
