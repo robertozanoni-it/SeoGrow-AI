@@ -43,8 +43,10 @@ test("dashboard and opportunities share impression threshold and result cap", ()
   const queries = Array.from({ length: 64 }, (_, i) => ({ ...row, dimension: String(i), impressions: i < 6 ? 10 : 9 }));
   assert.equal(opportunityGroups({ queries }).quickWins.length, 6);
   assert.equal(opportunityGroups({ queries: queries.map(q => ({ ...q, impressions: 10 })) }).quickWins.length, 50);
+  const intelligence = readFileSync(new URL("./projectIntelligence.js", import.meta.url), "utf8");
+  assert.match(intelligence, /opportunityGroups\(dataset\)\.quickWins\.length/);
   const guided = readFileSync(new URL("./GuidedUxLayer.jsx", import.meta.url), "utf8");
-  assert.match(guided, /const opportunities = opportunityGroups\(dataset\).quickWins.length/);
+  assert.doesNotMatch(guided, /opportunityGroups|function NextActions/);
   const app = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
   assert.match(app, /onCreateTask\(taskValues\)/);
   assert.match(app, /findExistingTask\(tasksRef.current, values, selectedClient\)/);
