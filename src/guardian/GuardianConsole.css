@@ -250,3 +250,8 @@
 .guardian-diagnosis.confidence-high{border-left:3px solid #15803d}.guardian-diagnosis.confidence-medium{border-left:3px solid #b45309}.guardian-diagnosis.confidence-low{border-left:3px solid #64748b}
 .guardian-diagnosis details{margin-top:8px}.guardian-diagnosis summary{cursor:pointer;font-weight:700}.guardian-diagnosis ul{margin:6px 0 0;padding-left:18px}
 .guardian-root-review{margin:8px 0 0;padding:7px 8px;border-radius:7px;background:#fff1f2;color:#9f1239;font-weight:700}
+
+
+.guardian-resolution{display:grid;gap:4px;margin-top:10px;padding:10px 11px;border-radius:10px;background:#f8fafc;border:1px solid rgba(100,116,139,.22);font-size:.78rem}
+.guardian-resolution>span{font-weight:800}.guardian-resolution>small{line-height:1.4;color:#64748b}.guardian-resolution>em{font-style:normal;font-weight:750;color:#166534}
+.guardian-resolution.path-l2{border-left:3px solid #15803d}.guardian-resolution.path-l3{border-left:3px solid #b45309}.guardian-resolution.path-manual{border-left:3px solid #b91c1c}.guardian-resolution.path-l1,.guardian-resolution.path-l0{border-left:3px solid #475569}

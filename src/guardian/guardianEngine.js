@@ -13,6 +13,7 @@ import { reconcileTaskCauses } from "../taskCauseReconciliation.js";
 import { classifyProblemSignal } from "./problemDetectionEngine.js";
 import { installInteractionWatchdog } from "./interactionWatchdog.js";
 import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
+import { decideResolutionPath } from "./resolutionDecisionEngine.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -139,6 +140,7 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       detail: bounded(input.detail || rows[existingIndex].detail),
       action: input.action || rows[existingIndex].action || "",
       diagnosis: input.diagnosis || rows[existingIndex].diagnosis || null,
+      resolution: input.resolution || rows[existingIndex].resolution || null,
       lastSeenAt: timestamp,
       occurrences: Number(rows[existingIndex].occurrences || 1) + 1,
       state: input.state || rows[existingIndex].state || "open",
@@ -157,6 +159,7 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       detail: bounded(input.detail || ""),
       action: bounded(input.action || "", 120),
       diagnosis: input.diagnosis || null,
+      resolution: input.resolution || null,
       firstSeenAt: timestamp,
       lastSeenAt: timestamp,
       occurrences: 1,
@@ -216,11 +219,20 @@ const detectAndRecordSignal = (input) => {
   const classification = classifyProblemSignal({ ...input, fingerprint }, history);
   if (!classification.accepted) return null;
   const diagnosis = diagnoseRootCause({ ...input, fingerprint, occurrences: classification.occurrences }, history);
+  const resolution = decideResolutionPath({
+    incident: { ...input, occurrences: classification.occurrences, state: classification.rootCauseReviewRequired ? "blocked" : input.state },
+    diagnosis,
+    correctability: input.correctability || (input.autoFixEligible ? "automatic" : ""),
+    hasSafeAdapter: input.hasSafeAdapter === true,
+    hasPreviewAdapter: input.hasPreviewAdapter === true,
+    reversible: input.reversible === true,
+  });
   const incident = recordGuardianIncident({
     ...input,
     fingerprint,
     severity: classification.severity,
     diagnosis,
+    resolution,
     state: classification.rootCauseReviewRequired ? "blocked" : (input.state || "open"),
     action: classification.rootCauseReviewRequired ? "root-cause-review" : (input.action || ""),
     detail: [
@@ -229,8 +241,8 @@ const detectAndRecordSignal = (input) => {
       classification.rootCauseReviewRequired ? `Ricorrenza: ${classification.occurrences} occorrenze. AutoFix ripetitivo sospeso; richiesta analisi causa radice.` : "",
     ].filter(Boolean).join(" "),
   });
-  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis });
-  return { incident, classification, diagnosis };
+  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution });
+  return { incident, classification, diagnosis, resolution };
 };
 
 const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
