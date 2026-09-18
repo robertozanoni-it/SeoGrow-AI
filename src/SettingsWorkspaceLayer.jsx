@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, Archive, CheckCircle2, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Activity, AlertTriangle, Archive, CheckCircle2, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { registerPageHost } from "./PageStartHierarchy.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
@@ -10,7 +10,7 @@ import {
   projectPolicyFromPreferences,
   writeProjectPolicy,
 } from "./system/index.js";
-import { guardianSnapshot } from "./guardian/guardianEngine.js";
+import { guardianSnapshot, runGuardianScan } from "./guardian/guardianEngine.js";
 import { automationExecutionPlan } from "./automationOrchestrator.js";
 import { automationStatusRows } from "./automationStatusModel.js";
 import "./SettingsWorkspaceLayer.css";
@@ -35,6 +35,8 @@ const stateLabel = (state) => ({
 
 function AutomationStatusPanel({ revision }) {
   void revision;
+  const [running, setRunning] = useState(false);
+  const [runMessage, setRunMessage] = useState("");
   const guardian = guardianSnapshot();
   const failures = guardian.open
     .filter((item) => ["error", "critical"].includes(item?.severity))
@@ -42,12 +44,24 @@ function AutomationStatusPanel({ revision }) {
     .filter(Boolean);
   const plan = automationExecutionPlan({ failures });
   const rows = automationStatusRows({ guardian, plan });
+  const runNow = async () => {
+    if (running) return;
+    setRunning(true); setRunMessage("");
+    try {
+      const result = await runGuardianScan({ trigger: "settings-manual" });
+      setRunMessage(result.lastScan?.failed ? `Controllo completato: ${result.lastScan.failed} verifiche richiedono attenzione.` : "Controllo completato: nessun errore rilevato.");
+    } catch (error) {
+      setRunMessage(`Controllo non completato: ${error?.message || error}`);
+    } finally { setRunning(false); }
+  };
 
   return <section className="settings-automation-status" aria-label="Stato automatismi">
     <header className="settings-automation-head">
       <div><span className="eyebrow"><Activity /> Automazioni</span><h2>Stato operativo automatismi</h2><p>Vista di controllo degli engine trasversali della suite. Non aggiunge nuovi moduli e non modifica le policy di sicurezza.</p></div>
-      <span className={guardian.open.length ? "automation-health attention" : "automation-health healthy"}>{guardian.open.length ? `${guardian.open.length} incidenti aperti` : "Tutto operativo"}</span>
+      <div className="automation-head-actions"><span className={guardian.open.length ? "automation-health attention" : "automation-health healthy"}>{guardian.open.length ? `${guardian.open.length} incidenti aperti` : "Tutto operativo"}</span><button className="secondary" type="button" onClick={runNow} disabled={running}><RefreshCw className={running ? "is-spinning" : ""} /> {running ? "Controllo…" : "Esegui controllo ora"}</button></div>
     </header>
+    {runMessage && <p className="automation-run-message" role="status">{runMessage}</p>}
+    {guardian.lastScan && <div className="automation-last-run"><span><strong>Ultimo controllo</strong> {new Date(guardian.lastScan.completedAt).toLocaleString("it-IT")}</span><span><strong>Check</strong> {guardian.lastScan.checks}</span><span><strong>Errori</strong> {guardian.lastScan.failed}</span><span><strong>Correzioni sicure</strong> {guardian.lastScan.changed}</span></div>}
     <div className="settings-automation-grid">
       {rows.map((row) => <article key={row.id} className={`automation-card state-${row.state}`}>
         <div className="automation-card-head"><strong>{row.label}</strong><span>{stateLabel(row.state)}</span></div>
