@@ -100,11 +100,14 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         applicationPassword: passwordEntry?.identity === identity ? passwordEntry.value : "",
       });
       if (!mounted.current || selectedClient() !== scope) return;
+      const resolved = result?.record?.status === "Verificato" && result?.needsAudit !== true;
       const text = result?.error
         ? `Riverifica non conclusa: ${result.error.message}. Nessuna nuova modifica applicata.`
-        : result?.record?.verificationNote || (result?.needsAudit
-          ? "Serve un nuovo audit SEO per confermare la risoluzione."
-          : "Controllo completato. Leggi lo stato della verifica qui sotto.");
+        : resolved
+          ? "Correzione verificata. Il problema non compare più tra quelli attivi; lo storico Prima / Dopo resta disponibile qui."
+          : result?.record?.verificationNote || (result?.needsAudit
+            ? "Serve un nuovo audit SEO per confermare la risoluzione. Il problema resta tra quelli attivi."
+            : "Controllo completato. Leggi lo stato della verifica qui sotto.");
       setNotice({ identity, text });
       setRevision((value) => value + 1);
     } catch (failure) {
@@ -150,6 +153,7 @@ export default function SavedCorrectionDetails({ correctionId, clientId, onNavig
         {record.resource === "taxonomy" && <label>Password applicativa WordPress per la verifica<input type="password" autoComplete="new-password" value={passwordEntry?.identity === identity ? passwordEntry.value : ""} onChange={(event) => setPasswordEntry({ identity, value: event.target.value })} /></label>}
         <div className="saved-correction-actions">
           <button type="button" className="primary" disabled={busy || !canVerifyReceipt(record)} onClick={verify}><RefreshCw />{busy ? "Riverifica in corso…" : "Riverifica"}</button>
+          {record.status === "Verificato" && <button type="button" className="primary" onClick={() => go("Problemi")}>Torna ai problemi attivi</button>}
           {href && <a className="secondary" href={href} target="_blank" rel="noopener noreferrer"><ExternalLink />Apri pagina attuale</a>}
           <button type="button" className="secondary" onClick={() => go("Audit SEO")}>Apri Audit SEO</button>
         </div>
