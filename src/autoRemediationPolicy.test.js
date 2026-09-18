@@ -11,7 +11,7 @@ const problem = (patch = {}) => ({
 test("Auto-Remediation auto-runs only standard direct reversible candidates", () => {
   assert.equal(autoRemediationDecision(problem()).decision, AUTO_REMEDIATION_DECISION.AUTO);
   assert.equal(autoRemediationDecision(problem({ issueType: "canonical-different" })).decision, AUTO_REMEDIATION_DECISION.APPROVAL);
-  assert.equal(autoRemediationDecision(problem({ issueType: "h1-multiple" })).decision, AUTO_REMEDIATION_DECISION.APPROVAL);
+  assert.equal(autoRemediationDecision(problem({ issueType: "multiple-h1" })).decision, AUTO_REMEDIATION_DECISION.APPROVAL);
   assert.equal(autoRemediationDecision(problem({ ownershipBlocked: true })).decision, AUTO_REMEDIATION_DECISION.ASSISTED);
   assert.equal(autoRemediationDecision(problem({ correctability: "manual" })).decision, AUTO_REMEDIATION_DECISION.ASSISTED);
   assert.equal(autoRemediationDecision(problem({ problemState: "resolved" })).decision, AUTO_REMEDIATION_DECISION.SKIP);
