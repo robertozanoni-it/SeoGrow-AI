@@ -23,6 +23,8 @@ import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { dispatchAuditProblemSignals } from "./auditProblemDetectionBridge.js";
 import { dispatchVerifiedAuditClosures } from "./auditClosureBridge.js";
+import { createGuardianMonitoringWorker } from "./guardian/monitoringWorker.js";
+import { installGuardianAuditMonitoringAdapter } from "./guardian/auditMonitoringAdapter.js";
 import { mergeAutomationNotifications } from "./automationNotifications.js";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -3964,28 +3966,33 @@ export default function App() {
       template: preferences.projectSettings?.[clientId]?.report,
     });
   };
-  const completeSiteAnalysis = async (analysis) => {
-    if (preferences.autoBackup && !await createSnapshot("Prima della nuova analisi")) return;
-    const previous = selectedAnalysisHistory[0];
+  const completeAnalysisForClient = async (clientId, analysis, { backup = false } = {}) => {
+    if (backup && preferences.autoBackup && !await createSnapshot("Prima della nuova analisi")) return;
+    const history = normalizeAnalysisHistory(analyses[clientId]);
+    const previous = history[0];
     const diff = analysisDiff(analysis, previous);
-    const enriched = {
-      ...analysis,
-      ...diff,
-      scoreDelta: observedScoreDelta(analysis, previous),
-      hasPrevious: observedScoreDelta(analysis, previous) !== null,
-    };
-    setAnalyses((current) => ({
-      ...current,
-      [selectedClient]: [
-        enriched,
-        ...normalizeAnalysisHistory(current[selectedClient]),
-      ].slice(0, 20),
-    }));
-    dispatchAuditProblemSignals({ clientId: selectedClient, analysis: enriched });
-    dispatchVerifiedAuditClosures({ clientId: selectedClient, current: enriched, previous, corrections: correctionHistory });
-    const verifiedTasks = tasksFromAnalysis(enriched, selectedClientRecord);
-    setTasks(current => reconcileAuditTasks(current, verifiedTasks, selectedClient, enriched.analyzedAt));
+    const enriched = { ...analysis, ...diff, scoreDelta: observedScoreDelta(analysis, previous), hasPrevious: observedScoreDelta(analysis, previous) !== null };
+    setAnalyses((current) => ({ ...current, [clientId]: [enriched, ...normalizeAnalysisHistory(current[clientId])].slice(0, 20) }));
+    dispatchAuditProblemSignals({ clientId, analysis: enriched });
+    dispatchVerifiedAuditClosures({ clientId, current: enriched, previous, corrections: correctionHistory });
+    const clientRecord = clients.find(item => Number(item.id) === Number(clientId));
+    if (clientRecord) setTasks(current => reconcileAuditTasks(current, tasksFromAnalysis(enriched, clientRecord), clientId, enriched.analyzedAt));
+    return enriched;
   };
+  const completeSiteAnalysis = async (analysis) => {
+    return completeAnalysisForClient(selectedClient, analysis, { backup: true });
+    /* legacy inline pipeline retained below for reference during migration */
+  };
+  useEffect(() => {
+    const worker = createGuardianMonitoringWorker();
+    const uninstall = installGuardianAuditMonitoringAdapter({
+      projectUrlForClient: (clientId) => clients.find(item => Number(item.id) === Number(clientId))?.url || "",
+      onAnalysis: ({ clientId, analysis }) => completeAnalysisForClient(clientId, analysis, { backup: false }),
+    });
+    worker.start();
+    return () => { worker.stop(); uninstall(); };
+  }, [clients, analyses, correctionHistory]);
+
   const restoreBackup = restoreValidatedWorkspace;
   const restoreSnapshot = async (snapshotId) => {
     const snapshot = snapshots.find((item) => item.id === snapshotId);
