@@ -12,6 +12,7 @@ import { workspaceStorage } from "../workspaceDatabase.js";
 import { reconcileTaskCauses } from "../taskCauseReconciliation.js";
 import { classifyProblemSignal } from "./problemDetectionEngine.js";
 import { installInteractionWatchdog } from "./interactionWatchdog.js";
+import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -212,10 +213,12 @@ const detectAndRecordSignal = (input) => {
   const history = listGuardianIncidents();
   const classification = classifyProblemSignal({ ...input, fingerprint }, history);
   if (!classification.accepted) return null;
+  const diagnosis = diagnoseRootCause({ ...input, fingerprint, occurrences: classification.occurrences }, history);
   const incident = recordGuardianIncident({
     ...input,
     fingerprint,
     severity: classification.severity,
+    diagnosis,
     state: classification.rootCauseReviewRequired ? "blocked" : (input.state || "open"),
     action: classification.rootCauseReviewRequired ? "root-cause-review" : (input.action || ""),
     detail: [
@@ -224,8 +227,8 @@ const detectAndRecordSignal = (input) => {
       classification.rootCauseReviewRequired ? `Ricorrenza: ${classification.occurrences} occorrenze. AutoFix ripetitivo sospeso; richiesta analisi causa radice.` : "",
     ].filter(Boolean).join(" "),
   });
-  dispatchGuardianUpdate({ type: "detected-problem", incident, classification });
-  return { incident, classification };
+  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis });
+  return { incident, classification, diagnosis };
 };
 
 const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
