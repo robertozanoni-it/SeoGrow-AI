@@ -43,7 +43,7 @@ const checks = {
   nativeStorageBoundaryIsolated: storageOperations.nativeBypass.length === 0,
   workspaceJsonReadersCentralized: readJsonDefs.length === 0,
   noGlobalDomPolling: !/setInterval\(syncTargets,\s*300\)/.test(guided) && !/setInterval\(syncTargets,\s*300\)/.test(correctionsSource),
-  workspaceSameTabEventsCentralized: /window\.dispatchEvent\(storageEvent\)/.test(workspaceDbSource) && !/new StorageEvent\("storage"/.test(routeReconcilerSource),
+  workspaceSameTabEventsCentralized: /window\.dispatchEvent\(storageEvent\)/.test(workspaceDbSource) && /seogrow-workspace-change/.test(workspaceDbSource) && /channel\?\.postMessage/.test(workspaceDbSource) && !/new StorageEvent\("storage"/.test(routeReconcilerSource),
 };
 const failures = Object.entries(checks).filter(([,ok]) => !ok).map(([name]) => name);
 const report = {

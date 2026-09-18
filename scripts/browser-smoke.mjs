@@ -28,20 +28,20 @@ async function visualScreenshot(name) {
   await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
 }
 async function reload() {
-  // Let the app's 120 ms debounce enqueue persistence, then wait until the
-  // workspace queue is actually idle before CDP destroys the old document.
-  await sleep(200);
-  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
-  await evaluate("window.__qaOldDocument = true");
+    // Let the app debounce persistence and wait until the workspace writer
+    // is idle before destroying the current document.
+    await sleep(200);
+    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
+    const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
-  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
+  await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after reload");
 }
 async function reloadImmediate() {
   // TASK-004 intentionally reloads while a native IndexedDB transaction is
   // held open. Do not wait for workspace idle in that one interruption test.
-  await evaluate("window.__qaOldDocument = true");
+  const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
-  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after immediate reload");
+  await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after immediate reload");
 }
 
 const candidates = [

@@ -224,8 +224,13 @@ function useStoredState(key, fallback) {
         /* Ignora scritture esterne non valide. */
       }
     };
+    const syncCurrentTab = (event) => sync(event.detail || {});
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    window.addEventListener("seogrow-workspace-change", syncCurrentTab);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("seogrow-workspace-change", syncCurrentTab);
+    };
   }, [key, defaultValue]);
   return [value, setValue];
 }

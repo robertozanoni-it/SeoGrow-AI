@@ -4,7 +4,7 @@ import { navigatePage as navigate, isNavigationItemVisible } from "./navigationU
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BarChart3,
@@ -299,7 +299,12 @@ function useUiSnapshot() {
     const scheduleSync = () => {
       window.cancelAnimationFrame(frame);
       attempts = 0;
-      frame = window.requestAnimationFrame(syncTargets);
+      const settle = () => {
+        syncTargets();
+        attempts += 1;
+        if (attempts < 8) frame = window.requestAnimationFrame(settle);
+      };
+      frame = window.requestAnimationFrame(settle);
     };
     scheduleSync();
     window.addEventListener("hashchange", scheduleSync);
@@ -338,17 +343,18 @@ function useUiSnapshot() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const slug = pageSlug(page);
     document.body.dataset.seogrowUiMode = mode;
-    document.body.dataset.seogrowPage = pageSlug(page);
+    document.body.dataset.seogrowPage = slug;
     try {
       localStorage.setItem(UI_MODE_KEY, mode);
     } catch {
       /* La modalità resta valida per la sessione anche se lo storage non è disponibile. */
     }
     return () => {
-      delete document.body.dataset.seogrowUiMode;
-      delete document.body.dataset.seogrowPage;
+      if (document.body.dataset.seogrowUiMode === mode) delete document.body.dataset.seogrowUiMode;
+      if (document.body.dataset.seogrowPage === slug) delete document.body.dataset.seogrowPage;
     };
   }, [mode, page]);
 

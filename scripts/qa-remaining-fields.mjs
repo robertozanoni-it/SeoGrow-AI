@@ -231,8 +231,9 @@ export async function runRemainingFields({evaluate,waitFor,clickSidebar,record:r
       await waitFor("document.querySelector('[data-testid=backup-file]').value===''",'Wrong password settles');
       assert.deepEqual(await read('seogrow-tasks-v2'),before);
       await set('.backup-panel','Password del backup','qa-backup-passphrase');
-      await evaluate("window.__qaBeforeRestore=true;window.confirm = m => m === 'Importare questo backup? I dati locali attuali verranno sostituiti.'");await upload();
-      await waitFor("!window.__qaBeforeRestore && document.querySelector('.guided-nav')",'UI backup reload completed');
+      const beforeRestoreTimeOrigin = await evaluate("performance.timeOrigin");
+      await evaluate("window.confirm = m => m === 'Importare questo backup? I dati locali attuali verranno sostituiti.'");await upload();
+      await waitFor(`performance.timeOrigin !== ${beforeRestoreTimeOrigin} && document.querySelector('.guided-nav')`,'UI backup reload completed');
       await saved('seogrow-tasks-v2',"value?.every(t=>typeof t.notes==='string')");
       assert.deepEqual(await read('seogrow-tasks-v2'),normalizeStoredTasks(before));
     } finally {

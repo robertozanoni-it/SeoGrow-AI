@@ -133,6 +133,7 @@ function queueWrite(key, value) {
     ? new StorageEvent("storage", detail)
     : Object.assign(new Event("storage"), detail);
   window.dispatchEvent(storageEvent);
+  window.dispatchEvent(new CustomEvent("seogrow-workspace-change", { detail }));
   pending = pending.then(async () => {
     let db;
     try {
