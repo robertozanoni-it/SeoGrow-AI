@@ -6,7 +6,8 @@ const withBrokenTarget = (item, text) => {
 
 export function correctionPresentation(item) {
   if (item.status === 'preview') return { title: 'Proposta pronta da approvare', explanation: withBrokenTarget(item, 'Controlla il testo attuale e quello proposto qui sotto.'), next: 'Se la proposta ti va bene, premi “Applica questa modifica sul sito”.' };
-  if (item.status === 'applied') return { title: 'Modifica applicata — da verificare', explanation: withBrokenTarget(item, 'La scrittura è registrata; la risoluzione del problema SEO deve ancora essere verificata.'), next: 'Apri Cronologia e ripristino per verificare il risultato.' };
+  if (item.status === 'applied') return { title: 'Modifica applicata — verifica in corso', explanation: withBrokenTarget(item, 'La scrittura è registrata. SeoGrow avvia subito la verifica canonica e mantiene il problema attivo finché le evidenze non sono sufficienti.'), next: 'Attendi l’esito automatico; se serve un nuovo audit, SeoGrow lo segnala senza dichiarare il problema risolto.' };
+  if (item.status === 'verified') return { title: 'Correzione verificata', explanation: withBrokenTarget(item, 'La verifica canonica ha confermato la risoluzione. Il problema non compare più tra quelli attivi; lo storico resta disponibile in Correzioni.'), next: 'Torna a Problemi per continuare con il prossimo elemento.' };
   if (item.status === 'resolved') return { title: 'Problema già risolto', explanation: withBrokenTarget(item, item.reason), next: 'Non è necessaria una nuova modifica.' };
   if (item.status === 'selection_required') return {
     title: 'Scegli il blocco Elementor da ampliare',
