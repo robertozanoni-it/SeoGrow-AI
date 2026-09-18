@@ -58,7 +58,8 @@ try {
     const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
     const isolatedContractTests = new Set(tests.filter(name => /^src\/elementor.*\.test\.js$/i.test(name)));
     const isolatedJourneyTests = new Set(tests.filter(name => /(?:Gate|Journey)\.test\.js$/i.test(name)));
-    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name) && !isolatedJourneyTests.has(name));
+    const isolatedPolicyTests = new Set(["src/globalResolutionPriority.test.js"]);
+    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name) && !isolatedJourneyTests.has(name) && !isolatedPolicyTests.has(name));
     const shardSize = 40;
     const shardSummaries = [];
     for (let offset = 0; offset < parallelTests.length; offset += shardSize) {
@@ -72,6 +73,9 @@ try {
     }
     if (isolatedJourneyTests.size) {
       await run("journey-gates", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedJourneyTests]);
+    }
+    if (isolatedPolicyTests.size) {
+      await run("policy-resolution-priority", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedPolicyTests]);
     }
     for (const storageTest of isolatedStorageTests) {
       await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
