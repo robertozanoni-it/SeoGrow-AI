@@ -28,6 +28,7 @@ import './FinalUxSemantics';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import GuardianConsole from './guardian/GuardianConsole.jsx';
 import GuidedUxLayer from './GuidedUxLayer';
 import WizardCongruenceLayer from './WizardCongruenceLayer';
 import CardWorkspaceLayer from './CardWorkspaceLayer';
@@ -108,6 +109,7 @@ class AppErrorBoundary extends React.Component {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <GuardianConsole />
     <AppErrorBoundary>
       <App />
       <GuidedUxLayer />
