@@ -57,12 +57,23 @@ try {
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
     const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
     const parallelTests = tests.filter(name => !isolatedStorageTests.has(name));
-    await run("unit-integration-core", ["--test", "--test-reporter=tap", ...parallelTests]);
+    const shardSize = 40;
+    const shardSummaries = [];
+    for (let offset = 0; offset < parallelTests.length; offset += shardSize) {
+      const shard = parallelTests.slice(offset, offset + shardSize);
+      const shardName = `unit-core-${String(offset / shardSize + 1).padStart(2, "0")}`;
+      await run(shardName, ["--test", "--test-reporter=tap", ...shard]);
+      shardSummaries.push(parseTestSummary(await readFile(path.join(output, `${shardName}.log`), "utf8")));
+    }
     for (const storageTest of isolatedStorageTests) {
       await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
     }
-    const coreTap = await readFile(path.join(output, "unit-integration-core.log"), "utf8");
-    report.tests = parseTestSummary(coreTap);
+    report.tests = shardSummaries.reduce((total, summary) => ({
+      tests: Number(total.tests || 0) + Number(summary.tests || 0),
+      pass: Number(total.pass || 0) + Number(summary.pass || 0),
+      fail: Number(total.fail || 0) + Number(summary.fail || 0),
+      skipped: Number(total.skipped || 0) + Number(summary.skipped || 0),
+    }), { tests: 0, pass: 0, fail: 0, skipped: 0 });
     const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
     report.tests = parseTestSummary(tap);
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
