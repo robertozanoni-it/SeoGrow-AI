@@ -26,6 +26,7 @@ import { buildUnifiedProblems } from "./problemsModel";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
 import { listCorrections } from "./remediationStore";
 import { recheckCorrectionById } from "./remediationIntegrity";
+import { diagnosisForProblem } from "./problemDiagnosisBridge.js";
 import {
   freshnessLabel,
   normalizeClientId,
@@ -164,6 +165,7 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
     .filter((item) => sameProblemCorrection(problem, item))
     .toSorted((a, b) => (Date.parse(b.verifiedAt || b.appliedAt || "") || 0) - (Date.parse(a.verifiedAt || a.appliedAt || "") || 0))[0] || null;
   const href = safeHttpHref(problem.sourceUrl);
+  const diagnosis = diagnosisForProblem(problem, clientId);
 
   const openSpecificIntervention = () => {
     const request = { clientId, issueKey: problem.key, issueType: problem.issueType, sourceUrl: problem.sourceUrl };
@@ -265,8 +267,19 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
           ) : <p>Nessuna evidenza strutturata disponibile. Il problema resta da confermare.</p>}
         </section>
 
+        {diagnosis && <section className="problem-root-cause">
+          <h3>3. Causa probabile</h3>
+          <p>{diagnosis.cause}</p>
+          <dl className="problem-facts">
+            <div><dt>Confidenza</dt><dd>{diagnosis.confidence}</dd></div>
+            <div><dt>Ricorrenza</dt><dd>{diagnosis.recurrence || 1}×</dd></div>
+          </dl>
+          {diagnosis.evidence?.length > 0 && <details><summary>Perché SeoGrow propone questa diagnosi</summary><ul>{diagnosis.evidence.map((item) => <li key={item}>{item}</li>)}</ul></details>}
+          {diagnosis.requiresHumanReview && <p className="problem-root-cause-warning"><AlertTriangle /> Analisi della causa radice richiesta prima di ulteriori correzioni automatiche.</p>}
+        </section>}
+
         <section>
-          <h3>3. Che cosa propone SeoGrow</h3>
+          <h3>{diagnosis ? "4" : "3"}. Che cosa propone SeoGrow</h3>
           {problem.ownershipBlocked ? (
             <p>La correzione automatica è bloccata perché SeoGrow non può attribuire con certezza il frontend a un singolo campo/widget. Il blocco di sicurezza resta attivo.</p>
           ) : (
