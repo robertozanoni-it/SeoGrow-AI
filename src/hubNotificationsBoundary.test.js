@@ -41,11 +41,15 @@ test("Hub owns overview notifications while platform compatibility stays identic
 
   assert.deepEqual(notifications.map((item) => item.title), [
     "1 task scadute",
-    "Clic in calo del 20.0%",
-    "Impressioni in crescita del 30.0%",
+    "Clic organici in calo del 20.0%",
+    "Impressioni organiche in crescita del 30.0%",
     "2 nuovi problemi tecnici",
     "1 problemi risolti",
   ]);
+  assert.equal(notifications.find((item) => item.title.includes("Clic organici"))?.page, "Opportunità");
+  assert.ok(notifications.find((item) => item.title.includes("Clic organici"))?.taskDraft);
+  assert.equal(notifications.find((item) => item.title.includes("nuovi problemi"))?.page, "Problemi");
+
 });
 
 test("Hub notification ownership uses the pure Rank data boundary", async () => {
