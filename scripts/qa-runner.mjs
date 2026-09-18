@@ -57,7 +57,8 @@ try {
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
     const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
     const isolatedContractTests = new Set(tests.filter(name => /^src\/elementor.*\.test\.js$/i.test(name)));
-    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name));
+    const isolatedJourneyTests = new Set(tests.filter(name => /(?:Gate|Journey)\.test\.js$/i.test(name)));
+    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name) && !isolatedJourneyTests.has(name));
     const shardSize = 40;
     const shardSummaries = [];
     for (let offset = 0; offset < parallelTests.length; offset += shardSize) {
@@ -68,6 +69,9 @@ try {
     }
     if (isolatedContractTests.size) {
       await run("contract-elementor-subsystem", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedContractTests]);
+    }
+    if (isolatedJourneyTests.size) {
+      await run("journey-gates", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedJourneyTests]);
     }
     for (const storageTest of isolatedStorageTests) {
       await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
