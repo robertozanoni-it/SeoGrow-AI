@@ -48,10 +48,10 @@ const rankInspection = () => normalizeTaxonomyInspection({
   plugins: { rankMath: true, yoast: false },
 }, "https://example.com/argomenti/seo/");
 
-test("Connector 1.3.9 espone CAS atomico Rank Math tassonomie senza allargare gli storage non certificati", () => {
-  assert.match(connectorLoader, /Version: 1\.3\.9/);
-  assert.match(connectorCore, /Version: 1\.3\.9/);
-  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.9'/);
+test("Connector 1.3.10 espone CAS atomico Rank Math tassonomie senza allargare gli storage non certificati", () => {
+  assert.match(connectorLoader, /Version: 1\.3\.10/);
+  assert.match(connectorCore, /Version: 1\.3\.10/);
+  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.10'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
   assert.match(connector, /get_term_link\(\$term\)/);
@@ -61,6 +61,8 @@ test("Connector 1.3.9 espone CAS atomico Rank Math tassonomie senza allargare gl
   assert.match(connectorCore, /'atomicWriteGuaranteed' => false/);
   assert.match(atomicWrite, /rank-math-termmeta-cas-v1/);
   assert.match(atomicWrite, /BINARY meta_value = BINARY %s/);
+  assert.match(atomicWrite, /seogrow_connector_taxonomy_purge_public_url/);
+  assert.match(atomicWrite, /publicCachePurgeRequested/);
   assert.match(atomicWrite, /Yoast taxonomy storage[\s\S]*remain fail-closed/);
   assert.match(connectorLoader, /seogrow-connector-core\.inc/);
 });

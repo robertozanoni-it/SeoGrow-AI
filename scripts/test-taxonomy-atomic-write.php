@@ -20,10 +20,16 @@ function clean_term_cache($id, $taxonomy = '') { $GLOBALS['term_cache_cleans'][]
 function wp_cache_delete($id, $group = '') { $GLOBALS['cache_deletes'][] = array($id,$group); return true; }
 function get_term_link($term) { return 'https://example.test/category/test/'; }
 function get_term_meta($id, $key, $single = false) { return $GLOBALS['wpdb']->meta_value; }
+function seogrow_connector_taxonomy_purge_public_url($term) {
+    $url = get_term_link($term);
+    $GLOBALS['public_cache_purges'][] = $url;
+    return array('requested'=>true,'url'=>$url,'hook'=>'litespeed_purge_url');
+}
 
 $GLOBALS['allowed'] = true;
 $GLOBALS['term_cache_cleans'] = array();
 $GLOBALS['cache_deletes'] = array();
+$GLOBALS['public_cache_purges'] = array();
 
 class TaxonomyDb {
     public $terms='wp_terms';
@@ -122,6 +128,8 @@ check($apply['atomicGuaranteed'] === true && $apply['staleChecked'] === true && 
 check($apply['before'] === 'Old description' && $apply['after'] === 'New description', 'Before/after mismatch');
 check($apply['term']['id'] === 7 && $apply['adapter'] === 'rank-math', 'Identity/adapter mismatch');
 check($apply['persistenceProof']['verified'] === true && $apply['persistenceProof']['dbRowCount'] === 1, 'Persistence proof missing');
+check($apply['persistenceProof']['publicCachePurgeRequested'] === true, 'Public cache purge proof missing');
+check($apply['persistenceProof']['publicCachePurgeUrl'] === 'https://example.test/category/test/', 'Public cache purge URL mismatch');
 check($wpdb->meta_value === 'New description', 'Apply did not change termmeta');
 
 $rollback=seogrow_connector_atomic_write(new WP_REST_Request(request_data('rollback','rank-math','New description','Old description')));
@@ -151,4 +159,5 @@ check($noindex instanceof WP_Error && $noindex->code === 'ATOMIC_WRITE_UNAVAILAB
 
 check(count($GLOBALS['term_cache_cleans']) >= 2, 'Term cache must be cleared after apply/rollback');
 check(count($GLOBALS['cache_deletes']) >= 2, 'Term meta cache must be cleared after apply/rollback');
-echo "Rank Math taxonomy termmeta CAS contracts passed; Yoast/noindex remain fail-closed.\n";
+check(count($GLOBALS['public_cache_purges']) >= 2, 'Public taxonomy cache must be purged after apply/rollback');
+echo "Rank Math taxonomy termmeta CAS + public cache purge contracts passed; Yoast/noindex remain fail-closed.\n";
