@@ -1,0 +1,92 @@
+name: 1.4.4 Rank Math Post-merge E2E
+
+on:
+  push:
+    branches:
+      - validation/1.4.4-rankmath-postmerge
+    paths:
+      - .github/workflows/issue7-rankmath-postmerge.yml
+
+permissions:
+  contents: read
+
+jobs:
+  rankmath-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: wordpress-staging
+    env:
+      SEOGROW_WP_SITE_URL: https://staging.yogabuenaonda.it
+      SEOGROW_WP_E2E_CONFIRM_HOST: staging.yogabuenaonda.it
+      SEOGROW_WP_CATEGORY_URL: https://staging.yogabuenaonda.it/category/uncategorized/
+      SEOGROW_WP_USERNAME: ${{ secrets.SEOGROW_WP_USERNAME }}
+      SEOGROW_WP_APPLICATION_PASSWORD: ${{ secrets.SEOGROW_WP_APPLICATION_PASSWORD }}
+      SEOGROW_WP_E2E_ALLOW_WRITE: YES_I_UNDERSTAND
+      SEOGROW_WP_EXPECT_ADAPTER: rank-math
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Require staging credentials and Connector 1.3.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SEOGROW_WP_USERNAME:-}"
+          test -n "${SEOGROW_WP_APPLICATION_PASSWORD:-}"
+          test "${SEOGROW_WP_E2E_ALLOW_WRITE}" = "YES_I_UNDERSTAND"
+          body="$(curl -fsS -u "${SEOGROW_WP_USERNAME}:${SEOGROW_WP_APPLICATION_PASSWORD}" "${SEOGROW_WP_SITE_URL}/wp-json/seogrow/v1/status")"
+          echo "$body"
+          echo "$body" | jq -e '.version == "1.3.9" and .rankMathTaxonomyScalarAtomicWrite == true' >/dev/null
+
+      - name: Start SeoGrow runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/seogrow-rankmath-postmerge.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-rankmath-postmerge.pid"
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat "$RUNNER_TEMP/seogrow-rankmath-postmerge.log"
+          exit 1
+
+      - name: Read-only baseline diagnostics
+        run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
+
+      - name: Rank Math Doctor convergence preflight
+        run: node scripts/wordpress-rankmath-doctor-convergence.mjs
+
+      - name: Full Rank Math taxonomy E2E with rollback
+        run: npm run test:wordpress-taxonomy-e2e
+
+      - name: Read-only final diagnostics
+        if: always()
+        run: node scripts/wordpress-taxonomy-diagnostics-retry.mjs
+
+      - name: Stop runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-rankmath-postmerge.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-rankmath-postmerge.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --port" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: issue7-rankmath-postmerge-evidence
+          path: |
+            artifacts/
+            ${{ runner.temp }}/seogrow-rankmath-postmerge.log
+          if-no-files-found: warn
+          retention-days: 7
