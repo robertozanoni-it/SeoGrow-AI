@@ -132,6 +132,7 @@ export function registerRemediationRoutes(app) {
       linkEvidenceMode: "read-only-source-anchor-target-evidence",
       writeReconciliationMode: "read-only-exact-before-after-classification-core-fields",
       taxonomyConnectorMinimum: "1.3.0",
+      rankMathTaxonomyAtomicConnectorMinimum: "1.3.9",
       elementorInventoryConnectorMinimum: "1.3.0",
       elementorReferenceImpactConnectorMinimum: "1.3.0",
       elementorSharedLinkConnectorMinimum: "1.3.8",
