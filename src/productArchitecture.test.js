@@ -94,4 +94,3 @@ test("wizard usa solo moduli canonici e Problemi resta una sottovista di Audit S
   assert.match(bridge, /data-seogrow-page="Audit SEO"/);
   assert.match(bridge, /data-seogrow-subview="Audit SEO:Problemi"/);
 });
-
