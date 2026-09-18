@@ -7,7 +7,6 @@ import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
   BarChart3,
   CheckCircle2,
   ChevronDown,
