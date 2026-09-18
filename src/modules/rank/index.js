@@ -31,3 +31,9 @@ export {
   buildSeoOpportunities,
   validateSeoOpportunityActionability,
 } from "./seoOpportunities.js";
+
+export {
+  buildGscMonitoring,
+  buildRankingMonitoring,
+  buildGrowthMonitoring,
+} from "./monitoringDeltas.js";
