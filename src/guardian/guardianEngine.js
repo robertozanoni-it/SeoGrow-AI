@@ -10,6 +10,8 @@ import { readWorkspaceJson, writeWorkspaceJson } from "../core/workspace/jsonSto
 import { WORKSPACE_KEYS } from "../core/workspace/storageKeys.js";
 import { workspaceStorage } from "../workspaceDatabase.js";
 import { reconcileTaskCauses } from "../taskCauseReconciliation.js";
+import { classifyProblemSignal } from "./problemDetectionEngine.js";
+import { installInteractionWatchdog } from "./interactionWatchdog.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -48,6 +50,7 @@ let intervalId = 0;
 let scheduledId = 0;
 let runningPromise = null;
 let lastScan = null;
+let uninstallInteractionWatchdog = null;
 
 const nowIso = () => new Date().toISOString();
 const bounded = (value, max = MAX_MESSAGE) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -202,6 +205,28 @@ const incidentForError = (code, source, error, extras = {}) => recordGuardianInc
   message: bounded(error?.message || error || "Errore non specificato"),
   detail: extras.detail || "",
 });
+
+
+const detectAndRecordSignal = (input) => {
+  const fingerprint = input.fingerprint || guardianFingerprint(input);
+  const history = listGuardianIncidents();
+  const classification = classifyProblemSignal({ ...input, fingerprint }, history);
+  if (!classification.accepted) return null;
+  const incident = recordGuardianIncident({
+    ...input,
+    fingerprint,
+    severity: classification.severity,
+    state: classification.rootCauseReviewRequired ? "blocked" : (input.state || "open"),
+    action: classification.rootCauseReviewRequired ? "root-cause-review" : (input.action || ""),
+    detail: [
+      input.detail || "",
+      classification.repeatedAfterResolution ? "Problema ricomparso dopo una precedente risoluzione verificata." : "",
+      classification.rootCauseReviewRequired ? `Ricorrenza: ${classification.occurrences} occorrenze. AutoFix ripetitivo sospeso; richiesta analisi causa radice.` : "",
+    ].filter(Boolean).join(" "),
+  });
+  dispatchGuardianUpdate({ type: "detected-problem", incident, classification });
+  return { incident, classification };
+};
 
 const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
   code: "ARCHITECTURE_DRIFT",
@@ -406,13 +431,13 @@ export function installGuardianRuntime() {
   installed = true;
 
   window.addEventListener("error", (event) => {
-    incidentForError("RUNTIME_ERROR", "browser", event?.error || event?.message || "Errore runtime");
+    detectAndRecordSignal({ code: "RUNTIME_ERROR", source: "browser", severity: "error", risk: GUARDIAN_RISK.DIAGNOSE, message: bounded(event?.error?.message || event?.message || "Errore runtime") });
   });
   window.addEventListener("unhandledrejection", (event) => {
-    incidentForError("UNHANDLED_REJECTION", "browser", event?.reason || "Promise rifiutata senza gestione");
+    detectAndRecordSignal({ code: "UNHANDLED_REJECTION", source: "browser", severity: "error", risk: GUARDIAN_RISK.DIAGNOSE, message: bounded(event?.reason?.message || event?.reason || "Promise rifiutata senza gestione") });
   });
   window.addEventListener("seogrow-storage-error", (event) => {
-    recordGuardianIncident({
+    detectAndRecordSignal({
       code: "WORKSPACE_WRITE_FAILED",
       source: "workspace",
       severity: "critical",
@@ -423,6 +448,43 @@ export function installGuardianRuntime() {
       detail: bounded(event?.detail?.message || ""),
     });
   });
+  window.addEventListener("seogrow-audit-problem-detected", (event) => {
+    const detail = event?.detail || {};
+    detectAndRecordSignal({
+      fingerprint: detail.fingerprint,
+      code: detail.code || "AUDIT_ISSUE",
+      source: "audit",
+      severity: detail.severity || "warning",
+      risk: detail.autoFixEligible ? GUARDIAN_RISK.SAFE_AUTOFIX : GUARDIAN_RISK.DIAGNOSE,
+      message: bounded(detail.message || "Problema rilevato dall'Audit SEO"),
+      detail: bounded(detail.detail || ""),
+      autoFixEligible: detail.autoFixEligible === true,
+    });
+  });
+  window.addEventListener("seogrow-action-failed", (event) => {
+    const detail = event?.detail || {};
+    detectAndRecordSignal({
+      code: detail.code || "ACTION_FAILED",
+      source: detail.source || "interaction",
+      severity: detail.severity || "warning",
+      risk: GUARDIAN_RISK.DIAGNOSE,
+      message: bounded(detail.message || "Un'azione dell'interfaccia non è stata completata."),
+      detail: bounded(detail.detail || ""),
+      autoFixEligible: false,
+    });
+  });
+  window.addEventListener("seogrow-integration-failed", (event) => {
+    const detail = event?.detail || {};
+    detectAndRecordSignal({
+      code: detail.code || "INTEGRATION_FAILED",
+      source: detail.integration || detail.source || "integration",
+      severity: detail.severity || "error",
+      risk: GUARDIAN_RISK.DIAGNOSE,
+      message: bounded(detail.message || "Integrazione non disponibile."),
+      detail: bounded(detail.detail || ""),
+      autoFixEligible: false,
+    });
+  });
   window.addEventListener("seogrow-problem-resolved", rememberResolvedProblem);
   window.addEventListener("seogrow-problem-reopened", detectPrematureReopen);
   window.addEventListener("seogrow-remediation-applied", () => scheduleScan("remediation-applied", 900));
@@ -431,6 +493,7 @@ export function installGuardianRuntime() {
     if ([WORKSPACE_KEYS.selectedPage, WORKSPACE_KEYS.tasks, WORKSPACE_KEYS.problemClosures].includes(event?.key)) scheduleScan("workspace-change", 700);
   });
   window.addEventListener("seogrow-guardian-run-request", () => scheduleScan("requested", 0));
+  uninstallInteractionWatchdog = installInteractionWatchdog();
 
   const settings = guardianSettings();
   scheduleScan("startup", 1_200);
@@ -447,6 +510,8 @@ export function uninstallGuardianRuntimeForTests() {
     if (intervalId) window.clearInterval(intervalId);
     if (scheduledId) window.clearTimeout(scheduledId);
   }
+  uninstallInteractionWatchdog?.();
+  uninstallInteractionWatchdog = null;
   intervalId = 0;
   scheduledId = 0;
   installed = false;

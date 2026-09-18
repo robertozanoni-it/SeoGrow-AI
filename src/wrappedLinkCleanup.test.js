@@ -42,7 +42,7 @@ test("Yoga Alliance wrapper with authuser and HTML entities supports both cleanu
   }
 });
 
-test("wrapped destructive choice is consumed once, never inherited by another page", () => {
+test("wrapped destructive choice is consumed once, never inherited by another page", { concurrency: false }, () => {
   setBrokenLinkCleanupMode(target, "delete-anchor-text");
   const first = prepareElementorBrokenExternalLink(fixture(), target);
   const second = prepareElementorBrokenExternalLink(fixture(), target);
@@ -94,14 +94,14 @@ test("script, template, textarea and commented anchors are not editable visible 
   }
 });
 
-test("query, case, slash and fragment differences do not become accidental matches", () => {
+test("query, case, slash and fragment differences do not become accidental matches", { concurrency: false }, () => {
   for (const other of [target.toUpperCase(), target.slice(0, -1), `${target}?lang=it`, `${target}#pose`]) {
     assert.equal(matchBrokenLinkHref(other, target), null);
   }
   assert.equal(matchBrokenLinkHref(target, target)?.kind, "exact");
 });
 
-test("two exact/direct-or-wrapped occurrences remain ambiguous for the existing ownership gate", () => {
+test("two exact/direct-or-wrapped occurrences remain ambiguous for the existing ownership gate", { concurrency: false }, () => {
   const raw = fixture(`<p><a href="${target}">Prima</a><a href="${wrapped}">Seconda</a></p>`);
   assert.equal(prepareElementorBrokenExternalLink(raw, target, "unlink-preserve-text").count, 2);
 });
@@ -121,7 +121,7 @@ test("anchor markup and whitespace are preserved while the readable label is nor
 
 // Exercise the actual app planner on every supported app platform. A missing
 // source file is a failure, not a reason to skip a release assertion.
-test("actual WordPress plan chooses the local Elementor adapter for both modes", async () => {
+test("actual WordPress plan chooses the local Elementor adapter for both modes", { concurrency: false }, async () => {
   const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
   const match = source.match(/async function buildPlan\([\s\S]*?(?=\n(?:const |function |async function |export ))/);
   assert.ok(match, "actual buildPlan source found");
