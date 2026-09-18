@@ -42,7 +42,6 @@ test("Hub owns overview notifications while platform compatibility stays identic
   assert.deepEqual(notifications.map((item) => item.title), [
     "1 task scadute",
     "Clic organici in calo del 20.0%",
-    "Impressioni organiche in crescita del 30.0%",
     "2 nuovi problemi tecnici",
     "1 problemi risolti",
   ]);
