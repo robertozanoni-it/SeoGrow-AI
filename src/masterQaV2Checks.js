@@ -1,13 +1,11 @@
 import { auditTaskIdentity } from "./auditTaskReconciliation.js";
 import { normalizeSiteHost } from "./gscImport.js";
 import { tasksFromAnalysis } from "./platform.js";
-import { openWorkspaceDb, workspaceStorage } from "./workspaceDatabase.js";
+import { openWorkspaceDb } from "./workspaceDatabase.js";
+import { readWorkspaceJson } from "./core/workspace/jsonStorage.js";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
-const clients = () => readJson("seogrow-clients", []);
+const clients = () => readWorkspaceJson("seogrow-clients", []);
 const clientIds = () => new Set(clients().map((item) => Number(item?.id)).filter((id) => Number.isSafeInteger(id) && id > 0));
 const validHttpUrl = (value) => {
   if (!value) return true;
@@ -28,7 +26,7 @@ async function allCorrections() {
 }
 
 export function checkTaskIntegrity() {
-  const rows = readJson("seogrow-tasks-v2", []);
+  const rows = readWorkspaceJson("seogrow-tasks-v2", []);
   const ids = new Set();
   const knownClients = clientIds();
   const problems = [];
@@ -48,8 +46,8 @@ export function checkTaskIntegrity() {
 }
 
 export function checkAuditTaskCoherence() {
-  const storedTasks = readJson("seogrow-tasks-v2", []);
-  const analyses = readJson("seogrow-analyses-v2", {});
+  const storedTasks = readWorkspaceJson("seogrow-tasks-v2", []);
+  const analyses = readWorkspaceJson("seogrow-analyses-v2", {});
   const knownClients = clients();
   const issues = [];
   let observed = 0;
@@ -74,7 +72,7 @@ export function checkAuditTaskCoherence() {
 }
 
 export function checkAgentHistory() {
-  const store = readJson("seogrow-agent-runs-v1", {});
+  const store = readWorkspaceJson("seogrow-agent-runs-v1", {});
   const known = clientIds();
   const bad = [];
   let runsCount = 0;
@@ -140,8 +138,8 @@ const validateDataset = (dataset, client, label, problems, freshness) => {
 };
 
 export function checkSearchConsoleIntegrity() {
-  const current = readJson("seogrow-gsc-v1", {});
-  const history = readJson("seogrow-gsc-history-v1", {});
+  const current = readWorkspaceJson("seogrow-gsc-v1", {});
+  const history = readWorkspaceJson("seogrow-gsc-history-v1", {});
   const knownClients = clients();
   const byId = new Map(knownClients.map((client) => [String(client.id), client]));
   const problems = [];

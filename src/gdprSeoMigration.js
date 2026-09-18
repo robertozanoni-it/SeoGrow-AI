@@ -1,19 +1,11 @@
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
+import { readWorkspaceJson, writeWorkspaceJson } from "./core/workspace/jsonStorage.js";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const TASKS_KEY = "seogrow-tasks-v2";
 const MIGRATION_KEY = "seogrow-gdpr-seo-policy-v1";
 const GDPR_PATH = /(?:^|\/)(?:privacy(?:-policy)?|cookie(?:-policy)?|gdpr|informativa(?:-privacy)?|consenso(?:-cookie)?)(?:\/|$)/i;
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
-
-const writeJson = (key, value) => {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
-};
 
 const isGdprUrl = (value) => {
   try { return GDPR_PATH.test(new URL(value).pathname); }
@@ -34,7 +26,7 @@ const recomputeSiteScore = (analysis, issues) => {
 };
 
 const migrateSiteHistory = () => {
-  const store = readJson(SITE_HISTORY_KEY, {});
+  const store = readWorkspaceJson(SITE_HISTORY_KEY, {});
   let changed = false;
   const next = {};
   for (const [clientId, value] of Object.entries(store)) {
@@ -63,11 +55,11 @@ const migrateSiteHistory = () => {
     });
     next[clientId] = Array.isArray(value) ? mapped : { ...value, history: mapped };
   }
-  if (changed) writeJson(SITE_HISTORY_KEY, next);
+  if (changed) writeWorkspaceJson(SITE_HISTORY_KEY, next);
 };
 
 const migratePageHistory = () => {
-  const store = readJson(PAGE_HISTORY_KEY, {});
+  const store = readWorkspaceJson(PAGE_HISTORY_KEY, {});
   let changed = false;
   const next = {};
   for (const [clientId, history] of Object.entries(store)) {
@@ -86,17 +78,17 @@ const migratePageHistory = () => {
       };
     });
   }
-  if (changed) writeJson(PAGE_HISTORY_KEY, next);
+  if (changed) writeWorkspaceJson(PAGE_HISTORY_KEY, next);
 };
 
 const migrateTasks = () => {
-  const tasks = readJson(TASKS_KEY, []);
+  const tasks = readWorkspaceJson(TASKS_KEY, []);
   const next = tasks.filter((task) => {
     const url = task.sourceUrl || task.targetUrl || "";
     if (!isGdprUrl(url)) return true;
     return !String(task.id || "").startsWith("analysis-");
   });
-  if (next.length !== tasks.length) writeJson(TASKS_KEY, next);
+  if (next.length !== tasks.length) writeWorkspaceJson(TASKS_KEY, next);
 };
 
 if (localStorage.getItem(MIGRATION_KEY) !== "done") {
