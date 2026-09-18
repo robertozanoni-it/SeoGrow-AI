@@ -4034,6 +4034,20 @@ export default function App() {
     listCorrections({ clientId: selectedClient }).then(items => { if (!cancelled) setCorrectionHistory(items); }).catch(() => { if (!cancelled) setCorrectionHistory([]); });
     return () => { cancelled = true; };
   }, [selectedClient, tasks]);
+  useEffect(() => {
+    const receiveGuardianNotification = (event) => {
+      const detail = event?.detail || {};
+      setToast({
+        kind: detail.kind === "error" ? "error" : detail.kind === "warning" ? "warning" : "info",
+        message: [detail.title, detail.message].filter(Boolean).join(": "),
+        clientId: detail.clientId || selectedClient,
+        guardianFingerprint: detail.fingerprint || "",
+      });
+    };
+    window.addEventListener("seogrow-guardian-notification", receiveGuardianNotification);
+    return () => window.removeEventListener("seogrow-guardian-notification", receiveGuardianNotification);
+  }, [selectedClient]);
+
   const [automationNotifications, setAutomationNotifications] = useState([]);
   useEffect(() => {
     const receive = (event) => setAutomationNotifications(Array.isArray(event?.detail?.notifications) ? event.detail.notifications : []);
