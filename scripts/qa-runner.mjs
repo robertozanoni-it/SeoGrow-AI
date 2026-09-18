@@ -48,7 +48,14 @@ try {
   if (mode !== "smoke") {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
-    await run("unit-integration-storage", ["--test", "--test-reporter=tap", ...tests]);
+    const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
+    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name));
+    await run("unit-integration-core", ["--test", "--test-reporter=tap", ...parallelTests]);
+    for (const storageTest of isolatedStorageTests) {
+      await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
+    }
+    const coreTap = await readFile(path.join(output, "unit-integration-core.log"), "utf8");
+    report.tests = parseTestSummary(coreTap);
     const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
     report.tests = parseTestSummary(tap);
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
