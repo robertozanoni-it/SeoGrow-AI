@@ -33,6 +33,7 @@ class TaxonomyDb {
     public $postmeta='wp_postmeta';
     public $meta_value='Old description';
     public $duplicate=false;
+    public $fail_commit=false;
     public $updates=0;
 
     public function prepare($sql, ...$args) {
@@ -65,6 +66,10 @@ class TaxonomyDb {
     }
     public function query($query) {
         if (is_string($query)) {
+            if ($query === 'COMMIT' && $this->fail_commit) {
+                $this->fail_commit=false;
+                return false;
+            }
             if (preg_match('/^(SET TRANSACTION|START TRANSACTION|COMMIT|ROLLBACK)/', $query)) return 1;
             return 0;
         }
@@ -132,6 +137,11 @@ $duplicate=seogrow_connector_atomic_write(new WP_REST_Request(request_data('appl
 check($duplicate instanceof WP_Error && $duplicate->code === 'ATOMIC_WRITE_UNAVAILABLE', 'Duplicate termmeta must fail closed');
 check($wpdb->meta_value === 'Old description', 'Duplicate termmeta path mutated');
 $wpdb->duplicate=false;
+
+$wpdb->fail_commit=true;
+$uncertain=seogrow_connector_atomic_write(new WP_REST_Request(request_data('apply','rank-math','Old description','Commit uncertain')));
+check($uncertain instanceof WP_Error && $uncertain->code === 'ATOMIC_RESULT_UNVERIFIED', 'Commit failure must remain uncertain, never a clean denial');
+$wpdb->meta_value='Old description';
 
 $yoast=seogrow_connector_atomic_write(new WP_REST_Request(request_data('apply','yoast','Old description','Yoast target')));
 check($yoast instanceof WP_Error && $yoast->code === 'ATOMIC_WRITE_UNAVAILABLE', 'Yoast taxonomy must remain fail-closed');
