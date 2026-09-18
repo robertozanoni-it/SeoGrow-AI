@@ -1,4 +1,4 @@
-import { issueIdentity } from "../reliabilityModel.js";
+import { issueIdentity } from "./reliabilityModel.js";
 
 const bounded = (value, max = 300) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
