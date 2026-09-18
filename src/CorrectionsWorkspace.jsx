@@ -201,8 +201,8 @@ export default function CorrectionsWorkspace() {
       const updated = result?.record;
       if (result?.error) {
         setMessage(`Riverifica non conclusa: ${result.error.message}. Lo stato precedente è stato mantenuto.`);
-      } else if (updated?.status === "Verificato") {
-        setMessage("Riverifica completata: la correzione è confermata nel frontend e la Task collegata può essere chiusa.");
+      } else if (updated?.status === "Verificato" && result?.needsAudit !== true) {
+        setMessage("Riverifica completata: problema risolto e rimosso dai problemi attivi. La correzione resta disponibile nello storico.");
       } else if (result?.needsAudit) {
         setMessage("Controllo frontend completato. Per confermare la risoluzione SEO serve ancora un nuovo audit mirato o completo.");
       } else {
