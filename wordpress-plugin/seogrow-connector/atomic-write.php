@@ -77,6 +77,7 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
     if ($wpdb->query('START TRANSACTION') === false) { return seogrow_connector_atomic_unavailable(); }
 
     $committed = false;
+    $commit_attempted = false;
     try {
         $post = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $id), ARRAY_A);
         if (!$post || $post['post_type'] !== $post_type) { throw new RuntimeException('identity'); }
@@ -255,8 +256,9 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
         if (!is_string($locked_after) || !seogrow_connector_atomic_exact_equal($locked_after, $after_value)) {
             throw new RuntimeException('result');
         }
+        $commit_attempted = true;
         if ($wpdb->query('COMMIT') === false) {
-            throw new RuntimeException('commit');
+            throw new RuntimeException('commit_uncertain');
         }
         $committed = true;
 
@@ -313,7 +315,11 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
             ),
         );
     } catch (Throwable $error) {
-        if (!$committed) {
+        if (!$committed && !$commit_attempted) {
+            $wpdb->query('ROLLBACK');
+        } else if (!$committed && $commit_attempted) {
+            // COMMIT returned an error: do not claim a pre-write denial because
+            // the remote database outcome cannot be proven from this response.
             $wpdb->query('ROLLBACK');
         }
         if (function_exists('clean_term_cache')) {
@@ -322,7 +328,7 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
         if (function_exists('wp_cache_delete')) {
             wp_cache_delete($id, 'term_meta');
         }
-        if ($committed) {
+        if ($committed || $commit_attempted || $error->getMessage() === 'commit_uncertain') {
             return new WP_Error(
                 'ATOMIC_RESULT_UNVERIFIED',
                 'Esito della scrittura tassonomia da verificare. Nessun nuovo tentativo automatico eseguito.',
@@ -340,7 +346,7 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
             );
         }
         if ($error->getMessage() === 'identity') {
-            return new WP_Error('ATOMIC_IDENTITY_CONFLICT', 'La tassonomia WordPress è cambiata prima della scrittura.', array('status' => 409));
+            return new WP_Error('STALE_CONFLICT', 'La tassonomia WordPress è cambiata prima della scrittura. Nessuna sovrascrittura eseguita.', array('status' => 409));
         }
         return seogrow_connector_atomic_unavailable();
     }
