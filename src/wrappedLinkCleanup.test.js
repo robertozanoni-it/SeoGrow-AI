@@ -1,13 +1,10 @@
-import test, { afterEach, beforeEach } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
 
-import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, resetBrokenLinkCleanupModesForTests, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
-
-beforeEach(() => resetBrokenLinkCleanupModesForTests());
-afterEach(() => resetBrokenLinkCleanupModesForTests());
+import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
 
 const target = "https://www.yogajournal.com/poses/types/advanced/";
 const wrapped = `https://www.google.com/search?q=${target}`;
@@ -45,7 +42,7 @@ test("Yoga Alliance wrapper with authuser and HTML entities supports both cleanu
   }
 });
 
-test("wrapped destructive choice is consumed once, never inherited by another page", { concurrency: false }, () => {
+test("wrapped destructive choice is consumed once, never inherited by another page", () => {
   setBrokenLinkCleanupMode(target, "delete-anchor-text");
   const first = prepareElementorBrokenExternalLink(fixture(), target);
   const second = prepareElementorBrokenExternalLink(fixture(), target);
@@ -62,7 +59,7 @@ test("malformed Elementor JSON stays blocked", () => {
 
 // Exercise the actual app planner on every supported app platform. A missing
 // source file is a failure, not a reason to skip a release assertion.
-test("actual WordPress plan chooses the local Elementor adapter for both modes", { concurrency: false }, async () => {
+test("actual WordPress plan chooses the local Elementor adapter for both modes", async () => {
   const source = (await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8") + "\n" + await readFile(new URL("./wordpressRemediationEngine.js", import.meta.url), "utf8"));
   const match = source.match(/async function buildPlan\([\s\S]*?(?=\n(?:const |function |async function |export ))/);
   assert.ok(match, "actual buildPlan source found");
