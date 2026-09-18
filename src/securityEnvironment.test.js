@@ -51,11 +51,14 @@ test('redirect responses are returned but never auto-followed to a second destin
   assert.equal(requestCount, 1, 'redirect must not trigger a second network request');
 });
 
-test('WordPress atomic writes require object-level capabilities and fail closed where atomicity is unavailable', () => {
+test('WordPress atomic writes require object-level capabilities and keep unsupported storage fail-closed', () => {
   assert.match(atomicWrite, /current_user_can\('edit_post', \$id\)/);
   assert.match(atomicWrite, /current_user_can\('edit_term', \$term->term_id\)/);
-  assert.match(atomicWrite, /ATOMIC_WRITE_UNAVAILABLE/);
-  assert.match(atomicWrite, /if \(\$resource === 'taxonomy'\)[\s\S]*return seogrow_connector_atomic_unavailable\(\)/);
+  assert.match(atomicWrite, /seogrow_connector_atomic_rank_math_taxonomy_write/);
+  assert.match(atomicWrite, /rank-math-termmeta-cas-v1/);
+  assert.match(atomicWrite, /UPDATE \{\$wpdb->termmeta\}[\s\S]*BINARY meta_value = BINARY %s/);
+  assert.match(atomicWrite, /\$adapter === 'rank-math'[\s\S]*meta_description/);
+  assert.match(atomicWrite, /Yoast taxonomy storage[\s\S]*remain fail-closed/);
   assert.match(atomicWrite, /array_key_exists\('meta', \$changes\)\)[\s\S]*seogrow_connector_elementor_text_write[\s\S]*seogrow_connector_atomic_unavailable\(\)/);
   assert.match(atomicWrite, /STALE_CONFLICT/);
 });
