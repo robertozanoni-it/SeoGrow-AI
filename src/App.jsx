@@ -3968,7 +3968,9 @@ export default function App() {
   };
   const [correctionHistory, setCorrectionHistory] = useState([]);
   const monitoringContextRef = useRef({ clients, analyses, correctionHistory });
-  monitoringContextRef.current = { clients, analyses, correctionHistory };
+  useEffect(() => {
+    monitoringContextRef.current = { clients, analyses, correctionHistory };
+  }, [clients, analyses, correctionHistory]);
   const completeAnalysisForClient = async (clientId, analysis, { backup = false } = {}) => {
     if (backup && preferences.autoBackup && !await createSnapshot("Prima della nuova analisi")) return;
     const context = backup ? { clients, analyses, correctionHistory } : monitoringContextRef.current;
