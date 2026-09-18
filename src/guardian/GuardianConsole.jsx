@@ -33,11 +33,14 @@ export default function GuardianConsole() {
   const [monitoringEnabled, setMonitoringEnabled] = useState(() => guardianMonitoringEnabled());
   const [lastMonitoringRun, setLastMonitoringRun] = useState("");
   const [snapshot, setSnapshot] = useState(() => guardianSnapshot());
+  const [focusFingerprint, setFocusFingerprint] = useState("");
 
   useEffect(() => {
     const refresh = () => setSnapshot(guardianSnapshot());
+    const openIncident = (event) => { setFocusFingerprint(event?.detail?.fingerprint || ""); setOpen(true); setSnapshot(guardianSnapshot()); };
     window.addEventListener("seogrow-guardian-updated", refresh);
-    return () => window.removeEventListener("seogrow-guardian-updated", refresh);
+    window.addEventListener("seogrow-guardian-open-incident", openIncident);
+    return () => { window.removeEventListener("seogrow-guardian-updated", refresh); window.removeEventListener("seogrow-guardian-open-incident", openIncident); };
   }, []);
 
   const activateGuardian = () => {
@@ -51,9 +54,9 @@ export default function GuardianConsole() {
 
   const visibleIncidents = useMemo(
     () => snapshot.open
-      .toSorted((left, right) => Date.parse(right.lastSeenAt || 0) - Date.parse(left.lastSeenAt || 0))
+      .toSorted((left, right) => (left.fingerprint === focusFingerprint ? -1 : right.fingerprint === focusFingerprint ? 1 : Date.parse(right.lastSeenAt || 0) - Date.parse(left.lastSeenAt || 0)))
       .slice(0, 8),
-    [snapshot.open],
+    [snapshot.open, focusFingerprint],
   );
 
   const scanNow = async () => {
@@ -118,7 +121,7 @@ export default function GuardianConsole() {
                 <span>I controlli automatici non hanno rilevato problemi aperti.</span>
               </div>
             ) : visibleIncidents.map((incident) => (
-              <article className={`guardian-incident severity-${incident.severity || "warning"}`} key={incident.id}>
+              <article className={`guardian-incident severity-${incident.severity || "warning"} ${incident.fingerprint === focusFingerprint ? "is-focused" : ""}`} key={incident.id}>
                 <div className="guardian-incident-top">
                   <strong>{incident.code}</strong>
                   <span>{stateLabel(incident.state)}</span>
