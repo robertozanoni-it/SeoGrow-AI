@@ -49,6 +49,10 @@ export function clearBrokenLinkCleanupMode(targetUrl) {
   if (target) cleanupModes.delete(target);
 }
 
+export function resetBrokenLinkCleanupModesForTests() {
+  cleanupModes.clear();
+}
+
 export function consumeBrokenLinkCleanupMode(targetUrl) {
   const target = brokenExternalTarget({ targetUrl });
   if (!target) return BROKEN_LINK_CLEANUP_MODES.PRESERVE_TEXT;
