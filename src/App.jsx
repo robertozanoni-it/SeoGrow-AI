@@ -424,6 +424,7 @@ function Header({
   onSearchResult,
   notifications,
   onNotifications,
+  onNotificationTask,
   onHelp,
   displayName,
 }) {
@@ -607,19 +608,29 @@ function Header({
             </div>
             {notifications.length ? (
               notifications.map((item, index) => (
-                <button
-                  key={`${item.title}-${item.text}-${index}`}
-                  onClick={() => {
-                    onNotifications(item);
-                    setShowNotifications(false);
-                  }}
-                >
-                  <AlertTriangle className={item.tone} />
-                  <span>
-                    <strong>{item.title}</strong>
-                    <small>{item.text}</small>
-                  </span>
-                </button>
+                <div className="notification-item" key={item.id || `${item.title}-${item.text}-${index}`}>
+                  <button
+                    className="notification-open"
+                    onClick={() => {
+                      onNotifications(item);
+                      setShowNotifications(false);
+                    }}
+                  >
+                    <AlertTriangle className={item.tone} />
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.text}</small>
+                      {item.source && <em>{item.source}</em>}
+                    </span>
+                  </button>
+                  {item.taskDraft && <button
+                    className="notification-task"
+                    onClick={() => {
+                      onNotificationTask?.(item);
+                      setShowNotifications(false);
+                    }}
+                  >Crea task</button>}
+                </div>
               ))
             ) : (
               <p>Nessun avviso per il progetto selezionato.</p>
@@ -4135,6 +4146,7 @@ export default function App() {
         dataset: selectedDataset,
         previousDataset: selectedHistory[1],
         analysis: selectedAnalysis,
+        rankings: rankings[selectedClient] || rankings[String(selectedClient)] || [],
       })
     : [];
   const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
@@ -4456,9 +4468,18 @@ export default function App() {
             setQuery("");
           }}
           notifications={notifications}
-          onNotifications={(item) =>
-            setPage(item.title.includes("task") ? "Task" : "Opportunità")
-          }
+          onNotifications={(item) => {
+            const target = item.page || (item.title.includes("task") ? "Task" : "Opportunità");
+            if (target === "Correzioni") navigatePage(target);
+            else setPage(target);
+          }}
+          onNotificationTask={(item) => {
+            if (!item?.taskDraft) return;
+            const task = createManualTask(item.taskDraft);
+            if (!task) return;
+            setRequestedTask({ id: task.id, nonce: Date.now() });
+            setPage("Task");
+          }}
           onHelp={() => setPage("Impostazioni")}
           displayName={preferences.name || "Amministratore"}
         />
