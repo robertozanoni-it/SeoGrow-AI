@@ -4042,6 +4042,8 @@ export default function App() {
         message: [detail.title, detail.message].filter(Boolean).join(": "),
         clientId: detail.clientId || selectedClient,
         guardianFingerprint: detail.fingerprint || "",
+        actionLabel: detail.fingerprint ? "Apri Guardian" : "",
+        onAction: detail.fingerprint ? () => window.dispatchEvent(new CustomEvent("seogrow-guardian-open-incident", { detail: { fingerprint: detail.fingerprint, clientId: detail.clientId } })) : null,
       });
     };
     window.addEventListener("seogrow-guardian-notification", receiveGuardianNotification);
