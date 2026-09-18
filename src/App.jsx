@@ -2366,8 +2366,9 @@ function Integrations({
     setImportStatus("Lettura proprietà Google…");
     try {
       const response = await fetch("/api/google/properties");
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Lettura non riuscita");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || `Lettura proprietà non riuscita (HTTP ${response.status})`);
+      if (!data || typeof data !== "object") throw new Error("Lettura proprietà non riuscita: risposta non valida.");
       const properties = normalizeGoogleProperties(data.properties);
       setGoogle((current) => ({ ...current, configured: true, connected: true, properties }));
       setProperty(current => properties.some(item => item.url === current) ? current : "");
@@ -2386,8 +2387,9 @@ function Integrations({
     setIntegrationBusy("google-disconnect");
     try {
       const response = await fetch("/api/google/connection", { method: "DELETE" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Disconnessione non riuscita");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || `Disconnessione non riuscita (HTTP ${response.status})`);
+      if (!data || typeof data !== "object") throw new Error("Disconnessione non riuscita: risposta non valida.");
       setGoogle((current) => ({ ...current, connected: false, properties: [] }));
       setProperty("");
       setImportStatus("Google scollegata e token locale eliminato.");
@@ -2402,8 +2404,9 @@ function Integrations({
     setIntegrationBusy("dataforseo-test");
     try {
       const response = await fetch("/api/dataforseo/test", { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Verifica non riuscita");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || `Verifica DataForSEO non riuscita (HTTP ${response.status})`);
+      if (!data || typeof data !== "object") throw new Error("Verifica DataForSEO non riuscita: risposta non valida.");
       setDfsResult(`Connessione verificata${data.login ? ` per ${data.login}` : ""}.`);
       onDataForSeoStatus((current) => ({ ...current, configured: true, verified: true }));
     } catch (error) {
@@ -2422,8 +2425,9 @@ function Integrations({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ property }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Importazione non riuscita");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || `Importazione Google non riuscita (HTTP ${response.status})`);
+      if (!data || typeof data !== "object") throw new Error("Importazione Google non riuscita: risposta non valida.");
       const assigned = await onGscImport(data);
       setImportStatus(`Dati API importati e abbinati a ${assigned.clientName}.`);
     } catch (error) {
@@ -2442,9 +2446,10 @@ function Integrations({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(wp),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       if (!response.ok)
-        throw new Error(data.error || "Connessione non riuscita");
+        throw new Error(data?.error || `Connessione WordPress non riuscita (HTTP ${response.status})`);
+      if (!data || typeof data !== "object") throw new Error("Connessione WordPress non riuscita: risposta non valida.");
       onWordPressVerified({
         ...wp,
         name: data.name,
