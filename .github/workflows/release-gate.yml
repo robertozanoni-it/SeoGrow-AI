@@ -73,8 +73,8 @@ jobs:
       - name: Upload complete Connector
         uses: actions/upload-artifact@v6
         with:
-          name: seogrow-connector-1.3.9
-          path: artifacts/seogrow-connector-1.3.9.zip
+          name: seogrow-connector-1.3.10
+          path: artifacts/seogrow-connector-1.3.10.zip
 
       - name: Install zsh for macOS launcher syntax check
         run: |
