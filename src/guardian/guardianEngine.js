@@ -502,6 +502,29 @@ export function installGuardianRuntime() {
       autoFixEligible: false,
     });
   });
+  window.addEventListener("seogrow-post-fix-verified", (event) => {
+    const detail = event?.detail || {};
+    const fingerprint = String(detail.fingerprint || "");
+    if (!fingerprint || detail.verification?.canClose !== true) return;
+    const resolved = resolveGuardianIncident(
+      fingerprint,
+      detail.verification?.reason || "Verifica post-fix PASS: problema assente al nuovo Audit.",
+    );
+    if (!resolved) return;
+    rememberResolvedProblem({ detail: { issueKey: fingerprint } });
+    dispatchGuardianUpdate({ type: "post-fix-verified", incident: resolved, verification: detail.verification });
+    window.dispatchEvent(new CustomEvent("seogrow-problem-resolved", {
+      detail: {
+        id: resolved.id,
+        issueKey: fingerprint,
+        fingerprint,
+        clientId: detail.correction?.clientId,
+        issueType: detail.issue?.type || detail.correction?.issueType || "",
+        sourceUrl: detail.issue?.sourceUrl || detail.issue?.url || detail.correction?.sourceUrl || "",
+        verifiedAt: detail.verification?.verification?.at || new Date().toISOString(),
+      },
+    }));
+  });
   window.addEventListener("seogrow-problem-resolved", rememberResolvedProblem);
   window.addEventListener("seogrow-problem-reopened", detectPrematureReopen);
   window.addEventListener("seogrow-remediation-applied", () => scheduleScan("remediation-applied", 900));
