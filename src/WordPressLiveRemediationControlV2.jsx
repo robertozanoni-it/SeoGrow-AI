@@ -31,7 +31,7 @@ import {
   detectPreviewConflicts,
   previewIdentity,
 } from "./remediationPlanSafety";
-import { normalizeClientId, safeHttpHref } from "./reliabilityModel";
+import { normalizeClientId, safeHttpHref } from "./reliabilityModel";\nimport { recordResolvedProblemClosure } from "./problemDisposition.js";
 
 import "./WordPressLiveRemediationControl.css";
 import "./WordPressLiveRemediationControlV2.css";
@@ -255,7 +255,17 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
         };
         const identity = previewIdentity({ issue: currentIssue, inspected, targetUrl, frontend: frontendContext });
         if (plan.alreadyResolved) {
-          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, linkResolution: plan.linkResolution, contextSnapshot, inspected, frontendContext, ...identity });
+          const closure = recordResolvedProblemClosure({
+            ...currentIssue,
+            issueKey: issueKey(currentIssue, targetUrl),
+            sourceUrl: targetUrl,
+            targetUrl: kind === "external_link" ? brokenExternalTarget(currentIssue) : "",
+          }, context.clientId, {
+            sourceUrl: targetUrl,
+            targetUrl: kind === "external_link" ? brokenExternalTarget(currentIssue) : "",
+            reason: "live-readonly-resolved",
+          });
+          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, linkResolution: plan.linkResolution, contextSnapshot, inspected, frontendContext, closure, ...identity });
           setResults([...next]);
           continue;
         }
