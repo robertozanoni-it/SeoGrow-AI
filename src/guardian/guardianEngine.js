@@ -448,6 +448,19 @@ export function installGuardianRuntime() {
       detail: bounded(event?.detail?.message || ""),
     });
   });
+  window.addEventListener("seogrow-audit-problem-detected", (event) => {
+    const detail = event?.detail || {};
+    detectAndRecordSignal({
+      fingerprint: detail.fingerprint,
+      code: detail.code || "AUDIT_ISSUE",
+      source: "audit",
+      severity: detail.severity || "warning",
+      risk: detail.autoFixEligible ? GUARDIAN_RISK.SAFE_AUTOFIX : GUARDIAN_RISK.DIAGNOSE,
+      message: bounded(detail.message || "Problema rilevato dall'Audit SEO"),
+      detail: bounded(detail.detail || ""),
+      autoFixEligible: detail.autoFixEligible === true,
+    });
+  });
   window.addEventListener("seogrow-action-failed", (event) => {
     const detail = event?.detail || {};
     detectAndRecordSignal({
