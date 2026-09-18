@@ -2,13 +2,11 @@ import { apiFetch } from "./api.js";
 import { correctionCredentials } from "./correctionCredentials.js";
 import { installQaPanel } from "./masterQaPanel.js";
 import { flushWorkspace, openWorkspaceDb, readWorkspace, workspaceStorage } from "./workspaceDatabase.js";
+import { readWorkspaceJson } from "./core/workspace/jsonStorage.js";
 
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 
-const readJson = (key, fallback) => {
-  try { return JSON.parse(workspaceStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-};
 
 export const MANUAL_MASTER_QA_CHECKS = [
   "Restore con crash fisico browser/OS e quota reale",
@@ -55,8 +53,8 @@ async function checkWorkspace() {
 }
 
 function checkClientSelection() {
-  const clients = readJson(CLIENTS_KEY, []);
-  const selected = Number(readJson(SELECTED_CLIENT_KEY, 0));
+  const clients = readWorkspaceJson(CLIENTS_KEY, []);
+  const selected = Number(readWorkspaceJson(SELECTED_CLIENT_KEY, 0));
   const match = clients.find((item) => Number(item?.id) === selected);
   return {
     status: selected > 0 && match ? "PASS" : "FAIL",
@@ -111,7 +109,7 @@ async function checkCredentialIsolation() {
 async function checkProjectSwitchAbort() {
   const originalFetch = window.fetch;
   const originalSelected = workspaceStorage.getItem(SELECTED_CLIENT_KEY);
-  const current = Number(readJson(SELECTED_CLIENT_KEY, 0)) || 1;
+  const current = Number(readWorkspaceJson(SELECTED_CLIENT_KEY, 0)) || 1;
   const alternate = current === 999999 ? 999998 : 999999;
   let result;
 
