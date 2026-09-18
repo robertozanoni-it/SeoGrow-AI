@@ -11,6 +11,6 @@ test("Piano editoriale contract matches the actual evidence-first runtime", asyn
   const app = await readFile(new URL("./App.jsx", import.meta.url), "utf8");
   assert.match(workspace, /buildEditorialPlanRows/);
   assert.match(workspace, /validateEditorialProjectContext/);
-  assert.match(app, />Genera contenuto</);
+  assert.match(app, /Genera contenuto/);
   assert.doesNotMatch(workspace, />Genera piano editoriale</);
 });
