@@ -16,6 +16,7 @@ await mkdir(output, { recursive: true });
 const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), dirty: Boolean(execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim()), startedAt: new Date().toISOString(), steps: [], ok: false };
 const children = [];
 const runtimes = [];
+const TEST_WORKERS = Math.max(2, Math.min(6, Number(process.env.QA_TEST_WORKERS) || 4));
 let temporary;
 async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000) {
   const started = Date.now();
@@ -31,7 +32,14 @@ async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000
   await writeFile(log, text);
   report.steps.push({ name, exitCode: code, signal: child.signalCode, timedOut, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
-  if (code !== 0) throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + text.slice(-1800));
+  if (code !== 0) {
+    const normalized = text.replace(/\\u001b\\[[0-9;]*m/g, "");
+    const tapFailures = [...normalized.matchAll(/(?:^|\\n)[^\\n]*not ok\\s+[^\\n]*/g)].map(match => match[0].trim()).slice(0, 12);
+    const subtestFailures = [...normalized.matchAll(/# Subtest:\\s*([^\\n]+)[\\s\\S]{0,1200}?not ok\\s+\\d+\\s+-\\s+([^\\n]+)/g)].map(match => `not ok - ${match[2] || match[1]}`).slice(0, 12);
+    const failures = tapFailures.length ? tapFailures : subtestFailures;
+    const failureSummary = failures.length ? ` TAP failures: ${failures.join(" | ")}` : text.slice(-1800);
+    throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + failureSummary);
+  }
 }
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer(); server.on("error", reject);
@@ -48,9 +56,25 @@ try {
   if (mode !== "smoke") {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
-    await run("unit-integration-storage", ["--test", "--test-reporter=tap", ...tests]);
-    const tap = await readFile(path.join(output, "unit-integration-storage.log"), "utf8");
-    report.tests = parseTestSummary(tap);
+    const testSummaries = new Array(tests.length);
+    let nextTestIndex = 0;
+    async function testWorker() {
+      while (true) {
+        const index = nextTestIndex++;
+        if (index >= tests.length) return;
+        const testFile = tests[index];
+        const testName = `test-${String(index + 1).padStart(3, "0")}-${path.basename(testFile, ".test.js").replace(/[^a-z0-9_-]+/gi, "-")}`;
+        await run(testName, ["--test", "--test-concurrency=1", "--test-reporter=tap", testFile]);
+        testSummaries[index] = parseTestSummary(await readFile(path.join(output, `${testName}.log`), "utf8"));
+      }
+    }
+    await Promise.all(Array.from({ length: TEST_WORKERS }, () => testWorker()));
+    report.tests = testSummaries.reduce((total, summary) => ({
+      tests: Number(total.tests || 0) + Number(summary.tests || 0),
+      pass: Number(total.pass || 0) + Number(summary.pass || 0),
+      fail: Number(total.fail || 0) + Number(summary.fail || 0),
+      skipped: Number(total.skipped || 0) + Number(summary.skipped || 0),
+    }), { tests: 0, pass: 0, fail: 0, skipped: 0 });
     await run("production-build", ["node_modules/vite/bin/vite.js", "build"]);
   }
   // macOS /var is a symlink to /private/var. Node resolves module URLs to

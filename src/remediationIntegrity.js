@@ -6,6 +6,7 @@ import { correctionCredentials } from "./correctionCredentials.js";
 import { metadataVerificationTarget, metadataVerificationPatch, requiresDuplicateAudit } from "./metadataCorrectionVerification.js";
 import { runConfirmationAudit } from "./confirmationAudit.js";
 import { hasAutoFixCompletionEvidence } from "./autoFixCompletionEvidence.js";
+import { evaluatePostFixVerification } from "./guardian/verificationClosureEngine.js";
 import {
   listCorrections,
   readCorrection,
@@ -40,8 +41,23 @@ const dispatchProblemState = (name, record) => {
 
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
-  const completionVerified = after.status === "Verificato" &&
+  const legacyEvidence = after.status === "Verificato" &&
     (after.liveApproval !== true || hasAutoFixCompletionEvidence(after));
+  const closureEvidence = evaluatePostFixVerification({
+    incident: { fingerprint: after.issueFingerprint || after.issueKey || "" },
+    correction: after,
+    evidenceBefore: after.before || null,
+    evidenceAfter: after.frontendSnapshot || after.taxonomyVerification || after.verificationEvidence || null,
+    recheck: {
+      ok: legacyEvidence,
+      problemPresent: legacyEvidence ? false : undefined,
+      fingerprint: after.issueFingerprint || after.issueKey || "",
+      source: after.verificationSource || "remediation-integrity",
+      at: after.verifiedAt || "",
+      needsAudit: after.needsAudit === true,
+    },
+  });
+  const completionVerified = closureEvidence.canClose === true;
   if (completionVerified) {
     removeVerifiedTask(after);
     if (before?.status !== "Verificato" || before?.verifiedAt !== after.verifiedAt) {
