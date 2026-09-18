@@ -376,7 +376,23 @@ export default function WordPressTaxonomyRemediationControl() {
       window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
       setAppliedRecordId(record.id);
       setPreview(null);
-      setMessage("Modifica tassonomia applicata e registrata. Stato: Da verificare.");
+      setMessage("Modifica tassonomia applicata. SeoGrow sta verificando automaticamente backend e risultato pubblico…");
+      try {
+        const verification = await recheckCorrectionById(record.id, {
+          clientId,
+          siteUrl: credentials.siteUrl,
+          username: credentials.username,
+          applicationPassword: credentials.applicationPassword,
+        });
+        if (verification?.error) throw verification.error;
+        if (verification?.record?.status === "Verificato" && verification?.needsAudit !== true) {
+          setMessage("Correzione tassonomia verificata. Il problema è stato rimosso dai problemi attivi; lo storico resta disponibile in Correzioni.");
+        } else {
+          setMessage(verification?.record?.verificationNote || "Modifica applicata. Servono ancora evidenze: il problema resta tra quelli attivi.");
+        }
+      } catch (verificationError) {
+        setMessage(`Modifica applicata, ma la verifica automatica non è conclusa: ${verificationError.message}. Il problema resta tra quelli attivi.`);
+      }
     } catch (error) {
       setMessage(`Applicazione non completata: ${error.message}`);
     } finally {
@@ -397,7 +413,7 @@ export default function WordPressTaxonomyRemediationControl() {
         applicationPassword: credentials.applicationPassword,
       });
       if (result?.error) throw result.error;
-      if (result?.record?.status === "Verificato") setMessage("Riverifica completata: valore salvato e risultato pubblico sono coerenti. Correzione verificata.");
+      if (result?.record?.status === "Verificato" && result?.needsAudit !== true) setMessage("Riverifica completata: problema risolto e rimosso dai problemi attivi. Lo storico resta disponibile in Correzioni.");
       else setMessage(result?.record?.verificationNote || "Riverifica completata: la correzione resta Da verificare.");
     } catch (error) {
       setMessage(`Riverifica non conclusa: ${error.message}`);

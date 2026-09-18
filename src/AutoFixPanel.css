@@ -41,7 +41,7 @@
 .audit-unified-remediation .audit-unified-credentials { background: #fff7e8; border: 1px solid #ebd2a2; border-left: 4px solid #b98723; }
 .audit-unified-remediation .wp-live-remediation-v2 { background: #ecf9fc; border: 1px solid #b9dce3; border-left: 4px solid #388696; }
 .wp-live-remediation-v2 .wp-live-preview-row { background: #fff; border: 1px solid #bdcbd7; padding: 18px; }
-.wp-live-remediation-v2 .wp-live-preview-row.applied, .wp-live-remediation-v2 .wp-live-preview-row.resolved { background: #edf9f1; }
+.wp-live-remediation-v2 .wp-live-preview-row.applied, .wp-live-remediation-v2 .wp-live-preview-row.verified, .wp-live-remediation-v2 .wp-live-preview-row.resolved { background: #edf9f1; }
 .wp-live-remediation-v2 .wp-live-preview-row.ownership_error, .wp-live-remediation-v2 .wp-live-preview-row.auth_error { background: #fff4ed; }
 .wp-live-remediation-v2 .correction-explanation p { color: #334155; }
 .wp-live-remediation-v2 .wp-live-diff > section:first-child { background: #f1f5f9; }
