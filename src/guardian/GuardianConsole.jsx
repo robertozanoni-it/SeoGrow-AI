@@ -29,11 +29,16 @@ export default function GuardianConsole() {
   const [snapshot, setSnapshot] = useState(() => guardianSnapshot());
 
   useEffect(() => {
-    installGuardianRuntime();
     const refresh = () => setSnapshot(guardianSnapshot());
     window.addEventListener("seogrow-guardian-updated", refresh);
     return () => window.removeEventListener("seogrow-guardian-updated", refresh);
   }, []);
+
+  const activateGuardian = () => {
+    installGuardianRuntime();
+    setSnapshot(guardianSnapshot());
+    setOpen((value) => !value);
+  };
 
   const visibleIncidents = useMemo(
     () => snapshot.open
@@ -126,7 +131,7 @@ export default function GuardianConsole() {
       <button
         className={`guardian-trigger ${scoreTone(snapshot.score)}`}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={activateGuardian}
         aria-expanded={open}
       >
         <span className="guardian-trigger-dot" aria-hidden="true" />
