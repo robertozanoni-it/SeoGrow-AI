@@ -1282,8 +1282,9 @@ function AuditPage({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || `Audit non riuscito (HTTP ${response.status}).`);
+      if (!data || typeof data !== "object") throw new Error("Audit non riuscito: risposta non valida.");
       setAuditResult(data);
       onCloseAuto?.();
     } catch (err) {
@@ -1309,7 +1310,7 @@ function AuditPage({
           </button>
         </div>
       </label>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}{auditResult ? " L’ultimo audit valido resta disponibile qui sotto." : ""}</p>}
     </form>
   );
   if (autoOpen)
