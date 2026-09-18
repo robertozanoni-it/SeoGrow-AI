@@ -3966,6 +3966,7 @@ export default function App() {
       template: preferences.projectSettings?.[clientId]?.report,
     });
   };
+  const [correctionHistory, setCorrectionHistory] = useState([]);
   const monitoringContextRef = useRef({ clients, analyses, correctionHistory });
   monitoringContextRef.current = { clients, analyses, correctionHistory };
   const completeAnalysisForClient = async (clientId, analysis, { backup = false } = {}) => {
@@ -4026,7 +4027,6 @@ export default function App() {
       task.sourceClientId === selectedClient ||
       (!task.sourceClientId && task.client === selectedClientRecord?.name),
   );
-  const [correctionHistory, setCorrectionHistory] = useState([]);
   useEffect(() => {
     let cancelled = false;
     listCorrections({ clientId: selectedClient }).then(items => { if (!cancelled) setCorrectionHistory(items); }).catch(() => { if (!cancelled) setCorrectionHistory([]); });
