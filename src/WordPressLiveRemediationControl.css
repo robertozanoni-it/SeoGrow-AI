@@ -78,7 +78,8 @@
   border-color: rgba(245, 158, 11, .3);
 }
 
-.wp-live-preview-row.applied {
+.wp-live-preview-row.applied,
+.wp-live-preview-row.verified {
   border-color: rgba(34, 197, 94, .32);
 }
 
