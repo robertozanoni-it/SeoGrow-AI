@@ -10,6 +10,7 @@ let pending = Promise.resolve();
 let pendingWrites = 0;
 let lastError = null;
 let channel = null;
+let initialization = Promise.resolve();
 
 export function openWorkspaceDb(factory = window.indexedDB) {
   return new Promise((resolve, reject) => {
@@ -56,7 +57,11 @@ export async function readWorkspace(db) {
   });
 }
 
-export async function initializeWorkspace(nativeStorage = globalThis.localStorage) {
+async function initializeWorkspaceOnce(nativeStorage) {
+  // A re-initialization can be requested by restore/reload tests while writes
+  // from the previous mounted state are still queued. Never replace the cache
+  // or generation underneath those writes: drain the single writer first.
+  await flushWorkspace();
   const db = await openWorkspaceDb();
   try {
     // Read and initialize under a write transaction, so two first-open tabs
@@ -92,6 +97,15 @@ export async function initializeWorkspace(nativeStorage = globalThis.localStorag
       };
     }
   } finally { db.close(); }
+}
+
+export function initializeWorkspace(nativeStorage = globalThis.localStorage) {
+  // Coalesce overlapping bootstrap requests as well as queued writes. This
+  // keeps IndexedDB generation/cache replacement on the same serialization
+  // boundary as normal workspace persistence.
+  const run = initialization.then(() => initializeWorkspaceOnce(nativeStorage));
+  initialization = run.catch(() => {});
+  return run;
 }
 
 export function assertWorkspaceWritable() {
