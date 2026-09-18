@@ -150,3 +150,21 @@ test("cliente progetto audit correzioni task e chiusure restano identici dopo re
     globalThis.localStorage = oldLocalStorage;
   }
 });
+
+
+test("task legacy senza sourceClientId mantiene il proprietario corretto dopo canonicalizzazione", async () => {
+  const entries = fixtureEntries();
+  entries.set(WORKSPACE_KEYS.tasks, json([
+    { id: "legacy-uno", title: "Task storico Uno", client: "Uno", status: "Da fare", updatedAt: "2026-09-16T12:30:00Z" },
+    { id: "legacy-due", title: "Task storico Due", client: "Due", status: "Da fare", updatedAt: "2026-09-16T12:31:00Z" },
+  ]));
+  const canonical = canonicalizeWorkspaceEntries(entries);
+  const tasks = JSON.parse(canonical.get(WORKSPACE_KEYS.tasks));
+  const clients = JSON.parse(canonical.get(WORKSPACE_KEYS.clients));
+  const preferences = JSON.parse(canonical.get(WORKSPACE_KEYS.preferences));
+  const { buildProjectState } = await import("./core/workspace/projectState.js");
+  const uno = buildProjectState({ clients, selectedClient: 1, preferences, tasks }, 1);
+  const due = buildProjectState({ clients, selectedClient: 2, preferences, tasks }, 2);
+  assert.deepEqual(uno.tasks.map((task) => task.id), ["legacy-uno"]);
+  assert.deepEqual(due.tasks.map((task) => task.id), ["legacy-due"]);
+});
