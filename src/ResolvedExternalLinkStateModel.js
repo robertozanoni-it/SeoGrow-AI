@@ -1,5 +1,5 @@
 export const STALE_MESSAGE = "Problema non più presente nel frontend corrente. Nessuna correzione necessaria: aggiorna l’audit per chiuderlo definitivamente.";
-export const CONNECTOR_ROUTE_MESSAGE = "SeoGrow Connector 1.3.8 non espone ancora la route richiesta sul sito collegato. Aggiorna o reinstalla il Connector 1.3.8, ricollega WordPress e riprova.";
+export const CONNECTOR_ROUTE_MESSAGE = "SeoGrow Connector 1.3.9 non espone ancora la route richiesta sul sito collegato. Aggiorna o reinstalla il Connector 1.3.9, ricollega WordPress e riprova.";
 
 export function externalLinkEvidenceState(statusText = "", loaded = "") {
   if (String(loaded) !== "1") return "pending";
