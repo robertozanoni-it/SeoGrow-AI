@@ -93,8 +93,10 @@ test("lo storico resta accessibile dopo la risoluzione e la UX non richiede una 
 });
 
 
-test("live already-resolved persiste una chiusura canonica e notifica subito Problems", () => {
+test("live already-resolved persiste la chiusura, notifica Problems e non resta nella lista operativa", () => {
   assert.match(liveFlow, /recordResolvedProblemClosure/);
   assert.match(liveFlow, /reason: "live-readonly-resolved"/);
+  assert.match(liveFlow, /resolvedCount \+= 1/);
+  assert.match(liveFlow, /già risolti e rimossi/);
   assert.match(integrity + liveFlow, /seogrow-problem-resolved/);
 });
