@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { summarizeLocalStorageOperations } from "./global-quality-audit-lib.mjs";
 
 const root = process.cwd();
 const walk = (dir) => fs.readdirSync(dir, { withFileTypes:true }).flatMap((entry) => {
@@ -13,7 +14,9 @@ const matches = (pattern) => runtime.flatMap((file) => [...text(file).matchAll(p
 
 const markers = matches(/\b(?:TODO|FIXME|HACK)\b/g);
 const readJsonDefs = matches(/\bconst\s+readJson\s*=/g);
-const localStorageReads = matches(/\blocalStorage\.(?:getItem|setItem|removeItem)\b/g);
+const storageOperations = summarizeLocalStorageOperations(
+  runtime.map((file) => ({ file: rel(file), source: text(file) })),
+);
 const nativeDialogs = matches(/\bwindow\.(?:confirm|alert)\s*\(/g);
 const shims = runtime.filter((file) => text(file).includes("Legacy compatibility shim.")).map(rel);
 const appLines = text(path.join(root, "src/App.jsx")).split(/\r?\n/).length;
@@ -34,6 +37,7 @@ const checks = {
   geoEvidenceNotDecorative: /Cosa NON misura/.test(geoPage) && /Nessun entity score/.test(geoPanel) && /onOpenOpportunities/.test(geoPanel) && /onCreateTask/.test(geoPanel),
   sidebarTonesAlternating: /groupIndex % 2/.test(guided) && /tone-blue/.test(guidedCss) && /tone-mint/.test(guidedCss),
   centralizedTaskFactory: /sourceClientId/.test(taskFactory) && /priority/.test(taskFactory),
+  nativeStorageBoundaryIsolated: storageOperations.nativeBypass.length === 0,
 };
 const failures = Object.entries(checks).filter(([,ok]) => !ok).map(([name]) => name);
 const report = {
@@ -44,12 +48,16 @@ const report = {
     appLines,
     mainBundleBytes: mainBundle?.bytes ?? null,
     duplicateReadJsonDefinitions: readJsonDefs.length,
-    directLocalStorageOperations: localStorageReads.length,
+    directLocalStorageOperations: storageOperations.nativeBypass.length,
+    workspaceStorageAliasOperations: storageOperations.canonicalAlias.length,
+    nativeStorageBoundaryOperations: storageOperations.nativeBoundary.length,
     nativeDialogs: nativeDialogs.length,
     legacyCompatibilityShims: shims.length,
   },
   warnings: {
     readJsonDefinitions: readJsonDefs,
+    nativeStorageBypasses: storageOperations.nativeBypass,
+    workspaceStorageAliases: storageOperations.canonicalAlias,
     legacyShims: shims,
   },
 };
