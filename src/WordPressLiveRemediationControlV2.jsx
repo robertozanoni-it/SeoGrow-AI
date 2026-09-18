@@ -31,7 +31,8 @@ import {
   detectPreviewConflicts,
   previewIdentity,
 } from "./remediationPlanSafety";
-import { normalizeClientId, safeHttpHref } from "./reliabilityModel";\nimport { recordResolvedProblemClosure } from "./problemDisposition.js";
+import { normalizeClientId, safeHttpHref } from "./reliabilityModel";
+import { recordResolvedProblemClosure } from "./problemDisposition.js";
 
 import "./WordPressLiveRemediationControl.css";
 import "./WordPressLiveRemediationControlV2.css";
