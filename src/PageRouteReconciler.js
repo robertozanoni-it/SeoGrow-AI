@@ -2,24 +2,21 @@ import { resolvePageAlias } from "./core/modules/moduleRegistry.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 import { activateNativePageState } from "./navigationUx.js";
+import { canonicalPageForLegacyView } from "./suite/productArchitecture.js";
 
 const SELECTED_PAGE_KEY = WORKSPACE_KEYS.selectedPage;
 const MAX_FRAMES = 120;
 let frame = 0;
 let generation = 0;
 
-const RETIRED_LEGACY_ROUTES = Object.freeze({
-  Storico: "Centro progetto",
-  "SeoGrow AI": "SEO Agent",
-});
-
-export const canonicalRuntimePage = (page) => RETIRED_LEGACY_ROUTES[page] || page;
+export const canonicalRuntimePage = (page) =>
+  canonicalPageForLegacyView(resolvePageAlias(page));
 
 const readRequestedPage = () => {
   try {
-    const requested = resolvePageAlias(decodeURIComponent(window.location.hash.slice(1)) || "Panoramica");
+    const requested = decodeURIComponent(window.location.hash.slice(1)) || "Panoramica";
     // Problemi resta una sottovista operativa di Audit SEO con route propria.
-    // Le vecchie pagine Storico/SeoGrow AI sono invece alias verso i loro owner canonici.
+    // Le vecchie viste duplicate convergono sul loro owner definito nell'architettura congelata.
     return canonicalRuntimePage(requested);
   } catch {
     return "Panoramica";

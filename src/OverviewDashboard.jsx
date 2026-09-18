@@ -1,13 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Activity, AlertTriangle, BarChart3, Check, CheckCircle2, CircleGauge, ClipboardCheck,
-  Database, FileText, Globe2, Plus, Plug, RefreshCw, Search, Sparkles, Target, Users,
+  Database, FileText, Globe2, Plus, Plug, RefreshCw, Search, Sparkles, Target,
 } from "lucide-react";
 import { formatInteger } from "./gscImport.js";
 import { compareDatasets, opportunityQueries } from "./modules/rank/index.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
 import { loadProjectProblemSummary } from "./projectProblemSummary.js";
-import { normalizeAnalysisHistory } from "./modules/audit/data.js";
 
 const PerformanceChart = lazy(() => import("./PerformanceChart"));
 
@@ -204,57 +203,6 @@ export function Dashboard({
         </div>
       </section>
       <div className="reference-dashboard-lower"><VisibilityChart dataset={dataset} /><RecentClients clients={clients} setPage={setPage} gscData={gscData} onOpenClient={onOpenClient} /></div>
-    </div>
-  );
-}
-
-
-export function SeoGrowAiDashboard({ clients, gscData, analyses, tasks, selectedClient, setPage, openAudit, onOpenClient }) {
-  const selected = clients.find((item) => item.id === selectedClient) || clients[0];
-  const dataset = selected ? gscData[selected.id] : null;
-  const analysisHistory = selected ? normalizeAnalysisHistory(analyses[selected.id]) : [];
-  const latestAnalysis = analysisHistory[0] || null;
-  const allAnalysisCount = clients.reduce((sum, client) => sum + normalizeAnalysisHistory(analyses[client.id]).length, 0);
-  const completedTasks = tasks.filter((task) => !task.stale && task.status === "Completato").length;
-  const monitoredKeywords = Object.values(gscData || {}).reduce((sum, item) => sum + (item?.queries?.length || 0), 0);
-  const activeProjects = clients.length;
-  const taskByStatus = {
-    done: tasks.filter((task) => !task.stale && task.status === "Completato").length,
-    active: tasks.filter((task) => !task.stale && task.status !== "Completato").length,
-  };
-  const recentProjects = clients.slice(0, 5);
-  const recentActivities = [
-    ...(analysisHistory.slice(0, 3).map((item) => ({
-      title: "Analisi SEO completata",
-      meta: `${selected?.name || "Progetto"} · ${item.analyzedAt ? new Date(item.analyzedAt).toLocaleString("it-IT") : "data non disponibile"}`,
-      tone: "success",
-    }))),
-    ...tasks.filter((task) => !task.stale).slice(0, 3).map((task) => ({
-      title: task.status === "Completato" ? "Task completato" : "Task aggiornato",
-      meta: `${task.title} · ${task.client || selected?.name || "progetto"}`,
-      tone: task.status === "Completato" ? "success" : "info",
-    })),
-  ].slice(0, 5);
-  return (
-    <div className="reference-seogrow-page">
-      <section className="reference-seogrow-hero">
-        <div><small>SEOGROW AI</small><h1>La tua crescita SEO, potenziata dall’AI</h1><p>Analizza. Pianifica. Migliora. Ottieni risultati.</p><div><button className="primary" onClick={openAudit}>Nuova analisi con AI →</button><button className="secondary" onClick={() => setPage("SEO Agent")}>Scopri come funziona</button></div></div>
-        <div className="reference-seogrow-hero-mark"><img src="/favicon.svg" alt="" /><strong>Dati oggi.<br/>Risultati domani.</strong></div>
-      </section>
-      <section className="reference-seogrow-kpis">
-        <article className="blue"><Search /><span><strong>{allAnalysisCount}</strong><small>Analisi completate</small><em>Storico reale dei progetti</em></span></article>
-        <article className="green"><BarChart3 /><span><strong>{completedTasks}</strong><small>Task risolti</small><em>Attività completate</em></span></article>
-        <article className="purple"><Target /><span><strong>{monitoredKeywords}</strong><small>Keyword monitorate</small><em>Dati Search Console</em></span></article>
-        <article className="orange"><Users /><span><strong>{activeProjects}</strong><small>Progetti attivi</small><em>Clienti nel workspace</em></span></article>
-      </section>
-      <div className="reference-seogrow-main-grid">
-        <section className="reference-seogrow-chart"><div className="reference-panel-title"><div><h2>Andamento visibilità</h2><p>{selected?.name || "Progetto selezionato"}</p></div></div><VisibilityChart dataset={dataset} /></section>
-        <section className="reference-seogrow-distribution"><h2>Distribuzione attività</h2><div className="reference-seogrow-ring" style={{"--done": `${tasks.length ? taskByStatus.done / tasks.length * 360 : 0}deg`}}><span><strong>{tasks.length}</strong><small>attività</small></span></div><ul><li><i className="green" />Completate <b>{taskByStatus.done}</b></li><li><i className="blue" />Aperte <b>{taskByStatus.active}</b></li></ul></section>
-        <aside className="reference-seogrow-actions"><h2>Cosa vuoi fare oggi?</h2>{[["Analizza un sito","Audit SEO",Search],["Trova opportunità","Opportunità",Target],["Genera contenuti","Piano editoriale",FileText],["Correggi problemi","Correzioni",Check],["Monitora posizionamenti","Posizionamenti",BarChart3]].map(([label,page,Icon]) => <button key={label} onClick={() => setPage(page)}><Icon /><span>{label}</span>›</button>)}</aside>
-        <section className="reference-seogrow-projects"><div className="reference-panel-title"><div><h2>Progetti recenti</h2><p>Apri rapidamente un progetto.</p></div><button className="text-link" onClick={() => setPage("Clienti")}>Vedi tutti →</button></div>{recentProjects.map((client) => <button key={client.id} onClick={() => onOpenClient(client.id)}><span><strong>{client.name}</strong><small>{client.url.replace(/^https?:\/\//, "")}</small></span><em>{gscData[client.id] ? "Dati collegati" : "Da configurare"}</em>•••</button>)}</section>
-        <section className="reference-seogrow-activity"><div className="reference-panel-title"><div><h2>Ultime attività</h2><p>Eventi reali del progetto selezionato.</p></div></div>{recentActivities.length ? recentActivities.map((item,index) => <div key={`${item.title}-${index}`}><i className={item.tone} /><span><strong>{item.title}</strong><small>{item.meta}</small></span></div>) : <p className="reference-empty-copy">Nessuna attività registrata.</p>}</section>
-        <aside className="reference-seogrow-ai-card"><Sparkles /><h2>L’AI al servizio del tuo successo</h2><p>SeoGrow AI usa dati, audit e workflow verificabili per trasformare segnali in azioni.</p><button className="primary" onClick={() => setPage("SEO Agent")}>Esegui un’analisi con AI →</button><small>{latestAnalysis ? `Ultimo audit: ${new Date(latestAnalysis.analyzedAt || latestAnalysis.startedAt).toLocaleDateString("it-IT")}` : "Nessun audit disponibile"}</small></aside>
-      </div>
     </div>
   );
 }

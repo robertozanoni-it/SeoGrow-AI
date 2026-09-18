@@ -18,8 +18,10 @@
 .reference-history-kpis small { color:#2f4b70; font-weight:800; }
 .reference-history-kpis em { color:#71849d; font-size:10px; font-style:normal; }
 .reference-history-tabs { min-height:48px; display:flex; align-items:end; gap:6px; padding:0 8px; border:1px solid #dce6f2; border-radius:12px; background:#fff; overflow-x:auto; }
-.reference-history-tabs span { min-height:46px; display:inline-flex; align-items:center; padding:0 13px; border-bottom:3px solid transparent; color:#526985; font-weight:800; white-space:nowrap; }
-.reference-history-tabs span.active { color:#075de1; border-bottom-color:#136df6; }
+.reference-history-tabs span,
+.reference-history-tabs button { min-height:46px; display:inline-flex; align-items:center; padding:0 13px; border:0; border-bottom:3px solid transparent; background:transparent; color:#526985; font-weight:800; white-space:nowrap; cursor:pointer; }
+.reference-history-tabs span.active,
+.reference-history-tabs button.active { color:#075de1; border-bottom-color:#136df6; }
 .reference-history-layout { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:12px; align-items:start; }
 .reference-history-table { min-width:0; border:1px solid #dce6f2; border-radius:14px; background:#fff; overflow:hidden; }
 .reference-history-table td > small { display:block; margin-top:3px; color:#71849d; }

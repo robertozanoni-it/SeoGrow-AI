@@ -1,8 +1,10 @@
 import { resolvePageAlias } from "./core/modules/moduleRegistry.js";
+import { canonicalPageForLegacyView } from "./suite/productArchitecture.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { workspaceStorage } from "./workspaceDatabase.js";
 
 const SELECTED_PAGE_KEY = WORKSPACE_KEYS.selectedPage;
+const resolveRuntimePage = (page) => resolvePageAlias(canonicalPageForLegacyView(page));
 
 const notifyStoredPage = (page) => {
   const serialized = JSON.stringify(page);
@@ -24,7 +26,7 @@ const closeMobileNavigation = () => {
 
 export const activateNativePageState = (page) => {
   if (typeof document === "undefined") return false;
-  const resolvedPage = resolvePageAlias(page);
+  const resolvedPage = resolveRuntimePage(page);
   const buttons = [...document.querySelectorAll(".sidebar > nav:not(.guided-nav) button")];
   const target = buttons.find((button) => {
     const label = button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "";
@@ -45,7 +47,7 @@ const notifyLocationChange = (oldURL = "") => {
 };
 
 export function navigatePage(page) {
-  const resolvedPage = resolvePageAlias(page);
+  const resolvedPage = resolveRuntimePage(page);
   const next = `#${encodeURIComponent(resolvedPage)}`;
   if (resolvedPage === "Correzioni") {
     window.__seogrowCorrectionsMode = true;

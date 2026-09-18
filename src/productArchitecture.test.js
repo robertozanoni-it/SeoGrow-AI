@@ -6,6 +6,7 @@ import {
   ARCHITECTURE_VERSION,
   CANONICAL_SUITE_PAGES,
   LEGACY_VIEW_OWNERS,
+  OPERATIONAL_SUBVIEW_OWNERS,
   PRODUCT_MODULES,
   canonicalPageForLegacyView,
   validateFrozenProductArchitecture,
@@ -64,17 +65,23 @@ test("la navigazione definitiva coincide esattamente con i moduli canonici", () 
   assert.equal(SUITE_NAVIGATION.flatMap((group) => group.items).every((item) => item.advancedOnly === false), true);
 });
 
-test("le vecchie pagine duplicate sono viste legacy con un solo owner canonico", () => {
+test("le viste ritirate e le sottoviste operative hanno contratti distinti", () => {
   assert.deepEqual(LEGACY_VIEW_OWNERS, {
     Storico: "Centro progetto",
-    Problemi: "Audit SEO",
     "SeoGrow AI": "SEO Agent",
   });
+  assert.deepEqual(OPERATIONAL_SUBVIEW_OWNERS, {
+    Problemi: "Audit SEO",
+  });
   assert.equal(canonicalPageForLegacyView("Storico"), "Centro progetto");
-  assert.equal(canonicalPageForLegacyView("Problemi"), "Audit SEO");
   assert.equal(canonicalPageForLegacyView("SeoGrow AI"), "SEO Agent");
+  assert.equal(canonicalPageForLegacyView("Problemi"), "Problemi");
   for (const legacyPage of Object.keys(LEGACY_VIEW_OWNERS)) {
     assert.equal(CANONICAL_SUITE_PAGES.includes(legacyPage), false);
+  }
+  for (const subview of Object.keys(OPERATIONAL_SUBVIEW_OWNERS)) {
+    assert.equal(CANONICAL_SUITE_PAGES.includes(subview), false);
+    assert.equal(Object.hasOwn(LEGACY_VIEW_OWNERS, subview), false);
   }
 });
 

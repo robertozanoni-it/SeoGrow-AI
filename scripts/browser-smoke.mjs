@@ -474,10 +474,8 @@ try {
       ["Piano editoriale", "piano-editoriale", 1536, 1024],
       ["SEO Agent", "seo-agent", 1536, 1024],
       ["GEO AI", "geo-ai", 1536, 1024],
-      ["SeoGrow AI", "seogrow-ai", 1536, 1024],
       ["Integrazioni", "integrazioni", 1536, 1024],
       ["Impostazioni", "impostazioni", 1536, 1024],
-      ["Storico", "storico", 1536, 1024],
     ];
     for (const [page, file, width, height] of visualPages) {
       await command("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
