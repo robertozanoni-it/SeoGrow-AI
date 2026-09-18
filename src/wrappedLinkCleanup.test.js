@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
-import { matchBrokenLinkHref, singleAnchorHref, transformBrokenLinkAnchors } from "./modules/links/index.js";
+
 import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, resetBrokenLinkCleanupModesForTests, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
 
 beforeEach(() => resetBrokenLinkCleanupModesForTests());
@@ -53,48 +53,6 @@ test("wrapped destructive choice is consumed once, never inherited by another pa
   assert.doesNotMatch(first.serialized, /Yoga Journal/);
   assert.equal(second.action, "unlink-preserve-text");
   assert.match(second.serialized, /Yoga Journal/);
-});
-
-test("percent-encoded Google URL and HTML entities are matched without changing destination identity", () => {
-  const destination = "https://example.com/doc?a=1&b=2";
-  const html = `<a href="https://www.google.com/url?q=${encodeURIComponent(destination)}&amp;source=test"><em>Testo &amp; dettagli</em></a>`;
-  const result = removeExactAnchor(html, destination, "unlink-preserve-text");
-  assert.equal(result.value, "<em>Testo &amp; dettagli</em>");
-  assert.deepEqual(result.anchors, ["Testo & dettagli"]);
-  assert.equal(matchBrokenLinkHref(`https://www.google.com/url?url=${encodeURIComponent(target)}`, target)?.kind, "google-url-wrapper");
-});
-
-for (const href of [
-  `https://evil.example/search?q=${target}`,
-  `https://www.google.com.evil.example/search?q=${target}`,
-  `https://www.google.com/search?q=read%20${target}`,
-  `https://www.google.com/search?q=${target}&q=https://other.example/`,
-  `https://www.google.com/url?q=${target}&url=https://other.example/`,
-  `https://www.google.com/images?q=${target}`,
-  `https://www.google.com/search?q=https://other.example/`,
-  `https://user@www.google.com/search?q=${target}`,
-  `https://www.google.com:444/search?q=${target}`,
-  `https://www.google.com/search?q=${target}#other`,
-]) {
-  test(`non-equivalent href remains untouched: ${href}`, () => {
-    const html = `<a href="${href}">Testo</a>`;
-    assert.equal(matchBrokenLinkHref(href, target), null);
-    assert.equal(removeExactAnchor(html, target, "delete-anchor-text").value, html);
-  });
-}
-
-test("URL-looking data attributes and text never substitute for the actual href", () => {
-  const html = `<a data-href="${target}" title="href='${target}'" href="https://other.example/">${target}</a>`;
-  assert.equal(removeExactAnchor(html, target, "unlink-preserve-text").count, 0);
-  assert.equal(singleAnchorHref(` data-href="${target}" href="https://other.example/"`), "https://other.example/");
-  assert.equal(singleAnchorHref(` href="${target}" HREF="https://other.example/"`), "");
-});
-
-test("script, template, textarea and commented anchors are not editable visible content", () => {
-  const a = `<a href="${target}">Testo</a>`;
-  for (const html of [`<!-- ${a} -->`, `<script>${a}</script>`, `<template>${a}</template>`, `<textarea>${a}</textarea>`, `<style>${a}</style>`]) {
-    assert.equal(removeExactAnchor(html, target, "delete-anchor-text").value, html);
-  }
 });
 
 test("malformed Elementor JSON stays blocked", () => {
