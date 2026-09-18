@@ -45,6 +45,6 @@ test("RC WordPress staging check is read-only Elementor E2E", () => {
 });
 
 test("RC branch is isolated from main feature development", () => {
-  assert.match(liveGate, /release\/1\.4\.3-rc\.1/);
+  assert.match(liveGate, /release\/1\.4\.4-rc\.1/);
   assert.doesNotMatch(liveGate, /branches:\s*\[?main/i);
 });
