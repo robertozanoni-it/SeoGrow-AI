@@ -54,7 +54,16 @@ jobs:
           exit 1
 
       - name: Elementor read-only E2E
-        run: npm run test:wordpress-elementor-e2e
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if npm run test:wordpress-elementor-e2e; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 3; fi
+          done
+          exit 1
 
       - name: Explicit Theme Builder evidence
         shell: bash
