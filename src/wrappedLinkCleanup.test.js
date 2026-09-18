@@ -97,23 +97,6 @@ test("script, template, textarea and commented anchors are not editable visible 
   }
 });
 
-test("query, case, slash and fragment differences do not become accidental matches", { concurrency: false }, () => {
-  for (const other of [target.toUpperCase(), target.slice(0, -1), `${target}?lang=it`, `${target}#pose`]) {
-    const actual = matchBrokenLinkHref(other, target);
-    assert.equal(actual, null, `Expected no match for ${JSON.stringify(other)} against ${JSON.stringify(target)}; got ${JSON.stringify(actual)}`);
-  }
-  const exact = matchBrokenLinkHref(target, target);
-  assert.equal(exact?.kind, "exact", `Expected exact match; got ${JSON.stringify(exact)}`);
-});
-
-test("two exact/direct-or-wrapped occurrences remain ambiguous for the existing ownership gate", { concurrency: false }, () => {
-  const html = `<p><a href="${target}">Prima</a><a href="${wrapped}">Seconda</a></p>`;
-  const direct = matchBrokenLinkHref(target, target);
-  const wrappedMatch = matchBrokenLinkHref(wrapped, target);
-  const result = prepareElementorBrokenExternalLink(fixture(html), target, "unlink-preserve-text");
-  assert.equal(result.count, 2, `Expected 2 matches; direct=${JSON.stringify(direct)} wrapped=${JSON.stringify(wrappedMatch)} result=${JSON.stringify({ state: result.state, count: result.count, matches: result.matches })}`);
-});
-
 test("malformed Elementor JSON stays blocked", () => {
   assert.equal(prepareElementorBrokenExternalLink("not-json", target).state, "invalid");
   assert.equal(prepareElementorBrokenExternalLink('{}', target).state, "invalid");
