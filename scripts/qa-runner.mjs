@@ -55,32 +55,14 @@ try {
   if (mode !== "smoke") {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
-    const isolatedStorageTests = new Set(["src/workspaceMigration.test.js", "src/workspaceWriteFailure.test.js"]);
-    const isolatedContractTests = new Set(tests.filter(name => /^src\/elementor.*\.test\.js$/i.test(name)));
-    const isolatedJourneyTests = new Set(tests.filter(name => /(?:Gate|Journey)\.test\.js$/i.test(name)));
-    const isolatedPolicyTests = new Set(["src/globalResolutionPriority.test.js"]);
-    const parallelTests = tests.filter(name => !isolatedStorageTests.has(name) && !isolatedContractTests.has(name) && !isolatedJourneyTests.has(name) && !isolatedPolicyTests.has(name));
-    const shardSize = 40;
-    const shardSummaries = [];
-    for (let offset = 0; offset < parallelTests.length; offset += shardSize) {
-      const shard = parallelTests.slice(offset, offset + shardSize);
-      const shardName = `unit-core-${String(offset / shardSize + 1).padStart(2, "0")}`;
-      await run(shardName, ["--test", "--test-reporter=tap", ...shard]);
-      shardSummaries.push(parseTestSummary(await readFile(path.join(output, `${shardName}.log`), "utf8")));
+    const testSummaries = [];
+    for (let index = 0; index < tests.length; index += 1) {
+      const testFile = tests[index];
+      const testName = `test-${String(index + 1).padStart(3, "0")}-${path.basename(testFile, ".test.js").replace(/[^a-z0-9_-]+/gi, "-")}`;
+      await run(testName, ["--test", "--test-concurrency=1", "--test-reporter=tap", testFile]);
+      testSummaries.push(parseTestSummary(await readFile(path.join(output, `${testName}.log`), "utf8")));
     }
-    if (isolatedContractTests.size) {
-      await run("contract-elementor-subsystem", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedContractTests]);
-    }
-    if (isolatedJourneyTests.size) {
-      await run("journey-gates", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedJourneyTests]);
-    }
-    if (isolatedPolicyTests.size) {
-      await run("policy-resolution-priority", ["--test", "--test-concurrency=1", "--test-reporter=tap", ...isolatedPolicyTests]);
-    }
-    for (const storageTest of isolatedStorageTests) {
-      await run(`storage-${path.basename(storageTest, ".test.js")}`, ["--test", "--test-concurrency=1", "--test-reporter=tap", storageTest]);
-    }
-    report.tests = shardSummaries.reduce((total, summary) => ({
+    report.tests = testSummaries.reduce((total, summary) => ({
       tests: Number(total.tests || 0) + Number(summary.tests || 0),
       pass: Number(total.pass || 0) + Number(summary.pass || 0),
       fail: Number(total.fail || 0) + Number(summary.fail || 0),
