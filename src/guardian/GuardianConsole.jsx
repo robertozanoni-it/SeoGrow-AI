@@ -5,6 +5,9 @@ import {
   installGuardianRuntime,
   runGuardianScan,
   guardianMonitoringQueue,
+  guardianMonitoringEnabled,
+  setGuardianMonitoringEnabled,
+  runDueGuardianMonitoring,
 } from "./guardianEngine.js";
 import "./GuardianConsole.css";
 
@@ -27,6 +30,8 @@ const scoreTone = (score) => score >= 95 ? "healthy" : score >= 80 ? "warning" :
 export default function GuardianConsole() {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  const [monitoringEnabled, setMonitoringEnabled] = useState(() => guardianMonitoringEnabled());
+  const [lastMonitoringRun, setLastMonitoringRun] = useState("");
   const [snapshot, setSnapshot] = useState(() => guardianSnapshot());
 
   useEffect(() => {
@@ -95,7 +100,7 @@ export default function GuardianConsole() {
             </span>
           </div>
 
-          <div className="guardian-monitoring-summary"><strong>Monitoraggio continuo</strong><span>{monitoringQueue.length} controlli dovuti</span><span>{nextMonitoring ? `Prossimo controllo: ${new Date(nextMonitoring).toLocaleString("it-IT")}` : "Le prossime scadenze vengono calcolate dal lifecycle Guardian"}</span></div>
+          <div className="guardian-monitoring-summary"><strong>Monitoraggio continuo</strong><label><input type="checkbox" checked={monitoringEnabled} onChange={(event) => { const enabled = event.target.checked; setGuardianMonitoringEnabled(enabled); setMonitoringEnabled(enabled); }} /> {monitoringEnabled ? "Attivo" : "Disattivato"}</label><span>{monitoringQueue.length} controlli dovuti</span><span>{nextMonitoring ? `Prossimo controllo: ${new Date(nextMonitoring).toLocaleString("it-IT")}` : "Le prossime scadenze vengono calcolate dal lifecycle Guardian"}</span><button type="button" disabled={!monitoringEnabled} onClick={() => { const due = runDueGuardianMonitoring(); setLastMonitoringRun(new Date().toISOString()); setSnapshot(guardianSnapshot()); if (!due.length) setLastMonitoringRun("none"); }}>Controlla problemi dovuti ora</button>{lastMonitoringRun && <small>{lastMonitoringRun === "none" ? "Nessun controllo dovuto in questo momento." : `Ultimo avvio manuale: ${new Date(lastMonitoringRun).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`}</small>}</div>
 
           <div className="guardian-boundary">
             <strong>Confine di sicurezza</strong>
