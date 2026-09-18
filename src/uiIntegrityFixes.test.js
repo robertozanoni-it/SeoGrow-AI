@@ -23,11 +23,12 @@ test('responsive hardening copre breakpoint tablet e mobile', () => {
   assert.match(css, /\.opportunity-table thead[\s\S]*display: none/);
 });
 
-test('HistoryPage usa eventi unificati con identificatori stabili', () => {
-  const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
-  assert.match(app, /buildProjectHistory\(\{ audits: history, tasks, corrections \}\)/);
-  assert.match(app, /filteredTimeline\.map\(\(item\) =>/);
-  assert.match(app, /key=\{item\.id\}/);
+test('Centro progetto possiede lo storico unificato con identificatori stabili', () => {
+  const center = readFileSync(new URL('./ProjectCenter.jsx', import.meta.url), 'utf8');
+  assert.match(center, /buildProjectHistory\(\{[\s\S]*audits: analysisHistory[\s\S]*tasks: projectTasks[\s\S]*corrections/);
+  assert.match(center, /filteredProjectHistory\.map\(\(item\) =>/);
+  assert.match(center, /key=\{item\.id\}/);
+  assert.doesNotMatch(center, /onNavigate\(["']Storico["']\)/);
 });
 
 test('index dichiara un favicon servito dall app', () => {
