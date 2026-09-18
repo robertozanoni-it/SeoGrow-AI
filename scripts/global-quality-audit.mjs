@@ -38,6 +38,7 @@ const checks = {
   sidebarTonesAlternating: /groupIndex % 2/.test(guided) && /tone-blue/.test(guidedCss) && /tone-mint/.test(guidedCss),
   centralizedTaskFactory: /sourceClientId/.test(taskFactory) && /priority/.test(taskFactory),
   nativeStorageBoundaryIsolated: storageOperations.nativeBypass.length === 0,
+  workspaceJsonReadersCentralized: readJsonDefs.length === 0,
 };
 const failures = Object.entries(checks).filter(([,ok]) => !ok).map(([name]) => name);
 const report = {
