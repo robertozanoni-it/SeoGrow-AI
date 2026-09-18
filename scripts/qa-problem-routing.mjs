@@ -14,7 +14,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const description={...issue,type:'duplicate-description',label:'Meta description duplicata'};
     const manual={...issue,type:'url-alias',label:'Due URL dello stesso contenuto WordPress',detail:'Verifica la canonical prima di decidere il redirect; non cambiare il testo condiviso.'};
     const externalIssues=['https://www.external.example/first-link','https://www.external.example/second-link'].map(targetUrl=>({...issue,type:'broken-external-link',label:'Link esterno interrotto',severity:'media',targetUrl,detail:'Collegamento non raggiungibile'}));
-    const audit={url:client.url,analyzedAt:'2026-09-11T00:00:00Z',score:80,issues:[issue,description,manual,...externalIssues]};
+    const audit={url:client.url,analyzedAt:new Date(Date.now()-60_000).toISOString(),score:80,issues:[issue,description,manual,...externalIssues]};
     const oldTitle='Yoga a Cinisello Balsamo: guida iniziale';
     const newTitle='Yoga a Cinisello Balsamo: pratica consapevole';
     const oldDescription='Testo precedente della pagina.';
