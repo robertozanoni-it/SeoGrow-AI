@@ -14,6 +14,9 @@ test('Batch AutoFix UI exposes risk grouping, order, per-change rollback and fin
   assert.match(panel, /Apri rollback di questa modifica/);
   assert.match(panel, /writeCorrectionsWorkflowContext/);
   assert.match(panel, /Stop critico/);
+  assert.match(panel, /Report finale/);
+  assert.match(panel, /run\.finalReport\.outcomes\.succeeded/);
+  assert.match(panel, /rollbackAvailable/);
   assert.match(model, /export function batchFinalReport/);
   assert.match(model, /rollbackAvailable/);
   assert.match(model, /riskGroups/);
