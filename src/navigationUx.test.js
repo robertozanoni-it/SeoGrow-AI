@@ -85,3 +85,29 @@ test("le viste legacy restano compatibili ma non sono destinazioni primarie", as
     assert.equal(pages.includes(legacyPage), false);
   }
 });
+
+
+test("le route legacy navigano direttamente al loro owner canonico", () => {
+  const oldWindow = globalThis.window;
+  const oldDocument = globalThis.document;
+  const events = [];
+  globalThis.window = {
+    location: { hash: "#Panoramica", href: "http://127.0.0.1:5176/#Panoramica" },
+    history: { pushState() {} },
+    dispatchEvent: event => events.push({ type: event.type, newValue: event.newValue }),
+  };
+  globalThis.document = { querySelectorAll: () => [], querySelector: () => null };
+  try {
+    navigatePage("Storico");
+    assert.equal(globalThis.window.location.hash, "#Centro%20progetto");
+    assert.equal(events.at(-3)?.newValue, JSON.stringify("Centro progetto"));
+
+    events.length = 0;
+    navigatePage("SeoGrow AI");
+    assert.equal(globalThis.window.location.hash, "#SEO%20Agent");
+    assert.equal(events.at(-3)?.newValue, JSON.stringify("SEO Agent"));
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+  }
+});
