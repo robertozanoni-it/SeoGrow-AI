@@ -82,6 +82,7 @@ import './ReferenceFidelityFinal.css';
 import './SemanticVisualSystem.css';
 import './SidebarContrastFinal.css';
 import './FinalUxContract.css';
+import GuardianConsole from './guardian/GuardianConsole.jsx';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -123,6 +124,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProjectSelectionGuard />
       <ProjectContinuityLayer />
       <ProblemsNavBridge />
+    <GuardianConsole />
       <ProblemsWorkspaceMount />
       <ProblemResolutionPage />
       <AutomaticProposalPage />
