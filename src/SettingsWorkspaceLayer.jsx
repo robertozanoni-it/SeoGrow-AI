@@ -10,7 +10,7 @@ import {
   projectPolicyFromPreferences,
   writeProjectPolicy,
 } from "./system/index.js";
-import { guardianSnapshot, runGuardianScan } from "./guardian/guardianEngine.js";
+import { guardianRunHistory, guardianSnapshot, runGuardianScan } from "./guardian/guardianEngine.js";
 import { automationExecutionPlan } from "./automationOrchestrator.js";
 import { automationStatusRows } from "./automationStatusModel.js";
 import "./SettingsWorkspaceLayer.css";
@@ -44,6 +44,7 @@ function AutomationStatusPanel({ revision }) {
     .filter(Boolean);
   const plan = automationExecutionPlan({ failures });
   const rows = automationStatusRows({ guardian, plan });
+  const runHistory = guardianRunHistory().slice(0, 5);
   const runNow = async () => {
     if (running) return;
     setRunning(true); setRunMessage("");
@@ -62,6 +63,7 @@ function AutomationStatusPanel({ revision }) {
     </header>
     {runMessage && <p className="automation-run-message" role="status">{runMessage}</p>}
     {guardian.lastScan && <div className="automation-last-run"><span><strong>Ultimo controllo</strong> {new Date(guardian.lastScan.completedAt).toLocaleString("it-IT")}</span><span><strong>Check</strong> {guardian.lastScan.checks}</span><span><strong>Errori</strong> {guardian.lastScan.failed}</span><span><strong>Correzioni sicure</strong> {guardian.lastScan.changed}</span></div>}
+    {runHistory.length > 0 && <details className="automation-history"><summary>Ultime esecuzioni ({runHistory.length})</summary><div className="automation-history-list">{runHistory.map((run, index) => <div key={`${run.completedAt}-${index}`}><span>{new Date(run.completedAt).toLocaleString("it-IT")}</span><span>{run.trigger}</span><strong className={run.failed ? "has-errors" : ""}>{run.failed ? `${run.failed} errori` : "PASS"}</strong><small>{run.changed ? `${run.changed} correzioni sicure` : "Nessuna modifica"}</small></div>)}</div></details>}
     <div className="settings-automation-grid">
       {rows.map((row) => <article key={row.id} className={`automation-card state-${row.state}`}>
         <div className="automation-card-head"><strong>{row.label}</strong><span>{stateLabel(row.state)}</span></div>
