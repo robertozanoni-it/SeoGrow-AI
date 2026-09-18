@@ -203,18 +203,27 @@ const incidentForError = (code, source, error, extras = {}) => recordGuardianInc
   detail: extras.detail || "",
 });
 
+const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
+  code: "ARCHITECTURE_DRIFT",
+  source: "suite",
+  message: "Frozen architecture invariant failed",
+});
+
 async function checkArchitecture() {
   try {
     validateFrozenProductArchitecture();
-    const fingerprint = guardianFingerprint({ code: "ARCHITECTURE_DRIFT", source: "suite", message: "Frozen architecture invariant failed" });
-    resolveGuardianIncident(fingerprint, "I 14 moduli canonici e le relative ownership risultano coerenti.");
+    resolveGuardianIncident(ARCHITECTURE_DRIFT_FINGERPRINT, "I 14 moduli canonici e le relative ownership risultano coerenti.");
     return { id: "architecture", ok: true, changed: false };
   } catch (error) {
-    incidentForError("ARCHITECTURE_DRIFT", "suite", error, {
+    recordGuardianIncident({
+      fingerprint: ARCHITECTURE_DRIFT_FINGERPRINT,
+      code: "ARCHITECTURE_DRIFT",
+      source: "suite",
       severity: "critical",
       risk: GUARDIAN_RISK.APPROVAL_REQUIRED,
       state: "blocked",
       action: "review-architecture-drift",
+      message: bounded(error?.message || error || "Invariante architettura non valida"),
     });
     return { id: "architecture", ok: false, changed: false, error };
   }
