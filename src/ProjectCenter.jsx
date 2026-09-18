@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ExternalLink,
   Clock3,
+  Download,
   FileText,
   FlaskConical,
   Globe2,
@@ -24,6 +25,8 @@ import {
 import { reportSections, reportTemplate } from "./projectPlanning.js";
 import { buildProjectIntelligence } from "./projectIntelligence.js";
 import { buildProjectOutcomes } from "./projectOutcomes.js";
+import { buildProjectHistory } from "./projectHistory.js";
+import { downloadCsv } from "./core/export/index.js";
 import { loadProjectProblemSummary } from "./projectProblemSummary.js";
 import "./ProjectCenterCards.css";
 import "./ProjectCenterReference.css";
@@ -81,6 +84,7 @@ export default function ProjectCenter({
   rankings = [],
   analysisHistory = [],
   tasks = [],
+  corrections = [],
   opportunityCount = 0,
   connection,
   aiConfigured,
@@ -92,6 +96,7 @@ export default function ProjectCenter({
 }) {
   const [step, setStep] = useState(0);
   const [activeArea, setActiveArea] = useState("");
+  const [historyFilter, setHistoryFilter] = useState("Tutti");
   const [problemSummary, setProblemSummary] = useState({ active: 0, high: 0, verify: 0 });
   const [now, setNow] = useState(() => Date.now());
   const detailRef = useRef(null);
@@ -136,6 +141,36 @@ export default function ProjectCenter({
   const elementorEligible = isElementorQaProject(client.url);
   const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
   const reportSelected = Object.values(template.sections).filter(Boolean).length;
+  const projectTasks = tasks.filter((task) =>
+    Number(task?.sourceClientId) === Number(client.id) ||
+    (!task?.sourceClientId && String(task?.client || "") === String(client.name || "")),
+  );
+  const projectHistory = buildProjectHistory({
+    audits: analysisHistory,
+    tasks: projectTasks,
+    corrections,
+  });
+  const filteredProjectHistory = historyFilter === "Tutti"
+    ? projectHistory
+    : projectHistory.filter((item) => item.type === historyFilter);
+  const currentAudit = analysisHistory[0] || null;
+  const oldestAudit = analysisHistory.at(-1) || null;
+  const historyScoreDelta = currentAudit?.score != null && oldestAudit?.score != null
+    ? Number(currentAudit.score) - Number(oldestAudit.score)
+    : null;
+  const historyResolvedTotal = analysisHistory.reduce((sum, item) => sum + (item?.resolvedIssues?.length || 0), 0);
+  const historyIssueTotal = analysisHistory.reduce((sum, item) => sum + (item?.issues?.length || 0), 0);
+  const exportProjectHistory = () => downloadCsv(
+    filteredProjectHistory.map((item) => ({
+      data: item.date,
+      tipo: item.type,
+      titolo: item.title,
+      seo_score: item.score ?? "",
+      risultato: item.detail || "",
+      risorsa: item.url || "",
+    })),
+    `storico-${client.name}.csv`,
+  );
 
   const saveSetup = (patch) =>
     onSave((current) => ({
@@ -174,7 +209,8 @@ export default function ProjectCenter({
     monitorRecord?.history?.[0]?.fetchedAt,
   );
   const reportDate = latestDate(settings.centerActivity?.report, settings.report?.updatedAt, analysis?.analyzedAt);
-  const helpDate = latestDate(setupDate, correctionDate, elementorDate, monitoringDate, reportDate);
+  const historyDate = projectHistory[0]?.date || latestDate(analysis?.analyzedAt, dataset?.importedAt);
+  const helpDate = latestDate(setupDate, correctionDate, elementorDate, monitoringDate, reportDate, historyDate);
 
   const areas = [
     {
@@ -282,6 +318,26 @@ export default function ProjectCenter({
       ],
     },
     {
+      id: "history",
+      title: "Storico del progetto",
+      summary: "Timeline unificata di audit, correzioni e task completate, senza una pagina separata.",
+      date: historyDate,
+      status: projectHistory.length ? `${projectHistory.length} eventi` : "Nessun evento",
+      positive: projectHistory.length > 0,
+      Icon: Clock3,
+      info: [
+        `Audit salvati: ${analysisHistory.length}`,
+        `Correzioni nello storico: ${corrections.length}`,
+        `Task completate: ${projectTasks.filter((task) => task.status === "Completato").length}`,
+        `Eventi totali: ${projectHistory.length}`,
+      ],
+      solutions: [
+        "Filtra la timeline per audit, correzioni, contenuti o task.",
+        "Esporta il CSV quando serve condividere lo storico.",
+        "Esegui un nuovo audit per aggiungere una nuova evidenza temporale.",
+      ],
+    },
+    {
       id: "help",
       title: "Spiegazioni e guida",
       summary: "Cosa significa ogni area, cosa fare e quale risultato aspettarsi.",
@@ -290,7 +346,7 @@ export default function ProjectCenter({
       positive: true,
       Icon: BookOpen,
       info: [
-        "6 aree operative del Centro progetto",
+        "Aree operative del Centro progetto",
         "Flussi spiegati senza modificare i dati",
         "Azioni collegate ai moduli reali",
         "Nessuna scrittura automatica da questa guida",
@@ -325,12 +381,16 @@ export default function ProjectCenter({
   const intelligence = buildProjectIntelligence({ client, dataset, analysis, tasks, problemSummary, wordpressConnected: verified, opportunityCount, rankings, geo });
   const outcomes = buildProjectOutcomes({ client, tasks, dataset, previousDataset, problemSummary, geo });
   const projectActions = intelligence.actions;
-  const activity = [
-    analysis?.analyzedAt && { label: "Audit completato", date: analysis.analyzedAt, Icon: ScanSearch },
-    dataset?.importedAt && { label: "Dati Search Console aggiornati", date: dataset.importedAt, Icon: BarChart3 },
-    currentConnection?.verifiedAt && { label: "WordPress verificato", date: currentConnection.verifiedAt, Icon: CheckCircle2 },
-    settings.report?.updatedAt && { label: "Report aggiornato", date: settings.report.updatedAt, Icon: FileText },
-  ].filter(Boolean).toSorted((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 5);
+  const activityIcon = (type) =>
+    type === "Audit" ? ScanSearch :
+    type === "Correzione" ? CheckCircle2 :
+    type === "Contenuto" ? FileText :
+    Clock3;
+  const activity = projectHistory.slice(0, 5).map((item) => ({
+    label: item.title,
+    date: item.date,
+    Icon: activityIcon(item.type),
+  }));
 
   return (
     <>
@@ -349,19 +409,27 @@ export default function ProjectCenter({
       </section>
 
       <nav className="reference-project-tabs" aria-label="Aree del progetto">
-        {["Panoramica", "Problemi", "Posizionamenti", "Piano editoriale", "Link interni", "Audit SEO", "Storico"].map((label, index) => <button type="button" className={index === 0 ? "active" : ""} key={label} onClick={() => label !== "Panoramica" && onNavigate(label)}>{label}</button>)}
+        {["Panoramica", "Problemi", "Posizionamenti", "Piano editoriale", "Link interni", "Audit SEO", "Storico"].map((label) => {
+          const historyTab = label === "Storico";
+          const active = historyTab ? activeArea === "history" : label === "Panoramica" && !activeArea;
+          return <button type="button" className={active ? "active" : ""} key={label} onClick={() => {
+            if (label === "Panoramica") setActiveArea("");
+            else if (historyTab) openArea("history");
+            else onNavigate(label);
+          }}>{label}</button>;
+        })}
       </nav>
 
       <section className="reference-project-main-grid">
-        <article className="reference-project-status-panel"><header><h2>Project Intelligence</h2><span>{intelligence.readiness}% copertura dati</span></header><div><CheckCircle2 className={verified ? "ok" : "pending"}/><span>Connessione WordPress</span><strong>{verified ? "Attiva" : "Da verificare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Search Console</span><strong>{dataset ? "Collegata" : "Da collegare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Dati keyword</span><strong>{dataset ? "Aggiornati" : "Non disponibili"}</strong></div><div><CheckCircle2 className={analysis ? "ok" : "pending"}/><span>Ultimo audit</span><strong>{analysis ? formatDate(analysis.analyzedAt || analysis.startedAt) : "Da eseguire"}</strong></div><footer><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Esegui nuovo audit</button><button className="secondary" onClick={() => onNavigate("Storico")}><Clock3 /> Vedi storico</button></footer></article>
+        <article className="reference-project-status-panel"><header><h2>Project Intelligence</h2><span>{intelligence.readiness}% copertura dati</span></header><div><CheckCircle2 className={verified ? "ok" : "pending"}/><span>Connessione WordPress</span><strong>{verified ? "Attiva" : "Da verificare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Search Console</span><strong>{dataset ? "Collegata" : "Da collegare"}</strong></div><div><CheckCircle2 className={dataset ? "ok" : "pending"}/><span>Dati keyword</span><strong>{dataset ? "Aggiornati" : "Non disponibili"}</strong></div><div><CheckCircle2 className={analysis ? "ok" : "pending"}/><span>Ultimo audit</span><strong>{analysis ? formatDate(analysis.analyzedAt || analysis.startedAt) : "Da eseguire"}</strong></div><footer><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Esegui nuovo audit</button><button className="secondary" onClick={() => openArea("history")}><Clock3 /> Vedi storico</button></footer></article>
         <article className="reference-project-trend"><header><h2>Andamento SEO</h2><span>{dataset?.graph?.length ? `${dataset.graph.length} giorni` : "Dati non disponibili"}</span></header>{trend ? <div className="reference-project-trend-chart"><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="Andamento dei clic Search Console"><polyline points={trend} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg><div className="reference-project-chart-grid" /></div> : <div className="reference-project-empty-chart"><BarChart3 /><span>Importa Search Console per vedere l’andamento.</span></div>}</article>
         <article className="reference-project-actions"><header><h2>Prossime azioni</h2><button onClick={() => onNavigate("Task")}>Vedi tutte →</button></header>{projectActions.length ? projectActions.map((item, index) => <button key={item.id} onClick={() => onNavigate(item.page)}><b>{index + 1}</b><span><strong>{item.title}</strong><small>{item.detail}</small></span><em className={item.level.toLowerCase()}>{item.level} · {item.score}</em></button>) : <div className="reference-project-no-actions"><CheckCircle2 /><span><strong>Nessuna urgenza</strong><small>I dati disponibili non richiedono un intervento prioritario.</small></span></div>}</article>
       </section>
 
       <section className="reference-project-secondary-grid">
         <article className="reference-project-pages"><header><h2>Pagine principali</h2><button onClick={() => onNavigate("Posizionamenti")}>Vedi tutte →</button></header>{topPages.length ? <div className="reference-project-pages-table"><div className="head"><span>URL</span><span>Posizione</span><span>Click</span></div>{topPages.map((row) => <a href={row.dimension} target="_blank" rel="noreferrer" key={row.dimension}><span>{new URL(row.dimension).pathname || "/"}<small>{row.dimension.replace(/^https?:\/\//, "")}</small></span><strong>{Number(row.position || 0).toFixed(1)}</strong><b>{formatMetric(row.clicks)}</b></a>)}</div> : <p className="reference-project-muted">Nessuna pagina Search Console disponibile.</p>}</article>
-        <article className="reference-project-activity"><header><h2>Ultime attività</h2><button onClick={() => onNavigate("Storico")}>Vedi tutte →</button></header>{activity.length ? activity.map(({ label, date, Icon }) => <div key={`${label}-${date}`}><span><Icon /></span><p><strong>{label}</strong><small>{formatDate(date)}</small></p></div>) : <p className="reference-project-muted">Le attività del progetto compariranno qui.</p>}</article>
-        <article className="reference-project-growth"><Target /><h2>Risultati osservati</h2><p>{outcomes.completedTasks} task completate · {outcomes.resolvedProblems} problemi risolti · {outcomes.verifiedCorrections} correzioni verificate{outcomes.clickDeltaPct != null ? ` · click ${outcomes.clickDeltaPct >= 0 ? "+" : ""}${outcomes.clickDeltaPct.toFixed(1)}%` : ""}.</p><small>{outcomes.note}</small><button className="primary" onClick={() => onNavigate("Storico")}>Vedi storico →</button></article>
+        <article className="reference-project-activity"><header><h2>Ultime attività</h2><button onClick={() => openArea("history")}>Vedi tutte →</button></header>{activity.length ? activity.map(({ label, date, Icon }) => <div key={`${label}-${date}`}><span><Icon /></span><p><strong>{label}</strong><small>{formatDate(date)}</small></p></div>) : <p className="reference-project-muted">Le attività del progetto compariranno qui.</p>}</article>
+        <article className="reference-project-growth"><Target /><h2>Risultati osservati</h2><p>{outcomes.completedTasks} task completate · {outcomes.resolvedProblems} problemi risolti · {outcomes.verifiedCorrections} correzioni verificate{outcomes.clickDeltaPct != null ? ` · click ${outcomes.clickDeltaPct >= 0 ? "+" : ""}${outcomes.clickDeltaPct.toFixed(1)}%` : ""}.</p><small>{outcomes.note}</small><button className="primary" onClick={() => openArea("history")}>Vedi storico →</button></article>
       </section>
 
       <details className="reference-project-operations">
@@ -481,6 +549,36 @@ export default function ProjectCenter({
 
             <div className="project-center-area project-center-area-monitoring" hidden={activeArea !== "monitoring"}>
               {children}
+            </div>
+
+            <div className="project-center-area project-center-area-history" hidden={activeArea !== "history"}>
+              <section className="reference-history-page" aria-labelledby="project-history-title">
+                <div className="reference-panel-title">
+                  <div><h2 id="project-history-title">Storico del progetto</h2><p>Audit, correzioni, contenuti e task completate restano nel Centro progetto.</p></div>
+                  <div className="reference-history-actions"><button className="secondary" onClick={exportProjectHistory}><Download /> Esporta CSV</button><button className="primary" onClick={() => onNavigate("Audit SEO")}><ScanSearch /> Nuovo audit</button></div>
+                </div>
+                <section className="reference-history-kpis">
+                  <article className="blue"><ScanSearch /><span><strong>{analysisHistory.length}</strong><small>Audit eseguiti</small><em>Storico locale disponibile</em></span></article>
+                  <article className="green"><Target /><span><strong>{historyScoreDelta == null ? "—" : `${historyScoreDelta >= 0 ? "+" : ""}${historyScoreDelta}`}</strong><small>Delta SEO Score</small><em>Dal primo all’ultimo audit</em></span></article>
+                  <article className="blue"><CheckCircle2 /><span><strong>{historyResolvedTotal}</strong><small>Problemi risolti</small><em>Registrati negli audit</em></span></article>
+                  <article className="green"><FileText /><span><strong>{currentAudit?.pagesChecked || 0}</strong><small>Pagine ultimo audit</small><em>{historyIssueTotal} segnalazioni nello storico</em></span></article>
+                </section>
+                <nav className="reference-history-tabs" aria-label="Filtri storico progetto">
+                  {["Tutti","Audit","Correzione","Contenuto","Task"].map((filter) => <button type="button" key={filter} className={historyFilter === filter ? "active" : ""} onClick={() => setHistoryFilter(filter)}>{filter === "Correzione" ? "Correzioni" : filter === "Contenuto" ? "Contenuti" : filter}</button>)}
+                </nav>
+                <div className="reference-history-layout">
+                  <section className="reference-history-table">
+                    <div className="table-scroll"><table><caption className="sr-only">Storico unificato del progetto</caption><thead><tr><th>Data</th><th>Tipo</th><th>Titolo</th><th>SEO Score</th><th>Risultato</th><th>Risorsa</th></tr></thead><tbody>
+                      {filteredProjectHistory.length ? filteredProjectHistory.map((item) => <tr key={item.id}><td><strong>{new Date(item.date).toLocaleDateString("it-IT")}</strong><small>{new Date(item.date).toLocaleTimeString("it-IT", { hour:"2-digit", minute:"2-digit" })}</small></td><td><span className="reference-history-type">{item.type}</span></td><td><strong>{item.title}</strong></td><td>{item.score != null ? <span className={`reference-history-score ${Number(item.score) >= 80 ? "good" : Number(item.score) >= 60 ? "medium" : "low"}`}>{item.score}</span> : "—"}</td><td><small>{item.detail || "—"}</small></td><td>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Apri</a> : "—"}</td></tr>) : <tr><td colSpan="6" className="empty-row">Nessuna attività disponibile per questo filtro.</td></tr>}
+                    </tbody></table></div>
+                  </section>
+                  <aside className="reference-history-aside">
+                    <section><BarChart3 /><h2>Confronta audit</h2><p>{analysisHistory.length >= 2 ? `Dal punteggio ${oldestAudit?.score ?? "—"} a ${currentAudit?.score ?? "—"}.` : "Servono almeno due audit per un confronto nel tempo."}</p><button className="secondary" onClick={() => onNavigate("Audit SEO")}>Esegui nuovo audit →</button></section>
+                    <section className="reference-history-progress"><Target /><h2>Il tuo progresso</h2><strong>{historyScoreDelta == null ? "—" : `${historyScoreDelta >= 0 ? "+" : ""}${historyScoreDelta} punti`}</strong><p>{historyResolvedTotal} problemi risultano risolti nello storico disponibile.</p></section>
+                    <section><Download /><h2>Esporta storico</h2><p>Scarica la timeline filtrata in formato CSV.</p><button className="secondary" onClick={exportProjectHistory}>Esporta CSV</button></section>
+                  </aside>
+                </div>
+              </section>
             </div>
 
             <div className="project-center-area project-center-area-report" hidden={activeArea !== "report"}>
