@@ -48,7 +48,7 @@ test("la UI richiede una scelta esplicita prima di generare la proposta", () => 
   assert.match(control, /contentWidgetId/);
 });
 
-test("Connector 1.3.8 conserva il writer atomico limitato a un solo text-editor", () => {
+test("Connector 1.3.9 conserva il writer atomico limitato a un solo text-editor", () => {
   assert.match(loader, /Version:\s*1\.3\.8/);
   assert.match(loader, /elementor-single-text-write\.php/);
   assert.match(writer, /widgetType.*text-editor/);
