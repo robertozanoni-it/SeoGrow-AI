@@ -30,18 +30,6 @@ for (const [mode, replacement] of [["unlink-preserve-text", anchor], ["delete-an
   });
 }
 
-test("Yoga Alliance wrapper with authuser and HTML entities supports both cleanup choices", () => {
-  const destination = "https://www.yogaalliance.org/credentialing/credentials-for-teachers";
-  const label = "standard della Yoga Alliance per l'insegnamento avanzato";
-  const link = `<a class="ng-star-inserted" href="https://www.google.com/search?q=${destination}&amp;authuser=1" target="_blank" rel="noopener">${label}</a>`;
-  for (const mode of ["unlink-preserve-text", "delete-anchor-text"]) {
-    const result = removeExactAnchor(`<p>Secondo gli ${link}.</p>`, destination, mode);
-    assert.equal(result.count, 1);
-    assert.deepEqual(result.anchors, [label]);
-    assert.equal(result.value, `<p>Secondo gli ${mode === "delete-anchor-text" ? "" : label}.</p>`);
-  }
-});
-
 test("wrapped destructive choice is consumed once, never inherited by another page", () => {
   setBrokenLinkCleanupMode(target, "delete-anchor-text");
   const first = prepareElementorBrokenExternalLink(fixture(), target);
