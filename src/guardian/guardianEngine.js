@@ -14,6 +14,7 @@ import { classifyProblemSignal } from "./problemDetectionEngine.js";
 import { installInteractionWatchdog } from "./interactionWatchdog.js";
 import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 import { decideResolutionPath } from "./resolutionDecisionEngine.js";
+import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -141,6 +142,8 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       action: input.action || rows[existingIndex].action || "",
       diagnosis: input.diagnosis || rows[existingIndex].diagnosis || null,
       resolution: input.resolution || rows[existingIndex].resolution || null,
+      recurrence: input.recurrence || rows[existingIndex].recurrence || null,
+      lifecycleKey: input.lifecycleKey || rows[existingIndex].lifecycleKey || canonicalLifecycleKey(input.clientId, fingerprint),
       lastSeenAt: timestamp,
       occurrences: Number(rows[existingIndex].occurrences || 1) + 1,
       state: input.state || rows[existingIndex].state || "open",
@@ -160,6 +163,8 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       action: bounded(input.action || "", 120),
       diagnosis: input.diagnosis || null,
       resolution: input.resolution || null,
+      recurrence: input.recurrence || null,
+      lifecycleKey: input.lifecycleKey || canonicalLifecycleKey(input.clientId, fingerprint),
       firstSeenAt: timestamp,
       lastSeenAt: timestamp,
       occurrences: 1,
@@ -233,6 +238,8 @@ const detectAndRecordSignal = (input) => {
     severity: classification.severity,
     diagnosis,
     resolution,
+    recurrence,
+    lifecycleKey: canonicalLifecycleKey(input.clientId, fingerprint),
     state: classification.rootCauseReviewRequired ? "blocked" : (input.state || "open"),
     action: classification.rootCauseReviewRequired ? "root-cause-review" : (input.action || ""),
     detail: [
@@ -241,8 +248,8 @@ const detectAndRecordSignal = (input) => {
       classification.rootCauseReviewRequired ? `Ricorrenza: ${classification.occurrences} occorrenze. AutoFix ripetitivo sospeso; richiesta analisi causa radice.` : "",
     ].filter(Boolean).join(" "),
   });
-  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution });
-  return { incident, classification, diagnosis, resolution };
+  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution, recurrence });
+  return { incident, classification, diagnosis, resolution, recurrence };
 };
 
 const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
