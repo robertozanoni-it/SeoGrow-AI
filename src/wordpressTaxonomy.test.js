@@ -17,8 +17,7 @@ const connectorCore = await readFile(
   new URL("../wordpress-plugin/seogrow-connector/seogrow-connector-core.inc", import.meta.url),
   "utf8",
 );
-const connector = `${connectorLoader}\n${connectorCore}`;
-const server = await readFile(new URL("../server/wordpressTaxonomyHook.js", import.meta.url), "utf8");
+const atomicWrite = await readFile(\n  new URL("../wordpress-plugin/seogrow-connector/atomic-write.php", import.meta.url),\n  "utf8",\n);\nconst connector = `${connectorLoader}\\n${connectorCore}\\n${atomicWrite}`;\nconst server = await readFile(new URL("../server/wordpressTaxonomyHook.js", import.meta.url), "utf8");
 
 const rankInspection = () => normalizeTaxonomyInspection({
   ok: true,
@@ -44,17 +43,20 @@ const rankInspection = () => normalizeTaxonomyInspection({
   plugins: { rankMath: true, yoast: false },
 }, "https://example.com/argomenti/seo/");
 
-test("Connector conserva ispezione esatta e scrittura tassonomia single-field nel pacchetto 1.3.8", () => {
-  assert.match(connectorLoader, /Version: 1\.3\.8/);
-  assert.match(connectorCore, /Version: 1\.3\.8/);
-  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.8'/);
+test("Connector 1.3.9 espone CAS atomico Rank Math tassonomie senza allargare gli storage non certificati", () => {
+  assert.match(connectorLoader, /Version: 1\.3\.9/);
+  assert.match(connectorCore, /Version: 1\.3\.9/);
+  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.9'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
   assert.match(connector, /get_term_link\(\$term\)/);
-  assert.match(connector, /count\(\$matches\) !== 1/);
   assert.match(connector, /current_user_can\('edit_term', \$term->term_id\)/);
-  assert.match(connector, /'atomicWriteGuaranteed' => false/);
-  assert.match(connector, /return seogrow_connector_atomic_unavailable\(\)/);
+  assert.match(connectorCore, /'rankMathTaxonomyScalarAtomicWrite' => true/);
+  assert.match(connectorCore, /'rankMathTaxonomyAtomicFields' => array\('title', 'meta_description', 'canonical'\)/);
+  assert.match(connectorCore, /'atomicWriteGuaranteed' => false/);
+  assert.match(atomicWrite, /rank-math-termmeta-cas-v1/);
+  assert.match(atomicWrite, /BINARY meta_value = BINARY %s/);
+  assert.match(atomicWrite, /Yoast taxonomy storage[\s\S]*remain fail-closed/);
   assert.match(connectorLoader, /seogrow-connector-core\.inc/);
 });
 
@@ -65,6 +67,7 @@ test("Connector limita la remediation a category/post_tag e a quattro campi SEO 
   assert.match(connector, /update_term_meta\(\$term->term_id, \$keys\[\$field\], \$value\)/);
   assert.match(connector, /WPSEO_Taxonomy_Meta::set_value/);
   assert.match(connector, /taxonomyWriteSingleField' => false/);
+  assert.match(connector, /rankMathTaxonomyScalarAtomicWrite' => true/);
 });
 
 test("Connector blocca plugin SEO ambiguo, adapter errato e stale state prima della scrittura", () => {
@@ -74,6 +77,7 @@ test("Connector blocca plugin SEO ambiguo, adapter errato e stale state prima de
   assert.match(connector, /seogrow_taxonomy_adapter_mismatch/);
   assert.match(connector, /seogrow_taxonomy_stale/);
   assert.match(connector, /\$current !== \$expected/);
+  assert.match(connector, /STALE_CONFLICT/);
   assert.match(connector, /return seogrow_connector_atomic_unavailable\(\)/);
 });
 
