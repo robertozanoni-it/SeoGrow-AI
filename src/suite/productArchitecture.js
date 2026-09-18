@@ -10,6 +10,7 @@ const defineProductModule = ({
   data,
   primaryCta,
   owns,
+  subviews = [],
   legacyViews = [],
   states,
 }) => Object.freeze({
@@ -24,6 +25,7 @@ const defineProductModule = ({
   data: freezeList(data),
   primaryCta: String(primaryCta).trim(),
   owns: freezeList(owns),
+  subviews: freezeList(subviews),
   legacyViews: freezeList(legacyViews),
   states: Object.freeze({
     empty: String(states.empty).trim(),
@@ -112,7 +114,7 @@ export const PRODUCT_MODULES = Object.freeze([
     data: ["crawl osservato", "analisi salvate", "evidenze pagina", "chiusure problema", "stato correzioni in sola lettura"],
     primaryCta: "Avvia audit SEO",
     owns: ["audit-execution", "issue-detection", "issue-prioritization", "issue-verification-readonly"],
-    legacyViews: ["Problemi"],
+    subviews: ["Problemi"],
     states: {
       empty: "Nessun audit disponibile: mostra configurazione e avvio dell'analisi.",
       error: "Mostra il motivo del fallimento e conserva l'ultimo audit valido.",
@@ -284,6 +286,12 @@ export const PRODUCT_MODULES = Object.freeze([
 
 export const CANONICAL_SUITE_PAGES = Object.freeze(PRODUCT_MODULES.map((moduleDefinition) => moduleDefinition.page));
 
+export const OPERATIONAL_SUBVIEW_OWNERS = Object.freeze(Object.fromEntries(
+  PRODUCT_MODULES.flatMap((moduleDefinition) =>
+    moduleDefinition.subviews.map((subview) => [subview, moduleDefinition.page]),
+  ),
+));
+
 export const LEGACY_VIEW_OWNERS = Object.freeze(Object.fromEntries(
   PRODUCT_MODULES.flatMap((moduleDefinition) =>
     moduleDefinition.legacyViews.map((legacyView) => [legacyView, moduleDefinition.page]),
@@ -307,6 +315,7 @@ export function validateFrozenProductArchitecture() {
   const ids = new Set();
   const pages = new Set();
   const ownership = new Map();
+  const operationalSubviews = new Map();
   const legacyViews = new Map();
 
   for (const moduleDefinition of PRODUCT_MODULES) {
@@ -331,10 +340,21 @@ export function validateFrozenProductArchitecture() {
       ownership.set(capability, moduleDefinition.page);
     }
 
+    for (const subview of moduleDefinition.subviews) {
+      if (pages.has(subview) || CANONICAL_SUITE_PAGES.includes(subview)) {
+        throw new Error(`La sottovista ${subview} non può essere un modulo canonico.`);
+      }
+      if (legacyViews.has(subview)) throw new Error(`La sottovista ${subview} non può essere anche una vista legacy.`);
+      const owner = operationalSubviews.get(subview);
+      if (owner) throw new Error(`Sottovista duplicata: ${subview} (${owner}, ${moduleDefinition.page}).`);
+      operationalSubviews.set(subview, moduleDefinition.page);
+    }
+
     for (const legacyView of moduleDefinition.legacyViews) {
       if (pages.has(legacyView) || CANONICAL_SUITE_PAGES.includes(legacyView)) {
         throw new Error(`La vista legacy ${legacyView} non può essere un modulo canonico.`);
       }
+      if (operationalSubviews.has(legacyView)) throw new Error(`La vista legacy ${legacyView} non può essere anche una sottovista operativa.`);
       const owner = legacyViews.get(legacyView);
       if (owner) throw new Error(`Vista legacy duplicata: ${legacyView} (${owner}, ${moduleDefinition.page}).`);
       legacyViews.set(legacyView, moduleDefinition.page);
