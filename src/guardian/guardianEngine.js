@@ -231,6 +231,7 @@ const detectAndRecordSignal = (input) => {
     hasSafeAdapter: input.hasSafeAdapter === true,
     hasPreviewAdapter: input.hasPreviewAdapter === true,
     reversible: input.reversible === true,
+    recurrence,
   });
   const incident = recordGuardianIncident({
     ...input,
