@@ -6,6 +6,8 @@ import {
   GUARDIAN_RISK,
   canGuardianAutoFix,
   guardianHealthScore,
+  guardianRunHistory,
+  recordGuardianRun,
   guardianFingerprint,
   listGuardianIncidents,
   normalizeGuardianPage,
@@ -75,4 +77,27 @@ test("fingerprint non dipende da timestamp o id runtime", () => {
   const a = guardianFingerprint({ code: "API", source: "local", message: "Health failed" });
   const b = guardianFingerprint({ code: "API", source: "local", message: "Health failed" });
   assert.equal(a, b);
+});
+
+
+test("run history persiste, resta limitata a 10 e restituisce prima il run più recente", () => {
+  const storage = new MemoryStorage();
+  for (let index = 0; index < 14; index += 1) {
+    recordGuardianRun({
+      trigger: "qa",
+      startedAt: `2026-09-18T18:${String(index).padStart(2, "0")}:00.000Z`,
+      completedAt: `2026-09-18T18:${String(index).padStart(2, "0")}:01.000Z`,
+      checks: 4,
+      failed: index === 13 ? 1 : 0,
+      changed: 0,
+    }, storage);
+  }
+  const history = guardianRunHistory(storage);
+  assert.equal(history.length, 10);
+  assert.equal(history[0].completedAt, "2026-09-18T18:13:01.000Z");
+  assert.equal(history.at(-1).completedAt, "2026-09-18T18:04:01.000Z");
+
+  // Simula reload: una nuova lettura dallo stesso storage deve conservare i run.
+  const afterReload = guardianRunHistory(storage);
+  assert.deepEqual(afterReload, history);
 });
