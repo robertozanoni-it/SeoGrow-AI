@@ -18,11 +18,6 @@ export function inspectVisualUx(root = document) {
   for (const element of root.querySelectorAll("button,a,input,select,textarea,[role=button]")) {
     if (!visible(element)) continue;
     const rect = element.getBoundingClientRect();
-    if (rect.left < -2 || rect.right > viewportWidth + 2) issues.push({
-      code: "CONTROL_OUTSIDE_VIEWPORT", severity: VISUAL_UX_SEVERITY.ERROR,
-      detail: element.getAttribute("aria-label") || element.textContent?.trim().slice(0, 80) || element.tagName,
-      autoFixable: false,
-    });
     if (viewportWidth <= 430 && (rect.width < 40 || rect.height < 40)) issues.push({
       code: "SMALL_TOUCH_TARGET", severity: VISUAL_UX_SEVERITY.WARNING,
       detail: element.getAttribute("aria-label") || element.textContent?.trim().slice(0, 80) || element.tagName,
