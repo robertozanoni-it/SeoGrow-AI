@@ -26,6 +26,17 @@ test("chiusura normale può riapparire solo con una rilevazione audit più recen
   assert.equal(model.activeRows.length, 1);
 });
 
+test("chiusura live successiva all'audit rimuove il finding dagli attivi anche dopo ricostruzione del modello", () => {
+  const liveClosure = { ...normalClosure, closedAt: "2026-09-17T11:00:00.000Z", reason: "live-readonly-resolved" };
+  const first = modelWith([liveClosure]);
+  const reload = modelWith(JSON.parse(JSON.stringify([liveClosure])));
+  assert.equal(first.rows.length, 1);
+  assert.equal(first.rows[0].problemState, "resolved");
+  assert.equal(first.activeRows.length, 0);
+  assert.equal(reload.rows[0].problemState, "resolved");
+  assert.equal(reload.activeRows.length, 0);
+});
+
 test("Non modificare resta escluso anche dopo un audit più recente", () => {
   const model = modelWith([permanentClosure]);
   assert.equal(model.rows.length, 1);
