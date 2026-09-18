@@ -14,6 +14,7 @@ import { reconcileTaskCauses } from "../taskCauseReconciliation.js";
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
 export const GUARDIAN_SETTINGS_KEY = "seogrow-guardian-settings-v1";
+export const GUARDIAN_RUN_HISTORY_KEY = "seogrow-guardian-run-history-v1";
 
 export const GUARDIAN_RISK = Object.freeze({
   OBSERVE: "L0",
@@ -320,6 +321,18 @@ async function checkLocalApi() {
   }
 }
 
+export function guardianRunHistory(storage = workspaceStorage) {
+  const rows = readWorkspaceJson(GUARDIAN_RUN_HISTORY_KEY, [], storage);
+  return Array.isArray(rows) ? rows.slice(-10).toReversed() : [];
+}
+
+const recordGuardianRun = (scan, storage = workspaceStorage) => {
+  const rows = readWorkspaceJson(GUARDIAN_RUN_HISTORY_KEY, [], storage);
+  const next = [...(Array.isArray(rows) ? rows : []), scan].slice(-10);
+  writeWorkspaceJson(GUARDIAN_RUN_HISTORY_KEY, next, storage);
+  return next;
+};
+
 export function guardianHealthScore(incidents = listGuardianIncidents()) {
   const open = incidents.filter((row) => row?.state !== "resolved");
   const penalty = open.reduce((total, row) => total + (SEVERITY_WEIGHT[row?.severity] || 4), 0);
@@ -363,6 +376,7 @@ export async function runGuardianScan({ trigger = "manual" } = {}) {
       failed: results.filter((item) => item.ok === false).length,
       changed: results.filter((item) => item.changed === true).length,
     };
+    recordGuardianRun(lastScan);
     dispatchGuardianUpdate({ type: "scan", scan: lastScan });
     return { ...guardianSnapshot(), results };
   })().finally(() => { runningPromise = null; });
