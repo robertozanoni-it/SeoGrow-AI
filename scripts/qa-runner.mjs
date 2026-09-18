@@ -16,6 +16,7 @@ await mkdir(output, { recursive: true });
 const report = { runId: randomUUID(), mode, commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), dirty: Boolean(execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim()), startedAt: new Date().toISOString(), steps: [], ok: false };
 const children = [];
 const runtimes = [];
+const TEST_WORKERS = Math.max(2, Math.min(6, Number(process.env.QA_TEST_WORKERS) || 4));
 let temporary;
 async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000) {
   const started = Date.now();
@@ -55,13 +56,19 @@ try {
   if (mode !== "smoke") {
     await run("lint", ["node_modules/eslint/bin/eslint.js", "."]);
     const tests = (await readdir(path.join(root, "src"))).filter(name => name.endsWith(".test.js")).sort().map(name => "src/" + name);
-    const testSummaries = [];
-    for (let index = 0; index < tests.length; index += 1) {
-      const testFile = tests[index];
-      const testName = `test-${String(index + 1).padStart(3, "0")}-${path.basename(testFile, ".test.js").replace(/[^a-z0-9_-]+/gi, "-")}`;
-      await run(testName, ["--test", "--test-concurrency=1", "--test-reporter=tap", testFile]);
-      testSummaries.push(parseTestSummary(await readFile(path.join(output, `${testName}.log`), "utf8")));
+    const testSummaries = new Array(tests.length);
+    let nextTestIndex = 0;
+    async function testWorker() {
+      while (true) {
+        const index = nextTestIndex++;
+        if (index >= tests.length) return;
+        const testFile = tests[index];
+        const testName = `test-${String(index + 1).padStart(3, "0")}-${path.basename(testFile, ".test.js").replace(/[^a-z0-9_-]+/gi, "-")}`;
+        await run(testName, ["--test", "--test-concurrency=1", "--test-reporter=tap", testFile]);
+        testSummaries[index] = parseTestSummary(await readFile(path.join(output, `${testName}.log`), "utf8"));
+      }
     }
+    await Promise.all(Array.from({ length: TEST_WORKERS }, () => testWorker()));
     report.tests = testSummaries.reduce((total, summary) => ({
       tests: Number(total.tests || 0) + Number(summary.tests || 0),
       pass: Number(total.pass || 0) + Number(summary.pass || 0),
