@@ -30,9 +30,10 @@ test("il bulk V2 prepara soltanto problemi attivi e applica una modifica alla vo
   assert.match(live, /Le anteprime si applicano una alla volta per sicurezza/);
 });
 
-test("il runtime corrente separa scrittura WordPress e verifica SEO", () => {
+test("il runtime corrente separa scrittura WordPress e verifica SEO ma avvia subito la verifica canonica", () => {
   assert.match(live, /Scrittura e risoluzione SEO restano stati distinti/);
-  assert.match(live, /Stato: Da verificare/);
+  assert.match(live, /SeoGrow sta verificando automaticamente il risultato/);
+  assert.match(live, /status: resolved \? "verified" : "applied"/);
   assert.match(integrity, /status:\s*fixed\s*\?\s*"Verificato"\s*:\s*"Da verificare"/);
   assert.match(integrity, /frontendConfirmed:\s*fixed/);
   assert.match(integrity, /verifiedAt:\s*fixed\s*\?/);
