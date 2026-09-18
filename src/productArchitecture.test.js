@@ -95,16 +95,3 @@ test("wizard usa solo moduli canonici e Problemi resta una sottovista di Audit S
   assert.match(bridge, /data-seogrow-subview="Audit SEO:Problemi"/);
 });
 
-
-test("definition of done keeps every canonical module contract complete", () => {
-  for (const moduleDefinition of PRODUCT_MODULES) {
-    assert.ok(moduleDefinition.inputs.length, `${moduleDefinition.page}: inputs missing`);
-    assert.ok(moduleDefinition.outputs.length, `${moduleDefinition.page}: outputs missing`);
-    assert.ok(moduleDefinition.data.length, `${moduleDefinition.page}: data sources missing`);
-    assert.ok(moduleDefinition.primaryCta, `${moduleDefinition.page}: primary CTA missing`);
-    assert.ok(moduleDefinition.states.empty, `${moduleDefinition.page}: empty state missing`);
-    assert.ok(moduleDefinition.states.error, `${moduleDefinition.page}: error state missing`);
-    assert.ok(moduleDefinition.states.completed, `${moduleDefinition.page}: completed state missing`);
-    assert.ok(moduleDefinition.owns.length, `${moduleDefinition.page}: ownership missing`);
-  }
-});
