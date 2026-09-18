@@ -319,6 +319,12 @@ function ProblemDrawer({ problem, clientId, corrections, onClose, onRefresh }) {
             <button className="primary" onClick={verifyNow} disabled={working}><RefreshCw /> {working ? "Controllo…" : "Riverifica"}</button>
           ) : problem.interventionState === "applied" || problem.interventionState === "verified" || problem.problemState === "needs_verification" ? (
             <button className="primary" onClick={verifyNow} disabled={working}><RefreshCw /> {working ? "Verifica…" : "Verifica ora"}</button>
+          ) : resolution?.path === "L2-safe-autofix" ? (
+            <button className="primary" onClick={() => { openProblemResolution(problem, clientId, "guardian-l2"); onClose(); }}><Sparkles /> Correggi automaticamente</button>
+          ) : resolution?.path === "L3-approval" ? (
+            <button className="primary" onClick={() => { openProblemResolution(problem, clientId, "guardian-l3"); onClose(); }}><ShieldCheck /> Prepara correzione</button>
+          ) : resolution?.path === "manual" ? (
+            <button className="primary" onClick={askAgent}><AlertTriangle /> Analizza causa radice</button>
           ) : (
             <button className="primary" onClick={() => { openProblemResolution(problem, clientId, "problem-card"); onClose(); }}>{problemEntryLabel(problem)}</button>
           )}
