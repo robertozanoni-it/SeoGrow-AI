@@ -39,3 +39,52 @@ export function excludeProblemPermanently(problem, clientId, { now = () => new D
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("seogrow-problem-closures-changed", { detail: closure }));
   return closure;
 }
+
+
+export function recordResolvedProblemClosure(problem = {}, clientId, {
+  sourceUrl = "",
+  targetUrl = "",
+  reason = "live-readonly-resolved",
+  now = () => new Date().toISOString(),
+} = {}) {
+  const normalizedClientId = normalizeClientId(clientId);
+  const issueType = String(problem.issueType || problem.type || "").trim();
+  const normalizedSourceUrl = normalizeHttpUrl(sourceUrl || problem.sourceUrl || problem.url || "", { stripSlash: true });
+  const candidateTargets = [
+    targetUrl,
+    problem.targetUrl,
+    problem.brokenUrl,
+    problem.destinationUrl,
+    ...(Array.isArray(problem.targetUrls) ? problem.targetUrls : []),
+  ].filter(Boolean).map((value) => normalizeHttpUrl(value, { stripSlash: true })).filter(Boolean);
+  const uniqueTargets = [...new Set(candidateTargets)];
+  const normalizedTargetUrl = uniqueTargets.length === 1 ? uniqueTargets[0] : "";
+  const issueKey = String(problem.key || problem.issueKey || "").trim();
+
+  if (!normalizedClientId || !issueType || !normalizedSourceUrl) {
+    throw new Error("Il problema non ha un'identità sufficiente per registrare la risoluzione.");
+  }
+  if (targetScoped(issueType) && !normalizedTargetUrl && !issueKey) {
+    throw new Error("Il problema link non ha un target sufficientemente preciso per registrare la risoluzione.");
+  }
+
+  const closure = {
+    clientId: normalizedClientId,
+    issueKey,
+    issueType,
+    sourceUrl: normalizedSourceUrl,
+    targetUrl: normalizedTargetUrl,
+    closedAt: now(),
+    reason,
+    permanent: false,
+  };
+  const current = readWorkspaceJson(WORKSPACE_KEYS.problemClosures, []);
+  const next = canonicalProblemClosures([closure, ...(Array.isArray(current) ? current : [])]);
+  writeWorkspaceJson(WORKSPACE_KEYS.problemClosures, next);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("seogrow-problem-closures-changed", { detail: closure }));
+    window.dispatchEvent(new CustomEvent("seogrow-problem-resolved", { detail: closure }));
+  }
+  return closure;
+}
