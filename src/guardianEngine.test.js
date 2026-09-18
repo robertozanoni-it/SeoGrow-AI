@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CANONICAL_SUITE_PAGES } from "../suite/productArchitecture.js";
+import { CANONICAL_SUITE_PAGES } from "./suite/productArchitecture.js";
 import {
   GUARDIAN_ACTIONS,
   GUARDIAN_RISK,
