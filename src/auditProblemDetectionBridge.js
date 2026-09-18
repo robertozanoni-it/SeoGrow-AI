@@ -13,7 +13,7 @@ export function auditIssueFingerprint({ clientId, issue } = {}) {
   return `audit:${Number(clientId) || 0}:${identity}`;
 }
 
-export function auditIssueSignal({ clientId, issue } = {}) {
+export function auditIssueSignal({ clientId, issue, analysis = {} } = {}) {
   const fingerprint = auditIssueFingerprint({ clientId, issue });
   if (!fingerprint) return null;
   const severity = ["critical", "error", "warning", "info"].includes(issue.severity)
@@ -29,12 +29,16 @@ export function auditIssueSignal({ clientId, issue } = {}) {
     autoFixEligible: issue.autoFixEligible === true,
     auditIssue: issue,
     clientId: Number(clientId) || 0,
+    observedAt: analysis.analyzedAt || analysis.createdAt || new Date().toISOString(),
+    changedAt: issue.changedAt || analysis.changedAt || "",
+    deployAt: issue.deployAt || analysis.deployAt || "",
+    correctionAt: issue.correctionAt || "",
   };
 }
 
 export function auditSignals({ clientId, analysis } = {}) {
   const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
-  return issues.map((issue) => auditIssueSignal({ clientId, issue })).filter(Boolean);
+  return issues.map((issue) => auditIssueSignal({ clientId, issue, analysis })).filter(Boolean);
 }
 
 export function dispatchAuditProblemSignals({ clientId, analysis } = {}) {

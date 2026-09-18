@@ -114,6 +114,7 @@ export default function GuardianConsole() {
                 </div>
                 <p>{incident.message}</p>
                 {incident.detail && <small>{incident.detail}</small>}
+                {incident.recurrence && <div className={`guardian-recurrence kind-${incident.recurrence.kind}`}><strong>Lifecycle</strong><span>{incident.recurrence.kind}</span><small>{incident.recurrence.reason}</small>{incident.recurrence.autoFixAllowed === false && <em>AutoFix sospeso</em>}</div>}
                 {incident.resolution && <div className={`guardian-resolution path-${String(incident.resolution.path || "").split("-")[0].toLowerCase()}`}><strong>Cosa farà SeoGrow</strong><span>{incident.resolution.path}</span><small>{incident.resolution.reason}</small>{incident.resolution.canExecute && <em>Auto-esecuzione consentita dalle policy di sicurezza</em>}</div>}
                 {incident.diagnosis && <div className={`guardian-diagnosis confidence-${incident.diagnosis.confidence || "low"}`}>
                   <div><strong>Causa probabile</strong><span>{incident.diagnosis.cause}</span></div>

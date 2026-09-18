@@ -14,6 +14,8 @@ import { classifyProblemSignal } from "./problemDetectionEngine.js";
 import { installInteractionWatchdog } from "./interactionWatchdog.js";
 import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 import { decideResolutionPath } from "./resolutionDecisionEngine.js";
+import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js";
+import { dueMonitoringIncidents, monitoringPlan } from "./monitoringScheduler.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -141,6 +143,8 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       action: input.action || rows[existingIndex].action || "",
       diagnosis: input.diagnosis || rows[existingIndex].diagnosis || null,
       resolution: input.resolution || rows[existingIndex].resolution || null,
+      recurrence: input.recurrence || rows[existingIndex].recurrence || null,
+      lifecycleKey: input.lifecycleKey || rows[existingIndex].lifecycleKey || canonicalLifecycleKey(input.clientId, fingerprint),
       lastSeenAt: timestamp,
       occurrences: Number(rows[existingIndex].occurrences || 1) + 1,
       state: input.state || rows[existingIndex].state || "open",
@@ -160,6 +164,8 @@ export function recordGuardianIncident(input, storage = workspaceStorage) {
       action: bounded(input.action || "", 120),
       diagnosis: input.diagnosis || null,
       resolution: input.resolution || null,
+      recurrence: input.recurrence || null,
+      lifecycleKey: input.lifecycleKey || canonicalLifecycleKey(input.clientId, fingerprint),
       firstSeenAt: timestamp,
       lastSeenAt: timestamp,
       occurrences: 1,
@@ -219,6 +225,7 @@ const detectAndRecordSignal = (input) => {
   const classification = classifyProblemSignal({ ...input, fingerprint }, history);
   if (!classification.accepted) return null;
   const diagnosis = diagnoseRootCause({ ...input, fingerprint, occurrences: classification.occurrences }, history);
+  const recurrence = classifyRecurrence({ incident: input, history, observation: { ...input, fingerprint } });
   const resolution = decideResolutionPath({
     incident: { ...input, occurrences: classification.occurrences, state: classification.rootCauseReviewRequired ? "blocked" : input.state },
     diagnosis,
@@ -226,6 +233,7 @@ const detectAndRecordSignal = (input) => {
     hasSafeAdapter: input.hasSafeAdapter === true,
     hasPreviewAdapter: input.hasPreviewAdapter === true,
     reversible: input.reversible === true,
+    recurrence,
   });
   const incident = recordGuardianIncident({
     ...input,
@@ -233,6 +241,8 @@ const detectAndRecordSignal = (input) => {
     severity: classification.severity,
     diagnosis,
     resolution,
+    recurrence,
+    lifecycleKey: canonicalLifecycleKey(input.clientId, fingerprint),
     state: classification.rootCauseReviewRequired ? "blocked" : (input.state || "open"),
     action: classification.rootCauseReviewRequired ? "root-cause-review" : (input.action || ""),
     detail: [
@@ -241,8 +251,8 @@ const detectAndRecordSignal = (input) => {
       classification.rootCauseReviewRequired ? `Ricorrenza: ${classification.occurrences} occorrenze. AutoFix ripetitivo sospeso; richiesta analisi causa radice.` : "",
     ].filter(Boolean).join(" "),
   });
-  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution });
-  return { incident, classification, diagnosis, resolution };
+  dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution, recurrence });
+  return { incident, classification, diagnosis, resolution, recurrence };
 };
 
 const ARCHITECTURE_DRIFT_FINGERPRINT = guardianFingerprint({
@@ -476,6 +486,12 @@ export function installGuardianRuntime() {
       message: bounded(detail.message || "Problema rilevato dall'Audit SEO"),
       detail: bounded(detail.detail || ""),
       autoFixEligible: detail.autoFixEligible === true,
+      clientId: detail.clientId,
+      observedAt: detail.observedAt,
+      changedAt: detail.changedAt,
+      deployAt: detail.deployAt,
+      correctionAt: detail.correctionAt,
+      auditIssue: detail.auditIssue,
     });
   });
   window.addEventListener("seogrow-action-failed", (event) => {
@@ -556,3 +572,33 @@ export function uninstallGuardianRuntimeForTests() {
   scheduledId = 0;
   installed = false;
 }
+export function guardianMonitoringQueue(now = Date.now()) {
+  return dueMonitoringIncidents(listGuardianIncidents(), now);
+}
+
+export function markGuardianMonitored(fingerprint, result = {}, now = new Date().toISOString()) {
+  const rows = listGuardianIncidents();
+  const index = rows.findIndex(row => row.fingerprint === fingerprint);
+  if (index < 0) return null;
+  rows[index] = {
+    ...rows[index],
+    lastMonitoredAt: now,
+    lastMonitoringResult: result,
+    monitoring: monitoringPlan({ incident: { ...rows[index], lastMonitoredAt: now }, now: Date.parse(now) || Date.now() }),
+  };
+  writeWorkspaceJson(GUARDIAN_INCIDENTS_KEY, rows, workspaceStorage);
+  dispatchGuardianUpdate({ type: "monitoring-completed", incident: rows[index], result });
+  return rows[index];
+}
+
+export function runDueGuardianMonitoring(now = Date.now()) {
+  const queue = guardianMonitoringQueue(now);
+  if (typeof window !== "undefined") for (const item of queue) {
+    window.dispatchEvent(new CustomEvent("seogrow-guardian-monitoring-due", {
+      detail: { fingerprint: item.incident.fingerprint, clientId: item.incident.clientId, plan: item.plan },
+    }));
+  }
+  return queue;
+}
+
+
