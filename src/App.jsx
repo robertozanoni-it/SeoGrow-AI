@@ -104,14 +104,7 @@ const nav = SUITE_NAVIGATION.flatMap((group) =>
 );
 const fetch = apiFetch;
 const newId = (prefix) => `${prefix}-${crypto.randomUUID()}`;
-const stableKey = (value) => {
-  let hash = 2166136261;
-  for (const character of String(value || "")) {
-    hash ^= character.codePointAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
-};
+
 
 const normalizeProjectUrl = (value) => {
   const raw = String(value || "").trim();
@@ -424,6 +417,7 @@ function Header({
   onSearchResult,
   notifications,
   onNotifications,
+  onNotificationTask,
   onHelp,
   displayName,
 }) {
@@ -607,19 +601,29 @@ function Header({
             </div>
             {notifications.length ? (
               notifications.map((item, index) => (
-                <button
-                  key={`${item.title}-${item.text}-${index}`}
-                  onClick={() => {
-                    onNotifications(item);
-                    setShowNotifications(false);
-                  }}
-                >
-                  <AlertTriangle className={item.tone} />
-                  <span>
-                    <strong>{item.title}</strong>
-                    <small>{item.text}</small>
-                  </span>
-                </button>
+                <div className="notification-item" key={item.id || `${item.title}-${item.text}-${index}`}>
+                  <button
+                    className="notification-open"
+                    onClick={() => {
+                      onNotifications(item);
+                      setShowNotifications(false);
+                    }}
+                  >
+                    <AlertTriangle className={item.tone} />
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.text}</small>
+                      {item.source && <em>{item.source}</em>}
+                    </span>
+                  </button>
+                  {item.taskDraft && <button
+                    className="notification-task"
+                    onClick={() => {
+                      onNotificationTask?.(item);
+                      setShowNotifications(false);
+                    }}
+                  >Crea task</button>}
+                </div>
               ))
             ) : (
               <p>Nessun avviso per il progetto selezionato.</p>
@@ -3768,100 +3772,9 @@ export default function App() {
     setGscHistory((current) =>
       addDatasetToHistory(current, targetClientId, data),
     );
-    const generatedTasks = opportunityQueries(data, 20).map((row) => {
-      const exact =
-        data.queryPages?.find(
-          (item) => (item.dimension || item.query) === row.dimension,
-        )?.pages?.[0] || "";
-      const suggestion = exact
-        ? { url: exact }
-        : suggestPageForQuery(row.dimension, data.pages);
-      const pageUrl = suggestion?.url || "";
-      return {
-        id: `gsc-${targetClientId}-${stableKey(row.dimension)}`,
-        title: `Ottimizza “${row.dimension}”`,
-        client: targetClient.name,
-        priority: row.position <= 10 ? "Alta" : "Media",
-        due: "",
-        status: "Da fare",
-        kind: "search",
-        sourceClientId: targetClientId,
-        sourceUrl: pageUrl,
-        targetUrl: "",
-        linkLabel: exact
-          ? "Pagina associata"
-          : suggestion
-            ? "Pagina suggerita"
-            : "Apri il sito",
-        associationStatus: exact ? "verified" : "suggested",
-        query: row.dimension,
-        metrics: {
-          clicks: row.clicks,
-          impressions: row.impressions,
-          ctr: row.ctr,
-          position: row.position,
-        },
-        detail: queryTaskDetail(row, pageUrl, Boolean(exact)),
-      };
-    });
-    setTasks((current) => {
-      const previousByQuery = new Map(
-        current
-          .filter(
-            (task) =>
-              task.sourceClientId === targetClientId && task.kind === "search" && !task.duplicateOf,
-          )
-          .map((task) => [String(task.query || "").toLocaleLowerCase("it"), task]),
-      );
-      const merged = generatedTasks.map((task) => {
-        const previous = previousByQuery.get(task.query.toLocaleLowerCase("it"));
-        return previous
-          ? {
-              ...task,
-              id: previous.id,
-              status: previous.status,
-              due: previous.due,
-              notes: previous.notes,
-              ...(previous.userEdited
-                ? {
-                    title: previous.title,
-                    priority: previous.priority,
-                    sourceUrl: previous.sourceUrl,
-                    targetUrl: previous.targetUrl,
-                    linkLabel: previous.linkLabel,
-                    detail: previous.detail,
-                    userEdited: true,
-                  }
-                : {}),
-            }
-          : task;
-      });
-      const generatedQueries = new Set(
-        generatedTasks.map((task) => task.query.toLocaleLowerCase("it")),
-      );
-      const archived = current
-        .filter(
-          (task) =>
-            task.sourceClientId === targetClientId &&
-            task.kind === "search" &&
-            !task.duplicateOf &&
-            !generatedQueries.has(String(task.query || "").toLocaleLowerCase("it")),
-        )
-        .map((task) => ({
-          ...task,
-          stale: true,
-          archivedReason:
-            "La query non rientra più nelle opportunità principali dell'ultima importazione.",
-        }));
-      return [
-        ...current.filter(
-          (task) =>
-            task.duplicateOf || !(task.sourceClientId === targetClientId && task.kind === "search"),
-        ),
-        ...archived,
-        ...merged,
-      ];
-    });
+    // GSC imports update the canonical dataset/history only.
+    // Monitoring alerts are derived from the new baseline/delta and any Task is
+    // created only after an explicit user action from the alert or Opportunities.
     return { clientName: targetClient.name, clientId: targetClientId };
   };
   useEffect(() => {
@@ -4135,6 +4048,7 @@ export default function App() {
         dataset: selectedDataset,
         previousDataset: selectedHistory[1],
         analysis: selectedAnalysis,
+        rankings: rankings[selectedClient] || rankings[String(selectedClient)] || [],
       })
     : [];
   const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
@@ -4456,9 +4370,18 @@ export default function App() {
             setQuery("");
           }}
           notifications={notifications}
-          onNotifications={(item) =>
-            setPage(item.title.includes("task") ? "Task" : "Opportunità")
-          }
+          onNotifications={(item) => {
+            const target = item.page || (item.title.includes("task") ? "Task" : "Opportunità");
+            if (target === "Correzioni") navigatePage(target);
+            else setPage(target);
+          }}
+          onNotificationTask={(item) => {
+            if (!item?.taskDraft) return;
+            const task = createManualTask(item.taskDraft);
+            if (!task) return;
+            setRequestedTask({ id: task.id, nonce: Date.now() });
+            setPage("Task");
+          }}
           onHelp={() => setPage("Impostazioni")}
           displayName={preferences.name || "Amministratore"}
         />

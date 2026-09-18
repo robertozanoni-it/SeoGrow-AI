@@ -1599,7 +1599,7 @@ td:first-child {
   margin-bottom: 20px;
 }
 .notification-strip > button,
-.notification-menu > button {
+.notification-menu .notification-open {
   border: 1px solid var(--line);
   background: white;
   text-align: left;
@@ -1610,7 +1610,7 @@ td:first-child {
   align-items: flex-start;
 }
 .notification-strip svg,
-.notification-menu > button svg {
+.notification-menu .notification-open svg {
   width: 18px;
   flex: 0 0 auto;
 }
@@ -1642,9 +1642,35 @@ td:first-child {
   align-items: center;
   margin-bottom: 8px;
 }
-.notification-menu > button {
-  width: 100%;
+.notification-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 7px;
   margin-top: 7px;
+}
+.notification-menu .notification-open {
+  width: 100%;
+  margin: 0;
+}
+.notification-menu .notification-open em {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+.notification-menu .notification-task {
+  align-self: stretch;
+  min-width: 78px;
+  border: 1px solid #bfd2ef;
+  border-radius: 8px;
+  background: #eef5ff;
+  color: #185bc0;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 8px 10px;
 }
 .notification-menu > p {
   color: var(--muted);

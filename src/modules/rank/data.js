@@ -12,3 +12,9 @@ export {
   addDatasetToHistory,
   compareDatasets,
 } from "./datasetHistory.js";
+
+export {
+  buildGscMonitoring,
+  buildRankingMonitoring,
+  buildGrowthMonitoring,
+} from "./monitoringDeltas.js";
