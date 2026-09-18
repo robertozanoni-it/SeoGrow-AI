@@ -77,12 +77,12 @@ test("single fix e tassonomia verificano automaticamente subito dopo l'apply app
   assert.match(taxonomyFlow, /problema è stato rimosso dai problemi attivi/);
 });
 
-test("Problems reagisce al lifecycle canonico, chiude il drawer e ripulisce la selezione batch", () => {
-  assert.match(problems, /addEventListener\("seogrow-problem-resolved", refresh\)/);
+test("Problems reagisce al lifecycle canonico, chiude il drawer e deriva solo selezioni ancora attive", () => {
+  assert.match(problems, /addEventListener\("seogrow-problem-resolved", onProblemResolved\)/);
   assert.match(problems, /addEventListener\("seogrow-problem-reopened", refresh\)/);
-  assert.match(problems, /filtered\.some\(\(row\) => row\.key === selectedKey\)/);
-  assert.match(problems, /setSelectedKey\(""\)/);
-  assert.match(problems, /activeKeys\.has\(key\)/);
+  assert.match(problems, /onProblemResolved[\s\S]*setSelectedKey\(""\)/);
+  assert.match(problems, /const selected = filtered\.find\(\(row\) => row\.key === selectedKey\)/);
+  assert.match(problems, /selectedBatchKeys[\s\S]*activeKeySet\.has\(key\)/);
 });
 
 test("lo storico resta accessibile dopo la risoluzione e la UX non richiede una Riverifica manuale obbligatoria", () => {
