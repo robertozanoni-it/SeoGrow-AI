@@ -16,12 +16,19 @@ const dispatchNotificationSnapshot = () => {
 
 export default function AutomationNotificationBridge() {
   useEffect(() => {
-    installGuardianRuntime();
-    dispatchNotificationSnapshot();
+    const startGuardian = () => {
+      installGuardianRuntime();
+      dispatchNotificationSnapshot();
+    };
+    // Guardian writes to the canonical workspace ledger. Defer installation until
+    // the initial restore/normalization turn is fully settled so it cannot race
+    // the workspace restore lock used by browser/release QA.
+    const startupId = window.setTimeout(startGuardian, 1500);
     const refresh = () => dispatchNotificationSnapshot();
     window.addEventListener("seogrow-guardian-updated", refresh);
     window.addEventListener("seogrow-automation-orchestrator-updated", refresh);
     return () => {
+      window.clearTimeout(startupId);
       window.removeEventListener("seogrow-guardian-updated", refresh);
       window.removeEventListener("seogrow-automation-orchestrator-updated", refresh);
     };
