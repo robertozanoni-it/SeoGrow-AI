@@ -27,11 +27,20 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (!id.includes("node_modules")) return undefined;
-            if (id.includes("recharts") || id.includes("d3-")) return "charts";
-            if (id.includes("jszip")) return "archive";
-            if (id.includes("papaparse")) return "csv";
-            if (id.includes("react") || id.includes("scheduler")) return "react-vendor";
+            const normalized = id.replaceAll("\\", "/");
+            if (normalized.includes("/src/")) {
+              if (/\/src\/modules\/audit\//.test(normalized)) return "audit-module";
+              if (/\/src\/modules\/publish\//.test(normalized)) return "publish-module";
+              if (/\/src\/modules\/rank\//.test(normalized)) return "rank-module";
+              if (/\/src\/modules\/content\//.test(normalized)) return "content-module";
+              if (/\/src\/modules\/geo\//.test(normalized)) return "geo-module";
+              if (/\/src\/(?:GuidedUxLayer|WizardCongruenceLayer|CardWorkspaceLayer|RankingsWorkspaceLayer|InternalLinksWorkspaceLayer|OpportunitiesWorkspaceLayer|TaskLinkagePanel|EditorialPlanWorkspaceLayer|IntegrationsWorkspaceLayer|SettingsWorkspaceLayer|ProjectSelectionGuard|ProjectContinuityLayer)\.jsx$/.test(normalized)) return "workspace-layers";
+            }
+            if (!normalized.includes("node_modules")) return undefined;
+            if (normalized.includes("recharts") || normalized.includes("d3-")) return "charts";
+            if (normalized.includes("jszip")) return "archive";
+            if (normalized.includes("papaparse")) return "csv";
+            if (normalized.includes("react") || normalized.includes("scheduler")) return "react-vendor";
             return "vendor";
           },
         },
