@@ -31,7 +31,11 @@ async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000
   await writeFile(log, text);
   report.steps.push({ name, exitCode: code, signal: child.signalCode, timedOut, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
-  if (code !== 0) throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + text.slice(-1800));
+  if (code !== 0) {
+    const tapFailures = text.split(/\\r?\\n/).filter(line => /^not ok\\b/.test(line.trim())).slice(0, 12);
+    const failureSummary = tapFailures.length ? ` TAP failures: ${tapFailures.join(" | ")}` : text.slice(-1800);
+    throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + failureSummary);
+  }
 }
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer(); server.on("error", reject);
