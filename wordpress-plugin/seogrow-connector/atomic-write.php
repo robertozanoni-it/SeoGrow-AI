@@ -269,6 +269,17 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
             wp_cache_delete($id, 'term_meta');
         }
 
+        $public_purge = function_exists('seogrow_connector_taxonomy_purge_public_url')
+            ? seogrow_connector_taxonomy_purge_public_url($term)
+            : array('requested' => false, 'url' => '');
+        if (!is_array($public_purge) || ($public_purge['requested'] ?? false) !== true) {
+            return new WP_Error(
+                'ATOMIC_RESULT_UNVERIFIED',
+                'Meta tassonomia scritto ma invalidazione cache pubblica non confermata. Riverifica prima di continuare.',
+                array('status' => 409)
+            );
+        }
+
         $final_rows = $wpdb->get_results($wpdb->prepare(
             "SELECT meta_id, meta_value FROM {$wpdb->termmeta} WHERE term_id = %d AND meta_key = %s",
             $id,
@@ -312,6 +323,9 @@ function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $requ
                 'apiMatches' => $api_matches,
                 'dbMatches' => $db_matches,
                 'source' => 'wp_termmeta+get_term_meta',
+                'publicCachePurgeRequested' => true,
+                'publicCachePurgeUrl' => isset($public_purge['url']) ? (string) $public_purge['url'] : '',
+                'publicCachePurgeHook' => isset($public_purge['hook']) ? (string) $public_purge['hook'] : '',
             ),
         );
     } catch (Throwable $error) {
