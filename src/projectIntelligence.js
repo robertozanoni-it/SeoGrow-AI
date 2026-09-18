@@ -1,7 +1,7 @@
 import {
   buildPositioningRows,
   comparableRankingRuns,
-  opportunityQueries,
+  opportunityGroups,
   validRankingRuns,
 } from "./modules/rank/index.js";
 
@@ -42,8 +42,9 @@ export function buildProjectIntelligence({
   const verificationPending = number(problemSummary.verify);
   const contentSignals = issues.filter((issue) => /content|contenut|meta|title|image|immagin/i.test(`${issue?.type || ""} ${issue?.label || ""} ${issue?.title || ""}`)).length;
 
-  const gscOpportunities = opportunityQueries(dataset);
-  const organicOpportunityCount = Math.max(number(opportunityCount), gscOpportunities.length);
+  const organicOpportunityCount = dataset
+    ? opportunityGroups(dataset).quickWins.length
+    : number(opportunityCount);
   const top10 = (dataset?.queries || []).filter((row) => number(row.position) > 0 && number(row.position) <= 10).length;
 
   const ageDays = (value) => {
