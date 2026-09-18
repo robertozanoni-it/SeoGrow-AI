@@ -28,7 +28,13 @@ export function buildProjectFreshness({ dataset, analysis, rankings = [], geo, p
   const projectDays = Math.max(1, Number(policy.freshnessDays) || 7);
   const latestRanking = rankings.find((item) => item?.checkedAt) || null;
   const geoRows = Array.isArray(geo?.history) ? geo.history : [];
-  const latestGeo = geoRows[0]?.at || geoRows[0]?.createdAt || geo?.audit?.analyzedAt || geo?.audit?.checkedAt || null;
+  const latestGeo = geoRows
+    .map((item) => item?.at || item?.createdAt || item?.observedAt || null)
+    .filter(Boolean)
+    .toSorted((left, right) => Date.parse(right) - Date.parse(left))[0]
+    || geo?.audit?.analyzedAt
+    || geo?.audit?.checkedAt
+    || null;
   const sources = [
     { id: "audit", label: "Audit SEO", page: "Audit SEO", action: "Aggiorna audit SEO", timestamp: analysis?.analyzedAt || analysis?.startedAt, staleAfterDays: Math.max(projectDays, 30) },
     { id: "gsc", label: "Search Console", page: "Integrazioni", action: "Aggiorna Search Console", timestamp: dataset?.importedAt || dataset?.dateTo, staleAfterDays: Math.max(projectDays, 14) },
