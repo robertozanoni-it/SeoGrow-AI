@@ -357,6 +357,8 @@ export default function ProblemsWorkspace() {
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("seogrow-storage-ok", refresh);
     window.addEventListener("seogrow-remediation-history", refresh);
+    window.addEventListener("seogrow-problem-resolved", refresh);
+    window.addEventListener("seogrow-problem-reopened", refresh);
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisibility);
@@ -366,6 +368,8 @@ export default function ProblemsWorkspace() {
       window.removeEventListener("seogrow-locationchange", refresh);
       window.removeEventListener("seogrow-storage-ok", refresh);
       window.removeEventListener("seogrow-remediation-history", refresh);
+      window.removeEventListener("seogrow-problem-resolved", refresh);
+      window.removeEventListener("seogrow-problem-reopened", refresh);
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -457,6 +461,21 @@ export default function ProblemsWorkspace() {
   const sourceOptions = [...new Set(rows.flatMap((row) => row.sources.map((source) => source.kind)).filter(Boolean))].toSorted();
 
   const filtered = filterProblemRows(rows, filters);
+
+  useEffect(() => {
+    if (!selectedKey) return;
+    if (filtered.some((row) => row.key === selectedKey)) return;
+    setSelectedKey("");
+  }, [selectedKey, filtered]);
+
+  useEffect(() => {
+    const activeKeys = new Set(activeRows.map((row) => row.key));
+    setBatchSelection((current) => {
+      if (current.clientId !== selectedClientId || !current.keys.length) return current;
+      const keys = current.keys.filter((key) => activeKeys.has(key));
+      return keys.length === current.keys.length ? current : { ...current, keys };
+    });
+  }, [activeRows, selectedClientId]);
 
   const counts = {
     active: activeRows.length,
