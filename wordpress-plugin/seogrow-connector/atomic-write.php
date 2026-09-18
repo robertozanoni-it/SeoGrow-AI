@@ -159,6 +159,199 @@ function seogrow_connector_atomic_seo_meta_write(WP_REST_Request $request) {
     }
 }
 
+function seogrow_connector_atomic_rank_math_taxonomy_write(WP_REST_Request $request, $term, $field, $before_value, $after_value) {
+    global $wpdb;
+
+    $keys = array(
+        'title' => 'rank_math_title',
+        'meta_description' => 'rank_math_description',
+        'canonical' => 'rank_math_canonical_url',
+    );
+    if (!isset($keys[$field]) || !is_string($before_value) || !is_string($after_value)) {
+        return seogrow_connector_atomic_unavailable();
+    }
+
+    $id = (int) $term->term_id;
+    $taxonomy = (string) $term->taxonomy;
+    $key = $keys[$field];
+    if ($id <= 0 || !in_array($taxonomy, array('category', 'post_tag'), true) || !current_user_can('edit_term', $id)) {
+        return new WP_Error('ATOMIC_WRITE_FORBIDDEN', 'Identità o permessi tassonomia non validi.', array('status' => 403));
+    }
+    if (strlen($before_value) > 4096 || strlen($after_value) > 4096) {
+        return new WP_Error('ATOMIC_META_VALUE_INVALID', 'Valore meta SEO tassonomia troppo grande per la scrittura atomica.', array('status' => 400));
+    }
+
+    foreach (array($wpdb->terms, $wpdb->term_taxonomy, $wpdb->termmeta) as $table) {
+        $engine = $wpdb->get_var($wpdb->prepare(
+            'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+            $table
+        ));
+        if (strtoupper((string) $engine) !== 'INNODB') {
+            return seogrow_connector_atomic_unavailable();
+        }
+    }
+    if ((string) $wpdb->get_var('SELECT @@session.autocommit') !== '1' ||
+        $wpdb->query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ') === false ||
+        $wpdb->query('START TRANSACTION') === false) {
+        return seogrow_connector_atomic_unavailable();
+    }
+
+    $committed = false;
+    $commit_attempted = false;
+    try {
+        $identity = $wpdb->get_row($wpdb->prepare(
+            "SELECT t.term_id, t.slug, tt.taxonomy
+             FROM {$wpdb->terms} t
+             INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_id = t.term_id
+             WHERE t.term_id = %d AND tt.taxonomy = %s
+             FOR UPDATE",
+            $id,
+            $taxonomy
+        ), ARRAY_A);
+        if (!$identity || (int) $identity['term_id'] !== $id || (string) $identity['taxonomy'] !== $taxonomy) {
+            throw new RuntimeException('identity');
+        }
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT meta_id, meta_key, meta_value
+             FROM {$wpdb->termmeta}
+             WHERE term_id = %d AND meta_key = %s
+             FOR UPDATE",
+            $id,
+            $key
+        ), ARRAY_A);
+        if (!is_array($rows) || count($rows) !== 1) {
+            throw new RuntimeException('ambiguous_meta');
+        }
+        $meta = $rows[0];
+        if (!seogrow_connector_atomic_exact_equal((string) $meta['meta_value'], $before_value)) {
+            throw new RuntimeException('stale');
+        }
+
+        $no_write_required = seogrow_connector_atomic_exact_equal($before_value, $after_value);
+        if (!$no_write_required) {
+            $affected = $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->termmeta}
+                 SET meta_value = %s
+                 WHERE meta_id = %d AND term_id = %d AND meta_key = %s
+                   AND BINARY meta_value = BINARY %s",
+                $after_value,
+                (int) $meta['meta_id'],
+                $id,
+                $key,
+                $before_value
+            ));
+            if ($affected === false) {
+                throw new RuntimeException('db_failure');
+            }
+            if ((int) $affected !== 1) {
+                throw new RuntimeException('stale');
+            }
+        }
+
+        $locked_after = $wpdb->get_var($wpdb->prepare(
+            "SELECT meta_value FROM {$wpdb->termmeta} WHERE meta_id = %d FOR UPDATE",
+            (int) $meta['meta_id']
+        ));
+        if (!is_string($locked_after) || !seogrow_connector_atomic_exact_equal($locked_after, $after_value)) {
+            throw new RuntimeException('result');
+        }
+        $commit_attempted = true;
+        if ($wpdb->query('COMMIT') === false) {
+            throw new RuntimeException('commit_uncertain');
+        }
+        $committed = true;
+
+        if (function_exists('clean_term_cache')) {
+            clean_term_cache($id, $taxonomy);
+        }
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete($id, 'term_meta');
+        }
+
+        $final_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT meta_id, meta_value FROM {$wpdb->termmeta} WHERE term_id = %d AND meta_key = %s",
+            $id,
+            $key
+        ), ARRAY_A);
+        $db_value = is_array($final_rows) && count($final_rows) === 1 ? (string) $final_rows[0]['meta_value'] : null;
+        $api_value = get_term_meta($id, $key, true);
+        $db_matches = is_string($db_value) && seogrow_connector_atomic_exact_equal($db_value, $after_value);
+        $api_matches = is_string($api_value) && seogrow_connector_atomic_exact_equal($api_value, $after_value);
+        if (!$db_matches || !$api_matches) {
+            return new WP_Error(
+                'ATOMIC_RESULT_UNVERIFIED',
+                'Meta tassonomia scritto ma persistenza finale non confermata. Riverifica prima di continuare.',
+                array('status' => 409)
+            );
+        }
+
+        return array(
+            'ok' => true,
+            'atomicGuaranteed' => true,
+            'staleChecked' => true,
+            'operation' => (string) $request->get_param('operation'),
+            'resource' => 'taxonomy',
+            'adapter' => 'rank-math',
+            'field' => $field,
+            'singleField' => true,
+            'noWriteRequired' => $no_write_required,
+            'before' => $before_value,
+            'after' => $after_value,
+            'term' => array(
+                'id' => $id,
+                'taxonomy' => $taxonomy,
+                'slug' => isset($identity['slug']) ? (string) $identity['slug'] : '',
+                'link' => function_exists('get_term_link') ? (string) get_term_link($term) : '',
+            ),
+            'scope' => 'rank-math-termmeta-cas-v1',
+            'requiresFrontendVerification' => true,
+            'persistenceProof' => array(
+                'verified' => true,
+                'dbRowCount' => count($final_rows),
+                'apiMatches' => $api_matches,
+                'dbMatches' => $db_matches,
+                'source' => 'wp_termmeta+get_term_meta',
+            ),
+        );
+    } catch (Throwable $error) {
+        if (!$committed && !$commit_attempted) {
+            $wpdb->query('ROLLBACK');
+        } else if (!$committed && $commit_attempted) {
+            // COMMIT returned an error: do not claim a pre-write denial because
+            // the remote database outcome cannot be proven from this response.
+            $wpdb->query('ROLLBACK');
+        }
+        if (function_exists('clean_term_cache')) {
+            clean_term_cache($id, $taxonomy);
+        }
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete($id, 'term_meta');
+        }
+        if ($committed || $commit_attempted || $error->getMessage() === 'commit_uncertain') {
+            return new WP_Error(
+                'ATOMIC_RESULT_UNVERIFIED',
+                'Esito della scrittura tassonomia da verificare. Nessun nuovo tentativo automatico eseguito.',
+                array('status' => 409)
+            );
+        }
+        if ($error->getMessage() === 'stale') {
+            return new WP_Error('STALE_CONFLICT', 'La tassonomia è cambiata dopo l’anteprima. Nessuna sovrascrittura eseguita.', array('status' => 409));
+        }
+        if ($error->getMessage() === 'ambiguous_meta') {
+            return new WP_Error(
+                'ATOMIC_WRITE_UNAVAILABLE',
+                'Scrittura Rank Math tassonomia bloccata: il campo deve avere una singola riga wp_termmeta verificabile. Nessuna modifica applicata.',
+                array('status' => 409)
+            );
+        }
+        if ($error->getMessage() === 'identity') {
+            return new WP_Error('STALE_CONFLICT', 'La tassonomia WordPress è cambiata prima della scrittura. Nessuna sovrascrittura eseguita.', array('status' => 409));
+        }
+        return seogrow_connector_atomic_unavailable();
+    }
+}
+
 function seogrow_connector_atomic_write(WP_REST_Request $request) {
     $operation = (string) $request->get_param('operation');
     if (!in_array($operation, array('apply', 'rollback'), true)) {
@@ -171,8 +364,9 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot e modifiche completi obbligatori.', array('status' => 400));
     }
 
-    // Taxonomy storage remains fail-closed until its plugin-owned persistence can
-    // expose the same atomic compare-and-swap guarantees as posts/postmeta.
+    // Taxonomy writes are enabled only for storage shapes that prove the same
+    // atomic compare-and-swap guarantees as posts/postmeta. Unsupported plugin
+    // storage and non-scalar fields remain fail-closed.
     if ($resource === 'taxonomy') {
         $term = seogrow_connector_find_exact_taxonomy_term(esc_url_raw((string) $request->get_param('url')));
         if (is_wp_error($term)) { return $term; }
@@ -183,8 +377,25 @@ function seogrow_connector_atomic_write(WP_REST_Request $request) {
         if (count($changes) !== 1 || !array_key_exists($field, $changes) || !array_key_exists($field, $expected)) {
             return new WP_Error('EXPECTED_CURRENT_REQUIRED', 'Snapshot single-field obbligatorio.', array('status' => 400));
         }
-        $validation = seogrow_connector_taxonomy_validate_write($term, (string) $request->get_param('adapter'), $field, $changes[$field], $expected[$field]);
-        if (is_wp_error($validation)) { return $validation; }
+        $adapter = (string) $request->get_param('adapter');
+        $validation = seogrow_connector_taxonomy_validate_write($term, $adapter, $field, $changes[$field], $expected[$field]);
+        if (is_wp_error($validation)) {
+            if (method_exists($validation, 'get_error_code') && $validation->get_error_code() === 'seogrow_taxonomy_stale') {
+                return new WP_Error('STALE_CONFLICT', 'La tassonomia è cambiata dopo l’anteprima. Nessuna sovrascrittura eseguita.', array('status' => 409));
+            }
+            return $validation;
+        }
+        if ($adapter === 'rank-math' && in_array($field, array('title', 'meta_description', 'canonical'), true)) {
+            return seogrow_connector_atomic_rank_math_taxonomy_write(
+                $request,
+                $term,
+                $field,
+                $validation['current'],
+                $validation['next']
+            );
+        }
+        // Yoast taxonomy storage and Rank Math robots/noindex remain fail-closed
+        // until their exact storage can provide an equivalent single-row CAS.
         return seogrow_connector_atomic_unavailable();
     }
 
