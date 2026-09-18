@@ -210,6 +210,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     setRunning(true);
     setResults([]);
     const next = [];
+    let resolvedCount = 0;
     for (let index = 0; index < selected.length; index += 1) {
       const currentIssue = selected[index];
       const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
@@ -266,7 +267,7 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
             targetUrl: kind === "external_link" ? brokenExternalTarget(currentIssue) : "",
             reason: "live-readonly-resolved",
           });
-          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, linkResolution: plan.linkResolution, contextSnapshot, inspected, frontendContext, closure, ...identity });
+          resolvedCount += 1;
           setResults([...next]);
           continue;
         }
@@ -300,11 +301,10 @@ export default function WordPressLiveRemediationControlV2({ batchPlan = null, on
     }
 
     const ready = next.filter((item) => item.status === "preview").length;
-    const resolved = next.filter((item) => item.status === "resolved").length;
-    const blocked = next.length - ready - resolved;
+    const blocked = next.length - ready;
     const foundConflicts = detectPreviewConflicts(next);
     setMessage(
-      `Esaminati ${next.length}/${selected.length} · pronti ${ready} · già risolti ${resolved} · bloccati ${blocked} · conflitti ${foundConflicts.length}. ${ready > 1 ? "Le anteprime si applicano una alla volta per sicurezza." : "Nessuna modifica live è stata ancora eseguita."}`,
+      `Esaminati ${next.length + resolvedCount}/${selected.length} · pronti ${ready} · già risolti e rimossi ${resolvedCount} · bloccati ${blocked} · conflitti ${foundConflicts.length}. ${ready > 1 ? "Le anteprime si applicano una alla volta per sicurezza." : resolvedCount > 0 && ready === 0 && blocked === 0 ? "I problemi già risolti sono stati rimossi dagli attivi e registrati nello storico." : "Nessuna modifica live è stata ancora eseguita."}`,
     );
     } catch (error) {
       setResults([]); setMessage(error.message || "Preparazione non riuscita.");
