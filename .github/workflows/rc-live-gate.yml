@@ -3,7 +3,7 @@ name: RC Live Gate
 on:
   push:
     branches:
-      - release/1.4.3-rc.1
+      - release/1.4.4-rc.1
   workflow_dispatch:
 
 permissions:
