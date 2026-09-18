@@ -48,10 +48,10 @@ const rankInspection = () => normalizeTaxonomyInspection({
   plugins: { rankMath: true, yoast: false },
 }, "https://example.com/argomenti/seo/");
 
-test("Connector 1.3.9 espone CAS atomico Rank Math tassonomie senza allargare gli storage non certificati", () => {
-  assert.match(connectorLoader, /Version: 1\.3\.9/);
-  assert.match(connectorCore, /Version: 1\.3\.9/);
-  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.9'/);
+test("Connector 1.3.10 espone CAS atomico Rank Math tassonomie senza allargare gli storage non certificati", () => {
+  assert.match(connectorLoader, /Version: 1\.3\.10/);
+  assert.match(connectorCore, /Version: 1\.3\.10/);
+  assert.match(connectorCore, /SEOGROW_CONNECTOR_VERSION = '1\.3\.10'/);
   assert.match(connector, /\/taxonomy-inspect/);
   assert.match(connector, /\/taxonomy-write/);
   assert.match(connector, /get_term_link\(\$term\)/);
