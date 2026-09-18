@@ -1,0 +1,93 @@
+name: 1.4.4 Elementor Theme Builder Evidence
+
+on:
+  push:
+    branches:
+      - validation/1.4.4-rankmath-cachefix
+    paths:
+      - .github/workflows/issue7-elementor-themebuilder.yml
+
+permissions:
+  contents: read
+
+jobs:
+  elementor-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: wordpress-staging
+    env:
+      SEOGROW_WP_SITE_URL: https://staging.yogabuenaonda.it
+      SEOGROW_WP_E2E_CONFIRM_HOST: staging.yogabuenaonda.it
+      SEOGROW_WP_USERNAME: ${{ secrets.SEOGROW_WP_USERNAME }}
+      SEOGROW_WP_APPLICATION_PASSWORD: ${{ secrets.SEOGROW_WP_APPLICATION_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Require Connector 1.3.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SEOGROW_WP_USERNAME:-}"
+          test -n "${SEOGROW_WP_APPLICATION_PASSWORD:-}"
+          body="$(curl -fsS -u "${SEOGROW_WP_USERNAME}:${SEOGROW_WP_APPLICATION_PASSWORD}" "${SEOGROW_WP_SITE_URL}/wp-json/seogrow/v1/status")"
+          echo "$body"
+          echo "$body" | jq -e '.version == "1.3.10" and .elementor == true and .elementorPro == true' >/dev/null
+
+      - name: Start SeoGrow runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/seogrow-elementor-themebuilder.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-elementor-themebuilder.pid"
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat "$RUNNER_TEMP/seogrow-elementor-themebuilder.log"
+          exit 1
+
+      - name: Elementor read-only E2E
+        run: npm run test:wordpress-elementor-e2e
+
+      - name: Explicit Theme Builder evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${SEOGROW_WP_SITE_URL}/wp-json/seogrow/v1"
+          auth="${SEOGROW_WP_USERNAME}:${SEOGROW_WP_APPLICATION_PASSWORD}"
+          impact="$(curl -fsS -u "$auth" "$base/elementor-impact-inspect?ids=185,327,584,598")"
+          echo "$impact" | jq .
+          echo "$impact" | jq -e '
+            .ok == true and
+            (.documents | map({id,type,conditionsObserved,conditions})) as $d and
+            ($d | any(.id == 185 and .type == "header" and .conditionsObserved == true)) and
+            ($d | any(.id == 327 and .type == "footer" and .conditionsObserved == true)) and
+            ($d | any(.id == 584 and .type == "archive" and .conditionsObserved == true)) and
+            ($d | any(.id == 598 and .type == "single-post" and .conditionsObserved == true))
+          ' >/dev/null
+
+      - name: Stop runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-elementor-themebuilder.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-elementor-themebuilder.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --port" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: issue7-elementor-themebuilder-evidence
+          path: ${{ runner.temp }}/seogrow-elementor-themebuilder.log
+          if-no-files-found: warn
+          retention-days: 7
