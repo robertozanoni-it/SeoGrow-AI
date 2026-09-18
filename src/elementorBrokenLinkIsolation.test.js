@@ -5,7 +5,7 @@ import { prepareElementorBrokenExternalLink } from "./brokenLinkRemediation.js";
 const target = "https://www.yogajournal.com/poses/types/advanced/";
 const wrapped = `https://www.google.com/search?q=${target}`;
 const anchor = "Yoga Journal fornisce approfondimenti dettagliati sulle tecniche per affrontare queste posizioni complesse";
-const beforeText = `<p>Una guida qualificada come <a href="${wrapped}">${anchor}</a>, sottolineando sempre l'importanza di una progressione graduale.</p>`;
+const beforeText = `<p>Una guida qualificada come\u00a0<a href="${wrapped}">${anchor}</a>, sottolineando sempre l'importanza di una progressione graduale.</p>`;
 const fixture = (html = beforeText) => [
   { id: "heading", elType: "widget", widgetType: "heading", settings: { title: "Titolo invariato" }, elements: [] },
   { id: "cd1d669", elType: "widget", widgetType: "text-editor", settings: { editor: html, text_color: "#123456" }, elements: [] },
