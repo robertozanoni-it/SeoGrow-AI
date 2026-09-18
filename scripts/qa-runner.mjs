@@ -32,8 +32,11 @@ async function run(name, args, cwd = root, env = process.env, timeoutMs = 120000
   report.steps.push({ name, exitCode: code, signal: child.signalCode, timedOut, durationMs: Date.now() - started, log });
   console.log(name + ": " + (code === 0 ? "PASS" : "FAIL"));
   if (code !== 0) {
-    const tapFailures = text.split(/\\r?\\n/).filter(line => /(?:^|\\s)not ok\\b/.test(line)).slice(0, 12);
-    const failureSummary = tapFailures.length ? ` TAP failures: ${tapFailures.join(" | ")}` : text.slice(-1800);
+    const normalized = text.replace(/\\u001b\\[[0-9;]*m/g, "");
+    const tapFailures = [...normalized.matchAll(/(?:^|\\n)[^\\n]*not ok\\s+[^\\n]*/g)].map(match => match[0].trim()).slice(0, 12);
+    const subtestFailures = [...normalized.matchAll(/# Subtest:\\s*([^\\n]+)[\\s\\S]{0,1200}?not ok\\s+\\d+\\s+-\\s+([^\\n]+)/g)].map(match => `not ok - ${match[2] || match[1]}`).slice(0, 12);
+    const failures = tapFailures.length ? tapFailures : subtestFailures;
+    const failureSummary = failures.length ? ` TAP failures: ${failures.join(" | ")}` : text.slice(-1800);
     throw new Error(name + (timedOut ? ` exceeded ${timeoutMs}ms deadline: ` : " failed: ") + failureSummary);
   }
 }
