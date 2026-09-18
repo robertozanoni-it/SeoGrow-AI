@@ -1,10 +1,13 @@
-import test from "node:test";
+import test, { afterEach, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
 import { matchBrokenLinkHref, singleAnchorHref, transformBrokenLinkAnchors } from "./modules/links/index.js";
-import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
+import { brokenExternalTarget, prepareElementorBrokenExternalLink, removeExactAnchor, resetBrokenLinkCleanupModesForTests, setBrokenLinkCleanupMode } from "./brokenLinkRemediation.js";
+
+beforeEach(() => resetBrokenLinkCleanupModesForTests());
+afterEach(() => resetBrokenLinkCleanupModesForTests());
 
 const target = "https://www.yogajournal.com/poses/types/advanced/";
 const wrapped = `https://www.google.com/search?q=${target}`;
