@@ -16,6 +16,7 @@ import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
 import { decideResolutionPath } from "./resolutionDecisionEngine.js";
 import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js";
 import { dueMonitoringIncidents, monitoringPlan } from "./monitoringScheduler.js";
+import { notifyGuardianLifecycle, notifyGuardianMonitoringFailure } from "./guardianNotifications.js";
 
 export const GUARDIAN_VERSION = "1.0.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
@@ -112,6 +113,19 @@ export function guardianSettings(storage = workspaceStorage) {
     intervalMs: Math.max(15_000, Math.min(10 * 60_000, Number(settings.intervalMs) || DEFAULT_SETTINGS.intervalMs)),
     maxIncidents: Math.max(50, Math.min(500, Number(settings.maxIncidents) || DEFAULT_SETTINGS.maxIncidents)),
   };
+}
+
+export function setGuardianMonitoringEnabled(enabled, storage = workspaceStorage) {
+  const current = guardianSettings(storage);
+  const next = { ...current, monitoringEnabled: enabled === true };
+  writeWorkspaceJson(GUARDIAN_SETTINGS_KEY, next, storage);
+  dispatchGuardianUpdate({ type: "monitoring-setting", monitoringEnabled: next.monitoringEnabled });
+  return next;
+}
+
+export function guardianMonitoringEnabled(storage = workspaceStorage) {
+  const settings = guardianSettings(storage);
+  return settings.monitoringEnabled !== false;
 }
 
 const dispatchGuardianUpdate = (detail = {}) => {
@@ -252,6 +266,7 @@ const detectAndRecordSignal = (input) => {
     ].filter(Boolean).join(" "),
   });
   dispatchGuardianUpdate({ type: "detected-problem", incident, classification, diagnosis, resolution, recurrence });
+  notifyGuardianLifecycle(incident);
   return { incident, classification, diagnosis, resolution, recurrence };
 };
 
@@ -588,10 +603,12 @@ export function markGuardianMonitored(fingerprint, result = {}, now = new Date()
   };
   writeWorkspaceJson(GUARDIAN_INCIDENTS_KEY, rows, workspaceStorage);
   dispatchGuardianUpdate({ type: "monitoring-completed", incident: rows[index], result });
+  if (result?.ok === false) notifyGuardianMonitoringFailure(rows[index], result);
   return rows[index];
 }
 
 export function runDueGuardianMonitoring(now = Date.now()) {
+  if (!guardianMonitoringEnabled()) return [];
   const queue = guardianMonitoringQueue(now);
   if (typeof window !== "undefined") for (const item of queue) {
     window.dispatchEvent(new CustomEvent("seogrow-guardian-monitoring-due", {

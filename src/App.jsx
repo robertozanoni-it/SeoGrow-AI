@@ -3310,7 +3310,7 @@ function Modal({ title, close, children }) {
   );
 }
 
-function Toast({ message, kind = "info", onOpen, onClose }) {
+function Toast({ message, kind = "info", onOpen, actionLabel = "", onAction, onClose }) {
   useEffect(() => {
     if (onOpen || kind !== "success") return undefined;
     const timer = window.setTimeout(onClose, 6000);
@@ -3321,6 +3321,7 @@ function Toast({ message, kind = "info", onOpen, onClose }) {
       {kind === "error" ? <AlertTriangle aria-hidden="true" /> : kind === "success" ? <Check aria-hidden="true" /> : <HelpCircle aria-hidden="true" />}
       <span role={kind === "error" ? "alert" : "status"}>{message}</span>
       {onOpen && <button onClick={onOpen}>Apri task</button>}
+      {onAction && <button onClick={onAction}>{actionLabel || "Apri"}</button>}
       <button className="icon-btn" aria-label="Chiudi" onClick={onClose}>
         <X />
       </button>
@@ -4034,6 +4035,22 @@ export default function App() {
     listCorrections({ clientId: selectedClient }).then(items => { if (!cancelled) setCorrectionHistory(items); }).catch(() => { if (!cancelled) setCorrectionHistory([]); });
     return () => { cancelled = true; };
   }, [selectedClient, tasks]);
+  useEffect(() => {
+    const receiveGuardianNotification = (event) => {
+      const detail = event?.detail || {};
+      setToast({
+        kind: detail.kind === "error" ? "error" : detail.kind === "warning" ? "warning" : "info",
+        message: [detail.title, detail.message].filter(Boolean).join(": "),
+        clientId: detail.clientId || selectedClient,
+        guardianFingerprint: detail.fingerprint || "",
+        actionLabel: detail.fingerprint ? "Apri Guardian" : "",
+        onAction: detail.fingerprint ? () => window.dispatchEvent(new CustomEvent("seogrow-guardian-open-incident", { detail: { fingerprint: detail.fingerprint, clientId: detail.clientId } })) : null,
+      });
+    };
+    window.addEventListener("seogrow-guardian-notification", receiveGuardianNotification);
+    return () => window.removeEventListener("seogrow-guardian-notification", receiveGuardianNotification);
+  }, [selectedClient]);
+
   const [automationNotifications, setAutomationNotifications] = useState([]);
   useEffect(() => {
     const receive = (event) => setAutomationNotifications(Array.isArray(event?.detail?.notifications) ? event.detail.notifications : []);
@@ -4414,6 +4431,8 @@ export default function App() {
             setPage("Task");
             setToast("");
           } : undefined}
+          actionLabel={toast.actionLabel}
+          onAction={toast.onAction ? () => { toast.onAction(); setToast(""); } : undefined}
           onClose={() => setToast("")}
         />
       )}

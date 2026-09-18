@@ -4,6 +4,10 @@ import {
   guardianSnapshot,
   installGuardianRuntime,
   runGuardianScan,
+  guardianMonitoringQueue,
+  guardianMonitoringEnabled,
+  setGuardianMonitoringEnabled,
+  runDueGuardianMonitoring,
 } from "./guardianEngine.js";
 import "./GuardianConsole.css";
 
@@ -26,12 +30,17 @@ const scoreTone = (score) => score >= 95 ? "healthy" : score >= 80 ? "warning" :
 export default function GuardianConsole() {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  const [monitoringEnabled, setMonitoringEnabled] = useState(() => guardianMonitoringEnabled());
+  const [lastMonitoringRun, setLastMonitoringRun] = useState("");
   const [snapshot, setSnapshot] = useState(() => guardianSnapshot());
+  const [focusFingerprint, setFocusFingerprint] = useState("");
 
   useEffect(() => {
     const refresh = () => setSnapshot(guardianSnapshot());
+    const openIncident = (event) => { setFocusFingerprint(event?.detail?.fingerprint || ""); setOpen(true); setSnapshot(guardianSnapshot()); };
     window.addEventListener("seogrow-guardian-updated", refresh);
-    return () => window.removeEventListener("seogrow-guardian-updated", refresh);
+    window.addEventListener("seogrow-guardian-open-incident", openIncident);
+    return () => { window.removeEventListener("seogrow-guardian-updated", refresh); window.removeEventListener("seogrow-guardian-open-incident", openIncident); };
   }, []);
 
   const activateGuardian = () => {
@@ -40,11 +49,14 @@ export default function GuardianConsole() {
     setOpen((value) => !value);
   };
 
+  const monitoringQueue = useMemo(() => guardianMonitoringQueue(), [snapshot]);
+  const nextMonitoring = useMemo(() => snapshot.open.map((incident) => incident.monitoring?.dueAt).filter(Boolean).toSorted()[0] || "", [snapshot.open]);
+
   const visibleIncidents = useMemo(
     () => snapshot.open
-      .toSorted((left, right) => Date.parse(right.lastSeenAt || 0) - Date.parse(left.lastSeenAt || 0))
+      .toSorted((left, right) => (left.fingerprint === focusFingerprint ? -1 : right.fingerprint === focusFingerprint ? 1 : Date.parse(right.lastSeenAt || 0) - Date.parse(left.lastSeenAt || 0)))
       .slice(0, 8),
-    [snapshot.open],
+    [snapshot.open, focusFingerprint],
   );
 
   const scanNow = async () => {
@@ -91,6 +103,8 @@ export default function GuardianConsole() {
             </span>
           </div>
 
+          <div className="guardian-monitoring-summary"><strong>Monitoraggio continuo</strong><label><input type="checkbox" checked={monitoringEnabled} onChange={(event) => { const enabled = event.target.checked; setGuardianMonitoringEnabled(enabled); setMonitoringEnabled(enabled); }} /> {monitoringEnabled ? "Attivo" : "Disattivato"}</label><span>{monitoringQueue.length} controlli dovuti</span><span>{nextMonitoring ? `Prossimo controllo: ${new Date(nextMonitoring).toLocaleString("it-IT")}` : "Le prossime scadenze vengono calcolate dal lifecycle Guardian"}</span><button type="button" disabled={!monitoringEnabled} onClick={() => { const due = runDueGuardianMonitoring(); setLastMonitoringRun(new Date().toISOString()); setSnapshot(guardianSnapshot()); if (!due.length) setLastMonitoringRun("none"); }}>Controlla problemi dovuti ora</button>{lastMonitoringRun && <small>{lastMonitoringRun === "none" ? "Nessun controllo dovuto in questo momento." : `Ultimo avvio manuale: ${new Date(lastMonitoringRun).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`}</small>}</div>
+
           <div className="guardian-boundary">
             <strong>Confine di sicurezza</strong>
             <span>Guardian corregge automaticamente solo stato derivato, navigazione e proprio ledger. WordPress, contenuti cliente e restore richiedono approvazione.</span>
@@ -107,7 +121,7 @@ export default function GuardianConsole() {
                 <span>I controlli automatici non hanno rilevato problemi aperti.</span>
               </div>
             ) : visibleIncidents.map((incident) => (
-              <article className={`guardian-incident severity-${incident.severity || "warning"}`} key={incident.id}>
+              <article className={`guardian-incident severity-${incident.severity || "warning"} ${incident.fingerprint === focusFingerprint ? "is-focused" : ""}`} key={incident.id}>
                 <div className="guardian-incident-top">
                   <strong>{incident.code}</strong>
                   <span>{stateLabel(incident.state)}</span>
@@ -131,7 +145,7 @@ export default function GuardianConsole() {
           </section>
 
           <footer className="guardian-footer">
-            Guardian v{snapshot.version} · nessun audit SEO viene avviato automaticamente.
+            Guardian v{snapshot.version} · monitoraggio automatico attivo mentre la Suite è aperta; regression e flapping restano fuori da AutoFix.
           </footer>
         </section>
       )}
