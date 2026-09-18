@@ -4159,6 +4159,7 @@ export default function App() {
           selectedClient={selectedClient}
           gscData={gscData}
           geo={geoData[selectedClient]}
+          rankings={rankings[selectedClient] || rankings[String(selectedClient)] || []}
           wordpressConnections={wordpressConnections}
           onNavigate={setPage}
           onOpenClient={openClient}
