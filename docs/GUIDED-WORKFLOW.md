@@ -8,9 +8,9 @@ Il Centro progetto distingue la configurazione iniziale, il lavoro sulle correzi
 2. **Problemi — viola.** Selezionare fino a 10 problemi e premere “Revisiona”. “Da preparare” indica un candidato, non una proposta già approvabile. Le schede manuali indicano dove continuare.
 3. **WordPress — ambra.** Controllare URL e utente, inserire la password applicativa e premere “Collega WordPress”. Una connessione verificata nella sessione viene riutilizzata.
 4. **Proposte — azzurro.** Preparare le anteprime, confrontare il valore attuale e quello proposto, approvare ogni modifica singolarmente. Ogni scheda indica l’esito e il prossimo passo; una proposta bloccata non espone l’applicazione.
-5. **Verifica — verde.** Aprire “Cronologia e ripristino” e premere “Riverifica” sulla correzione. Consultare l’esito prima dell’eventuale ripristino controllato. Un nuovo audit aggiorna l’inventario dei problemi.
+5. **Verifica — verde.** Dopo un apply approvato SeoGrow avvia subito la pipeline canonica di verifica. Il problema resta tra gli attivi finché frontend e, quando richiesto, audit di conferma non dimostrano la risoluzione. Quando la correzione diventa `Verificato`, il problema sparisce dagli attivi ma il Prima/Dopo e il rollback restano disponibili in Correzioni.
 
-La preparazione non scrive su WordPress. Controlli di autorizzazione, conflitti, audit obsoleto, approvazione singola e ripristino restano invariati. Il lavoro riguarda l’interfaccia: non completa i collaudi live Elementor ancora aperti.
+La preparazione non scrive su WordPress. Controlli di autorizzazione, conflitti, audit obsoleto, approvazione singola, completion evidence e ripristino restano invariati. La verifica automatica non abbassa i gate: senza evidenza sufficiente il problema resta attivo.
 
 ## Verifica dell’interfaccia
 
