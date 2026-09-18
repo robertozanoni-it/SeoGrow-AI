@@ -21,6 +21,7 @@ import { restoreValidatedWorkspace } from "./workspaceRestore.js";
 import { flushWorkspace } from "./workspaceDatabase.js";
 import { reconcileAuditTasks } from "./auditTaskReconciliation";
 import { closuresFromAgentRuns } from "./problemClosureMigration.js";
+import { mergeAutomationNotifications } from "./automationNotifications.js";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -4017,7 +4018,13 @@ export default function App() {
     listCorrections({ clientId: selectedClient }).then(items => { if (!cancelled) setCorrectionHistory(items); }).catch(() => { if (!cancelled) setCorrectionHistory([]); });
     return () => { cancelled = true; };
   }, [selectedClient, tasks]);
-  const notifications = preferences.notifications
+  const [automationNotifications, setAutomationNotifications] = useState([]);
+  useEffect(() => {
+    const receive = (event) => setAutomationNotifications(Array.isArray(event?.detail?.notifications) ? event.detail.notifications : []);
+    window.addEventListener("seogrow-automation-notifications", receive);
+    return () => window.removeEventListener("seogrow-automation-notifications", receive);
+  }, []);
+  const baseNotifications = preferences.notifications
     ? buildNotifications({
         tasks: selectedTasks,
         dataset: selectedDataset,
@@ -4025,6 +4032,9 @@ export default function App() {
         analysis: selectedAnalysis,
         rankings: rankings[selectedClient] || rankings[String(selectedClient)] || [],
       })
+    : [];
+  const notifications = preferences.notifications
+    ? mergeAutomationNotifications(baseNotifications, [], []).concat(automationNotifications).filter((item, index, all) => item?.id && all.findIndex((candidate) => candidate.id === item.id) === index)
     : [];
   const allSearchResults = searchWorkspace(query, { pages: nav.map(([label]) => label), clients, tasks });
   const searchResults = allSearchResults.slice(0, 10);
