@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
+import { canonicalRuntimePage } from "./PageRouteReconciler.js";
 
 const source = await readFile(new URL("./PageRouteReconciler.js", import.meta.url), "utf8");
 const main = await readFile(new URL("./appMain.jsx", import.meta.url), "utf8");
@@ -35,4 +36,14 @@ test("entrypoint installa il reconciler prima dei layer React", () => {
   const reconciler = main.indexOf("import './PageRouteReconciler';");
   const react = main.indexOf("import React from 'react';");
   assert.ok(reconciler >= 0 && reconciler < react);
+});
+
+test("le route legacy ritirate convergono sui moduli canonici", () => {
+  assert.equal(canonicalRuntimePage("Storico"), "Centro progetto");
+  assert.equal(canonicalRuntimePage("SeoGrow AI"), "SEO Agent");
+});
+
+test("Problemi resta la sottovista operativa di Audit SEO", () => {
+  assert.equal(canonicalRuntimePage("Problemi"), "Problemi");
+  assert.equal(canonicalRuntimePage("Audit SEO"), "Audit SEO");
 });
