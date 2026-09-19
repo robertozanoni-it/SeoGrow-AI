@@ -388,7 +388,8 @@ export function buildUnifiedProblems({
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     if (isLegalPage(sourceUrl)) continue;
     const taskKind = String(task?.kind || "").trim().toLowerCase();
-    const explicitManualTask = taskOrigin(task) === "manual" || taskKind === "manual";
+    const legacyAnalysisTask = /^analysis-/i.test(String(task?.id || ""));
+    const explicitManualTask = taskKind === "manual" || (task?.origin === "manual" && !legacyAnalysisTask);
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
     if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
@@ -396,7 +397,7 @@ export function buildUnifiedProblems({
     const event = taskEvent(task);
     group.events.push(event);
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
-    const auditDerivedTask = !explicitManualTask && (taskOrigin(task) === "audit" || task?.automatic === true || legacyAuditTask);
+    const auditDerivedTask = !explicitManualTask && (taskOrigin(task) === "audit" || task?.automatic === true || legacyAuditTask || legacyAnalysisTask);
     if (auditDerivedTask) {
       const taskObservedAt = task?.lastObservedAt || task?.createdAt || "";
       group.auditDerivedTask = true;
