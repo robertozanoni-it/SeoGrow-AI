@@ -252,11 +252,13 @@ const reconcileAuditClearance = (groups, audits) => {
       group.auditDerivedTask ? group.latestAuditTaskAt : "",
       group.latestCorrectionAt,
     ].filter(Boolean).toSorted((a, b) => timestamp(b) - timestamp(a))[0] || "";
-    if (!baselineAt || !locallyClearableAuditTypes.has(issueType)) continue;
+    const hasHistoricalEvidence = Boolean(group.latestAuditAt || group.auditDerivedTask || group.latestCorrectionAt);
+    if (!hasHistoricalEvidence || !locallyClearableAuditTypes.has(issueType)) continue;
+    const baselineTime = baselineAt ? timestamp(baselineAt) : -1;
     const clearingAudit = audits
       .filter(({ scope, item }) => {
         const at = item?.analyzedAt || item?.startedAt || "";
-        return timestamp(at) > timestamp(baselineAt) &&
+        return timestamp(at) > baselineTime &&
           (!siteOnlyClearanceTypes.has(issueType) || scope === "site") &&
           auditObservedUrl(scope, item, group.sourceUrl) &&
           !auditStillContainsGroup(group, item);
