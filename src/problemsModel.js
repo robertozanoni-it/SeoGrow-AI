@@ -117,6 +117,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   latestAuditAt: "",
   latestAuditTaskAt: "",
   auditDerivedTask: false,
+  latestCorrectionAt: "",
   auditClearedAt: "",
   auditClearedScope: "",
 });
@@ -212,7 +213,11 @@ const legacyAuditTaskKinds = new Set([
 const reconcileAuditClearance = (groups, audits) => {
   for (const group of groups.values()) {
     const issueType = String(group.issueType || "").trim().toLowerCase();
-    const baselineAt = group.latestAuditAt || (group.auditDerivedTask ? group.latestAuditTaskAt : "");
+    const baselineAt = [
+      group.latestAuditAt,
+      group.auditDerivedTask ? group.latestAuditTaskAt : "",
+      group.latestCorrectionAt,
+    ].filter(Boolean).toSorted((a, b) => timestamp(b) - timestamp(a))[0] || "";
     if (!baselineAt || !locallyClearableAuditTypes.has(issueType)) continue;
     const clearingAudit = audits
       .filter(({ scope, item }) => {
@@ -321,19 +326,21 @@ export function buildUnifiedProblems({
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
     if (String(task?.kind || "").trim().toLowerCase() === "seo-agent") continue;
-    if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
+    if (task.stale) continue;
     if (normalizeClientId(task?.sourceClientId) !== normalizedClientId) {
       if (!task?.sourceClientId && task?.client) warnings.push(`Task legacy non associata tramite ID: ${task.title || "senza titolo"}.`);
       continue;
     }
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     if (isLegalPage(sourceUrl)) continue;
+    const taskKind = String(task?.kind || "").trim().toLowerCase();
+    const explicitManualTask = task?.origin === "manual" || taskKind === "manual";
+    const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
+    if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
-    const taskKind = String(task?.kind || "").trim().toLowerCase();
-    const explicitManualTask = task?.origin === "manual" || taskKind === "manual";
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
     const auditDerivedTask = !explicitManualTask && (task?.origin === "audit" || task?.automatic === true || legacyAuditTask);
     if (auditDerivedTask) {
@@ -356,8 +363,6 @@ export function buildUnifiedProblems({
     });
   }
 
-  reconcileAuditClearance(groups, audits);
-
   for (const correction of (Array.isArray(corrections) ? corrections : []).flatMap(record => [record, ...(Array.isArray(record.batchIssues) ? record.batchIssues : []).map(item => ({ ...record, batchIssues: undefined, issue: item.issue, issueType: item.issue?.type, issueLabel: item.issue?.label, sourceUrl: item.sourceUrl, issueKey: undefined, legacyIssueKey: undefined }))])) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
     const sourceUrl = correction?.sourceUrl || "";
@@ -371,6 +376,7 @@ export function buildUnifiedProblems({
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = correctionEvent(correction);
     group.events.push(event);
+    if (event.at && (!group.latestCorrectionAt || timestamp(event.at) > timestamp(group.latestCorrectionAt))) group.latestCorrectionAt = event.at;
     group.fields = [...new Set([...group.fields, ...(Array.isArray(correction?.fields) ? correction.fields : [])])];
     if (correction?.adapter) group.adapters = [...new Set([...group.adapters, correction.adapter])];
     const reason = `${correction?.reason || ""} ${correction?.verificationNote || ""} ${correction?.error || ""}`;
@@ -385,6 +391,8 @@ export function buildUnifiedProblems({
       nature: correction?.status === "Verificato" ? "verified" : "operational",
     });
   }
+
+  reconcileAuditClearance(groups, audits);
 
   const closureFor = (group) => (Array.isArray(closures) ? closures : []).filter((item) => {
     if (normalizeClientId(item.clientId) !== normalizedClientId) return false;
