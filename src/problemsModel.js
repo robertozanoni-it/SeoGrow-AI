@@ -135,6 +135,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   latestAuditAt: "",
   latestAuditTaskAt: "",
   auditDerivedTask: false,
+  legacyAnalysisTask: false,
   latestCorrectionAt: "",
   auditClearedAt: "",
   auditClearedScope: "",
@@ -401,6 +402,7 @@ export function buildUnifiedProblems({
     if (auditDerivedTask) {
       const taskObservedAt = task?.lastObservedAt || task?.createdAt || "";
       group.auditDerivedTask = true;
+      if (legacyAnalysisTask) group.legacyAnalysisTask = true;
       if (!group.latestAuditTaskAt || timestamp(taskObservedAt) > timestamp(group.latestAuditTaskAt)) group.latestAuditTaskAt = taskObservedAt;
     }
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
@@ -473,11 +475,11 @@ export function buildUnifiedProblems({
     const reviewOnly = group.sources.some((source) => source.kind === "audit-review") && !group.sources.some((source) => source.kind === "audit");
     const reviewObservedAfterVerification = reviewOnly && (!state.verifiedAt || timestamp(group.latestAuditAt) > timestamp(state.verifiedAt));
     const closure = closureFor(group);
-    const taskOnlyAuditLegacy = group.auditDerivedTask === true &&
+    const taskOnlyMisMigratedAnalysis = group.legacyAnalysisTask === true &&
       group.sources.length > 0 &&
       group.sources.every((source) => source.kind === "task") &&
       !closure;
-    if (taskOnlyAuditLegacy) return null;
+    if (taskOnlyMisMigratedAnalysis) return null;
     const closureTime = timestamp(closure?.closedAt);
     const permanentlyExcluded = closureTime > 0 && isPermanentClosure(closure);
     const reobservedAfterClosure = !permanentlyExcluded && closureTime > 0 && group.events.some((event) => timestamp(event?.at) > closureTime && event?.kind === "audit_detected");
