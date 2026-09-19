@@ -63,6 +63,7 @@ export default function InternalLinksWorkspaceLayer() {
   const [host, setHost] = useState(null);
   const [flows, setFlows] = useState({});
   const [busyKey, setBusyKey] = useState("");
+  const [viewFilter, setViewFilter] = useState("all");
   const [correctionSnapshot, setCorrectionSnapshot] = useState({ clientId: null, rows: [] });
 
   useEffect(() => {
@@ -268,6 +269,16 @@ export default function InternalLinksWorkspaceLayer() {
   if (page !== "Link interni" || !host) return null;
   const verifiedCount = suggestionGate.valid.filter((suggestion) => currentCorrection(corrections, suggestion.key)?.status === "Verificato").length;
   const appliedCount = suggestionGate.valid.filter((suggestion) => ["Da verificare", "Verificato"].includes(currentCorrection(corrections, suggestion.key)?.status)).length;
+  const filteredSuggestions = suggestionGate.valid.filter((suggestion) => {
+    const status = currentCorrection(corrections, suggestion.key)?.status || "";
+    if (viewFilter === "applied") return ["Da verificare", "Verificato"].includes(status);
+    if (viewFilter === "verified") return status === "Verificato";
+    return true;
+  });
+  const selectFilter = (filter) => {
+    setViewFilter(filter);
+    window.requestAnimationFrame(() => document.querySelector(".internal-links-table-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   const content = !client ? (
     <section className="internal-links-workspace empty"><h2>Seleziona un progetto</h2><p>Le opportunità di linking sono isolate per sito.</p></section>
@@ -282,11 +293,17 @@ export default function InternalLinksWorkspaceLayer() {
       </header>
 
       <div className="internal-links-source-strip"><span><strong>Fonte</strong>Audit/crawl salvato</span><span><strong>Data</strong>{formatDate(analysisDate(analysis))}</span><span><strong>Sito</strong>{client.url}</span></div>
-      <div className="internal-links-kpis"><article><Link2 /><span><small>Opportunità sicure</small><strong>{suggestionGate.valid.length}</strong></span></article><article><AlertTriangle /><span><small>Scartate dal gate</small><strong>{suggestionGate.rejected.length}</strong></span></article><article><RefreshCw /><span><small>Applicate</small><strong>{appliedCount}</strong></span></article><article><CheckCircle2 /><span><small>Verificate</small><strong>{verifiedCount}</strong></span></article></div>
+      <div className="internal-links-kpis" aria-label="Filtri opportunità">
+        <button type="button" className={viewFilter === "all" ? "is-active" : ""} onClick={() => selectFilter("all")}><Link2 /><span><small>Opportunità sicure</small><strong>{suggestionGate.valid.length}</strong></span></button>
+        <button type="button" onClick={() => document.querySelector(".internal-links-rejected")?.scrollIntoView({ behavior: "smooth", block: "center" })}><AlertTriangle /><span><small>Scartate dal gate</small><strong>{suggestionGate.rejected.length}</strong></span></button>
+        <button type="button" className={viewFilter === "applied" ? "is-active" : ""} onClick={() => selectFilter("applied")}><RefreshCw /><span><small>Applicate</small><strong>{appliedCount}</strong></span></button>
+        <button type="button" className={viewFilter === "verified" ? "is-active" : ""} onClick={() => selectFilter("verified")}><CheckCircle2 /><span><small>Verificate</small><strong>{verifiedCount}</strong></span></button>
+      </div>
+      <div className="internal-links-seo-note"><strong>Distribuzione SEO</strong><span>La homepage non è la sorgente predefinita: SeoGrow privilegia la pagina semanticamente più pertinente e limita la concentrazione di suggerimenti sulla stessa sorgente.</span></div>
 
       {!analysis ? <div className="internal-links-empty"><Link2 /><div><h3>Nessun crawl disponibile</h3><p>Esegui un Audit SEO completo per generare opportunità di linking basate sulle pagine reali del sito.</p><button className="primary" onClick={() => navigatePage("Audit SEO")}>Apri Audit SEO</button></div></div> : !suggestionGate.valid.length ? <div className="internal-links-empty"><ShieldCheck /><div><h3>Nessun auto-link sicuro disponibile</h3><p>Il gate ha escluso suggerimenti duplicati, self-link, anchor deboli o relazioni incomplete. Nessun dato viene inventato.</p></div></div> : (
-        <div className="internal-links-table-wrap"><table className="internal-links-table"><caption className="sr-only">Opportunità di internal linking verificabili</caption><thead><tr><th>Pagina sorgente</th><th>Destinazione</th><th>Anchor suggerita</th><th>Motivazione</th><th>Stato</th><th>Azioni</th></tr></thead><tbody>
-          {suggestionGate.valid.map((suggestion) => {
+        <div className="internal-links-table-wrap"><table className="internal-links-table"><caption className="sr-only">Opportunità di internal linking verificabili</caption><thead><tr><th>Pagina sorgente</th><th>Destinazione</th><th>Anchor suggerita</th><th>Motivazione</th><th>Pertinenza</th><th>Stato</th><th>Azioni</th></tr></thead><tbody>
+          {filteredSuggestions.map((suggestion) => {
             const flow = flowFor(suggestion.key);
             const persisted = currentCorrection(corrections, suggestion.key);
             const record = flow.record || persisted;
@@ -298,6 +315,7 @@ export default function InternalLinksWorkspaceLayer() {
                 <td><a href={suggestion.targetUrl} target="_blank" rel="noreferrer"><ExternalLink /> {shortUrl(suggestion.targetUrl)}</a></td>
                 <td><strong>{suggestion.anchor}</strong></td>
                 <td><small>{suggestion.reason}</small></td>
+                <td><span className={`internal-link-relevance ${String(suggestion.relevance || "Media").toLowerCase()}`}>{suggestion.relevance || "Media"}</span><small className="internal-link-source-kind">{suggestion.sourceKind === "homepage" ? "Homepage" : "Sorgente pertinente"}</small></td>
                 <td><span className={`internal-link-status ${stage}`}>{stage === "preview" ? "Anteprima pronta" : stage === "existing" ? "Già collegata" : stage === "manual" ? "Manuale" : stage === "applying" ? "Applicazione…" : stage === "verifying" ? "Verifica…" : stage === "verified" ? "Verificato" : stage === "applied" ? statusLabel(record) : stage === "rolledback" ? "Ripristinato" : "Opportunità"}</span>{flow.error && <small className="internal-link-error">{flow.error}</small>}</td>
                 <td><div className="internal-link-buttons">
                   {["idle", "rolledback", "manual", "existing"].includes(stage) && <button type="button" className="secondary mini" disabled={isBusy || stage === "existing"} onClick={() => prepare(suggestion)}><Eye /> Preview</button>}
@@ -306,7 +324,7 @@ export default function InternalLinksWorkspaceLayer() {
                   {["applied", "verified"].includes(stage) && record && <button type="button" className="secondary mini" onClick={() => openRollback(suggestion, record)}><RotateCcw /> Rollback</button>}
                 </div></td>
               </tr>
-              {stage === "preview" && flow.preview && <tr className="internal-link-preview-row"><td colSpan="6"><div className="internal-link-preview"><div><small>Prima</small><code>{flow.preview.linkPatch.beforeSnippet}</code></div><div><small>Dopo</small><code>{flow.preview.linkPatch.afterSnippet}</code></div><p>Nessuna modifica è stata ancora applicata. Prima di Apply il sistema ricontrolla che la destinazione non sia già collegata.</p></div></td></tr>}
+              {stage === "preview" && flow.preview && <tr className="internal-link-preview-row"><td colSpan="7"><div className="internal-link-preview"><div><small>Prima</small><code>{flow.preview.linkPatch.beforeSnippet}</code></div><div><small>Dopo</small><code>{flow.preview.linkPatch.afterSnippet}</code></div><p>Nessuna modifica è stata ancora applicata. Prima di Apply il sistema ricontrolla che la destinazione non sia già collegata.</p></div></td></tr>}
             </Fragment>;
           })}
         </tbody></table></div>

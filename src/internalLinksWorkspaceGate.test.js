@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [workspace, model, moduleIndex, appMain, crawler] = await Promise.all([
+const [workspace, model, moduleIndex, appMain, crawler, suggestionRanker] = await Promise.all([
   readFile(new URL("./InternalLinksWorkspaceLayer.jsx", import.meta.url), "utf8"),
   readFile(new URL("./modules/links/internalLinkRemediation.js", import.meta.url), "utf8"),
   readFile(new URL("./modules/links/index.js", import.meta.url), "utf8"),
   readFile(new URL("./appMain.jsx", import.meta.url), "utf8"),
   readFile(new URL("../server/index.js", import.meta.url), "utf8"),
+  readFile(new URL("../server/internalLinkSuggestionRanker.js", import.meta.url), "utf8"),
 ]);
 
 test("Link interni exposes source, destination, anchor, reason and complete remediation actions", () => {
@@ -39,8 +40,9 @@ test("rollback stays on the canonical Corrections journal instead of introducing
 });
 
 test("duplicate and incoherent auto-links are fail-closed at crawl and remediation boundaries", () => {
-  assert.match(crawler, /source\.url === target\.url/);
-  assert.match(crawler, /linkedPairs\.has\(`\$\{source\.url\}\|\$\{target\.url\}`\)/);
+  assert.match(crawler, /rankInternalLinkSuggestions/);
+  assert.match(suggestionRanker, /source\.url === target\.url/);
+  assert.match(suggestionRanker, /linkedPairs\.has\(`\$\{source\.url\}\|\$\{target\.url\}`\)/);
   assert.match(model, /DUPLICATE_SUGGESTION/);
   assert.match(model, /SELF_LINK/);
   assert.match(model, /WEAK_ANCHOR/);

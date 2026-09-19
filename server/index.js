@@ -24,6 +24,7 @@ import {
   localApiToken,
 } from "./localSecurity.js";
 import { registerRemediationRoutes } from "./remediationBootstrap.js";
+import { rankInternalLinkSuggestions } from "./internalLinkSuggestionRanker.js";
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
@@ -1367,74 +1368,12 @@ app.post("/api/site-analysis", crawlLimit, async (req, res) => {
     );
     const failurePenalty = Math.min(40, failures.length * 4 + (pages.length ? 0 : 60));
     const score = pages.length ? Math.max(0, Math.min(100, 100 - normalizedPenalty - failurePenalty)) : null;
-    const suggestions = [];
-    const ignoredTokens = new Set([
-      "questo", "questa", "quello", "quella", "anche", "della", "delle",
-      "degli", "nella", "nelle", "sono", "come", "dalla", "dallo", "dove",
-      "quando", "perché", "essere", "avere", "pagina", "servizio",
-    ]);
     const linkedPairs = new Set(
       [...linkSources].flatMap(([target, sources]) =>
         [...sources].map((source) => `${source}|${target}`),
       ),
     );
-    const tokens = (value) =>
-      new Set(
-        new URL(value).pathname
-          .toLowerCase()
-          .split(/[^a-z0-9à-ÿ]+/)
-          .filter((token) => token.length > 3 && !ignoredTokens.has(token)),
-      );
-    for (const source of pages) {
-      const sourceTokens = new Set([
-        ...tokens(source.url),
-        ...String(source.title || "")
-          .toLowerCase()
-          .split(/[^a-z0-9à-ÿ]+/)
-          .filter((token) => token.length > 3),
-        ...String(source.contentExcerpt || "")
-          .toLowerCase()
-          .split(/[^a-z0-9à-ÿ]+/)
-          .filter((token) => token.length > 5 && !ignoredTokens.has(token))
-          .slice(0, 80),
-      ]);
-      for (const target of pages) {
-        if (
-          source.url === target.url ||
-          linkedPairs.has(`${source.url}|${target.url}`)
-        )
-          continue;
-        const targetTokens = new Set([
-          ...tokens(target.url),
-          ...String(target.title || "")
-            .toLowerCase()
-            .split(/[^a-z0-9à-ÿ]+/)
-          .filter((token) => token.length > 3 && !ignoredTokens.has(token)),
-          ...String(target.contentExcerpt || "")
-            .toLowerCase()
-            .split(/[^a-z0-9à-ÿ]+/)
-            .filter((token) => token.length > 5 && !ignoredTokens.has(token))
-            .slice(0, 80),
-        ]);
-        const overlap = [...sourceTokens].filter((token) =>
-          targetTokens.has(token),
-        );
-        if (overlap.length >= 2)
-          suggestions.push({
-            sourceUrl: source.url,
-            targetUrl: target.url,
-            anchor: String(target.title || overlap.join(" "))
-              .split(/[|–—]/)[0]
-              .trim()
-              .split(/\s+/)
-              .slice(0, 8)
-              .join(" "),
-            reason: `Titoli e percorsi condividono i temi: ${overlap.slice(0, 5).join(", ")}. Verificare che il passaggio sia naturale nel testo sorgente.`,
-          });
-        if (suggestions.length >= 30) break;
-      }
-      if (suggestions.length >= 30) break;
-    }
+    const suggestions = rankInternalLinkSuggestions(pages, linkedPairs, 30);
     res.json({
       url: seed.origin,
       legalPages,
