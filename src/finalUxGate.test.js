@@ -65,3 +65,12 @@ test("responsive final contract prevents clipped controls and preserves horizont
   assert.match(css, /overflow-x:\s*auto !important/);
   assert.match(css, /white-space:\s*normal/);
 });
+
+
+test("la sidebar usa anche la route reale per evidenziare la pagina attiva", () => {
+  assert.match(guided, /const routedPage = readPage\(\)/);
+  assert.match(guided, /const activePage = routedPage \|\| page/);
+  assert.match(guided, /className=\{activePage === item\.page \? "active" : ""\}/);
+  assert.match(guided, /aria-current=\{activePage === item\.page \? "page" : undefined\}/);
+  assert.match(css, /--ux-active:\s*#d92d20/);
+});
