@@ -381,8 +381,6 @@ try {
   }
 
   await clickSidebar("Audit SEO");
-  await sleep(200);
-  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before responsive fixture navigation", 12_000);
   await waitFor(
     "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
     "ritorno ad Audit SEO con RemediationHost",
@@ -490,6 +488,8 @@ try {
     }
   }
   await clickSidebar("Audit SEO");
+  await sleep(200);
+  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');await m.flushWorkspace();return m.isWorkspaceIdle()})()", "workspace persistence idle before responsive fixture navigation", 12_000);
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
   await assertViewportVisibility(390, "mobile", "mobile");
