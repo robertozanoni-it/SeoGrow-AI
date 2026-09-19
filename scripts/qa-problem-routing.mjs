@@ -19,7 +19,7 @@ export async function runProblemRoutingFlow({evaluate,waitFor,record,button,set,
     const newTitle='Yoga a Cinisello Balsamo: pratica consapevole';
     const oldDescription='Testo precedente della pagina.';
     const publicState={ok:true,isHtml:true,titleCount:1,metaDescriptionCount:1,status:200,url,wordpressDocumentId:42,title:oldTitle,titleMatchesExpected:true,metaDescription:oldDescription,h1:1,words:400};
-    const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
+    const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace()})()`);
     const click = async selector => {
       await waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return !e.disabled&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0})()`,selector+' actionable');
       await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({behavior:'instant',block:'center'})`);
