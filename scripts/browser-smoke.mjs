@@ -43,6 +43,7 @@ async function reloadImmediate() {
   const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
   await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after immediate reload");
+  await sleep(150);
   for (let index = browserEvents.length - 1; index >= eventStart; index -= 1) {
     const event = browserEvents[index];
     if (event.method !== "Runtime.consoleAPICalled" || event.params?.type !== "error") continue;
@@ -170,6 +171,10 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
 const clickSidebar = async (label) => {
   // On mobile, use the menu entry point before selecting a destination. A DOM
   // click on an off-screen item otherwise hides navigation accessibility bugs.
+  await waitFor(`(() => {
+    const matches = root => [...(root?.querySelectorAll('button') || [])].some(node => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
+    return matches(document.querySelector('.guided-nav')) || matches(document.querySelector('.sidebar'));
+  })()`, `sidebar entry ready: ${label}`);
   if (await evaluate("innerWidth <= 760 && !document.querySelector('.sidebar')?.classList.contains('open')")) {
     await evaluate("document.querySelector('[aria-label=\"Apri menu\"]').click()");
     await waitFor("document.querySelector('.sidebar')?.classList.contains('open')", "mobile menu fully open");
