@@ -38,20 +38,13 @@ async function reload() {
 }
 async function reloadImmediate() {
   // TASK-004 intentionally reloads while a native IndexedDB transaction is
-  // held open. Capture only events produced by this deliberate interruption.
-  const eventStart = browserEvents.length;
+  // held open. Only the exact expected abort is ignored during this window.
+  expectedTaskAbortWindow = true;
   const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
   await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after immediate reload");
-  await sleep(150);
-  for (let index = browserEvents.length - 1; index >= eventStart; index -= 1) {
-    const event = browserEvents[index];
-    if (event.method !== "Runtime.consoleAPICalled" || event.params?.type !== "error") continue;
-    const message = (event.params?.args || []).map(arg => arg.value || arg.description || arg.preview?.description || "").join(" ");
-    if (message.includes("Impossibile salvare seogrow-tasks-v2:") && message.includes("Transazione workspace interrotta.")) {
-      browserEvents.splice(index, 1);
-    }
-  }
+  await sleep(250);
+  expectedTaskAbortWindow = false;
 }
 
 const candidates = [
@@ -118,6 +111,7 @@ let version = null;
 let messageId = 0;
 const pending = new Map();
 const browserEvents = [];
+let expectedTaskAbortWindow = false;
 
 const command = (method, params = {}) => new Promise((resolve, reject) => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -292,8 +286,18 @@ try {
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
     if (["Runtime.exceptionThrown", "Runtime.consoleAPICalled", "Network.loadingFailed"].includes(message.method)) {
-      browserEvents.push(message);
-      if (browserEvents.length > 500) browserEvents.shift();
+      const consoleText = message.method === "Runtime.consoleAPICalled"
+        ? (message.params?.args || []).map(arg => arg.value || arg.description || arg.preview?.description || "").join(" ")
+        : "";
+      const expectedTaskAbort = expectedTaskAbortWindow
+        && message.method === "Runtime.consoleAPICalled"
+        && message.params?.type === "error"
+        && consoleText.includes("Impossibile salvare seogrow-tasks-v2:")
+        && consoleText.includes("Transazione workspace interrotta.");
+      if (!expectedTaskAbort) {
+        browserEvents.push(message);
+        if (browserEvents.length > 500) browserEvents.shift();
+      }
     }
     if (!message.id || !pending.has(message.id)) return;
     const { resolve, reject } = pending.get(message.id);
