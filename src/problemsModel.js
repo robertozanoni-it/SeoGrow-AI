@@ -12,6 +12,7 @@ import {
   safeHttpHref,
   taskEvent,
 } from "./reliabilityModel.js";
+import { taskOrigin } from "./experience/tasks/taskLinkage.js";
 import { auditCompatibilityIdentity, canonicalEquivalentIssueType } from "./problemIdentityCompatibility.js";
 
 const timestamp = (value) => value ? (Date.parse(value) || 0) : 0;
@@ -134,6 +135,7 @@ const createGroup = (record, issue, sourceUrl) => ({
   latestAuditAt: "",
   latestAuditTaskAt: "",
   auditDerivedTask: false,
+  legacyAnalysisTask: false,
   latestCorrectionAt: "",
   auditClearedAt: "",
   auditClearedScope: "",
@@ -387,7 +389,8 @@ export function buildUnifiedProblems({
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     if (isLegalPage(sourceUrl)) continue;
     const taskKind = String(task?.kind || "").trim().toLowerCase();
-    const explicitManualTask = task?.origin === "manual" || taskKind === "manual";
+    const legacyAnalysisTask = /^analysis-/i.test(String(task?.id || ""));
+    const explicitManualTask = taskKind === "manual" || (task?.origin === "manual" && !legacyAnalysisTask);
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
     if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
@@ -395,10 +398,11 @@ export function buildUnifiedProblems({
     const event = taskEvent(task);
     group.events.push(event);
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
-    const auditDerivedTask = !explicitManualTask && (task?.origin === "audit" || task?.automatic === true || legacyAuditTask);
+    const auditDerivedTask = !explicitManualTask && (taskOrigin(task) === "audit" || task?.automatic === true || legacyAuditTask || legacyAnalysisTask);
     if (auditDerivedTask) {
       const taskObservedAt = task?.lastObservedAt || task?.createdAt || "";
       group.auditDerivedTask = true;
+      if (legacyAnalysisTask) group.legacyAnalysisTask = true;
       if (!group.latestAuditTaskAt || timestamp(taskObservedAt) > timestamp(group.latestAuditTaskAt)) group.latestAuditTaskAt = taskObservedAt;
     }
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
@@ -471,6 +475,11 @@ export function buildUnifiedProblems({
     const reviewOnly = group.sources.some((source) => source.kind === "audit-review") && !group.sources.some((source) => source.kind === "audit");
     const reviewObservedAfterVerification = reviewOnly && (!state.verifiedAt || timestamp(group.latestAuditAt) > timestamp(state.verifiedAt));
     const closure = closureFor(group);
+    const taskOnlyMisMigratedAnalysis = group.legacyAnalysisTask === true &&
+      group.sources.length > 0 &&
+      group.sources.every((source) => source.kind === "task") &&
+      !closure;
+    if (taskOnlyMisMigratedAnalysis) return null;
     const closureTime = timestamp(closure?.closedAt);
     const permanentlyExcluded = closureTime > 0 && isPermanentClosure(closure);
     const reobservedAfterClosure = !permanentlyExcluded && closureTime > 0 && group.events.some((event) => timestamp(event?.at) > closureTime && event?.kind === "audit_detected");
@@ -543,7 +552,7 @@ export function buildUnifiedProblems({
       reviewOnly,
       disposition: permanentlyExcluded ? "do_not_modify" : "",
     };
-  }).toSorted((a, b) => {
+  }).filter(Boolean).toSorted((a, b) => {
     const stateWeight = { reappeared: 0, open: 1, needs_verification: 2, intentional: 3, resolved: 4 };
     const severityWeight = { high: 0, medium: 1, low: 2, unknown: 3 };
     return (stateWeight[a.problemState] ?? 9) - (stateWeight[b.problemState] ?? 9) ||
