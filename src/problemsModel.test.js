@@ -565,3 +565,116 @@ test("alias legacy description noindex e contenuto breve confluiscono nel findin
     assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
   }
 });
+
+
+test("un updatedAt operativo della task non può rendere vecchio un audit appena eseguito", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-operational-update",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      updatedAt: "2026-09-19T10:05:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T10:00:00Z",
+      url,
+      issues: [{ type: "h1", label: "2 H1 rilevati", sourceUrl: url, url, severity: "alta" }],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:06:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
+  assert.equal(result.rows[0].stale, false);
+  assert.equal(result.rows[0].correctability, "automatic");
+});
+
+test("task legacy senza timestamp di osservazione viene chiusa da audit fresco pulito anche se updatedAt è successivo", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-no-evidence-time",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      updatedAt: "2026-09-19T10:05:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T10:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:06:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.rows[0].resolvedByAudit, true);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("slash legacy e finding fresco convergono solo quando l'audit corrente identifica un target univoco", () => {
+  const freshUrl = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-slash",
+      sourceClientId: 1,
+      kind: "title",
+      title: "Title duplicato",
+      sourceUrl: "https://example.it/pagina",
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      createdAt: "2026-09-01T10:00:00Z",
+    }],
+    siteHistory: [{
+      analyzedAt: "2026-09-19T10:00:00Z",
+      pages: [{ url: freshUrl, ok: true }],
+      issues: [{ type: "duplicate-title", label: "Title duplicato", sourceUrl: freshUrl, url: freshUrl, severity: "alta" }],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:01:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].issueType, "duplicate-title");
+  assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
+  assert.equal(result.rows[0].stale, false);
+});
+
+test("una task senza audit reale resta da riconvalidare anche se è stata aggiornata un minuto fa", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "task-only",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: "https://example.it/pagina/",
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      updatedAt: "2026-09-19T10:00:00Z",
+    }],
+    now: Date.parse("2026-09-19T10:01:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].observedAt, "");
+  assert.equal(result.rows[0].stale, true);
+});

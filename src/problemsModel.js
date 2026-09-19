@@ -12,6 +12,7 @@ import {
   safeHttpHref,
   taskEvent,
 } from "./reliabilityModel.js";
+import { auditCompatibilityIdentity, canonicalEquivalentIssueType } from "./problemIdentityCompatibility.js";
 
 const timestamp = (value) => value ? (Date.parse(value) || 0) : 0;
 
@@ -72,22 +73,10 @@ const exactUrlIdentity = (record = {}) => issueIdentity({
   canonicalConfirmed: false,
 });
 
-const legacyEquivalentIssueType = (record = {}) => {
-  const type = String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
-  const label = String(record?.issueLabel || record?.title || record?.issue?.label || "").trim().toLowerCase();
-
-  if ((type === "title" || type === "seo_title") && /(?:title|titolo).*duplic/.test(label)) return "duplicate-title";
-  if (["description", "meta-description", "meta_description", "meta description"].includes(type) && /(?:description|metadescription).*duplic/.test(label)) return "duplicate-description";
-  if (["meta-description", "meta_description", "meta description"].includes(type)) return "description";
-  if (["noindex", "indexability"].includes(type)) return "indexability";
-  if (["thin-content", "thin"].includes(type)) return "thin";
-  if (type === "content" && /contenuto breve|short content|\b\d+\s+parole\b/i.test(label)) return "thin";
-  return "";
-};
-
 const legacyEquivalentRecord = (record = {}) => {
-  const issueType = legacyEquivalentIssueType(record);
-  if (!issueType) return null;
+  const explicit = String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
+  const issueType = canonicalEquivalentIssueType(record);
+  if (!issueType || issueType === explicit) return null;
   return {
     ...record,
     issueType,
@@ -263,11 +252,13 @@ const reconcileAuditClearance = (groups, audits) => {
       group.auditDerivedTask ? group.latestAuditTaskAt : "",
       group.latestCorrectionAt,
     ].filter(Boolean).toSorted((a, b) => timestamp(b) - timestamp(a))[0] || "";
-    if (!baselineAt || !locallyClearableAuditTypes.has(issueType)) continue;
+    const hasHistoricalEvidence = Boolean(group.latestAuditAt || group.auditDerivedTask || group.latestCorrectionAt);
+    if (!hasHistoricalEvidence || !locallyClearableAuditTypes.has(issueType)) continue;
+    const baselineTime = baselineAt ? timestamp(baselineAt) : -1;
     const clearingAudit = audits
       .filter(({ scope, item }) => {
         const at = item?.analyzedAt || item?.startedAt || "";
-        return timestamp(at) > timestamp(baselineAt) &&
+        return timestamp(at) > baselineTime &&
           (!siteOnlyClearanceTypes.has(issueType) || scope === "site") &&
           auditObservedUrl(scope, item, group.sourceUrl) &&
           !auditStillContainsGroup(group, item);
@@ -305,7 +296,22 @@ export function buildUnifiedProblems({
 
   const groups = new Map();
   const aliasMap = new Map();
+  const auditCompatibilityMap = new Map();
   const warnings = [];
+
+  const registerAuditCompatibility = (record, group) => {
+    const key = auditCompatibilityIdentity(record);
+    if (!key) return;
+    const existing = auditCompatibilityMap.get(key);
+    if (existing === undefined) auditCompatibilityMap.set(key, group.key);
+    else if (existing !== group.key) auditCompatibilityMap.set(key, "");
+  };
+
+  const compatibleAuditGroup = (record) => {
+    const key = auditCompatibilityIdentity(record);
+    const groupKey = key ? auditCompatibilityMap.get(key) : "";
+    return groupKey && groups.has(groupKey) ? groups.get(groupKey) : null;
+  };
   const site = latestSite(siteHistory);
   const pageAudits = latestPagesByUrl(pageHistory);
   const audits = [
@@ -320,6 +326,7 @@ export function buildUnifiedProblems({
       if (isLegalPage(sourceUrl)) continue;
       const record = { issueType: issue?.type, issueLabel: issue?.label, sourceUrl, issue };
       const group = findOrCreate(groups, aliasMap, record, issue, sourceUrl);
+      registerAuditCompatibility(record, group);
       for (const text of [issue?.anchorText, issue?.anchor, issue?.linkText, ...(Array.isArray(issue?.occurrences) ? issue.occurrences : []).map(o => o.anchorText)].filter(v => typeof v === "string" && v.trim())) group.anchorTexts.add(text.trim());
       const brokenTarget = issueBrokenTarget(issue);
       if (brokenTarget) group.targetUrls.add(brokenTarget);
@@ -349,6 +356,7 @@ export function buildUnifiedProblems({
       if (isLegalPage(sourceUrl)) continue;
       const record = { issueType: reviewItem?.type, issueLabel: reviewItem?.label, sourceUrl, issue: reviewItem };
       const group = findOrCreate(groups, aliasMap, record, reviewItem, sourceUrl);
+      registerAuditCompatibility(record, group);
       group.events.push({ kind: "audit_review", at, source: "audit", scope });
       group.auditScopes.add(scope);
       const newestReview = !group.latestAuditAt || timestamp(at) >= timestamp(group.latestAuditAt);
@@ -383,13 +391,13 @@ export function buildUnifiedProblems({
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
     if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
-    const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
+    const group = compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
     const auditDerivedTask = !explicitManualTask && (task?.origin === "audit" || task?.automatic === true || legacyAuditTask);
     if (auditDerivedTask) {
-      const taskObservedAt = task?.lastObservedAt || task?.createdAt || event.at || "";
+      const taskObservedAt = task?.lastObservedAt || task?.createdAt || "";
       group.auditDerivedTask = true;
       if (!group.latestAuditTaskAt || timestamp(taskObservedAt) > timestamp(group.latestAuditTaskAt)) group.latestAuditTaskAt = taskObservedAt;
     }
@@ -418,7 +426,7 @@ export function buildUnifiedProblems({
       issueLabel: correction?.issueLabel,
       sourceUrl,
     };
-    const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
+    const group = compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = correctionEvent(correction);
     group.events.push(event);
     if (event.at && (!group.latestCorrectionAt || timestamp(event.at) > timestamp(group.latestCorrectionAt))) group.latestCorrectionAt = event.at;
@@ -469,8 +477,12 @@ export function buildUnifiedProblems({
     const closedPersistently = closureTime > 0 && !reobservedAfterClosure;
     const problemState = permanentlyExcluded ? "intentional" : isolatedQaCompleted ? "intentional" : reobservedAfterClosure ? "reappeared" : closedPersistently ? "resolved" : clearedByNewerAudit ? "resolved" : reviewObservedAfterVerification ? "needs_verification" : state.problemState;
     const verifiedAt = closedPersistently ? closure?.closedAt : clearedByNewerAudit ? clearanceAt : state.verifiedAt;
-    const latestSource = [...group.sources].sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
-    const observedAt = clearedByNewerAudit ? clearanceAt : state.lastAuditAt || latestSource?.at || "";
+    const latestAuditSource = group.sources
+      .filter((source) => ["audit", "audit-review", "audit-clearance"].includes(source.kind))
+      .sort((a, b) => timestamp(b.at) - timestamp(a.at))[0] || null;
+    const observedAt = clearedByNewerAudit
+      ? clearanceAt
+      : state.lastAuditAt || latestAuditSource?.at || (problemState === "resolved" ? verifiedAt : "");
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;
     const confidence = reviewOnly ? "needs_confirmation" : issueConfidence(
       { type: group.issueType, label: group.title, detail: group.detail },
