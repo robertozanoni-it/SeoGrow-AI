@@ -813,3 +813,48 @@ test("una task search collegata esplicitamente a un problema resta nel dominio P
   assert.equal(model.rows.length, 1);
   assert.equal(model.rows[0].issueType, "h1");
 });
+
+
+test("la fixture tecnica G06 lost-response resta nel journal ma non entra in Problemi", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    corrections: [{
+      id: "g06-live-8188",
+      clientId: 1,
+      issueType: "title",
+      issueLabel: "G06 lost response recovery",
+      sourceUrl: "https://yogabuenaonda.it/?page_id=8188",
+      status: "Da verificare",
+      fields: ["title"],
+      writeConfirmed: true,
+      reconciliation: { classification: "APPLIED" },
+      appliedAt: "2026-09-07T10:00:00Z",
+    }],
+    now: Date.parse("2026-09-19T12:00:00Z"),
+  });
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("una vera correzione SEO meta description da riverificare resta in Problemi", () => {
+  const url = "https://yogabuenaonda.it/yoga-per-dimagrire";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    corrections: [{
+      id: "real-meta-description",
+      clientId: 1,
+      issueType: "duplicate-description",
+      issueLabel: "Meta description duplicata",
+      sourceUrl: url,
+      status: "Da verificare",
+      fields: ["meta.rank_math_description"],
+      verificationNote: "Verifica fallita: il valore pubblico non coincide con quello inviato a WordPress.",
+      appliedAt: "2026-09-14T08:20:17Z",
+    }],
+    now: Date.parse("2026-09-19T12:00:00Z"),
+  });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.activeRows.length, 1);
+  assert.equal(result.rows[0].title, "Meta description duplicata");
+  assert.equal(result.rows[0].sources.some((source) => source.kind === "correction"), true);
+});
