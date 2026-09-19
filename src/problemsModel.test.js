@@ -226,3 +226,85 @@ test("una task manuale non viene chiusa soltanto perché un audit successivo non
   assert.equal(result.rows[0].problemState, "open");
   assert.equal(result.activeRows.length, 1);
 });
+
+
+test("una task audit legacy senza origin viene chiusa da un nuovo audit sito completo che non trova più il duplicate-title", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-dup-title",
+      sourceClientId: 1,
+      kind: "duplicate-title",
+      title: "Title duplicato",
+      sourceUrl: url,
+      status: "Da fare",
+      updatedAt: "2026-09-05T10:05:00Z",
+    }],
+    siteHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      pages: [{ url, ok: true }],
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.rows[0].resolvedByAudit, true);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("un audit di singola pagina non basta a chiudere un duplicate-title perché l'unicità richiede il crawl sito", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-dup-title",
+      sourceClientId: 1,
+      kind: "duplicate-title",
+      title: "Title duplicato",
+      sourceUrl: url,
+      status: "Da fare",
+      updatedAt: "2026-09-05T10:05:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+
+  assert.equal(result.rows[0].problemState, "open");
+  assert.equal(result.activeRows.length, 1);
+});
+
+test("una task esplicitamente manuale resta aperta anche se usa un kind tecnico legacy", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "manual-dup-title",
+      sourceClientId: 1,
+      kind: "duplicate-title",
+      title: "Controllo duplicato manuale",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "manual",
+      automatic: false,
+      updatedAt: "2026-09-05T10:05:00Z",
+    }],
+    siteHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      pages: [{ url, ok: true }],
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+
+  assert.equal(result.rows[0].problemState, "open");
+  assert.equal(result.activeRows.length, 1);
+});

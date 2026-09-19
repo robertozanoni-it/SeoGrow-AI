@@ -163,6 +163,8 @@ const locallyClearableAuditTypes = new Set([
   "canonical-different",
   "image",
   "metadata-tags",
+  "duplicate-title",
+  "duplicate-description",
 ]);
 
 const comparableUrl = (value) => normalizeHttpUrl(value || "", { stripSlash: true });
@@ -187,6 +189,26 @@ const auditStillContainsGroup = (group, item) =>
     return identityCandidates(record).some((alias) => group.aliases.has(alias));
   });
 
+const siteOnlyClearanceTypes = new Set(["duplicate-title", "duplicate-description"]);
+
+const legacyAuditTaskKinds = new Set([
+  "h1",
+  "title",
+  "description",
+  "meta-description",
+  "meta_description",
+  "duplicate-title",
+  "duplicate-description",
+  "canonical",
+  "canonical-invalid",
+  "canonical-external",
+  "canonical-different",
+  "thin",
+  "content",
+  "image",
+  "metadata-tags",
+]);
+
 const reconcileAuditClearance = (groups, audits) => {
   for (const group of groups.values()) {
     const issueType = String(group.issueType || "").trim().toLowerCase();
@@ -196,6 +218,7 @@ const reconcileAuditClearance = (groups, audits) => {
       .filter(({ scope, item }) => {
         const at = item?.analyzedAt || item?.startedAt || "";
         return timestamp(at) > timestamp(baselineAt) &&
+          (!siteOnlyClearanceTypes.has(issueType) || scope === "site") &&
           auditObservedUrl(scope, item, group.sourceUrl) &&
           !auditStillContainsGroup(group, item);
       })
@@ -309,7 +332,10 @@ export function buildUnifiedProblems({
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
-    const auditDerivedTask = task?.origin === "audit" || (task?.automatic === true && String(task?.kind || "").toLowerCase() !== "manual");
+    const taskKind = String(task?.kind || "").trim().toLowerCase();
+    const explicitManualTask = task?.origin === "manual" || taskKind === "manual";
+    const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
+    const auditDerivedTask = !explicitManualTask && (task?.origin === "audit" || task?.automatic === true || legacyAuditTask);
     if (auditDerivedTask) {
       const taskObservedAt = task?.lastObservedAt || task?.createdAt || event.at || "";
       group.auditDerivedTask = true;
