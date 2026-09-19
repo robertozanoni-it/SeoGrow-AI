@@ -3325,7 +3325,7 @@ function Toast({ message, kind = "info", onOpen, actionLabel = "", onAction, onC
   }, [onClose, onOpen, kind]);
   return (
     <div className={`toast toast-${kind}`}>
-      {kind === "error" ? <AlertTriangle aria-hidden="true" /> : kind === "success" ? <Check aria-hidden="true" /> : <HelpCircle aria-hidden="true" />}
+      {["error", "warning"].includes(kind) ? <AlertTriangle aria-hidden="true" /> : kind === "success" ? <Check aria-hidden="true" /> : <HelpCircle aria-hidden="true" />}
       <span role={kind === "error" ? "alert" : "status"}>{message}</span>
       {onOpen && <button onClick={onOpen}>Apri task</button>}
       {onAction && <button onClick={onAction}>{actionLabel || "Apri"}</button>}
@@ -4054,9 +4054,36 @@ export default function App() {
         onAction: detail.fingerprint ? () => window.dispatchEvent(new CustomEvent("seogrow-guardian-open-incident", { detail: { fingerprint: detail.fingerprint, clientId: detail.clientId } })) : null,
       });
     };
+    const receiveProminentGuardianAlert = (event) => {
+      const detail = event?.detail || {};
+      const fingerprint = detail.fingerprint || "";
+      const clientId = detail.clientId || selectedClient;
+      setToast({
+        kind: detail.kind === "error" ? "error" : "warning",
+        message: [detail.title, detail.message].filter(Boolean).join(": "),
+        clientId,
+        guardianFingerprint: fingerprint,
+        actionLabel: "Vai al problema",
+        onAction: () => {
+          setPage("Problemi");
+          setToast("");
+          if (fingerprint) {
+            window.setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("seogrow-guardian-open-incident", {
+                detail: { fingerprint, clientId },
+              }));
+            }, 0);
+          }
+        },
+      });
+    };
     window.addEventListener("seogrow-guardian-notification", receiveGuardianNotification);
-    return () => window.removeEventListener("seogrow-guardian-notification", receiveGuardianNotification);
-  }, [selectedClient]);
+    window.addEventListener("seogrow-guardian-prominent-alert", receiveProminentGuardianAlert);
+    return () => {
+      window.removeEventListener("seogrow-guardian-notification", receiveGuardianNotification);
+      window.removeEventListener("seogrow-guardian-prominent-alert", receiveProminentGuardianAlert);
+    };
+  }, [selectedClient, setPage]);
 
   const [automationNotifications, setAutomationNotifications] = useState([]);
   useEffect(() => {
