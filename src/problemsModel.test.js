@@ -492,3 +492,76 @@ test("pagine orfane e link rotti richiedono un crawl sito per essere dichiarati 
     assert.equal(siteClean.rows[0].problemState, "resolved", kind + " deve essere chiuso da crawl sito pulito");
   }
 });
+
+
+test("un finding fresco duplicate-title assorbe la vecchia task legacy title duplicato e non resta stale", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-title-duplicate",
+      sourceClientId: 1,
+      kind: "title",
+      title: "Title duplicato",
+      sourceUrl: url,
+      status: "Da fare",
+      createdAt: "2026-09-05T10:00:00Z",
+      updatedAt: "2026-09-05T10:00:00Z",
+    }],
+    siteHistory: [{
+      analyzedAt: "2026-09-19T10:00:00Z",
+      pages: [{ url, ok: true }],
+      issues: [{
+        type: "duplicate-title",
+        label: "Title duplicato",
+        sourceUrl: url,
+        url,
+        severity: "alta",
+      }],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:05:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.activeRows.length, 1);
+  assert.equal(result.rows[0].issueType, "duplicate-title");
+  assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
+  assert.equal(result.rows[0].stale, false);
+  assert.equal(result.rows[0].correctability, "automatic");
+  assert.ok(result.rows[0].sources.some(source => source.kind === "audit"));
+  assert.ok(result.rows[0].sources.some(source => source.kind === "task"));
+});
+
+test("alias legacy description noindex e contenuto breve confluiscono nel finding fresco equivalente", () => {
+  const cases = [
+    { oldKind: "meta-description", oldTitle: "Meta description mancante", newType: "description", newLabel: "Meta description mancante" },
+    { oldKind: "noindex", oldTitle: "Pagina impostata noindex", newType: "indexability", newLabel: "Pagina impostata noindex" },
+    { oldKind: "content", oldTitle: "Contenuto breve: 90 parole", newType: "thin", newLabel: "Contenuto breve per pagina content: 90 parole" },
+  ];
+  for (const [index, row] of cases.entries()) {
+    const url = `https://example.it/pagina-${index}/`;
+    const result = buildUnifiedProblems({
+      clientId: 1,
+      tasks: [{
+        id: "legacy-" + index,
+        sourceClientId: 1,
+        kind: row.oldKind,
+        title: row.oldTitle,
+        sourceUrl: url,
+        status: "Da fare",
+        createdAt: "2026-09-05T10:00:00Z",
+      }],
+      siteHistory: [{
+        analyzedAt: "2026-09-19T10:00:00Z",
+        pages: [{ url, ok: true }],
+        issues: [{ type: row.newType, label: row.newLabel, sourceUrl: url, url, severity: "media" }],
+        reviewItems: [],
+      }],
+      now: Date.parse("2026-09-19T10:05:00Z"),
+    });
+    assert.equal(result.rows.length, 1, row.oldKind + " deve convergere");
+    assert.equal(result.rows[0].stale, false);
+    assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
+  }
+});

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
-import { resolutionPath, canOpenControlledContextPreview } from "./resolutionPath.js";
+import { resolutionPath, problemEntryLabel, canOpenControlledContextPreview } from "./resolutionPath.js";
 
 const url = "https://example.com/pagina/";
 const base = {
@@ -88,4 +88,20 @@ test("pagina risoluzione usa la stessa politica globale", async () => {
   assert.match(source, /priority\.mode === "automatic"/);
   assert.match(source, /priority\.mode === "approval"/);
   assert.match(source, /priority\.mode === "confirm"/);
+});
+
+
+test("un problema automatizzabile con audit appena osservato espone la correzione invece di chiedere un altro audit", () => {
+  const problem = {
+    issueType: "duplicate-title",
+    title: "Title duplicato",
+    sourceUrl: "https://example.it/pagina/",
+    problemState: "open",
+    interventionState: "not_prepared",
+    correctability: "automatic",
+    stale: false,
+  };
+  const path = resolutionPath(problem);
+  assert.equal(path.action, "prepare");
+  assert.equal(problemEntryLabel(problem), "Correggi automaticamente");
 });

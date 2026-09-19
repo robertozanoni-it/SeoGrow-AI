@@ -72,11 +72,39 @@ const exactUrlIdentity = (record = {}) => issueIdentity({
   canonicalConfirmed: false,
 });
 
-const identityCandidates = (record) => [...new Set([
-  issueIdentity(record),
-  exactUrlIdentity(record),
-  record?.issueKey ? `legacy:${record.issueKey}` : "",
-].filter(Boolean))];
+const legacyEquivalentIssueType = (record = {}) => {
+  const type = String(record?.issueType || record?.issue?.type || "").trim().toLowerCase();
+  const label = String(record?.issueLabel || record?.title || record?.issue?.label || "").trim().toLowerCase();
+
+  if ((type === "title" || type === "seo_title") && /(?:title|titolo).*duplic/.test(label)) return "duplicate-title";
+  if (["description", "meta-description", "meta_description", "meta description"].includes(type) && /(?:description|metadescription).*duplic/.test(label)) return "duplicate-description";
+  if (["meta-description", "meta_description", "meta description"].includes(type)) return "description";
+  if (["noindex", "indexability"].includes(type)) return "indexability";
+  if (["thin-content", "thin"].includes(type)) return "thin";
+  if (type === "content" && /contenuto breve|short content|\b\d+\s+parole\b/i.test(label)) return "thin";
+  return "";
+};
+
+const legacyEquivalentRecord = (record = {}) => {
+  const issueType = legacyEquivalentIssueType(record);
+  if (!issueType) return null;
+  return {
+    ...record,
+    issueType,
+    issue: record?.issue ? { ...record.issue, type: issueType } : record?.issue,
+  };
+};
+
+const identityCandidates = (record) => {
+  const equivalent = legacyEquivalentRecord(record);
+  return [...new Set([
+    issueIdentity(record),
+    exactUrlIdentity(record),
+    equivalent ? issueIdentity(equivalent) : "",
+    equivalent ? exactUrlIdentity(equivalent) : "",
+    record?.issueKey ? `legacy:${record.issueKey}` : "",
+  ].filter(Boolean))];
+};
 
 const latestPagesByUrl = (pageHistory) => {
   const byUrl = new Map();
