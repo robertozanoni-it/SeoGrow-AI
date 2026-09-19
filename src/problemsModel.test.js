@@ -163,3 +163,66 @@ test('una chiusura legacy senza target non chiude tutti i broken link della stes
   assert.equal(result.rows.length,2);
   assert.ok(result.rows.every(row=>row.problemState==='open'));
 });
+
+
+test("una task generata da un vecchio audit non mantiene aperto il problema dopo un audit pagina più recente pulito", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "audit-task-old",
+      sourceClientId: 1,
+      kind: "title",
+      title: "Title duplicato",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      lastObservedAt: "2026-09-05T10:00:00Z",
+      updatedAt: "2026-09-05T10:05:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.rows[0].resolvedByAudit, true);
+  assert.equal(result.activeRows.length, 0);
+  assert.equal(result.rows[0].observedAt, "2026-09-19T08:00:00Z");
+  assert.equal(result.rows[0].stale, false);
+});
+
+test("una task manuale non viene chiusa soltanto perché un audit successivo non contiene il finding", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "manual-task",
+      sourceClientId: 1,
+      kind: "title",
+      title: "Controllo title manuale",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "manual",
+      automatic: false,
+      updatedAt: "2026-09-05T10:05:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].problemState, "open");
+  assert.equal(result.activeRows.length, 1);
+});
