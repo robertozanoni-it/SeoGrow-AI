@@ -73,3 +73,10 @@ test("la sottovista Problemi selezionata usa background rosso con testo bianco l
   assert.match(css, /problems-nav-bridge-button\.active[\s\S]*background:\s*#d92d20\s*!important/);
   assert.match(css, /problems-nav-bridge-button\.active[\s\S]*color:\s*#ffffff\s*!important/);
 });
+
+
+test("il contratto UX finale mantiene Problemi attivo in rosso anche dopo tutte le regole generali", async () => {
+  const css = await readFile(new URL('./FinalUxContract.css', import.meta.url), 'utf8');
+  assert.match(css, /guided-audit-subnav-host[\s\S]*problems-nav-bridge-button\.active[\s\S]*background:\s*#d92d20\s*!important/);
+  assert.match(css, /problems-nav-bridge-button\.active[\s\S]*color:\s*#ffffff\s*!important/);
+});
