@@ -50,3 +50,63 @@ test('backup accepts actual SEO metadata and taxonomy snapshot fields', async ()
  const taxonomy = { ...record, resource: 'taxonomy', fields: ['meta_description'], before: { meta_description: 'before' }, after: { meta_description: 'after' } };
  assert.equal((await readWorkspaceBackup(file(backup([taxonomy])))).corrections.length, 1);
 });
+
+
+test('dieci audit consecutivi riusano una sola task legacy e aggiornano sempre la stessa evidenza', () => {
+ const legacy = {
+   id:'legacy-title',
+   sourceClientId:1,
+   kind:'title',
+   title:'Title duplicato',
+   sourceUrl:'https://example.com/pagina',
+   targetUrl:'',
+   status:'Da fare',
+   stale:true,
+   updatedAt:'2026-09-01T10:00:00Z'
+ };
+ let tasks=[legacy];
+ for(let i=1;i<=10;i++){
+   const day=String(i).padStart(2,'0');
+   const observedAt=`2026-09-${day}T10:00:00Z`;
+   const generated=[{
+     id:`fresh-${i}`,
+     sourceClientId:1,
+     kind:'duplicate-title',
+     title:'Title duplicato',
+     sourceUrl:'https://example.com/pagina/',
+     targetUrl:'',
+     status:'Da fare',
+     origin:'audit',
+     automatic:true,
+     taskLinks:{problemKey:`duplicate-title::url:https://example.com/pagina/`},
+     createdAt:observedAt,
+   }];
+   tasks=reconcileAuditTasks(tasks,generated,1,observedAt);
+   assert.equal(tasks.length,1,`audit ${i}: non deve creare task duplicate`);
+   assert.equal(tasks[0].id,'legacy-title');
+   assert.equal(tasks[0].kind,'duplicate-title');
+   assert.equal(tasks[0].sourceUrl,'https://example.com/pagina/');
+   assert.equal(tasks[0].stale,false);
+   assert.equal(tasks[0].lastObservedAt,observedAt);
+ }
+});
+
+test('la compatibilità slash legacy resta prudente quando esistono due task realmente ambigue', () => {
+ const generated=[{
+   id:'fresh',
+   sourceClientId:1,
+   kind:'duplicate-title',
+   title:'Title duplicato',
+   sourceUrl:'https://example.com/pagina/',
+   status:'Da fare',
+   origin:'audit',
+   automatic:true,
+ }];
+ const ambiguous=[
+   {id:'a',sourceClientId:1,kind:'title',title:'Title duplicato',sourceUrl:'https://example.com/pagina',status:'Da fare'},
+   {id:'b',sourceClientId:1,kind:'title',title:'Title duplicato',sourceUrl:'https://example.com/pagina/',status:'Da fare'},
+ ];
+ const result=reconcileAuditTasks(ambiguous,generated,1,'2026-09-19T10:00:00Z');
+ assert.equal(result.length,2);
+ assert.equal(result.filter(task=>task.lastObservedAt==='2026-09-19T10:00:00Z').length,1);
+});
