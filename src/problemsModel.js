@@ -157,13 +157,23 @@ const locallyClearableAuditTypes = new Set([
   "h1",
   "title",
   "description",
+  "meta-description",
   "meta_description",
+  "description-serp-width",
   "canonical",
   "canonical-invalid",
   "canonical-external",
   "canonical-different",
   "image",
   "metadata-tags",
+  "thin",
+  "thin-content",
+  "content",
+  "indexability",
+  "noindex",
+  "orphan",
+  "broken-link",
+  "broken-external-link",
   "duplicate-title",
   "duplicate-description",
 ]);
@@ -190,7 +200,7 @@ const auditStillContainsGroup = (group, item) =>
     return identityCandidates(record).some((alias) => group.aliases.has(alias));
   });
 
-const siteOnlyClearanceTypes = new Set(["duplicate-title", "duplicate-description"]);
+const siteOnlyClearanceTypes = new Set(["duplicate-title", "duplicate-description", "orphan", "broken-link", "broken-external-link"]);
 
 const legacyAuditTaskKinds = new Set([
   "h1",
@@ -198,6 +208,7 @@ const legacyAuditTaskKinds = new Set([
   "description",
   "meta-description",
   "meta_description",
+  "description-serp-width",
   "duplicate-title",
   "duplicate-description",
   "canonical",
@@ -205,7 +216,13 @@ const legacyAuditTaskKinds = new Set([
   "canonical-external",
   "canonical-different",
   "thin",
+  "thin-content",
   "content",
+  "indexability",
+  "noindex",
+  "orphan",
+  "broken-link",
+  "broken-external-link",
   "image",
   "metadata-tags",
 ]);
