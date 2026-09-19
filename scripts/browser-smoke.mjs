@@ -522,7 +522,15 @@ try {
 
   const uncaught = browserEvents.filter(event => event.method === "Runtime.exceptionThrown");
   if (uncaught.length) throw new Error("Uncaught browser exceptions: " + JSON.stringify(uncaught));
-  const consoleErrors = browserEvents.filter(event => event.method === "Runtime.consoleAPICalled" && event.params?.type === "error");
+  const task004Passed = browserReport.scenarios.some(scenario => scenario.id === "TASK-004" && scenario.status === "PASS");
+  const consoleErrors = browserEvents.filter(event => {
+    if (event.method !== "Runtime.consoleAPICalled" || event.params?.type !== "error") return false;
+    if (!task004Passed) return true;
+    const message = (event.params?.args || []).map(arg => arg.value || arg.description || arg.preview?.description || "").join(" ");
+    const expectedTask004Abort = message.includes("Impossibile salvare seogrow-tasks-v2:")
+      && message.includes("Transazione workspace interrotta.");
+    return !expectedTask004Abort;
+  });
   if (consoleErrors.length) throw new Error("Browser console errors: " + JSON.stringify(consoleErrors.slice(-20)));
   const unexpectedNetworkFailures = browserEvents.filter(event => event.method === "Network.loadingFailed" && event.params?.canceled !== true);
   if (unexpectedNetworkFailures.length) throw new Error("Unexpected browser network failures: " + JSON.stringify(unexpectedNetworkFailures.slice(-20)));
