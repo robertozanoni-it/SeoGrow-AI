@@ -9,6 +9,7 @@ import {
   setGuardianMonitoringEnabled,
   runDueGuardianMonitoring,
 } from "./guardianEngine.js";
+import { navigatePage } from "../navigationUx.js";
 import "./GuardianConsole.css";
 
 const riskLabel = (risk) => ({
@@ -34,6 +35,7 @@ export default function GuardianConsole() {
   const [lastMonitoringRun, setLastMonitoringRun] = useState("");
   const [snapshot, setSnapshot] = useState(() => guardianSnapshot());
   const [focusFingerprint, setFocusFingerprint] = useState("");
+  const [viewMode, setViewMode] = useState("open");
 
   useEffect(() => {
     const refresh = () => setSnapshot(guardianSnapshot());
@@ -52,12 +54,18 @@ export default function GuardianConsole() {
   const monitoringQueue = useMemo(() => guardianMonitoringQueue(), [snapshot]);
   const nextMonitoring = useMemo(() => snapshot.open.map((incident) => incident.monitoring?.dueAt).filter(Boolean).toSorted()[0] || "", [snapshot.open]);
 
-  const visibleIncidents = useMemo(
-    () => snapshot.open
+  const visibleIncidents = useMemo(() => {
+    const source = viewMode === "resolved" ? snapshot.autoResolved : viewMode === "approval" ? snapshot.approvalRequired : snapshot.open;
+    return source
       .toSorted((left, right) => (left.fingerprint === focusFingerprint ? -1 : right.fingerprint === focusFingerprint ? 1 : Date.parse(right.lastSeenAt || 0) - Date.parse(left.lastSeenAt || 0)))
-      .slice(0, 8),
-    [snapshot.open, focusFingerprint],
-  );
+      .slice(0, 8);
+  }, [snapshot.open, snapshot.autoResolved, snapshot.approvalRequired, focusFingerprint, viewMode]);
+
+  const openView = (mode) => {
+    setViewMode(mode);
+    setFocusFingerprint("");
+    window.requestAnimationFrame(() => document.querySelector(".guardian-incidents")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+  };
 
   const scanNow = async () => {
     setRunning(true);
@@ -82,14 +90,14 @@ export default function GuardianConsole() {
             <button className="guardian-close" type="button" onClick={() => setOpen(false)} aria-label="Chiudi Guardian">×</button>
           </header>
 
-          <div className="guardian-health-grid">
-            <div className={`guardian-score ${scoreTone(snapshot.score)}`}>
+          <div className="guardian-health-grid" aria-label="Filtri Guardian">
+            <button type="button" className={`guardian-score ${scoreTone(snapshot.score)} ${viewMode === "open" ? "is-active" : ""}`} onClick={() => openView("open")}>
               <strong>{snapshot.score}%</strong>
               <span>System health</span>
-            </div>
-            <div className="guardian-metric"><strong>{snapshot.open.length}</strong><span>Aperti</span></div>
-            <div className="guardian-metric"><strong>{snapshot.autoResolved.length}</strong><span>Auto-risolti</span></div>
-            <div className="guardian-metric"><strong>{snapshot.approvalRequired.length}</strong><span>Da approvare</span></div>
+            </button>
+            <button type="button" className={`guardian-metric ${viewMode === "open" ? "is-active" : ""}`} onClick={() => openView("open")}><strong>{snapshot.open.length}</strong><span>Aperti</span></button>
+            <button type="button" className={`guardian-metric ${viewMode === "resolved" ? "is-active" : ""}`} onClick={() => openView("resolved")}><strong>{snapshot.autoResolved.length}</strong><span>Auto-risolti</span></button>
+            <button type="button" className={`guardian-metric ${viewMode === "approval" ? "is-active" : ""}`} onClick={() => openView("approval")}><strong>{snapshot.approvalRequired.length}</strong><span>Da approvare</span></button>
           </div>
 
           <div className="guardian-actions">
@@ -112,13 +120,13 @@ export default function GuardianConsole() {
 
           <section className="guardian-incidents" aria-live="polite">
             <div className="guardian-section-title">
-              <h3>Incidenti attivi</h3>
-              <span>{snapshot.open.length}</span>
+              <h3>{viewMode === "resolved" ? "Auto-risolti" : viewMode === "approval" ? "Da approvare" : "Incidenti attivi"}</h3>
+              <span>{viewMode === "resolved" ? snapshot.autoResolved.length : viewMode === "approval" ? snapshot.approvalRequired.length : snapshot.open.length}</span>
             </div>
             {visibleIncidents.length === 0 ? (
               <div className="guardian-empty">
-                <strong>Nessuna anomalia attiva</strong>
-                <span>I controlli automatici non hanno rilevato problemi aperti.</span>
+                <strong>{viewMode === "resolved" ? "Nessun intervento auto-risolto" : viewMode === "approval" ? "Nessuna approvazione richiesta" : "Nessuna anomalia attiva"}</strong>
+                <span>{viewMode === "resolved" ? "Le correzioni automatiche concluse compariranno qui." : viewMode === "approval" ? "Non ci sono interventi che richiedono una decisione manuale." : "I controlli automatici non hanno rilevato problemi aperti."}</span>
               </div>
             ) : visibleIncidents.map((incident) => (
               <article className={`guardian-incident severity-${incident.severity || "warning"} ${incident.fingerprint === focusFingerprint ? "is-focused" : ""}`} key={incident.id}>
@@ -135,6 +143,10 @@ export default function GuardianConsole() {
                   <div className="guardian-diagnosis-meta"><span>Confidenza: <b>{incident.diagnosis.confidence}</b></span><span>Ricorrenza: <b>{incident.diagnosis.recurrence || incident.occurrences || 1}×</b></span></div>
                   {incident.diagnosis.evidence?.length > 0 && <details><summary>Perché lo pensa</summary><ul>{incident.diagnosis.evidence.map((item) => <li key={item}>{item}</li>)}</ul></details>}
                   {incident.diagnosis.requiresHumanReview && <p className="guardian-root-review">Analisi della causa radice richiesta prima di ulteriori correzioni automatiche.</p>}
+                </div>}
+                {incident.state !== "resolved" && <div className="guardian-incident-actions">
+                  {String(incident.action || "").startsWith("inspect-") && <button type="button" onClick={scanNow} disabled={running}>{incident.action === "inspect-local-api" ? "Riprova health check" : "Ricontrolla ora"}</button>}
+                  {(incident.risk === GUARDIAN_RISK.APPROVAL_REQUIRED || incident.state === "approval_required" || incident.state === "blocked") && <button type="button" className="secondary" onClick={() => { setOpen(false); navigatePage("Correzioni"); }}>Apri Correzioni</button>}
                 </div>}
                 <footer>
                   <span>{riskLabel(incident.risk)}</span>

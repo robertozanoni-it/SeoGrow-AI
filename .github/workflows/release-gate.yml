@@ -35,6 +35,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Use npm 11 audit client
+        run: npm install --global npm@11.11.0
+
       - name: Install exact dependencies
         run: npm ci --ignore-scripts
 
@@ -88,7 +91,21 @@ jobs:
         run: npm run test:launcher
 
       - name: Dependency audit
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          set -o pipefail
+          attempts=4
+          for attempt in $(seq 1 "$attempts"); do
+            echo "Dependency audit attempt $attempt/$attempts"
+            if npm audit --audit-level=high; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$attempts" ]; then
+              echo "Dependency audit failed after $attempts attempts."
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done
 
       - name: Ensure secrets and runtime data are not tracked
         run: |
