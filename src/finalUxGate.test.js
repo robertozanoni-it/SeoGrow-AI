@@ -26,8 +26,8 @@ test("sidebar has one final active-state contract and controlled azure groups", 
   assert.match(css, /guided-nav-group:nth-of-type\(odd\)/);
   assert.match(css, /guided-nav-group:nth-of-type\(even\)/);
   assert.match(css, /button\[aria-current="page"\]/);
-  assert.match(guided, /className=\{page === item\.page \? "active" : ""\}/);
-  assert.match(guided, /aria-current=\{page === item\.page \? "page" : undefined\}/);
+  assert.match(guided, /className=\{activePage === item\.page \? "active" : ""\}/);
+  assert.match(guided, /aria-current=\{activePage === item\.page \? "page" : undefined\}/);
 });
 
 test("focus, disabled, error, status, empty and loading states are visually explicit", () => {
