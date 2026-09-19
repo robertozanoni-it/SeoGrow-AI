@@ -422,3 +422,73 @@ test("un audit pulito più vecchio della correzione non può chiudere una correz
   assert.equal(result.rows[0].problemState, "open");
   assert.equal(result.activeRows.length, 1);
 });
+
+
+test("un noindex legacy viene chiuso da un audit pagina più recente che conferma l'assenza del segnale", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-noindex",
+      sourceClientId: 1,
+      kind: "indexability",
+      title: "Pagina impostata noindex",
+      sourceUrl: url,
+      status: "Da fare",
+      updatedAt: "2026-09-10T10:00:00Z",
+    }],
+    pageHistory: [{ analyzedAt: "2026-09-19T08:00:00Z", url, issues: [], reviewItems: [] }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("un contenuto breve legacy viene chiuso da un audit pagina più recente che non lo rileva più", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "legacy-thin",
+      sourceClientId: 1,
+      kind: "thin",
+      title: "Contenuto breve",
+      sourceUrl: url,
+      status: "Da fare",
+      updatedAt: "2026-09-10T10:00:00Z",
+    }],
+    pageHistory: [{ analyzedAt: "2026-09-19T08:00:00Z", url, issues: [], reviewItems: [] }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+  assert.equal(result.rows[0].problemState, "resolved");
+});
+
+test("pagine orfane e link rotti richiedono un crawl sito per essere dichiarati superati", () => {
+  const url = "https://example.it/pagina/";
+  for (const kind of ["orphan", "broken-link", "broken-external-link"]) {
+    const task = {
+      id: "legacy-" + kind,
+      sourceClientId: 1,
+      kind,
+      title: kind,
+      sourceUrl: url,
+      status: "Da fare",
+      updatedAt: "2026-09-10T10:00:00Z",
+    };
+    const pageOnly = buildUnifiedProblems({
+      clientId: 1,
+      tasks: [task],
+      pageHistory: [{ analyzedAt: "2026-09-19T08:00:00Z", url, issues: [], reviewItems: [] }],
+      now: Date.parse("2026-09-19T09:00:00Z"),
+    });
+    assert.equal(pageOnly.rows[0].problemState, "open", kind + " non può essere chiuso da audit pagina");
+
+    const siteClean = buildUnifiedProblems({
+      clientId: 1,
+      tasks: [task],
+      siteHistory: [{ analyzedAt: "2026-09-19T08:00:00Z", pages: [{ url, ok: true }], issues: [], reviewItems: [] }],
+      now: Date.parse("2026-09-19T09:00:00Z"),
+    });
+    assert.equal(siteClean.rows[0].problemState, "resolved", kind + " deve essere chiuso da crawl sito pulito");
+  }
+});
