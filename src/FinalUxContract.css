@@ -127,3 +127,25 @@ body[data-seogrow-ui-mode] main :is(button,.primary,.secondary) {
     width: 100%;
   }
 }
+
+
+/* Problemi is an Audit subview: keep its selected state semantically red.
+   This lives in the final UX layer so later generic active rules cannot override it. */
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav
+.guided-audit-subnav-host .problems-nav-bridge-button.active,
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav
+.guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] {
+  background: #d92d20 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: inset 4px 0 #9f1710, 0 5px 15px rgba(130, 20, 15, .24) !important;
+}
+
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav
+.guided-audit-subnav-host .problems-nav-bridge-button.active :is(span,svg),
+body[data-seogrow-ui-mode] .sidebar nav.guided-nav
+.guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] :is(span,svg) {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+}
