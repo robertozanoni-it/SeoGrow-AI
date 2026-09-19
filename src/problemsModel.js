@@ -172,6 +172,12 @@ const addSource = (group, source) => {
   });
 };
 
+const isTechnicalRecoveryFixture = (record = {}) => {
+  const id = String(record?.id || "").trim();
+  const label = String(record?.issueLabel || record?.title || record?.issue?.label || "").trim();
+  return /^g06-live-/i.test(id) || /\bg06\b.*lost[ -]?response.*recovery/i.test(label);
+};
+
 const locallyClearableAuditTypes = new Set([
   "h1",
   "title",
@@ -432,6 +438,7 @@ export function buildUnifiedProblems({
 
   for (const correction of (Array.isArray(corrections) ? corrections : []).flatMap(record => [record, ...(Array.isArray(record.batchIssues) ? record.batchIssues : []).map(item => ({ ...record, batchIssues: undefined, issue: item.issue, issueType: item.issue?.type, issueLabel: item.issue?.label, sourceUrl: item.sourceUrl, issueKey: undefined, legacyIssueKey: undefined }))])) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;
+    if (isTechnicalRecoveryFixture(correction)) continue;
     const sourceUrl = correction?.sourceUrl || "";
     if (isLegalPage(sourceUrl)) continue;
     const record = {
