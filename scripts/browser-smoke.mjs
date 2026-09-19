@@ -355,7 +355,10 @@ try {
     })();`,
   });
 
-  await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
+    await sleep(200);
+    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before final navigation", 12_000);
+    const beforeFinalNavigation = await evaluate("performance.timeOrigin");
+    await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
   await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "root React con progetto QA");
   await waitFor("document.querySelector('.guided-nav')", "navigazione guidata visibile");
   await waitFor(
