@@ -1,5 +1,6 @@
 import { archiveLegalSeoTasks, isLegalSeoTask, normalizeTaskLinks } from './experience/tasks/index.js';
 import { issueIdentity } from './reliabilityModel.js';
+import { auditCompatibilityIdentity } from './problemIdentityCompatibility.js';
 
 export const auditTaskIdentity = task => issueIdentity({
   issueType: task.kind,
@@ -44,9 +45,28 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
     const task = normalizeGeneratedAuditTask(rawTask);
     if (isLegalSeoTask(task)) continue;
     const key = auditTaskIdentity(task);
-    const matches = item => !item.duplicateOf && Number(item.sourceClientId) === Number(clientId) && (auditTaskIdentity(item) === key || next.some(alias => alias.duplicateOf === item.id && Number(alias.sourceClientId) === Number(clientId) && auditTaskIdentity(alias) === key));
-    let index = next.findIndex(item => matches(item) && !item.stale && item.status !== 'Completato');
-    if (index < 0) index = next.findIndex(matches);
+    const compatibilityKey = auditCompatibilityIdentity(task);
+    const exactMatches = (item) => !item.duplicateOf &&
+      Number(item.sourceClientId) === Number(clientId) &&
+      (auditTaskIdentity(item) === key ||
+        next.some(alias => alias.duplicateOf === item.id &&
+          Number(alias.sourceClientId) === Number(clientId) &&
+          auditTaskIdentity(alias) === key));
+    let index = next.findIndex(item => exactMatches(item) && !item.stale && item.status !== 'Completato');
+    if (index < 0) index = next.findIndex(exactMatches);
+
+    if (index < 0 && compatibilityKey) {
+      const compatibleIndexes = next
+        .map((item, candidateIndex) => ({ item, candidateIndex }))
+        .filter(({ item }) =>
+          !item.duplicateOf &&
+          Number(item.sourceClientId) === Number(clientId) &&
+          auditCompatibilityIdentity(item) === compatibilityKey,
+        );
+      const activeCompatible = compatibleIndexes.filter(({ item }) => !item.stale && item.status !== 'Completato');
+      const candidates = activeCompatible.length ? activeCompatible : compatibleIndexes;
+      if (candidates.length === 1) index = candidates[0].candidateIndex;
+    }
     if (index < 0) { next.push(task); continue; }
     const previous = next[index];
     const reappeared = previous.status === 'Completato';
@@ -69,6 +89,9 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
       automatic: task.automatic !== false,
       taskLinks: mergeLinks(previous.taskLinks, task.taskLinks),
       lastObservedAt: observedAt,
+      stale: false,
+      excludedFromSeo: false,
+      staleReason: "",
       ...(reappeared ? {
         status: 'Da fare', regression: true, reopenedAt: observedAt,
         completedAt: '', completionReason: '', causeReconciled: false,
