@@ -381,6 +381,8 @@ function useUiSnapshot() {
 }
 
 function GuidedNav({ page, mode, setMode }) {
+  const routedPage = readPage();
+  const activePage = routedPage || page;
   return (
     <nav className="guided-nav" aria-label="Navigazione SeoGrow Suite">
       <div className="guided-nav-scroll">
@@ -399,8 +401,8 @@ function GuidedNav({ page, mode, setMode }) {
                     type="button"
                     key={item.page}
                     data-seogrow-page={item.page}
-                    className={page === item.page ? "active" : ""}
-                    aria-current={page === item.page ? "page" : undefined}
+                    className={activePage === item.page ? "active" : ""}
+                    aria-current={activePage === item.page ? "page" : undefined}
                     onClick={() => navigate(item.page)}
                   >
                     <Icon />
