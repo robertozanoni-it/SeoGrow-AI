@@ -1,5 +1,5 @@
 import { archiveLegalSeoTasks, isLegalSeoTask, normalizeTaskLinks } from './experience/tasks/index.js';
-import { issueIdentity } from './reliabilityModel.js';
+import { issueIdentity, normalizeHttpUrl } from './reliabilityModel.js';
 import { auditCompatibilityIdentity } from './problemIdentityCompatibility.js';
 
 export const auditTaskIdentity = task => issueIdentity({
@@ -65,7 +65,12 @@ export function reconcileAuditTasks(current, generated, clientId, observedAt) {
         );
       const activeCompatible = compatibleIndexes.filter(({ item }) => !item.stale && item.status !== 'Completato');
       const candidates = activeCompatible.length ? activeCompatible : compatibleIndexes;
-      if (candidates.length === 1) index = candidates[0].candidateIndex;
+      const taskSource = normalizeHttpUrl(task.sourceUrl || task.targetUrl || "", { stripSlash: false });
+      const exactUrlCandidates = candidates.filter(({ item }) =>
+        normalizeHttpUrl(item.sourceUrl || item.targetUrl || "", { stripSlash: false }) === taskSource,
+      );
+      if (exactUrlCandidates.length === 1) index = exactUrlCandidates[0].candidateIndex;
+      else if (candidates.length === 1) index = candidates[0].candidateIndex;
     }
     if (index < 0) { next.push(task); continue; }
     const previous = next[index];
