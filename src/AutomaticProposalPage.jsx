@@ -91,7 +91,7 @@ const label = (value, map) => map[value] || value || "Non disponibile";
 const labels = {
   severity: { high: "Alta", medium: "Media", low: "Bassa", unknown: "Non classificata" },
   state: { open: "Aperto", needs_verification: "Da confermare", resolved: "Risolto", reappeared: "Ricomparso", intentional: "Intenzionale" },
-  correctability: { automatic: "Automatica", assisted: "Assistita", manual: "Manuale", not_supported: "Non supportata" },
+  correctability: { automatic: "Automatizzabile", assisted: "Assistita", manual: "Manuale", not_supported: "Non supportata" },
 };
 
 function RemediationFocusDispatcher({ focus }) {
