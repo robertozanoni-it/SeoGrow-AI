@@ -10,6 +10,13 @@ import { readWorkspaceJson, writeWorkspaceJson } from "../core/workspace/jsonSto
 import { WORKSPACE_KEYS } from "../core/workspace/storageKeys.js";
 import { workspaceStorage } from "../workspaceDatabase.js";
 import { reconcileTaskCauses } from "../taskCauseReconciliation.js";
+import { buildUnifiedProblems } from "../problemsModel.js";
+import { listCorrections } from "../remediationStore.js";
+import {
+  RUNTIME_CONSISTENCY_SOURCE,
+  analyzeProjectRuntimeConsistency,
+  analyzeProblemsRouteVisualConsistency,
+} from "./runtimeConsistencyGuardian.js";
 import { classifyProblemSignal } from "./problemDetectionEngine.js";
 import { installInteractionWatchdog } from "./interactionWatchdog.js";
 import { diagnoseRootCause } from "./rootCauseDiagnosisEngine.js";
@@ -18,7 +25,7 @@ import { classifyRecurrence, canonicalLifecycleKey } from "./recurrenceEngine.js
 import { dueMonitoringIncidents, monitoringPlan } from "./monitoringScheduler.js";
 import { notifyGuardianLifecycle, notifyGuardianMonitoringFailure } from "./guardianNotifications.js";
 
-export const GUARDIAN_VERSION = "1.0.0";
+export const GUARDIAN_VERSION = "1.1.0";
 export const GUARDIAN_INCIDENTS_KEY = "seogrow-guardian-incidents-v1";
 export const GUARDIAN_SETTINGS_KEY = "seogrow-guardian-settings-v1";
 
@@ -359,6 +366,112 @@ async function checkTaskCauses(settings) {
   }
 }
 
+
+const historyForClient = (store, clientId) => {
+  const value = store?.[clientId] ?? store?.[String(clientId)];
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+};
+
+async function checkRuntimeConsistency() {
+  const started = Date.now();
+  try {
+    const clients = readWorkspaceJson(WORKSPACE_KEYS.clients, [], workspaceStorage);
+    const tasks = readWorkspaceJson(WORKSPACE_KEYS.tasks, [], workspaceStorage);
+    const analyses = readWorkspaceJson(WORKSPACE_KEYS.analyses, {}, workspaceStorage);
+    const pageAudits = readWorkspaceJson(WORKSPACE_KEYS.pageAuditHistory, {}, workspaceStorage);
+    const closures = readWorkspaceJson(WORKSPACE_KEYS.problemClosures, [], workspaceStorage);
+    const corrections = await listCorrections({ includeOrphans: true });
+    const findings = [];
+
+    for (const client of Array.isArray(clients) ? clients : []) {
+      const clientId = client?.id;
+      if (clientId == null) continue;
+      const siteHistory = historyForClient(analyses, clientId);
+      const pageHistory = historyForClient(pageAudits, clientId);
+      const model = buildUnifiedProblems({
+        clientId,
+        siteHistory,
+        pageHistory,
+        tasks,
+        corrections,
+        closures,
+        now: Date.now(),
+      });
+      findings.push(...analyzeProjectRuntimeConsistency({
+        clientId,
+        rows: model.rows,
+        activeRows: model.activeRows,
+        tasks: Array.isArray(tasks) ? tasks.filter((task) => Number(task?.sourceClientId) === Number(clientId)) : [],
+        corrections: Array.isArray(corrections) ? corrections.filter((row) => Number(row?.clientId) === Number(clientId)) : [],
+        siteHistory,
+        pageHistory,
+        now: Date.now(),
+      }));
+    }
+
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      let currentPage = "";
+      try { currentPage = decodeURIComponent(window.location.hash.slice(1)); } catch {}
+      const button = document.querySelector('.guided-audit-subnav-host .problems-nav-bridge-button');
+      const style = button && typeof window.getComputedStyle === "function" ? window.getComputedStyle(button) : null;
+      findings.push(...analyzeProblemsRouteVisualConsistency({
+        currentPage,
+        buttonExists: Boolean(button),
+        ariaCurrent: button?.getAttribute("aria-current") || "",
+        backgroundColor: style?.backgroundColor || "",
+        color: style?.color || "",
+      }));
+    }
+
+    const activeFingerprints = new Set();
+    for (const item of findings) {
+      const fingerprint = guardianFingerprint({
+        code: item.code,
+        source: RUNTIME_CONSISTENCY_SOURCE,
+        message: `${item.message}|${item.detail || ""}|${item.clientId ?? ""}`,
+      });
+      activeFingerprints.add(fingerprint);
+      recordGuardianIncident({
+        ...item,
+        fingerprint,
+        source: RUNTIME_CONSISTENCY_SOURCE,
+        risk: GUARDIAN_RISK.DIAGNOSE,
+        state: "open",
+        action: "inspect-runtime-consistency",
+      });
+    }
+
+    for (const incident of listGuardianIncidents()) {
+      if (
+        incident?.source === RUNTIME_CONSISTENCY_SOURCE &&
+        incident?.state !== "resolved" &&
+        !activeFingerprints.has(incident.fingerprint)
+      ) {
+        resolveGuardianIncident(
+          incident.fingerprint,
+          "La successiva scansione cross-modulo non rileva più l'incoerenza.",
+        );
+      }
+    }
+
+    return {
+      id: "runtime-consistency",
+      ok: findings.length === 0,
+      changed: false,
+      findings: findings.length,
+      durationMs: Date.now() - started,
+    };
+  } catch (error) {
+    incidentForError("RUNTIME_CONSISTENCY_SCAN_FAILED", RUNTIME_CONSISTENCY_SOURCE, error, {
+      severity: "error",
+      risk: GUARDIAN_RISK.DIAGNOSE,
+      action: "inspect-runtime-consistency",
+    });
+    return { id: "runtime-consistency", ok: false, changed: false, error };
+  }
+}
+
 async function checkLocalApi() {
   if (typeof window === "undefined" || typeof window.fetch !== "function") return { id: "local-api", ok: true, skipped: true };
   const controller = new AbortController();
@@ -420,6 +533,7 @@ export async function runGuardianScan({ trigger = "manual" } = {}) {
     results.push(await checkArchitecture());
     results.push(checkSelectedPage(settings));
     results.push(await checkTaskCauses(settings));
+    results.push(await checkRuntimeConsistency());
     results.push(await checkLocalApi());
     const completedAt = nowIso();
     lastScan = {
@@ -492,6 +606,7 @@ export function installGuardianRuntime() {
   });
   window.addEventListener("seogrow-audit-problem-detected", (event) => {
     const detail = event?.detail || {};
+    scheduleScan("audit-updated", 1_200);
     detectAndRecordSignal({
       fingerprint: detail.fingerprint,
       code: detail.code || "AUDIT_ISSUE",
@@ -561,8 +676,20 @@ export function installGuardianRuntime() {
   window.addEventListener("seogrow-remediation-applied", () => scheduleScan("remediation-applied", 900));
   window.addEventListener("seogrow-task-cause-reconciled", () => scheduleScan("task-reconciled", 900));
   window.addEventListener("storage", (event) => {
-    if ([WORKSPACE_KEYS.selectedPage, WORKSPACE_KEYS.tasks, WORKSPACE_KEYS.problemClosures].includes(event?.key)) scheduleScan("workspace-change", 700);
+    if ([
+      WORKSPACE_KEYS.selectedPage,
+      WORKSPACE_KEYS.selectedClient,
+      WORKSPACE_KEYS.tasks,
+      WORKSPACE_KEYS.analyses,
+      WORKSPACE_KEYS.pageAuditHistory,
+      WORKSPACE_KEYS.problemClosures,
+      WORKSPACE_KEYS.remediationHistory,
+    ].includes(event?.key)) scheduleScan("workspace-change", 700);
   });
+  window.addEventListener("seogrow-storage-ok", () => scheduleScan("workspace-settled", 900));
+  window.addEventListener("seogrow-remediation-history", () => scheduleScan("remediation-history", 900));
+  window.addEventListener("seogrow-locationchange", () => scheduleScan("route-change", 450));
+  window.addEventListener("hashchange", () => scheduleScan("route-change", 450));
   window.addEventListener("seogrow-guardian-run-request", () => scheduleScan("requested", 0));
   uninstallInteractionWatchdog = installInteractionWatchdog();
 
