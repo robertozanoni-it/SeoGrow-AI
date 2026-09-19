@@ -657,7 +657,7 @@ test("slash legacy e finding fresco convergono solo quando l'audit corrente iden
   assert.equal(result.rows[0].stale, false);
 });
 
-test("una task audit senza evidenza reale resta nello storico Task ma non crea un Problema attivo", () => {
+test("una task audit generica senza evidenza reale resta da riconvalidare finché manca un audit sufficiente", () => {
   const result = buildUnifiedProblems({
     clientId: 1,
     tasks: [{
@@ -674,8 +674,9 @@ test("una task audit senza evidenza reale resta nello storico Task ma non crea u
     now: Date.parse("2026-09-19T10:01:00Z"),
   });
 
-  assert.equal(result.rows.length, 0);
-  assert.equal(result.activeRows.length, 0);
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.activeRows.length, 1);
+  assert.equal(result.rows[0].stale, true);
 });
 
 
