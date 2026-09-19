@@ -12,7 +12,7 @@ export async function runAutoFix({ evaluate, waitFor, clickSidebar, record, butt
     const siteKey = 'seogrow-analyses-v2', pageKey = 'seogrow-page-audit-history-v2';
     const sites = await read(siteKey), pages = await read(pageKey);
     const tasks = await read('seogrow-tasks-v2');
-    const write = (key,value) => evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(key)}}))})()`);
+    const write = (key,value) => evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace()})()`);
     const audit = { url:client.url, analyzedAt:'2099-01-01T00:00:00Z', issues:[...Array.from({length:12},(_,i)=>({type:'meta description',label:'QA Auto Fix description '+i,url:client.url})),{type:'canonical',label:'QA canonical',url:client.url}] };
     try {
       await write(siteKey,{...sites,[clientId]:[audit]}); await write(pageKey,{...pages,[clientId]:[]});
