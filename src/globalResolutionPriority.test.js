@@ -89,3 +89,19 @@ test("pagina risoluzione usa la stessa politica globale", async () => {
   assert.match(source, /priority\.mode === "approval"/);
   assert.match(source, /priority\.mode === "confirm"/);
 });
+
+
+test("un problema automatizzabile con audit appena osservato espone la correzione invece di chiedere un altro audit", () => {
+  const problem = {
+    issueType: "duplicate-title",
+    title: "Title duplicato",
+    sourceUrl: "https://example.it/pagina/",
+    problemState: "open",
+    interventionState: "not_prepared",
+    correctability: "automatic",
+    stale: false,
+  };
+  const path = resolutionPath(problem);
+  assert.equal(path.action, "prepare");
+  assert.equal(problemEntryLabel(problem), "Correggi automaticamente");
+});
