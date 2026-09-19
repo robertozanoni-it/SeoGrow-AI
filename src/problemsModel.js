@@ -484,6 +484,12 @@ export function buildUnifiedProblems({
       ? clearanceAt
       : state.lastAuditAt || latestAuditSource?.at || (problemState === "resolved" ? verifiedAt : "");
     const ageMs = observedAt ? Math.max(0, now - timestamp(observedAt)) : Number.POSITIVE_INFINITY;
+    const stale = !Number.isFinite(ageMs) || ageMs > 7 * 24 * 60 * 60_000;
+    const freshnessReason = !observedAt
+      ? "Nessuna evidenza audit recente associata a questa identità."
+      : stale
+        ? "L'ultima evidenza audit associata supera la soglia di 7 giorni."
+        : "L'evidenza audit associata è recente.";
     const confidence = reviewOnly ? "needs_confirmation" : issueConfidence(
       { type: group.issueType, label: group.title, detail: group.detail },
       {
@@ -511,7 +517,18 @@ export function buildUnifiedProblems({
       confidence,
       observedAt,
       verifiedAt,
-      stale: !Number.isFinite(ageMs) || ageMs > 7 * 24 * 60 * 60_000,
+      stale,
+      freshnessTrace: {
+        reason: freshnessReason,
+        observedAt,
+        latestAuditAt: group.latestAuditAt || "",
+        latestAuditTaskAt: group.latestAuditTaskAt || "",
+        latestCorrectionAt: group.latestCorrectionAt || "",
+        auditClearedAt: group.auditClearedAt || "",
+        auditClearedScope: group.auditClearedScope || "",
+        auditDerivedTask: group.auditDerivedTask === true,
+        sourceKinds: [...new Set(group.sources.map((source) => source.kind).filter(Boolean))],
+      },
       regression: problemState === "reappeared",
       ownershipBlocked: group.ownershipBlocked,
       technicalError: group.technicalError,

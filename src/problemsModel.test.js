@@ -678,3 +678,26 @@ test("una task senza audit reale resta da riconvalidare anche se è stata aggior
   assert.equal(result.rows[0].observedAt, "");
   assert.equal(result.rows[0].stale, true);
 });
+
+
+test("una card stale espone la traccia della freschezza che spiega perché richiede un audit", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "trace-task",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: "https://example.it/pagina/",
+      status: "Da fare",
+      origin: "audit",
+      automatic: true,
+      createdAt: "2026-09-01T10:00:00Z",
+    }],
+    now: Date.parse("2026-09-19T10:00:00Z"),
+  });
+  assert.equal(result.rows[0].stale, true);
+  assert.equal(result.rows[0].freshnessTrace.auditDerivedTask, true);
+  assert.equal(result.rows[0].freshnessTrace.latestAuditAt, "");
+  assert.match(result.rows[0].freshnessTrace.reason, /Nessuna evidenza audit recente/i);
+});
