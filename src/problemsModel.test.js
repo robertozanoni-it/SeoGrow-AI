@@ -657,7 +657,7 @@ test("slash legacy e finding fresco convergono solo quando l'audit corrente iden
   assert.equal(result.rows[0].stale, false);
 });
 
-test("una task senza audit reale resta da riconvalidare anche se è stata aggiornata un minuto fa", () => {
+test("una task audit senza evidenza reale resta nello storico Task ma non crea un Problema attivo", () => {
   const result = buildUnifiedProblems({
     clientId: 1,
     tasks: [{
@@ -674,30 +674,76 @@ test("una task senza audit reale resta da riconvalidare anche se è stata aggior
     now: Date.parse("2026-09-19T10:01:00Z"),
   });
 
-  assert.equal(result.rows.length, 1);
-  assert.equal(result.rows[0].observedAt, "");
-  assert.equal(result.rows[0].stale, true);
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
 });
 
 
-test("una card stale espone la traccia della freschezza che spiega perché richiede un audit", () => {
+test("una card stale con evidenza audit storica espone la traccia della freschezza", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    pageHistory: [{
+      analyzedAt: "2026-09-01T10:00:00Z",
+      url,
+      issues: [{ type: "h1", label: "2 H1 rilevati", sourceUrl: url, url, severity: "alta" }],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:00:00Z"),
+  });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].stale, true);
+  assert.equal(result.rows[0].freshnessTrace.latestAuditAt, "2026-09-01T10:00:00Z");
+  assert.equal(result.rows[0].freshnessTrace.observedAt, "2026-09-01T10:00:00Z");
+  assert.match(result.rows[0].freshnessTrace.reason, /supera la soglia di 7 giorni/i);
+});
+
+
+test("una vecchia task analysis-* migrata come manuale non può creare da sola un Problema", () => {
   const result = buildUnifiedProblems({
     clientId: 1,
     tasks: [{
-      id: "trace-task",
+      id: "analysis-1-2026-09-05T10:00:00Z-0",
       sourceClientId: 1,
       kind: "h1",
       title: "2 H1 rilevati",
       sourceUrl: "https://example.it/pagina/",
       status: "Da fare",
-      origin: "audit",
-      automatic: true,
-      createdAt: "2026-09-01T10:00:00Z",
+      origin: "manual",
+      automatic: false,
+      createdAt: "2026-09-05T10:00:00Z",
     }],
     now: Date.parse("2026-09-19T10:00:00Z"),
   });
-  assert.equal(result.rows[0].stale, true);
-  assert.equal(result.rows[0].freshnessTrace.auditDerivedTask, true);
-  assert.equal(result.rows[0].freshnessTrace.latestAuditAt, "");
-  assert.match(result.rows[0].freshnessTrace.reason, /Nessuna evidenza audit recente/i);
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("la stessa task analysis-* torna a Problemi quando un audit fresco conferma davvero il finding", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "analysis-1-2026-09-05T10:00:00Z-0",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: url,
+      status: "Da fare",
+      origin: "manual",
+      automatic: false,
+      createdAt: "2026-09-05T10:00:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T10:00:00Z",
+      url,
+      issues: [{ type: "h1", label: "2 H1 rilevati", sourceUrl: url, url, severity: "alta" }],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:01:00Z"),
+  });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.activeRows.length, 1);
+  assert.equal(result.rows[0].stale, false);
+  assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
 });
