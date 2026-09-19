@@ -9,7 +9,7 @@ export async function runSavedCorrectionFlow({ evaluate, waitFor, record, button
     const sites = await read(siteKey), pages = await read(pageKey);
     const profileKey = 'seogrow-wordpress-profiles-v1', profiles = await read(profileKey);
     const oldRecords = await evaluate("(async()=>{const m=await import('/src/remediationStore.js');return m.listCorrections({includeOrphans:true})})()");
-    const write = (key, value) => evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${JSON.stringify(key)}}))})()`);
+    const write = (key, value) => evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${JSON.stringify(key)},${JSON.stringify(JSON.stringify(value))});await m.flushWorkspace()})()`);
     const targetUrl = new URL('receipt-test/', client.url).href;
     const before = 'Descrizione precedente conservata nello storico.';
     const after = 'Descrizione aggiornata approvata: testo completo con accenti, è, perché e un collegamento preciso alla pagina.';

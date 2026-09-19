@@ -4,7 +4,7 @@ import { navigatePage as navigate, isNavigationItemVisible } from "./navigationU
 import { workspaceStorage as localStorage } from "./workspaceDatabase.js";
 import { WORKSPACE_KEYS } from "./core/workspace/storageKeys.js";
 import { SUITE_NAVIGATION } from "./suite/navigationModel.js";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BarChart3,
@@ -277,6 +277,7 @@ function useUiSnapshot() {
 
   useEffect(() => {
     let frame = 0;
+    let attempts = 0;
     let cancelled = false;
     const syncTargets = () => {
       if (cancelled) return;
@@ -290,20 +291,28 @@ function useUiSnapshot() {
           ? current
           : next,
       );
+      if ((!next.sidebar || !next.topbar || !next.main) && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(syncTargets);
+      }
     };
     const scheduleSync = () => {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(syncTargets);
+      attempts = 0;
+      const settle = () => {
+        syncTargets();
+        attempts += 1;
+        if (attempts < 8) frame = window.requestAnimationFrame(settle);
+      };
+      frame = window.requestAnimationFrame(settle);
     };
     scheduleSync();
-    const interval = window.setInterval(syncTargets, 300);
     window.addEventListener("hashchange", scheduleSync);
     window.addEventListener("popstate", scheduleSync);
     window.addEventListener("seogrow-locationchange", scheduleSync);
     window.addEventListener("seogrow-storage-ok", scheduleSync);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("hashchange", scheduleSync);
       window.removeEventListener("popstate", scheduleSync);
@@ -334,17 +343,18 @@ function useUiSnapshot() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const slug = pageSlug(page);
     document.body.dataset.seogrowUiMode = mode;
-    document.body.dataset.seogrowPage = pageSlug(page);
+    document.body.dataset.seogrowPage = slug;
     try {
       localStorage.setItem(UI_MODE_KEY, mode);
     } catch {
       /* La modalità resta valida per la sessione anche se lo storage non è disponibile. */
     }
     return () => {
-      delete document.body.dataset.seogrowUiMode;
-      delete document.body.dataset.seogrowPage;
+      if (document.body.dataset.seogrowUiMode === mode) delete document.body.dataset.seogrowUiMode;
+      if (document.body.dataset.seogrowPage === slug) delete document.body.dataset.seogrowPage;
     };
   }, [mode, page]);
 

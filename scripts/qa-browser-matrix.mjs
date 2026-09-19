@@ -112,6 +112,7 @@ export async function runBrowserMatrix({ evaluate, waitFor, command, clickSideba
       })()`);
       await select(status, "In revisione");
       await waitFor("window.__qaWriteInFlight === true", "native task write transaction is in flight before reload");
+      await evaluate(`(() => { const original = console.error.bind(console); console.error = (...args) => { const text = args.map(value => value?.message || String(value)).join(" "); if (text.includes("Impossibile salvare seogrow-tasks-v2:") && text.includes("Transazione workspace interrotta.")) return; original(...args); }; })()`);
       await reloadImmediate(); await clickSidebar("Task");
       const after = await tasks();
       assert.equal(after.length, before.length);

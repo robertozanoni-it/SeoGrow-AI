@@ -9,7 +9,7 @@ export async function runResolutionPaths({evaluate,waitFor,record,button,set,rea
     const keys=['seogrow-analyses-v2','seogrow-page-audit-history-v2','seogrow-wordpress-profiles-v1'];
     const saved=Object.fromEntries(await Promise.all(keys.map(async key=>[key,await read(key)])));
     const corrections=await evaluate("(async()=>{const m=await import('/src/remediationStore.js');return m.listCorrections({includeOrphans:true})})()");
-    const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${q(key)},${q(JSON.stringify(value))});await m.flushWorkspace();window.dispatchEvent(new StorageEvent('storage',{key:${q(key)}}))})()`);
+    const write=(key,value)=>evaluate(`(async()=>{const m=await import('/src/workspaceDatabase.js');m.workspaceStorage.setItem(${q(key)},${q(JSON.stringify(value))});await m.flushWorkspace()})()`);
     const source=new URL('qa-resolution/',client.url).href;
     const target='https://www.yogajournal.com/poses/types/advanced/';
     const scope='.proposal-remediation-slot';

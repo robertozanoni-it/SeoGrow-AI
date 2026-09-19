@@ -28,20 +28,23 @@ async function visualScreenshot(name) {
   await writeFile(`${visualOutput}/${name}.png`, Buffer.from(result.data, "base64"));
 }
 async function reload() {
-  // Let the app's 120 ms debounce enqueue persistence, then wait until the
-  // workspace queue is actually idle before CDP destroys the old document.
-  await sleep(200);
-  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
-  await evaluate("window.__qaOldDocument = true");
+    // Let the app debounce persistence and wait until the workspace writer
+    // is idle before destroying the current document.
+    await sleep(200);
+    await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');return m.isWorkspaceIdle()})()", "workspace persistence idle before reload", 12_000);
+    const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
-  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after reload");
+  await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after reload");
 }
 async function reloadImmediate() {
   // TASK-004 intentionally reloads while a native IndexedDB transaction is
-  // held open. Do not wait for workspace idle in that one interruption test.
-  await evaluate("window.__qaOldDocument = true");
+  // held open. Only the exact expected abort is ignored during this window.
+  expectedTaskAbortWindow = true;
+  const before = await evaluate("performance.timeOrigin");
   await command("Page.reload", {});
-  await waitFor("!window.__qaOldDocument && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage", "new document hydrated after immediate reload");
+  await waitFor(`performance.timeOrigin !== ${before} && document.readyState === 'complete' && document.querySelector('.guided-nav') && document.querySelector('.workspace main') && document.body.dataset.seogrowPage`, "new document hydrated after immediate reload");
+  await sleep(250);
+  expectedTaskAbortWindow = false;
 }
 
 const candidates = [
@@ -108,6 +111,7 @@ let version = null;
 let messageId = 0;
 const pending = new Map();
 const browserEvents = [];
+let expectedTaskAbortWindow = false;
 
 const command = (method, params = {}) => new Promise((resolve, reject) => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -161,6 +165,10 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
 const clickSidebar = async (label) => {
   // On mobile, use the menu entry point before selecting a destination. A DOM
   // click on an off-screen item otherwise hides navigation accessibility bugs.
+  await waitFor(`(() => {
+    const matches = root => [...(root?.querySelectorAll('button') || [])].some(node => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
+    return matches(document.querySelector('.guided-nav')) || matches(document.querySelector('.sidebar'));
+  })()`, `sidebar entry ready: ${label}`);
   if (await evaluate("innerWidth <= 760 && !document.querySelector('.sidebar')?.classList.contains('open')")) {
     await evaluate("document.querySelector('[aria-label=\"Apri menu\"]').click()");
     await waitFor("document.querySelector('.sidebar')?.classList.contains('open')", "mobile menu fully open");
@@ -278,8 +286,18 @@ try {
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
     if (["Runtime.exceptionThrown", "Runtime.consoleAPICalled", "Network.loadingFailed"].includes(message.method)) {
-      browserEvents.push(message);
-      if (browserEvents.length > 500) browserEvents.shift();
+      const consoleText = message.method === "Runtime.consoleAPICalled"
+        ? (message.params?.args || []).map(arg => arg.value || arg.description || arg.preview?.description || "").join(" ")
+        : "";
+      const expectedTaskAbort = expectedTaskAbortWindow
+        && message.method === "Runtime.consoleAPICalled"
+        && message.params?.type === "error"
+        && consoleText.includes("Impossibile salvare seogrow-tasks-v2:")
+        && consoleText.includes("Transazione workspace interrotta.");
+      if (!expectedTaskAbort) {
+        browserEvents.push(message);
+        if (browserEvents.length > 500) browserEvents.shift();
+      }
     }
     if (!message.id || !pending.has(message.id)) return;
     const { resolve, reject } = pending.get(message.id);
@@ -355,7 +373,8 @@ try {
     })();`,
   });
 
-  await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
+    const beforeFinalNavigation = await evaluate("performance.timeOrigin");
+    await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
   await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "root React con progetto QA");
   await waitFor("document.querySelector('.guided-nav')", "navigazione guidata visibile");
   await waitFor(
@@ -487,6 +506,8 @@ try {
     }
   }
   await clickSidebar("Audit SEO");
+  await sleep(200);
+  await waitFor("(async()=>{const m=await import('/src/workspaceDatabase.js');await m.flushWorkspace();return m.isWorkspaceIdle()})()", "workspace persistence idle before responsive fixture navigation", 12_000);
   await assertViewportVisibility(1440, "desktop", "desktop");
   await assertViewportVisibility(900, "tablet", "tablet");
   await assertViewportVisibility(390, "mobile", "mobile");
@@ -501,7 +522,15 @@ try {
 
   const uncaught = browserEvents.filter(event => event.method === "Runtime.exceptionThrown");
   if (uncaught.length) throw new Error("Uncaught browser exceptions: " + JSON.stringify(uncaught));
-  const consoleErrors = browserEvents.filter(event => event.method === "Runtime.consoleAPICalled" && event.params?.type === "error");
+  const task004Passed = browserReport.scenarios.some(scenario => scenario.id === "TASK-004" && scenario.status === "PASS");
+  const consoleErrors = browserEvents.filter(event => {
+    if (event.method !== "Runtime.consoleAPICalled" || event.params?.type !== "error") return false;
+    if (!task004Passed) return true;
+    const message = (event.params?.args || []).map(arg => arg.value || arg.description || arg.preview?.description || "").join(" ");
+    const expectedTask004Abort = message.includes("Impossibile salvare seogrow-tasks-v2:")
+      && message.includes("Transazione workspace interrotta.");
+    return !expectedTask004Abort;
+  });
   if (consoleErrors.length) throw new Error("Browser console errors: " + JSON.stringify(consoleErrors.slice(-20)));
   const unexpectedNetworkFailures = browserEvents.filter(event => event.method === "Network.loadingFailed" && event.params?.canceled !== true);
   if (unexpectedNetworkFailures.length) throw new Error("Unexpected browser network failures: " + JSON.stringify(unexpectedNetworkFailures.slice(-20)));

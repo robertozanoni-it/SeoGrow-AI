@@ -32,11 +32,6 @@ const dispatchPageState = (page) => {
   } catch {
     // The live event/native control can still reconcile the current session.
   }
-  const detail = { key: SELECTED_PAGE_KEY, newValue: serialized };
-  const event = typeof StorageEvent === "function"
-    ? new StorageEvent("storage", detail)
-    : Object.assign(new Event("storage"), detail);
-  window.dispatchEvent(event);
 };
 
 const renderedPage = () => document.querySelector(".app main")?.dataset?.page || "";

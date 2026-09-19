@@ -25,6 +25,9 @@ const geoPanel = text(path.join(root, "src/GeoInsightsPanel.jsx"));
 const guided = text(path.join(root, "src/GuidedUxLayer.jsx"));
 const guidedCss = text(path.join(root, "src/GuidedUxLayer.css"));
 const taskFactory = text(path.join(root, "src/experience/tasks/taskFactory.js"));
+const correctionsSource = text(path.join(root, "src/CorrectionsWorkspace.jsx"));
+const workspaceDbSource = text(path.join(root, "src/workspaceDatabase.js"));
+const routeReconcilerSource = text(path.join(root, "src/PageRouteReconciler.js"));
 const dist = path.join(root, "dist/assets");
 const appBundles = fs.existsSync(dist) ? fs.readdirSync(dist).filter((name) => /^appMain-.*\.js$/.test(name)).map((name) => ({ name, bytes:fs.statSync(path.join(dist,name)).size })) : [];
 const mainBundle = appBundles.sort((a,b) => b.bytes-a.bytes)[0] || null;
@@ -39,6 +42,8 @@ const checks = {
   centralizedTaskFactory: /sourceClientId/.test(taskFactory) && /priority/.test(taskFactory),
   nativeStorageBoundaryIsolated: storageOperations.nativeBypass.length === 0,
   workspaceJsonReadersCentralized: readJsonDefs.length === 0,
+  noGlobalDomPolling: !/setInterval\(syncTargets,\s*300\)/.test(guided) && !/setInterval\(syncTargets,\s*300\)/.test(correctionsSource),
+  workspaceSameTabEventsCentralized: /window\.dispatchEvent\(storageEvent\)/.test(workspaceDbSource) && /seogrow-workspace-change/.test(workspaceDbSource) && /channel\?\.postMessage/.test(workspaceDbSource) && !/new StorageEvent\("storage"/.test(routeReconcilerSource),
 };
 const failures = Object.entries(checks).filter(([,ok]) => !ok).map(([name]) => name);
 const report = {

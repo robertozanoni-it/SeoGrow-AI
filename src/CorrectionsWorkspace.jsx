@@ -109,17 +109,20 @@ export default function CorrectionsWorkspace() {
     const refreshNavigation = () => {
       window.cancelAnimationFrame(frame);
       attempts = 0;
-      frame = window.requestAnimationFrame(syncTargets);
+      const settle = () => {
+        syncTargets();
+        attempts += 1;
+        if (attempts < 8) frame = window.requestAnimationFrame(settle);
+      };
+      frame = window.requestAnimationFrame(settle);
     };
     frame = window.requestAnimationFrame(syncTargets);
-    const interval = window.setInterval(syncTargets, 300);
     window.addEventListener("hashchange", refreshNavigation);
     window.addEventListener("popstate", refreshNavigation);
     window.addEventListener("storage", refreshNavigation);
     window.addEventListener("seogrow-locationchange", refreshNavigation);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.clearInterval(interval);
       window.removeEventListener("hashchange", refreshNavigation);
       window.removeEventListener("popstate", refreshNavigation);
       window.removeEventListener("storage", refreshNavigation);
