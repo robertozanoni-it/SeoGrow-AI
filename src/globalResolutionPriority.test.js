@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { problemResolutionPriority } from "./problemResolutionPriority.js";
-import { resolutionPath, canOpenControlledContextPreview } from "./resolutionPath.js";
+import { resolutionPath, problemEntryLabel, canOpenControlledContextPreview } from "./resolutionPath.js";
 
 const url = "https://example.com/pagina/";
 const base = {
