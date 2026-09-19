@@ -395,7 +395,7 @@ export function buildUnifiedProblems({
     const group = compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
-    const legacyAuditTask = legacyAuditTaskKinds.has(taskKind) && /^analysis-/i.test(String(task?.id || ""));
+    const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
     const auditDerivedTask = !explicitManualTask && (taskOrigin(task) === "audit" || task?.automatic === true || legacyAuditTask);
     if (auditDerivedTask) {
       const taskObservedAt = task?.lastObservedAt || task?.createdAt || "";
