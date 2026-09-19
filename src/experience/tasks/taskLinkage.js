@@ -23,6 +23,8 @@ export function taskLinkageKey(task = {}) {
 }
 
 export function taskOrigin(task = {}) {
+  const legacyAuditId = /^analysis-/i.test(text(task.id)) && text(task.kind).toLowerCase() !== "manual";
+  if (legacyAuditId) return "audit";
   const origin = text(task.origin).toLowerCase();
   if (["manual", "audit", "opportunity", "correction", "workflow"].includes(origin)) return origin;
   const links = normalizeTaskLinks(task.taskLinks);
