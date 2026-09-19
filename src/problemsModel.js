@@ -380,7 +380,12 @@ export function buildUnifiedProblems({
   }
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
-    if (String(task?.kind || "").trim().toLowerCase() === "seo-agent") continue;
+    const normalizedTaskKind = String(task?.kind || "").trim().toLowerCase();
+    const origin = taskOrigin(task);
+    const legacyOpportunityTask = ["search", "cannibalization"].includes(normalizedTaskKind) &&
+      !task?.taskLinks?.problemKey &&
+      !task?.taskLinks?.correctionId;
+    if (normalizedTaskKind === "seo-agent" || origin === "opportunity" || legacyOpportunityTask) continue;
     if (task.stale) continue;
     if (normalizeClientId(task?.sourceClientId) !== normalizedClientId) {
       if (!task?.sourceClientId && task?.client) warnings.push(`Task legacy non associata tramite ID: ${task.title || "senza titolo"}.`);
@@ -388,7 +393,7 @@ export function buildUnifiedProblems({
     }
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     if (isLegalPage(sourceUrl)) continue;
-    const taskKind = String(task?.kind || "").trim().toLowerCase();
+    const taskKind = normalizedTaskKind;
     const legacyAnalysisTask = /^analysis-/i.test(String(task?.id || ""));
     const explicitManualTask = taskKind === "manual" || (task?.origin === "manual" && !legacyAnalysisTask);
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
