@@ -104,14 +104,17 @@ body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-b
 
 body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active,
 body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] {
-  background: #e9f3ff !important;
-  color: #174f87 !important;
-  box-shadow: inset 3px 0 #1672f3 !important;
+  background: #d92d20 !important;
+  color: #ffffff !important;
+  box-shadow: inset 4px 0 #9f1710, 0 4px 12px rgba(165, 31, 22, .24) !important;
 }
 
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active > span,
+body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] > span,
 body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active svg,
 body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] svg {
-  color: #2f70ae !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* Correzioni è già un modulo canonico e non deve ricevere un bridge duplicato. */
@@ -129,6 +132,6 @@ body[data-seogrow-ui-mode] .guided-nav .corrections-nav-button {
   }
   body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button.active svg,
   body[data-seogrow-ui-mode] .guided-nav .guided-audit-subnav-host .problems-nav-bridge-button[aria-current="page"] svg {
-    color: #2f70ae !important;
+    color: #ffffff !important;
   }
 }

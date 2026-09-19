@@ -592,8 +592,8 @@ export default function ProblemsWorkspace() {
               <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
               {problem.stale && <span className="problem-flag" title="La rilevazione collegata non è abbastanza recente per autorizzare una correzione.">Da riconvalidare</span>}
-              {problem.stale && <details className="problem-freshness-debug" onClick={(event) => event.stopPropagation()}>
-                <summary>Perché chiede un nuovo audit?</summary>
+              <details className="problem-freshness-debug" onClick={(event) => event.stopPropagation()}>
+                <summary>{problem.stale ? "Perché chiede un nuovo audit?" : "Perché questo problema?"}</summary>
                 <div className="problem-freshness-debug-row">
                   <span><strong>Causa:</strong> {problem.freshnessTrace?.reason || "Non disponibile"}</span>
                   <span><strong>Osservato:</strong> {problem.freshnessTrace?.observedAt ? formatDate(problem.freshnessTrace.observedAt) : "nessuna data audit associata"}</span>
@@ -605,7 +605,7 @@ export default function ProblemsWorkspace() {
                   <span><strong>Issue type:</strong> {problem.issueType || "non disponibile"}</span>
                   <span><strong>URL:</strong> {problem.sourceUrl || "non disponibile"}</span>
                 </div>
-              </details>}
+              </details>
               <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (entryLabel === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{entryLabel} <ChevronRight /></button>
             </article>
           );

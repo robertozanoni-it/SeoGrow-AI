@@ -66,3 +66,10 @@ test("il layer non introduce polling DOM invasivo", () => {
   assert.doesNotMatch(layer, /setInterval/);
   assert.doesNotMatch(layer, /window\.fetch\s*=/);
 });
+
+
+test("la sottovista Problemi selezionata usa background rosso con testo bianco leggibile", async () => {
+  const css = await readFile(new URL('./SidebarReadabilityFix.css', import.meta.url), 'utf8');
+  assert.match(css, /problems-nav-bridge-button\.active[\s\S]*background:\s*#d92d20\s*!important/);
+  assert.match(css, /problems-nav-bridge-button\.active[\s\S]*color:\s*#ffffff\s*!important/);
+});

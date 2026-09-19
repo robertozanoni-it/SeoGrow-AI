@@ -748,3 +748,68 @@ test("la stessa task analysis-* torna a Problemi quando un audit fresco conferma
   assert.equal(result.rows[0].stale, false);
   assert.equal(result.rows[0].observedAt, "2026-09-19T10:00:00Z");
 });
+
+
+test("le task Search Console e Opportunità non diventano Problemi", () => {
+  const url = "https://example.it/yoga-per-postura/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [
+      {
+        id: "opportunity-search",
+        sourceClientId: 1,
+        kind: "search",
+        title: "Ottimizza “yoga per raddrizzare la schiena”",
+        sourceUrl: url,
+        status: "Da fare",
+        origin: "opportunity",
+        automatic: true,
+      },
+      {
+        id: "legacy-search",
+        sourceClientId: 1,
+        kind: "search",
+        title: "Ottimizza “yin yoga fa dimagrire”",
+        sourceUrl: "https://example.it/yoga-per-dimagrire/",
+        status: "Da fare",
+      },
+      {
+        id: "legacy-cannibalization",
+        sourceClientId: 1,
+        kind: "cannibalization",
+        title: "Verifica cannibalizzazione “yoga ansia”",
+        sourceUrl: "https://example.it/yoga-ansia/",
+        status: "Da fare",
+      },
+    ],
+    now: Date.parse("2026-09-19T11:30:00Z"),
+  });
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("una task search collegata esplicitamente a un problema resta nel dominio Problemi", () => {
+  const url = "https://example.it/pagina/";
+  const audit = {
+    analyzedAt: "2026-09-19T11:00:00Z",
+    url,
+    issues: [{ type: "h1", label: "2 H1 rilevati", sourceUrl: url, url, severity: "alta" }],
+    reviewItems: [],
+  };
+  const model = buildUnifiedProblems({
+    clientId: 1,
+    pageHistory: [audit],
+    tasks: [{
+      id: "search-linked-problem",
+      sourceClientId: 1,
+      kind: "search",
+      title: "Task collegata al problema",
+      sourceUrl: url,
+      status: "Da fare",
+      taskLinks: { problemKey: "h1::url:https://example.it/pagina/" },
+    }],
+    now: Date.parse("2026-09-19T11:01:00Z"),
+  });
+  assert.equal(model.rows.length, 1);
+  assert.equal(model.rows[0].issueType, "h1");
+});

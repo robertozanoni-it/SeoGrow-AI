@@ -380,7 +380,12 @@ export function buildUnifiedProblems({
   }
 
   for (const task of Array.isArray(tasks) ? tasks : []) {
-    if (String(task?.kind || "").trim().toLowerCase() === "seo-agent") continue;
+    const normalizedTaskKind = String(task?.kind || "").trim().toLowerCase();
+    const origin = taskOrigin(task);
+    const legacyOpportunityTask = ["search", "cannibalization"].includes(normalizedTaskKind) &&
+      !task?.taskLinks?.problemKey &&
+      !task?.taskLinks?.correctionId;
+    if (normalizedTaskKind === "seo-agent" || origin === "opportunity" || legacyOpportunityTask) continue;
     if (task.stale) continue;
     if (normalizeClientId(task?.sourceClientId) !== normalizedClientId) {
       if (!task?.sourceClientId && task?.client) warnings.push(`Task legacy non associata tramite ID: ${task.title || "senza titolo"}.`);
@@ -388,13 +393,18 @@ export function buildUnifiedProblems({
     }
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     if (isLegalPage(sourceUrl)) continue;
-    const taskKind = String(task?.kind || "").trim().toLowerCase();
+    const taskKind = normalizedTaskKind;
     const legacyAnalysisTask = /^analysis-/i.test(String(task?.id || ""));
     const explicitManualTask = taskKind === "manual" || (task?.origin === "manual" && !legacyAnalysisTask);
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
     if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
-    const group = compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
+    const linkedProblemKey = String(task?.taskLinks?.problemKey || "").trim();
+    const linkedProblemAlias = linkedProblemKey ? aliasMap.get(linkedProblemKey) : "";
+    const linkedProblemGroup = linkedProblemKey
+      ? groups.get(linkedProblemKey) || (linkedProblemAlias ? groups.get(linkedProblemAlias) : null)
+      : null;
+    const group = linkedProblemGroup || compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
