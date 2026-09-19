@@ -308,3 +308,117 @@ test("una task esplicitamente manuale resta aperta anche se usa un kind tecnico 
   assert.equal(result.rows[0].problemState, "open");
   assert.equal(result.activeRows.length, 1);
 });
+
+
+test("una task stale legacy non può creare da sola un problema attivo", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "stale-only",
+      sourceClientId: 1,
+      kind: "h1",
+      title: "2 H1 rilevati",
+      sourceUrl: "https://example.it/pagina/",
+      status: "Da fare",
+      stale: true,
+      updatedAt: "2026-09-01T10:00:00Z",
+    }],
+  });
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("una task manuale già completata e senza causa canonica non riappare come problema", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "manual-complete",
+      sourceClientId: 1,
+      kind: "title",
+      title: "Controllo manuale title",
+      sourceUrl: "https://example.it/pagina/",
+      origin: "manual",
+      automatic: false,
+      status: "Completato",
+      completedAt: "2026-09-10T10:00:00Z",
+    }],
+  });
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("una vecchia correzione ripristinata viene neutralizzata da un audit pagina più recente e pulito", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    corrections: [{
+      id: "rollback-old",
+      clientId: 1,
+      issueType: "h1",
+      issueLabel: "2 H1 rilevati",
+      sourceUrl: url,
+      status: "Ripristinato",
+      rollbackAt: "2026-09-10T10:00:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.rows[0].resolvedByAudit, true);
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("una correzione fallita storica non riapre il problema dopo audit pulito più recente", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    corrections: [{
+      id: "failed-old",
+      clientId: 1,
+      issueType: "title",
+      issueLabel: "Title mancante",
+      sourceUrl: url,
+      status: "Fallito",
+      failedAt: "2026-09-10T10:00:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T09:00:00Z"),
+  });
+  assert.equal(result.rows[0].problemState, "resolved");
+  assert.equal(result.activeRows.length, 0);
+});
+
+test("un audit pulito più vecchio della correzione non può chiudere una correzione successiva", () => {
+  const url = "https://example.it/pagina/";
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    corrections: [{
+      id: "rollback-new",
+      clientId: 1,
+      issueType: "h1",
+      issueLabel: "2 H1 rilevati",
+      sourceUrl: url,
+      status: "Ripristinato",
+      rollbackAt: "2026-09-19T09:00:00Z",
+    }],
+    pageHistory: [{
+      analyzedAt: "2026-09-19T08:00:00Z",
+      url,
+      issues: [],
+      reviewItems: [],
+    }],
+    now: Date.parse("2026-09-19T10:00:00Z"),
+  });
+  assert.equal(result.rows[0].problemState, "open");
+  assert.equal(result.activeRows.length, 1);
+});
