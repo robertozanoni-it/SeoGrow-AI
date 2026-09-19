@@ -167,3 +167,18 @@ test("Task UI exposes linkage while retaining status priority due and undo in th
   assert.match(entry, /taskCauseReconciliation/);
   assert.match(entry, /TaskLinkagePanel/);
 });
+
+
+test("una task legacy analysis-* resta audit anche se una vecchia migrazione l'ha marcata manuale", () => {
+  const legacy = linkedTask({
+    id: "analysis-1-2026-09-05T10:00:00Z-0",
+    kind: "h1",
+    origin: "manual",
+    automatic: false,
+    taskLinks: {},
+  });
+  assert.equal(taskOrigin(legacy), "audit");
+  const [normalized] = normalizeStoredTasks([legacy]);
+  assert.equal(normalized.origin, "audit");
+  assert.equal(normalized.automatic, true);
+});
