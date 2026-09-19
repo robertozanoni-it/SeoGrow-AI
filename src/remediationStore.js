@@ -302,6 +302,13 @@ export function reopenTask(record) {
       completedAt: "",
       completionReason: "",
       reopenedAt: new Date().toISOString(),
+      origin: current.origin || "correction",
+      automatic: current.origin === "manual" ? current.automatic === true : true,
+      taskLinks: {
+        ...(current.taskLinks || {}),
+        correctionId: record.id || current.taskLinks?.correctionId || "",
+        problemKey: current.taskLinks?.problemKey || record.issueKey || record.legacyIssueKey || "",
+      },
     };
     writeJsonBestEffort(TASKS_KEY, next, { kind: "task-reopen" });
     return;
@@ -323,6 +330,14 @@ export function reopenTask(record) {
     linkLabel: "Apri pagina",
     detail: `Task riaperta automaticamente dopo rollback della correzione del ${new Date(record.appliedAt).toLocaleString("it-IT")}.`,
     notes: "",
+    origin: "correction",
+    automatic: true,
+    taskLinks: {
+      problemKey: record.issueKey || record.legacyIssueKey || "",
+      correctionId: record.id || "",
+      opportunityId: "",
+      opportunityKey: "",
+    },
     createdAt: new Date().toISOString(),
   }, ...tasks], { kind: "task-reopen-create" });
 }

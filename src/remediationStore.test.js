@@ -70,3 +70,12 @@ test("il salvataggio della lista clienti non installa purge automatici dello sto
   assert.doesNotMatch(source, /addEventListener\(["']seogrow-storage-ok["'][\s\S]*purgeOrphanCorrections/);
   assert.match(source, /explicit-only/);
 });
+
+
+test("le task create o riaperte da rollback conservano lineage correzione e causa", () => {
+  const source = fs.readFileSync(new URL("./remediationStore.js", import.meta.url), "utf8");
+  assert.match(source, /origin:\s*"correction"/);
+  assert.match(source, /automatic:\s*true/);
+  assert.match(source, /correctionId:\s*record\.id/);
+  assert.match(source, /problemKey:\s*record\.issueKey \|\| record\.legacyIssueKey/);
+});
