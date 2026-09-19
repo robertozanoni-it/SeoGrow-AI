@@ -594,15 +594,17 @@ export default function ProblemsWorkspace() {
               {problem.stale && <span className="problem-flag" title="La rilevazione collegata non è abbastanza recente per autorizzare una correzione.">Da riconvalidare</span>}
               {problem.stale && <details className="problem-freshness-debug" onClick={(event) => event.stopPropagation()}>
                 <summary>Perché chiede un nuovo audit?</summary>
-                <p><strong>Causa:</strong> {problem.freshnessTrace?.reason || "Non disponibile"}</p>
-                <p><strong>Osservato:</strong> {problem.freshnessTrace?.observedAt ? formatDate(problem.freshnessTrace.observedAt) : "nessuna data audit associata"}</p>
-                <p><strong>Ultimo finding audit:</strong> {problem.freshnessTrace?.latestAuditAt ? formatDate(problem.freshnessTrace.latestAuditAt) : "nessuno"}</p>
-                <p><strong>Ultima Task audit:</strong> {problem.freshnessTrace?.latestAuditTaskAt ? formatDate(problem.freshnessTrace.latestAuditTaskAt) : "nessuna"}</p>
-                <p><strong>Ultima correzione:</strong> {problem.freshnessTrace?.latestCorrectionAt ? formatDate(problem.freshnessTrace.latestCorrectionAt) : "nessuna"}</p>
-                <p><strong>Audit di clearance:</strong> {problem.freshnessTrace?.auditClearedAt ? `${formatDate(problem.freshnessTrace.auditClearedAt)} · ${problem.freshnessTrace.auditClearedScope || "scope non disponibile"}` : "nessuno"}</p>
-                <p><strong>Fonti:</strong> {problem.freshnessTrace?.sourceKinds?.join(", ") || "nessuna"}</p>
-                <p><strong>Issue type:</strong> {problem.issueType || "non disponibile"}</p>
-                <p><strong>URL:</strong> {problem.sourceUrl || "non disponibile"}</p>
+                <div className="problem-freshness-debug-row">
+                  <span><strong>Causa:</strong> {problem.freshnessTrace?.reason || "Non disponibile"}</span>
+                  <span><strong>Osservato:</strong> {problem.freshnessTrace?.observedAt ? formatDate(problem.freshnessTrace.observedAt) : "nessuna data audit associata"}</span>
+                  <span><strong>Ultimo finding audit:</strong> {problem.freshnessTrace?.latestAuditAt ? formatDate(problem.freshnessTrace.latestAuditAt) : "nessuno"}</span>
+                  <span><strong>Ultima Task audit:</strong> {problem.freshnessTrace?.latestAuditTaskAt ? formatDate(problem.freshnessTrace.latestAuditTaskAt) : "nessuna"}</span>
+                  <span><strong>Ultima correzione:</strong> {problem.freshnessTrace?.latestCorrectionAt ? formatDate(problem.freshnessTrace.latestCorrectionAt) : "nessuna"}</span>
+                  <span><strong>Audit di clearance:</strong> {problem.freshnessTrace?.auditClearedAt ? `${formatDate(problem.freshnessTrace.auditClearedAt)} · ${problem.freshnessTrace.auditClearedScope || "scope non disponibile"}` : "nessuno"}</span>
+                  <span><strong>Fonti:</strong> {problem.freshnessTrace?.sourceKinds?.join(", ") || "nessuna"}</span>
+                  <span><strong>Issue type:</strong> {problem.issueType || "non disponibile"}</span>
+                  <span><strong>URL:</strong> {problem.sourceUrl || "non disponibile"}</span>
+                </div>
               </details>}
               <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (entryLabel === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{entryLabel} <ChevronRight /></button>
             </article>
