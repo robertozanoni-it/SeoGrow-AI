@@ -399,7 +399,12 @@ export function buildUnifiedProblems({
     const hasCanonicalLink = Boolean(task?.taskLinks?.problemKey || task?.taskLinks?.correctionId);
     if (explicitManualTask && task?.status === "Completato" && !hasCanonicalLink) continue;
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl, targetUrl: task?.targetUrl || "" };
-    const group = compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
+    const linkedProblemKey = String(task?.taskLinks?.problemKey || "").trim();
+    const linkedProblemAlias = linkedProblemKey ? aliasMap.get(linkedProblemKey) : "";
+    const linkedProblemGroup = linkedProblemKey
+      ? groups.get(linkedProblemKey) || (linkedProblemAlias ? groups.get(linkedProblemAlias) : null)
+      : null;
+    const group = linkedProblemGroup || compatibleAuditGroup(record) || findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
     const legacyAuditTask = !task?.origin && legacyAuditTaskKinds.has(taskKind);
