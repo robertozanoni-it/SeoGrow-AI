@@ -88,7 +88,7 @@ const labelMap = {
     task_completed: "Task completata",
   },
   correctability: {
-    automatic: "Automatica",
+    automatic: "Automatizzabile",
     assisted: "Assistita",
     manual: "Manuale",
     not_supported: "Non supportata",
@@ -591,7 +591,7 @@ export default function ProblemsWorkspace() {
               <span className={`problem-state ${problem.problemState}`}>{labelMap.problem[problem.problemState] || problem.problemState}</span>
               <span className="problem-batch-facts">Priorità: {labelMap.priority[problem.priority] || "Non assegnata"}<small>Intervento: {labelMap.intervention[problem.interventionState] || problem.interventionState}</small><small>Ultima verifica: {problem.verifiedAt ? formatDate(problem.verifiedAt) : "Non disponibile"}</small></span>
               <span className={`problem-correctability ${problem.correctability}`}>{labelMap.correctability[problem.correctability] || problem.correctability}</span>
-              {problem.stale && <span className="problem-flag">Obsoleto</span>}
+              {problem.stale && <span className="problem-flag" title="La rilevazione collegata non è abbastanza recente per autorizzare una correzione.">Da riconvalidare</span>}
               <button type="button" className={`card-record-open problem-row-action ${autoResolvable ? "automatic" : ""}`} disabled={batchBusy} onClick={(event) => { event.stopPropagation(); if (entryLabel === "Verifica risultato") { setSelectedKey(problem.key); return; } openProblemResolution(problem, selectedClientId, "problem-row", { forceAutomatic: autoResolvable }); }}>{entryLabel} <ChevronRight /></button>
             </article>
           );

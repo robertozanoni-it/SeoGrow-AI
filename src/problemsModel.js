@@ -115,6 +115,8 @@ const createGroup = (record, issue, sourceUrl) => ({
   auditScopes: new Set(),
   quality: null,
   latestAuditAt: "",
+  latestAuditTaskAt: "",
+  auditDerivedTask: false,
   auditClearedAt: "",
   auditClearedScope: "",
 });
@@ -188,11 +190,12 @@ const auditStillContainsGroup = (group, item) =>
 const reconcileAuditClearance = (groups, audits) => {
   for (const group of groups.values()) {
     const issueType = String(group.issueType || "").trim().toLowerCase();
-    if (!group.latestAuditAt || !locallyClearableAuditTypes.has(issueType)) continue;
+    const baselineAt = group.latestAuditAt || (group.auditDerivedTask ? group.latestAuditTaskAt : "");
+    if (!baselineAt || !locallyClearableAuditTypes.has(issueType)) continue;
     const clearingAudit = audits
       .filter(({ scope, item }) => {
         const at = item?.analyzedAt || item?.startedAt || "";
-        return timestamp(at) > timestamp(group.latestAuditAt) &&
+        return timestamp(at) > timestamp(baselineAt) &&
           auditObservedUrl(scope, item, group.sourceUrl) &&
           !auditStillContainsGroup(group, item);
       })
@@ -293,8 +296,6 @@ export function buildUnifiedProblems({
     }
   }
 
-  reconcileAuditClearance(groups, audits);
-
   for (const task of Array.isArray(tasks) ? tasks : []) {
     if (String(task?.kind || "").trim().toLowerCase() === "seo-agent") continue;
     if ((task.duplicateOf || task.excludedFromSeo) && task.stale) continue;
@@ -308,6 +309,12 @@ export function buildUnifiedProblems({
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
     const event = taskEvent(task);
     group.events.push(event);
+    const auditDerivedTask = task?.origin === "audit" || (task?.automatic === true && String(task?.kind || "").toLowerCase() !== "manual");
+    if (auditDerivedTask) {
+      const taskObservedAt = task?.lastObservedAt || task?.createdAt || event.at || "";
+      group.auditDerivedTask = true;
+      if (!group.latestAuditTaskAt || timestamp(taskObservedAt) > timestamp(group.latestAuditTaskAt)) group.latestAuditTaskAt = taskObservedAt;
+    }
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
     if (!group.detail) group.detail = task?.detail || task?.notes || "";
     if (/broken-(?:external-)?link/.test(String(task?.kind || "").toLowerCase())) {
@@ -322,6 +329,8 @@ export function buildUnifiedProblems({
       nature: "operational",
     });
   }
+
+  reconcileAuditClearance(groups, audits);
 
   for (const correction of (Array.isArray(corrections) ? corrections : []).flatMap(record => [record, ...(Array.isArray(record.batchIssues) ? record.batchIssues : []).map(item => ({ ...record, batchIssues: undefined, issue: item.issue, issueType: item.issue?.type, issueLabel: item.issue?.label, sourceUrl: item.sourceUrl, issueKey: undefined, legacyIssueKey: undefined }))])) {
     if (normalizeClientId(correction?.clientId) !== normalizedClientId) continue;

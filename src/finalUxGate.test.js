@@ -26,8 +26,8 @@ test("sidebar has one final active-state contract and controlled azure groups", 
   assert.match(css, /guided-nav-group:nth-of-type\(odd\)/);
   assert.match(css, /guided-nav-group:nth-of-type\(even\)/);
   assert.match(css, /button\[aria-current="page"\]/);
-  assert.match(guided, /className=\{page === item\.page \? "active" : ""\}/);
-  assert.match(guided, /aria-current=\{page === item\.page \? "page" : undefined\}/);
+  assert.match(guided, /className=\{activePage === item\.page \? "active" : ""\}/);
+  assert.match(guided, /aria-current=\{activePage === item\.page \? "page" : undefined\}/);
 });
 
 test("focus, disabled, error, status, empty and loading states are visually explicit", () => {
@@ -64,4 +64,13 @@ test("responsive final contract prevents clipped controls and preserves horizont
   assert.match(css, /@media \(max-width: 560px\)/);
   assert.match(css, /overflow-x:\s*auto !important/);
   assert.match(css, /white-space:\s*normal/);
+});
+
+
+test("la sidebar usa anche la route reale per evidenziare la pagina attiva", () => {
+  assert.match(guided, /const routedPage = readPage\(\)/);
+  assert.match(guided, /const activePage = routedPage \|\| page/);
+  assert.match(guided, /className=\{activePage === item\.page \? "active" : ""\}/);
+  assert.match(guided, /aria-current=\{activePage === item\.page \? "page" : undefined\}/);
+  assert.match(css, /--ux-active:\s*#d92d20/);
 });
