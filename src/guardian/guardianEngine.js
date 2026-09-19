@@ -412,7 +412,11 @@ async function checkRuntimeConsistency() {
 
     if (typeof window !== "undefined" && typeof document !== "undefined") {
       let currentPage = "";
-      try { currentPage = decodeURIComponent(window.location.hash.slice(1)); } catch {}
+      try {
+        currentPage = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        currentPage = window.location.hash.slice(1);
+      }
       const button = document.querySelector('.guided-audit-subnav-host .problems-nav-bridge-button');
       const style = button && typeof window.getComputedStyle === "function" ? window.getComputedStyle(button) : null;
       findings.push(...analyzeProblemsRouteVisualConsistency({
